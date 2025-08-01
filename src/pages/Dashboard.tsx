@@ -163,7 +163,15 @@ const Dashboard = () => {
                   <CardDescription>{module.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button className="w-full" variant="outline">
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => {
+                      if (module.id === "fornecedores") {
+                        navigate("/suppliers");
+                      }
+                    }}
+                  >
                     Acessar
                   </Button>
                 </CardContent>

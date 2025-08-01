@@ -474,6 +474,7 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null
+          city: string | null
           cnpj_cpf: string | null
           contact_person: string | null
           created_at: string
@@ -482,10 +483,12 @@ export type Database = {
           is_active: boolean
           name: string
           phone: string | null
+          state: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          city?: string | null
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
@@ -494,10 +497,12 @@ export type Database = {
           is_active?: boolean
           name: string
           phone?: string | null
+          state?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          city?: string | null
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
@@ -506,6 +511,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           phone?: string | null
+          state?: string | null
           updated_at?: string
         }
         Relationships: []
