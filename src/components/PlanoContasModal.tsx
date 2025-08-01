@@ -160,21 +160,33 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
   };
 
   const handleDeleteAccountGroup = async (accountGroup: AccountGroup) => {
+    console.log("Delete button clicked for:", accountGroup.name);
+    
     if (!confirm(`Tem certeza que deseja excluir a categoria ${accountGroup.name}?`)) {
+      console.log("Delete cancelled by user");
       return;
     }
 
+    console.log("Proceeding with delete for:", accountGroup.id);
+
     setLoading(true);
     try {
+      console.log("Attempting to delete account group:", accountGroup.id);
       const { error } = await supabase
         .from("account_groups")
         .delete()
         .eq("id", accountGroup.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Delete error:", error);
+        throw error;
+      }
+      
+      console.log("Account group deleted successfully");
       toast({ title: "Sucesso", description: "Categoria excluída com sucesso!" });
       await fetchAccountGroups();
     } catch (error) {
+      console.error("Error in handleDeleteAccountGroup:", error);
       toast({
         variant: "destructive",
         title: "Erro",
