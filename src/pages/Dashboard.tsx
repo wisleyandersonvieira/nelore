@@ -166,11 +166,13 @@ const Dashboard = () => {
                   <Button 
                     className="w-full" 
                     variant="outline"
-                    onClick={() => {
-                      if (module.id === "fornecedores") {
-                        navigate("/suppliers");
-                      }
-                    }}
+                     onClick={() => {
+                       if (module.id === "fornecedores") {
+                         navigate("/suppliers");
+                       } else if (module.id === "lojas") {
+                         navigate("/stores");
+                       }
+                     }}
                   >
                     Acessar
                   </Button>

@@ -106,6 +106,34 @@ const Suppliers = () => {
       return;
     }
 
+    // Validar CNPJ/CPF duplicado
+    if (formData.cnpj_cpf.trim()) {
+      const { data: existingSupplier, error: checkError } = await supabase
+        .from("suppliers")
+        .select("id")
+        .eq("cnpj_cpf", formData.cnpj_cpf)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (checkError) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao verificar CNPJ/CPF.",
+        });
+        return;
+      }
+
+      if (existingSupplier && (!editingSupplier || existingSupplier.id !== editingSupplier.id)) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Já existe um fornecedor cadastrado com este CNPJ/CPF.",
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (editingSupplier) {
