@@ -215,7 +215,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Plano de Contas</DialogTitle>
           <DialogDescription>
