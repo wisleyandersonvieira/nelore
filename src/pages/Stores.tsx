@@ -47,17 +47,30 @@ const Stores = () => {
     fetchStores();
   }, []);
 
+  // Adicionar useEffect para atualizar quando mudar de aba
+  useEffect(() => {
+    if (activeTab === "list") {
+      fetchStores();
+    }
+  }, [activeTab]);
+
   const fetchStores = async () => {
     setLoading(true);
     try {
+      console.log("Fetching stores...");
       const { data, error } = await supabase
         .from("stores")
         .select("*")
         .order("name");
 
-      if (error) throw error;
+      console.log("Stores data:", data);
+      if (error) {
+        console.error("Error fetching stores:", error);
+        throw error;
+      }
       setStores(data || []);
     } catch (error) {
+      console.error("Error in fetchStores:", error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -167,8 +180,10 @@ const Stores = () => {
       }
 
       resetForm();
+      setActiveTab("list"); // Muda para a aba de listagem
       await fetchStores();
     } catch (error) {
+      console.error("Error saving store:", error);
       toast({
         variant: "destructive",
         title: "Erro",
