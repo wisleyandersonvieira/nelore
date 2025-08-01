@@ -5,6 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CadastrosModal } from "@/components/CadastrosModal";
 import { 
   Calculator, 
   CreditCard, 
@@ -14,12 +15,14 @@ import {
   Package,
   LogOut,
   BarChart3,
-  Settings
+  Settings,
+  Database
 } from "lucide-react";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cadastrosModalOpen, setCadastrosModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,18 +95,11 @@ const Dashboard = () => {
       color: "bg-purple-500",
     },
     {
-      id: "fornecedores",
-      title: "Fornecedores",
-      description: "Cadastro e gestão de fornecedores",
-      icon: Users,
+      id: "cadastros",
+      title: "Cadastros",
+      description: "Fornecedores, lojas e plano de contas",
+      icon: Database,
       color: "bg-orange-500",
-    },
-    {
-      id: "lojas",
-      title: "Lojas",
-      description: "Gestão de lojas e centros de custo",
-      icon: Store,
-      color: "bg-pink-500",
     },
     {
       id: "relatorios",
@@ -167,10 +163,8 @@ const Dashboard = () => {
                     className="w-full" 
                     variant="outline"
                      onClick={() => {
-                       if (module.id === "fornecedores") {
-                         navigate("/suppliers");
-                       } else if (module.id === "lojas") {
-                         navigate("/stores");
+                       if (module.id === "cadastros") {
+                         setCadastrosModalOpen(true);
                        }
                      }}
                   >
@@ -224,6 +218,12 @@ const Dashboard = () => {
           </Card>
         </div>
       </main>
+
+      {/* Cadastros Modal */}
+      <CadastrosModal 
+        open={cadastrosModalOpen} 
+        onOpenChange={setCadastrosModalOpen} 
+      />
     </div>
   );
 };
