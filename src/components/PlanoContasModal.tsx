@@ -215,7 +215,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Plano de Contas</DialogTitle>
           <DialogDescription>
@@ -223,13 +223,14 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register">Cadastro</TabsTrigger>
-            <TabsTrigger value="list">Listagem</TabsTrigger>
-          </TabsList>
+        <div className="flex-1 overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="register">Cadastro</TabsTrigger>
+              <TabsTrigger value="list">Listagem</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="register" className="mt-4">
+            <TabsContent value="register" className="mt-4 flex-1 overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -319,7 +320,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
             </Card>
           </TabsContent>
 
-          <TabsContent value="list" className="mt-4">
+           <TabsContent value="list" className="mt-4 flex-1 overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle>Plano de Contas</CardTitle>
@@ -496,7 +497,8 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
