@@ -215,13 +215,18 @@ const Stores = () => {
 
     setLoading(true);
     try {
+      console.log("Deleting store:", store.id);
       const { error } = await supabase
         .from("stores")
         .delete()
         .eq("id", store.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Delete error:", error);
+        throw error;
+      }
 
+      console.log("Store deleted successfully");
       toast({
         title: "Sucesso",
         description: "Loja excluída com sucesso!",
@@ -229,6 +234,7 @@ const Stores = () => {
       
       await fetchStores();
     } catch (error) {
+      console.error("Error deleting store:", error);
       toast({
         variant: "destructive",
         title: "Erro",
