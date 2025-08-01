@@ -267,11 +267,20 @@ const Stores = () => {
     }
   };
 
-  const filteredStores = stores.filter(store =>
-    store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    store.code.includes(searchTerm) ||
-    (store.cnpj && store.cnpj.includes(searchTerm))
-  );
+  const filteredStores = stores.filter(store => {
+    if (!searchTerm.trim()) return true; // Se não há termo de busca, mostra todos
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      store.name.toLowerCase().includes(searchLower) ||
+      store.code.toLowerCase().includes(searchLower) ||
+      (store.cnpj && store.cnpj.includes(searchTerm))
+    );
+  });
+  
+  console.log("All stores:", stores);
+  console.log("Search term:", searchTerm);
+  console.log("Filtered stores:", filteredStores);
 
   return (
     <div className="min-h-screen bg-background">
@@ -452,7 +461,7 @@ const Stores = () => {
                       ) : filteredStores.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center">
-                            Nenhuma loja encontrada
+                            {stores.length === 0 ? "Nenhuma loja cadastrada" : "Nenhuma loja encontrada para a busca"}
                           </TableCell>
                         </TableRow>
                       ) : (
