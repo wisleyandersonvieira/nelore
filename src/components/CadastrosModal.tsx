@@ -92,7 +92,7 @@ export const CadastrosModal = ({ open, onOpenChange }: CadastrosModalProps) => {
     name: "",
     code: "",
     account_type: "",
-    parent_id: "",
+    parent_id: "none",
   });
 
   useEffect(() => {
@@ -316,7 +316,7 @@ export const CadastrosModal = ({ open, onOpenChange }: CadastrosModalProps) => {
         name: accountGroupForm.name,
         code: accountGroupForm.code,
         account_type: accountGroupForm.account_type as "receita" | "despesa" | "ativo" | "passivo",
-        parent_id: accountGroupForm.parent_id || null,
+        parent_id: accountGroupForm.parent_id === "none" ? null : accountGroupForm.parent_id || null,
       };
 
       if (editingAccountGroup) {
@@ -383,7 +383,7 @@ export const CadastrosModal = ({ open, onOpenChange }: CadastrosModalProps) => {
       name: "",
       code: "",
       account_type: "",
-      parent_id: "",
+      parent_id: "none",
     });
     setEditingAccountGroup(null);
   };
@@ -423,7 +423,7 @@ export const CadastrosModal = ({ open, onOpenChange }: CadastrosModalProps) => {
       name: accountGroup.name,
       code: accountGroup.code,
       account_type: accountGroup.account_type,
-      parent_id: accountGroup.parent_id || "",
+      parent_id: accountGroup.parent_id || "none",
     });
     setEditingAccountGroup(accountGroup);
     setActiveSubTab("register");
@@ -944,7 +944,7 @@ export const CadastrosModal = ({ open, onOpenChange }: CadastrosModalProps) => {
                               <SelectValue placeholder="Selecione a categoria pai" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Nenhuma (categoria principal)</SelectItem>
+                              <SelectItem value="none">Nenhuma (categoria principal)</SelectItem>
                               {parentCategories.map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.name}
