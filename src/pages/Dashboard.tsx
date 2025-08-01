@@ -5,7 +5,6 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CadastrosModal } from "@/components/CadastrosModal";
 import { 
   Calculator, 
   CreditCard, 
@@ -22,7 +21,6 @@ import {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cadastrosModalOpen, setCadastrosModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -164,7 +162,7 @@ const Dashboard = () => {
                     variant="outline"
                      onClick={() => {
                        if (module.id === "cadastros") {
-                         setCadastrosModalOpen(true);
+                         navigate("/cadastros");
                        }
                      }}
                   >
@@ -218,12 +216,6 @@ const Dashboard = () => {
           </Card>
         </div>
       </main>
-
-      {/* Cadastros Modal */}
-      <CadastrosModal 
-        open={cadastrosModalOpen} 
-        onOpenChange={setCadastrosModalOpen} 
-      />
     </div>
   );
 };
