@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Edit, Trash2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +30,7 @@ const Suppliers = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [activeTab, setActiveTab] = useState("register");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -49,6 +49,28 @@ const Suppliers = () => {
   useEffect(() => {
     fetchSuppliers();
   }, []);
+
+  const formatCnpjCpf = (value: string) => {
+    const cleaned = value.replace(/\D/g, "");
+    
+    if (cleaned.length <= 11) {
+      // CPF format: 000.000.000-00
+      return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    } else {
+      // CNPJ format: 00.000.000/0000-00
+      return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    }
+  };
+
+  const handleCnpjCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const cleaned = value.replace(/\D/g, "");
+    
+    if (cleaned.length <= 14) {
+      const formatted = formatCnpjCpf(cleaned);
+      setFormData({ ...formData, cnpj_cpf: formatted });
+    }
+  };
 
   const fetchSuppliers = async () => {
     setLoading(true);
@@ -134,6 +156,7 @@ const Suppliers = () => {
       contact_person: supplier.contact_person || "",
     });
     setEditingSupplier(supplier);
+    setActiveTab("register");
   };
 
   const handleDelete = async (supplier: Supplier) => {
@@ -204,7 +227,7 @@ const Suppliers = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="register" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="register">Cadastro</TabsTrigger>
             <TabsTrigger value="list">Exibir Cadastros</TabsTrigger>
@@ -229,12 +252,12 @@ const Suppliers = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cnpj_cpf">CNPJ</Label>
-                      <Input
-                        id="cnpj_cpf"
-                        value={formData.cnpj_cpf}
-                        onChange={(e) => setFormData({ ...formData, cnpj_cpf: e.target.value })}
-                        placeholder="00.000.000/0000-00"
-                      />
+                       <Input
+                         id="cnpj_cpf"
+                         value={formData.cnpj_cpf}
+                         onChange={handleCnpjCpfChange}
+                         placeholder="00.000.000/0000-00"
+                       />
                     </div>
                     
                     <div className="space-y-2">
@@ -249,16 +272,15 @@ const Suppliers = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Endereço</Label>
-                    <Textarea
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="Endereço completo"
-                      rows={3}
-                    />
-                  </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="address">Endereço</Label>
+                     <Input
+                       id="address"
+                       value={formData.address}
+                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                       placeholder="Endereço completo"
+                     />
+                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
