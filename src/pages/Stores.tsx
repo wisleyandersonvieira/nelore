@@ -14,9 +14,11 @@ interface Store {
   id: string;
   name: string;
   code: string;
+  cnpj: string | null;
   address: string | null;
   phone: string | null;
   manager_name: string | null;
+  opening_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,9 +36,11 @@ const Stores = () => {
   const [formData, setFormData] = useState({
     name: "",
     code: "",
+    cnpj: "",
     address: "",
     phone: "",
     manager_name: "",
+    opening_date: "",
   });
 
   useEffect(() => {
@@ -110,6 +114,33 @@ const Stores = () => {
       return;
     }
 
+    // Validar CNPJ duplicado se preenchido
+    if (formData.cnpj.trim()) {
+      const { data: existingCnpj, error: cnpjError } = await supabase
+        .from("stores")
+        .select("id")
+        .eq("cnpj", formData.cnpj)
+        .maybeSingle();
+
+      if (cnpjError) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao verificar CNPJ da loja.",
+        });
+        return;
+      }
+
+      if (existingCnpj && (!editingStore || existingCnpj.id !== editingStore.id)) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Já existe uma loja cadastrada com este CNPJ.",
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (editingStore) {
@@ -152,9 +183,11 @@ const Stores = () => {
     setFormData({
       name: store.name,
       code: store.code,
+      cnpj: store.cnpj || "",
       address: store.address || "",
       phone: store.phone || "",
       manager_name: store.manager_name || "",
+      opening_date: store.opening_date || "",
     });
     setEditingStore(store);
     setActiveTab("register");
@@ -195,16 +228,34 @@ const Stores = () => {
     setFormData({
       name: "",
       code: "",
+      cnpj: "",
       address: "",
       phone: "",
       manager_name: "",
+      opening_date: "",
     });
     setEditingStore(null);
   };
 
+  const formatCnpj = (value: string) => {
+    const cleaned = value.replace(/\D/g, "");
+    return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  };
+
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const cleaned = value.replace(/\D/g, "");
+    
+    if (cleaned.length <= 14) {
+      const formatted = formatCnpj(cleaned);
+      setFormData({ ...formData, cnpj: formatted });
+    }
+  };
+
   const filteredStores = stores.filter(store =>
     store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    store.code.includes(searchTerm)
+    store.code.includes(searchTerm) ||
+    (store.cnpj && store.cnpj.includes(searchTerm))
   );
 
   return (
@@ -260,35 +311,36 @@ const Stores = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="name">Nome da Loja *</Label>
+                      <Label htmlFor="cnpj">CNPJ *</Label>
                       <Input
-                        id="name"
+                        id="cnpj"
                         required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Nome da loja"
+                        value={formData.cnpj}
+                        onChange={handleCnpjChange}
+                        placeholder="00.000.000/0000-00"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="address">Endereço</Label>
+                    <Label htmlFor="name">Nome da Loja *</Label>
                     <Input
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="Endereço completo"
+                      id="name"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Nome da loja"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone</Label>
+                      <Label htmlFor="opening_date">Data de Abertura</Label>
                       <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="(11) 99999-9999"
+                        id="opening_date"
+                        type="date"
+                        value={formData.opening_date}
+                        onChange={(e) => setFormData({ ...formData, opening_date: e.target.value })}
                       />
                     </div>
                     
@@ -299,6 +351,28 @@ const Stores = () => {
                         value={formData.manager_name}
                         onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
                         placeholder="Nome do gerente"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Endereço</Label>
+                      <Input
+                        id="address"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        placeholder="Endereço completo"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefone</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="(11) 99999-9999"
                       />
                     </div>
                   </div>
@@ -332,7 +406,7 @@ const Stores = () => {
                   <div className="relative flex-1">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nome ou código..."
+                      placeholder="Buscar por nome, código ou CNPJ..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-8"
@@ -346,22 +420,23 @@ const Stores = () => {
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>Código</TableHead>
+                        <TableHead>CNPJ</TableHead>
                         <TableHead>Telefone</TableHead>
                         <TableHead>Gerente</TableHead>
-                        <TableHead>Endereço</TableHead>
+                        <TableHead>Data Abertura</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loading ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center">
+                          <TableCell colSpan={7} className="text-center">
                             Carregando...
                           </TableCell>
                         </TableRow>
                       ) : filteredStores.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center">
+                          <TableCell colSpan={7} className="text-center">
                             Nenhuma loja encontrada
                           </TableCell>
                         </TableRow>
@@ -375,13 +450,16 @@ const Stores = () => {
                               {store.code}
                             </TableCell>
                             <TableCell>
+                              {store.cnpj || "-"}
+                            </TableCell>
+                            <TableCell>
                               {store.phone || "-"}
                             </TableCell>
                             <TableCell>
                               {store.manager_name || "-"}
                             </TableCell>
                             <TableCell>
-                              {store.address || "-"}
+                              {store.opening_date ? new Date(store.opening_date).toLocaleDateString('pt-BR') : "-"}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end space-x-2">

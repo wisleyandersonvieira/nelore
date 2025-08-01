@@ -441,31 +441,37 @@ export type Database = {
       stores: {
         Row: {
           address: string | null
+          cnpj: string | null
           code: string
           created_at: string
           id: string
           manager_name: string | null
           name: string
+          opening_date: string | null
           phone: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          cnpj?: string | null
           code: string
           created_at?: string
           id?: string
           manager_name?: string | null
           name: string
+          opening_date?: string | null
           phone?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          cnpj?: string | null
           code?: string
           created_at?: string
           id?: string
           manager_name?: string | null
           name?: string
+          opening_date?: string | null
           phone?: string | null
           updated_at?: string
         }
