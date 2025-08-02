@@ -149,7 +149,6 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
   };
 
   const handleEditAccountGroup = (accountGroup: AccountGroup) => {
-    console.log('Editando categoria:', accountGroup);
     setAccountGroupForm({
       name: accountGroup.name,
       code: accountGroup.code,
