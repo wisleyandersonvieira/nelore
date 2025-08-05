@@ -419,24 +419,24 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Plano de Contas</DialogTitle>
           <DialogDescription>
             Estrutura hierárquica das contas financeiras
           </DialogDescription>
         </DialogHeader>
 
-        <Card className="flex-1 overflow-hidden">
-          <CardHeader>
+        <Card className="flex-1 flex flex-col overflow-hidden">
+          <CardHeader className="flex-shrink-0">
             <CardTitle>Estrutura das Contas</CardTitle>
             <CardDescription>
               Use os botões ao lado de cada conta para gerenciar a estrutura
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="border rounded-md bg-background">
-              <div className="grid grid-cols-[1fr_auto] gap-4 p-3 bg-muted/50 border-b font-medium text-sm">
+          <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+            <div className="border rounded-md bg-background flex-1 flex flex-col">
+              <div className="grid grid-cols-[1fr_auto] gap-4 p-3 bg-muted/50 border-b font-medium text-sm flex-shrink-0">
                 <div className="flex gap-2">
                   <span className="w-20">Código</span>
                   <span>Descrição</span>
@@ -444,7 +444,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
                 <span className="text-center">Ações</span>
               </div>
               
-              <div className="max-h-[60vh] overflow-y-auto">
+              <div className="flex-1 overflow-y-auto">
                 {loading ? (
                   <div className="p-8 text-center text-muted-foreground">
                     Carregando...
