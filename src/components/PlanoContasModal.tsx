@@ -111,12 +111,23 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
     }
     
     if (parentCode) {
-      // Criar subconta
-      return `${parentCode}.1`;
+      // Criar subconta - buscar todos os filhos deste pai e pegar o próximo número
+      const allAccounts = accountGroups.flatMap(g => [g, ...(g.children || [])]);
+      const parentLevelCodes = allAccounts
+        .filter(account => account.parent_id === (allAccounts.find(a => a.code === parentCode)?.id))
+        .map(account => {
+          const parts = account.code.split('.');
+          return parseInt(parts[parts.length - 1]) || 0;
+        })
+        .filter(num => !isNaN(num))
+        .sort((a, b) => a - b);
+      
+      const nextNumber = parentLevelCodes.length > 0 ? Math.max(...parentLevelCodes) + 1 : 1;
+      return `${parentCode}.${nextNumber}`;
     }
     
-    // Criar conta raiz (não deveria acontecer, pois já temos as 3 principais)
-    return "4";
+    // Criar conta raiz (não deveria acontecer, pois já temos as principais)
+    return "5";
   };
 
   const getAccountType = (code: string): 'receita' | 'despesa' | 'ativo' | 'passivo' => {
@@ -347,14 +358,14 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
           )}
         </div>
 
-        {/* Interface para criar nova conta - apenas uma vez */}
-        {(isCreatingBelow || isCreatingSub) && (
+        {/* Interface para criar conta no mesmo nível (apenas para "below") */}
+        {isCreatingBelow && (
           <div 
             className="flex items-center gap-2 p-3 bg-muted/30 border-l-2 border-primary"
-            style={{ paddingLeft: `${(level + (isCreatingSub ? 1 : 0)) * 24 + 12}px` }}
+            style={{ paddingLeft: `${level * 24 + 12}px` }}
           >
             <span className="font-mono text-sm font-medium w-20 text-muted-foreground">
-              {isCreatingBelow ? generateNextCode(undefined, account.code) : generateNextCode(account.code)}
+              {generateNextCode(undefined, account.code)}
             </span>
             <Input
               value={newAccountName}
@@ -376,6 +387,30 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
         {isExpanded && hasChildren && (
           <div>
             {account.children!.map(child => renderAccountItem(child, level + 1))}
+            {/* Interface de criação de subconta aparece apenas após todos os filhos */}
+            {isCreatingSub && (
+              <div 
+                className="flex items-center gap-2 p-3 bg-muted/30 border-l-2 border-primary"
+                style={{ paddingLeft: `${(level + 1) * 24 + 12}px` }}
+              >
+                <span className="font-mono text-sm font-medium w-20 text-muted-foreground">
+                  {generateNextCode(account.code)}
+                </span>
+                <Input
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  className="flex-1"
+                  placeholder="Nome da nova conta"
+                  autoFocus
+                />
+                <Button size="sm" onClick={handleSaveAccount} disabled={loading || !newAccountName.trim()}>
+                  Salvar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingAccount(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
