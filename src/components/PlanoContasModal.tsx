@@ -143,6 +143,10 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
 
     setLoading(true);
     try {
+      // Debug: verificar autenticação
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('User:', user);
+      
       const newCode = editingAccount.siblingCode 
         ? generateNextCode(undefined, editingAccount.siblingCode)
         : generateNextCode(
@@ -157,6 +161,8 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
         parent_id: editingAccount.parentId || null,
       };
 
+      console.log('Tentando salvar:', formData);
+
       if (editingAccount.id) {
         // Editar conta existente
         const { error } = await supabase
@@ -164,7 +170,10 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
           .update({ name: newAccountName })
           .eq("id", editingAccount.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Erro ao editar:', error);
+          throw error;
+        }
         toast({ title: "Sucesso", description: "Conta atualizada com sucesso!" });
       } else {
         // Criar nova conta
@@ -172,18 +181,22 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
           .from("account_groups")
           .insert([formData]);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Erro ao criar:', error);
+          throw error;
+        }
         toast({ title: "Sucesso", description: "Conta criada com sucesso!" });
       }
 
       setEditingAccount(null);
       setNewAccountName("");
       await fetchAccountGroups();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Erro completo:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar a conta.",
+        description: error.message || "Não foi possível salvar a conta.",
       });
     } finally {
       setLoading(false);
@@ -334,11 +347,11 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
           )}
         </div>
 
-        {/* Interface para criar nova conta */}
+        {/* Interface para criar nova conta - apenas uma vez */}
         {(isCreatingBelow || isCreatingSub) && (
           <div 
             className="flex items-center gap-2 p-3 bg-muted/30 border-l-2 border-primary"
-            style={{ paddingLeft: `${level * 24 + 12}px` }}
+            style={{ paddingLeft: `${(level + (isCreatingSub ? 1 : 0)) * 24 + 12}px` }}
           >
             <span className="font-mono text-sm font-medium w-20 text-muted-foreground">
               {isCreatingBelow ? generateNextCode(undefined, account.code) : generateNextCode(account.code)}
