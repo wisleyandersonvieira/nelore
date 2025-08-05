@@ -291,7 +291,10 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleCreateAccount('below', account)}
+                onClick={() => {
+                  console.log('Botão criar conta abaixo clicado');
+                  handleCreateAccount('below', account);
+                }}
                 className="p-1 h-8 w-8"
                 title="Criar conta abaixo (mesmo nível)"
               >
@@ -301,7 +304,10 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleCreateAccount('sub', account)}
+                onClick={() => {
+                  console.log('Botão criar subconta clicado');
+                  handleCreateAccount('sub', account);
+                }}
                 className="p-1 h-8 w-8"
                 title="Criar subconta"
               >
@@ -312,7 +318,10 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDeleteAccount(account)}
+                  onClick={() => {
+                    console.log('Botão excluir clicado');
+                    handleDeleteAccount(account);
+                  }}
                   className="p-1 h-8 w-8 text-destructive hover:text-destructive"
                   title="Excluir conta"
                 >
