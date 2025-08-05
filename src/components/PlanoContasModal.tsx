@@ -129,11 +129,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
     }
   };
 
-  const handleCreateAccount = async (type: 'below' | 'sub', parentAccount: AccountGroup) => {
-    const newCode = type === 'sub' 
-      ? generateNextCode(parentAccount.code)
-      : generateNextCode(undefined, parentAccount.code);
-    
+  const handleCreateAccount = (type: 'below' | 'sub', parentAccount: AccountGroup) => {
     setEditingAccount({ 
       parentId: type === 'sub' ? parentAccount.id : parentAccount.parent_id,
       siblingCode: type === 'below' ? parentAccount.code : undefined
