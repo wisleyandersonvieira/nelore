@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Ban } from "lucide-react";
+import { Plus, Trash2, Edit, Ban, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Grupo {
@@ -37,6 +37,8 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
   const [loading, setLoading] = useState(false);
   const [editingSubgrupo, setEditingSubgrupo] = useState<Subgrupo | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'parent' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [formData, setFormData] = useState({
     name: "",
     parent_id: ""
@@ -232,6 +234,43 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
     });
   };
 
+  const handleSort = (field: 'name' | 'parent') => {
+    if (sortBy === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedSubgrupos = [...subgrupos].sort((a, b) => {
+    if (!sortBy) return 0;
+    
+    let aValue = '';
+    let bValue = '';
+    
+    if (sortBy === 'name') {
+      aValue = a.name.toLowerCase();
+      bValue = b.name.toLowerCase();
+    } else if (sortBy === 'parent') {
+      aValue = (a.parent?.name || '').toLowerCase();
+      bValue = (b.parent?.name || '').toLowerCase();
+    }
+    
+    if (sortDirection === 'asc') {
+      return aValue.localeCompare(bValue);
+    } else {
+      return bValue.localeCompare(aValue);
+    }
+  });
+
+  const getSortIcon = (field: 'name' | 'parent') => {
+    if (sortBy !== field) return null;
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="h-4 w-4 ml-1" /> : 
+      <ChevronDown className="h-4 w-4 ml-1" />;
+  };
+
   const resetForm = () => {
     setFormData({ name: "", parent_id: "" });
     setEditingSubgrupo(null);
@@ -319,8 +358,24 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Grupo</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center">
+                          Nome
+                          {getSortIcon('name')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort('parent')}
+                      >
+                        <div className="flex items-center">
+                          Grupo
+                          {getSortIcon('parent')}
+                        </div>
+                      </TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -338,8 +393,8 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                           Nenhum subgrupo encontrado
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      subgrupos.map((subgrupo) => (
+                     ) : (
+                       sortedSubgrupos.map((subgrupo) => (
                         <TableRow key={subgrupo.id}>
                           <TableCell className="font-medium">{subgrupo.name}</TableCell>
                           <TableCell>{subgrupo.parent?.name || 'N/A'}</TableCell>
