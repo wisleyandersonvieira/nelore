@@ -21,7 +21,7 @@ interface Subgrupo {
   name: string;
   parent_id: string;
   created_at: string;
-  account_groups?: {
+  parent?: {
     name: string;
   };
 }
@@ -79,7 +79,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
           name,
           parent_id,
           created_at,
-          account_groups!parent_id(name)
+          parent:account_groups!parent_id(name)
         `)
         .not("parent_id", "is", null) // Apenas subgrupos
         .order("name");
@@ -330,7 +330,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                       subgrupos.map((subgrupo) => (
                         <TableRow key={subgrupo.id}>
                           <TableCell className="font-medium">{subgrupo.name}</TableCell>
-                          <TableCell>{subgrupo.account_groups?.name || 'N/A'}</TableCell>
+                          <TableCell>{subgrupo.parent?.name || 'N/A'}</TableCell>
                           <TableCell>
                             <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
                               Ativo
