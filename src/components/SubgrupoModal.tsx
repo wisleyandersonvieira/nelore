@@ -1,0 +1,381 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Trash2, Edit, Ban } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface Grupo {
+  id: string;
+  name: string;
+  account_type: string;
+}
+
+interface Subgrupo {
+  id: string;
+  name: string;
+  parent_id: string;
+  created_at: string;
+  account_groups?: {
+    name: string;
+  };
+}
+
+interface SubgrupoModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
+  const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([]);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editingSubgrupo, setEditingSubgrupo] = useState<Subgrupo | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    parent_id: ""
+  });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      fetchGrupos();
+      fetchSubgrupos();
+    }
+  }, [open]);
+
+  const fetchGrupos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("account_groups")
+        .select("id, name, account_type")
+        .is("parent_id", null) // Apenas grupos principais
+        .order("name");
+
+      if (error) throw error;
+      setGrupos(data || []);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível carregar os grupos.",
+      });
+    }
+  };
+
+  const fetchSubgrupos = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("account_groups")
+        .select(`
+          id,
+          name,
+          parent_id,
+          created_at,
+          account_groups!parent_id(name)
+        `)
+        .not("parent_id", "is", null) // Apenas subgrupos
+        .order("name");
+
+      if (error) throw error;
+      setSubgrupos(data || []);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível carregar os subgrupos.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData.name.trim() || !formData.parent_id) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nome e grupo são obrigatórios.",
+      });
+      return;
+    }
+
+    // Verificar se já existe um subgrupo com esse nome
+    const nameExists = subgrupos.some(
+      subgrupo => subgrupo.name.toLowerCase() === formData.name.toLowerCase() &&
+      subgrupo.id !== editingSubgrupo?.id
+    );
+
+    if (nameExists) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Já existe um subgrupo com esse nome.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Buscar o grupo pai para obter o account_type
+      const { data: grupoData, error: grupoError } = await supabase
+        .from("account_groups")
+        .select("account_type")
+        .eq("id", formData.parent_id)
+        .single();
+
+      if (grupoError) throw grupoError;
+
+      if (editingSubgrupo) {
+        // Editar subgrupo existente
+        const { error } = await supabase
+          .from("account_groups")
+          .update({
+            name: formData.name,
+            parent_id: formData.parent_id,
+            account_type: grupoData.account_type,
+          })
+          .eq("id", editingSubgrupo.id);
+
+        if (error) throw error;
+        toast({ title: "Sucesso", description: "Subgrupo atualizado com sucesso!" });
+      } else {
+        // Criar novo subgrupo
+        const { error } = await supabase
+          .from("account_groups")
+          .insert({
+            name: formData.name,
+            parent_id: formData.parent_id,
+            account_type: grupoData.account_type,
+            code: `${formData.parent_id}-${Date.now()}`, // Código temporário único
+          });
+
+        if (error) throw error;
+        toast({ title: "Sucesso", description: "Subgrupo criado com sucesso!" });
+      }
+
+      setFormData({ name: "", parent_id: "" });
+      setEditingSubgrupo(null);
+      setShowForm(false);
+      await fetchSubgrupos();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Não foi possível salvar o subgrupo.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (subgrupo: Subgrupo) => {
+    setEditingSubgrupo(subgrupo);
+    setFormData({
+      name: subgrupo.name,
+      parent_id: subgrupo.parent_id,
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (subgrupo: Subgrupo) => {
+    if (!confirm(`Tem certeza que deseja excluir o subgrupo ${subgrupo.name}?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("account_groups")
+        .delete()
+        .eq("id", subgrupo.id);
+
+      if (error) throw error;
+      toast({ title: "Sucesso", description: "Subgrupo excluído com sucesso!" });
+      await fetchSubgrupos();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível excluir o subgrupo.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (subgrupo: Subgrupo) => {
+    // Funcionalidade removida pois a tabela não tem campo is_active
+    toast({
+      variant: "destructive",
+      title: "Funcionalidade não disponível",
+      description: "A funcionalidade de bloquear/desbloquear não está implementada.",
+    });
+  };
+
+  const resetForm = () => {
+    setFormData({ name: "", parent_id: "" });
+    setEditingSubgrupo(null);
+    setShowForm(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Cadastro de Subgrupos</DialogTitle>
+          <DialogDescription>
+            Gerencie os subgrupos de contas financeiras
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+          {/* Botão Novo */}
+          <Button
+            onClick={() => setShowForm(true)}
+            className="self-start"
+            disabled={loading}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Subgrupo
+          </Button>
+
+          {/* Formulário */}
+          {showForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {editingSubgrupo ? "Editar Subgrupo" : "Novo Subgrupo"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Nome do subgrupo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="parent_id">Grupo</Label>
+                    <Select
+                      value={formData.parent_id}
+                      onValueChange={(value) => setFormData({ ...formData, parent_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o grupo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {grupos.map((grupo) => (
+                          <SelectItem key={grupo.id} value={grupo.id}>
+                            {grupo.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} disabled={loading}>
+                    {editingSubgrupo ? "Atualizar" : "Salvar"}
+                  </Button>
+                  <Button variant="outline" onClick={resetForm}>
+                    Cancelar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Lista de Subgrupos */}
+          <Card className="flex-1 overflow-hidden">
+            <CardHeader>
+              <CardTitle>Subgrupos Cadastrados</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Grupo</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center">
+                          Carregando...
+                        </TableCell>
+                      </TableRow>
+                    ) : subgrupos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          Nenhum subgrupo encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      subgrupos.map((subgrupo) => (
+                        <TableRow key={subgrupo.id}>
+                          <TableCell className="font-medium">{subgrupo.name}</TableCell>
+                          <TableCell>{subgrupo.account_groups?.name || 'N/A'}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                              Ativo
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(subgrupo)}
+                                title="Editar"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleStatus(subgrupo)}
+                                title="Bloquear/Desbloquear"
+                                disabled
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(subgrupo)}
+                                title="Excluir"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
