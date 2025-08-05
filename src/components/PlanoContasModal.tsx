@@ -3,12 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AccountGroup {
@@ -18,6 +14,7 @@ interface AccountGroup {
   account_type: string;
   parent_id: string | null;
   created_at: string;
+  children?: AccountGroup[];
 }
 
 interface PlanoContasModalProps {
@@ -28,17 +25,10 @@ interface PlanoContasModalProps {
 export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) => {
   const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [editingAccountGroup, setEditingAccountGroup] = useState<AccountGroup | null>(null);
-  const [activeTab, setActiveTab] = useState("register");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['1', '2', '3']));
+  const [editingAccount, setEditingAccount] = useState<{ id?: string; parentId?: string; siblingCode?: string } | null>(null);
+  const [newAccountName, setNewAccountName] = useState("");
   const { toast } = useToast();
-
-  const [accountGroupForm, setAccountGroupForm] = useState({
-    name: "",
-    code: "",
-    account_type: "",
-    parent_id: "none",
-  });
 
   useEffect(() => {
     if (open) {
@@ -52,11 +42,13 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
       const { data, error } = await supabase
         .from("account_groups")
         .select("*")
-        .order("account_type", { ascending: true })
         .order("code");
 
       if (error) throw error;
-      setAccountGroups(data || []);
+      
+      // Organizar em árvore hierárquica
+      const groupsTree = buildTree(data || []);
+      setAccountGroups(groupsTree);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -68,99 +60,141 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
     }
   };
 
-  const handleAccountGroupSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const buildTree = (groups: AccountGroup[]): AccountGroup[] => {
+    const groupMap = new Map<string, AccountGroup>();
+    const rootGroups: AccountGroup[] = [];
+
+    // Primeiro, criar o mapa de todos os grupos
+    groups.forEach(group => {
+      groupMap.set(group.id, { ...group, children: [] });
+    });
+
+    // Depois, organizar a hierarquia
+    groups.forEach(group => {
+      const groupWithChildren = groupMap.get(group.id)!;
+      if (group.parent_id && groupMap.has(group.parent_id)) {
+        groupMap.get(group.parent_id)!.children!.push(groupWithChildren);
+      } else {
+        rootGroups.push(groupWithChildren);
+      }
+    });
+
+    // Ordenar por código
+    const sortByCode = (a: AccountGroup, b: AccountGroup) => {
+      const aCode = a.code.split('.').map(n => parseInt(n) || 0);
+      const bCode = b.code.split('.').map(n => parseInt(n) || 0);
+      
+      for (let i = 0; i < Math.max(aCode.length, bCode.length); i++) {
+        const aVal = aCode[i] || 0;
+        const bVal = bCode[i] || 0;
+        if (aVal !== bVal) return aVal - bVal;
+      }
+      return 0;
+    };
+
+    rootGroups.sort(sortByCode);
+    rootGroups.forEach(group => {
+      if (group.children) {
+        group.children.sort(sortByCode);
+      }
+    });
+
+    return rootGroups;
+  };
+
+  const generateNextCode = (parentCode?: string, siblingCode?: string): string => {
+    if (siblingCode) {
+      // Criar conta no mesmo nível (abaixo da atual)
+      const parts = siblingCode.split('.');
+      const lastPart = parseInt(parts[parts.length - 1]) + 1;
+      return [...parts.slice(0, -1), lastPart.toString()].join('.');
+    }
     
-    if (!accountGroupForm.name.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Nome da categoria é obrigatório.",
-      });
-      return;
+    if (parentCode) {
+      // Criar subconta
+      return `${parentCode}.1`;
     }
+    
+    // Criar conta raiz (não deveria acontecer, pois já temos as 3 principais)
+    return "4";
+  };
 
-    if (!accountGroupForm.code.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Código é obrigatório.",
-      });
-      return;
+  const getAccountType = (code: string): 'receita' | 'despesa' | 'ativo' | 'passivo' => {
+    const rootCode = code.split('.')[0];
+    switch (rootCode) {
+      case '1': return 'receita';
+      case '2': return 'despesa';
+      case '3': return 'ativo';
+      default: return 'ativo';
     }
+  };
 
-    if (!accountGroupForm.account_type) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Tipo da conta é obrigatório.",
-      });
-      return;
-    }
+  const handleCreateAccount = async (type: 'below' | 'sub', parentAccount: AccountGroup) => {
+    const newCode = type === 'sub' 
+      ? generateNextCode(parentAccount.code)
+      : generateNextCode(undefined, parentAccount.code);
+    
+    setEditingAccount({ 
+      parentId: type === 'sub' ? parentAccount.id : parentAccount.parent_id,
+      siblingCode: type === 'below' ? parentAccount.code : undefined
+    });
+    setNewAccountName("");
+  };
+
+  const handleSaveAccount = async () => {
+    if (!editingAccount || !newAccountName.trim()) return;
 
     setLoading(true);
     try {
+      const newCode = editingAccount.siblingCode 
+        ? generateNextCode(undefined, editingAccount.siblingCode)
+        : generateNextCode(
+            accountGroups.find(g => g.id === editingAccount.parentId)?.code ||
+            accountGroups.flatMap(g => g.children || []).find(c => c.id === editingAccount.parentId)?.code
+          );
+
       const formData = {
-        name: accountGroupForm.name,
-        code: accountGroupForm.code,
-        account_type: accountGroupForm.account_type as "receita" | "despesa" | "ativo" | "passivo",
-        parent_id: accountGroupForm.parent_id === "none" ? null : accountGroupForm.parent_id || null,
+        name: newAccountName,
+        code: newCode,
+        account_type: getAccountType(newCode),
+        parent_id: editingAccount.parentId || null,
       };
 
-      if (editingAccountGroup) {
+      if (editingAccount.id) {
+        // Editar conta existente
         const { error } = await supabase
           .from("account_groups")
-          .update(formData)
-          .eq("id", editingAccountGroup.id);
+          .update({ name: newAccountName })
+          .eq("id", editingAccount.id);
 
         if (error) throw error;
-        toast({ title: "Sucesso", description: "Categoria atualizada com sucesso!" });
+        toast({ title: "Sucesso", description: "Conta atualizada com sucesso!" });
       } else {
+        // Criar nova conta
         const { error } = await supabase
           .from("account_groups")
           .insert([formData]);
 
         if (error) throw error;
-        toast({ title: "Sucesso", description: "Categoria cadastrada com sucesso!" });
+        toast({ title: "Sucesso", description: "Conta criada com sucesso!" });
       }
 
-      resetAccountGroupForm();
+      setEditingAccount(null);
+      setNewAccountName("");
       await fetchAccountGroups();
-      setActiveTab("list");
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar a categoria.",
+        description: "Não foi possível salvar a conta.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const resetAccountGroupForm = () => {
-    setAccountGroupForm({
-      name: "",
-      code: "",
-      account_type: "",
-      parent_id: "none",
-    });
-    setEditingAccountGroup(null);
-  };
-
-  const handleEditAccountGroup = (accountGroup: AccountGroup) => {
-    setAccountGroupForm({
-      name: accountGroup.name,
-      code: accountGroup.code,
-      account_type: accountGroup.account_type,
-      parent_id: accountGroup.parent_id || "none",
-    });
-    setEditingAccountGroup(accountGroup);
-    setActiveTab("register");
-  };
-
-  const handleDeleteAccountGroup = async (accountGroup: AccountGroup) => {
-    if (!confirm(`Tem certeza que deseja excluir a categoria ${accountGroup.name}?`)) {
+  const handleDeleteAccount = async (account: AccountGroup) => {
+    if (!confirm(`Tem certeza que deseja excluir a conta ${account.name}?`)) {
       return;
     }
 
@@ -169,336 +203,181 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
       const { error } = await supabase
         .from("account_groups")
         .delete()
-        .eq("id", accountGroup.id);
+        .eq("id", account.id);
 
       if (error) throw error;
-      toast({ title: "Sucesso", description: "Categoria excluída com sucesso!" });
+      toast({ title: "Sucesso", description: "Conta excluída com sucesso!" });
       await fetchAccountGroups();
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível excluir a categoria.",
+        description: "Não foi possível excluir a conta.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredAccountGroups = accountGroups.filter(group =>
-    group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.account_type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Get parent categories for subcategory selection
-  const parentCategories = accountGroups.filter(group => !group.parent_id);
-
-  // Get account type display name
-  const getAccountTypeDisplay = (type: string) => {
-    const types: { [key: string]: string } = {
-      'receita': 'Receita',
-      'despesa': 'Despesa',
-      'ativo': 'Ativo',
-      'passivo': 'Passivo',
-      'patrimonio': 'Patrimônio',
-    };
-    return types[type] || type;
+  const toggleExpanded = (groupId: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupId)) {
+      newExpanded.delete(groupId);
+    } else {
+      newExpanded.add(groupId);
+    }
+    setExpandedGroups(newExpanded);
   };
 
-  // Get parent name
-  const getParentName = (parentId: string | null) => {
-    if (!parentId) return '-';
-    const parent = accountGroups.find(group => group.id === parentId);
-    return parent ? parent.name : '-';
+  const renderAccountItem = (account: AccountGroup, level: number = 0) => {
+    const isExpanded = expandedGroups.has(account.id);
+    const hasChildren = account.children && account.children.length > 0;
+    const isEditing = editingAccount?.id === account.id;
+
+    return (
+      <div key={account.id} className="border-b border-border/50">
+        <div 
+          className={`flex items-center justify-between p-3 hover:bg-muted/50`}
+          style={{ paddingLeft: `${level * 24 + 12}px` }}
+        >
+          <div className="flex items-center gap-2 flex-1">
+            {hasChildren && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleExpanded(account.id)}
+                className="p-1 h-6 w-6"
+              >
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+            )}
+            
+            <span className="font-mono text-sm font-medium w-20">{account.code}</span>
+            
+            {isEditing ? (
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  className="flex-1"
+                  placeholder="Nome da conta"
+                  autoFocus
+                />
+                <Button size="sm" onClick={handleSaveAccount} disabled={loading}>
+                  Salvar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingAccount(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <span className="flex-1">{account.name}</span>
+            )}
+          </div>
+
+          {!isEditing && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditingAccount({ id: account.id });
+                  setNewAccountName(account.name);
+                }}
+                className="p-1 h-8 w-8"
+                title="Editar conta"
+              >
+                <span className="text-xs">✏️</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCreateAccount('below', account)}
+                className="p-1 h-8 w-8"
+                title="Criar conta abaixo (mesmo nível)"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCreateAccount('sub', account)}
+                className="p-1 h-8 w-8"
+                title="Criar subconta"
+              >
+                <span className="text-xs">📁</span>
+              </Button>
+              
+              {account.parent_id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteAccount(account)}
+                  className="p-1 h-8 w-8 text-destructive hover:text-destructive"
+                  title="Excluir conta"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Renderizar filhos se expandido */}
+        {isExpanded && hasChildren && (
+          <div>
+            {account.children!.map(child => renderAccountItem(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Plano de Contas</DialogTitle>
           <DialogDescription>
-            Configuração das categorias e subcategorias financeiras
+            Estrutura hierárquica das contas financeiras
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="register">Cadastro</TabsTrigger>
-              <TabsTrigger value="list">Listagem</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="register" className="mt-4 flex-1 overflow-y-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {editingAccountGroup ? "Editar Categoria" : "Nova Categoria"}
-                </CardTitle>
-                <CardDescription>
-                  Configure as categorias e subcategorias do plano de contas
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAccountGroupSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="account-code">Código *</Label>
-                      <Input
-                        id="account-code"
-                        required
-                        value={accountGroupForm.code}
-                        onChange={(e) => setAccountGroupForm({ ...accountGroupForm, code: e.target.value })}
-                        placeholder="Ex: 1.1, 2.1.1"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="account-name">Nome da Categoria *</Label>
-                      <Input
-                        id="account-name"
-                        required
-                        value={accountGroupForm.name}
-                        onChange={(e) => setAccountGroupForm({ ...accountGroupForm, name: e.target.value })}
-                        placeholder="Nome da categoria"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="account-type">Tipo de Conta *</Label>
-                      <Select 
-                        value={accountGroupForm.account_type} 
-                        onValueChange={(value) => setAccountGroupForm({ ...accountGroupForm, account_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="receita">Receita</SelectItem>
-                          <SelectItem value="despesa">Despesa</SelectItem>
-                          <SelectItem value="ativo">Ativo</SelectItem>
-                          <SelectItem value="passivo">Passivo</SelectItem>
-                          <SelectItem value="patrimonio">Patrimônio</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="parent-category">Categoria Pai (para subcategorias)</Label>
-                      <Select 
-                        value={accountGroupForm.parent_id} 
-                        onValueChange={(value) => setAccountGroupForm({ ...accountGroupForm, parent_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a categoria pai" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhuma (categoria principal)</SelectItem>
-                          {parentCategories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button type="submit" disabled={loading}>
-                      {loading ? "Salvando..." : (editingAccountGroup ? "Atualizar" : "Cadastrar")}
-                    </Button>
-                    {editingAccountGroup && (
-                      <Button type="button" variant="outline" onClick={resetAccountGroupForm}>
-                        Cancelar
-                      </Button>
-                    )}
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-           <TabsContent value="list" className="mt-4 flex-1 overflow-y-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle>Plano de Contas</CardTitle>
-                <CardDescription>
-                  Estrutura hierárquica das categorias financeiras
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2 mb-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar categorias..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
+        <Card className="flex-1 overflow-hidden">
+          <CardHeader>
+            <CardTitle>Estrutura das Contas</CardTitle>
+            <CardDescription>
+              Use os botões ao lado de cada conta para gerenciar a estrutura
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="border rounded-md bg-background">
+              <div className="grid grid-cols-[1fr_auto] gap-4 p-3 bg-muted/50 border-b font-medium text-sm">
+                <div className="flex gap-2">
+                  <span className="w-20">Código</span>
+                  <span>Descrição</span>
                 </div>
-
-                <div className="rounded-md border max-h-96 overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Categoria Pai</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center">
-                            Carregando...
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredAccountGroups.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center">
-                            Nenhuma categoria encontrada
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredAccountGroups.map((group) => (
-                          <TableRow key={group.id}>
-                            <TableCell className="font-mono">{group.code}</TableCell>
-                            <TableCell className="font-medium">{group.name}</TableCell>
-                            <TableCell>{getAccountTypeDisplay(group.account_type)}</TableCell>
-                            <TableCell>{getParentName(group.parent_id)}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditAccountGroup(group)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDeleteAccountGroup(group)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Plano de Contas Example Table */}
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-4">Estrutura Sugerida do Plano de Contas</h3>
-                  <div className="rounded-md border p-4 bg-muted/50">
-                    <div className="grid grid-cols-3 gap-4 font-medium border-b pb-2 mb-2">
-                      <div>Grupo</div>
-                      <div>Categoria</div>
-                      <div>Subcategoria</div>
-                    </div>
-                    
-                    {/* Receitas */}
-                    <div className="space-y-1 mb-4">
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div className="font-medium text-green-600">Receita</div>
-                        <div>Vendas</div>
-                        <div>Vendas à Vista</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div></div>
-                        <div>Vendas a Prazo</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div>Serviços</div>
-                        <div>Prestação de Serviços</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div>Outras Receitas</div>
-                        <div>Juros Recebidos</div>
-                      </div>
-                    </div>
-
-                    {/* Despesas */}
-                    <div className="space-y-1 mb-4">
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div className="font-medium text-red-600">Despesa</div>
-                        <div>Operacionais</div>
-                        <div>Salários e Encargos</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div></div>
-                        <div>Aluguel</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div></div>
-                        <div>Energia Elétrica</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div>Comerciais</div>
-                        <div>Compra de Mercadorias</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div></div>
-                        <div>Frete e Carreto</div>
-                      </div>
-                    </div>
-
-                    {/* Transferências */}
-                    <div className="space-y-1 mb-4">
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div className="font-medium text-blue-600">Ativo</div>
-                        <div>Circulante</div>
-                        <div>Caixa</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div></div>
-                        <div>Bancos</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div>Não Circulante</div>
-                        <div>Imobilizado</div>
-                      </div>
-                    </div>
-
-                    {/* Investimentos */}
-                    <div className="space-y-1">
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div className="font-medium text-purple-600">Patrimônio</div>
-                        <div>Capital Social</div>
-                        <div>Capital Integralizado</div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div></div>
-                        <div>Lucros/Prejuízos</div>
-                        <div>Lucros Acumulados</div>
-                      </div>
-                    </div>
+                <span className="text-center">Ações</span>
+              </div>
+              
+              <div className="max-h-[60vh] overflow-y-auto">
+                {loading ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Carregando...
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          </Tabs>
-        </div>
+                ) : accountGroups.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhuma conta encontrada
+                  </div>
+                ) : (
+                  accountGroups.map(group => renderAccountItem(group))
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </DialogContent>
     </Dialog>
   );
