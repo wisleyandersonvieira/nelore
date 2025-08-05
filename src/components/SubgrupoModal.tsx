@@ -72,20 +72,32 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
   const fetchSubgrupos = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: subgruposData, error } = await supabase
         .from("account_groups")
-        .select(`
-          id,
-          name,
-          parent_id,
-          created_at,
-          parent:account_groups!parent_id(name)
-        `)
+        .select("id, name, parent_id, created_at")
         .not("parent_id", "is", null) // Apenas subgrupos
         .order("name");
 
       if (error) throw error;
-      setSubgrupos(data || []);
+
+      // Buscar os nomes dos grupos pais
+      if (subgruposData && subgruposData.length > 0) {
+        const parentIds = [...new Set(subgruposData.map(s => s.parent_id))];
+        const { data: gruposData } = await supabase
+          .from("account_groups")
+          .select("id, name")
+          .in("id", parentIds);
+
+        // Combinar os dados
+        const subgruposComGrupo = subgruposData.map(subgrupo => ({
+          ...subgrupo,
+          parent: gruposData?.find(g => g.id === subgrupo.parent_id)
+        }));
+
+        setSubgrupos(subgruposComGrupo);
+      } else {
+        setSubgrupos([]);
+      }
     } catch (error) {
       toast({
         variant: "destructive",
