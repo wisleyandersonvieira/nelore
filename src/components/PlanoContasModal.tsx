@@ -130,6 +130,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
   };
 
   const handleCreateAccount = (type: 'below' | 'sub', parentAccount: AccountGroup) => {
+    console.log('handleCreateAccount called:', { type, parentAccount });
     setEditingAccount({ 
       parentId: type === 'sub' ? parentAccount.id : parentAccount.parent_id,
       siblingCode: type === 'below' ? parentAccount.code : undefined
@@ -190,6 +191,7 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
   };
 
   const handleDeleteAccount = async (account: AccountGroup) => {
+    console.log('handleDeleteAccount called:', account);
     if (!confirm(`Tem certeza que deseja excluir a conta ${account.name}?`)) {
       return;
     }
