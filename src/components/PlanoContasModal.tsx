@@ -231,6 +231,8 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
     const isExpanded = expandedGroups.has(account.id);
     const hasChildren = account.children && account.children.length > 0;
     const isEditing = editingAccount?.id === account.id;
+    const isCreatingBelow = editingAccount && !editingAccount.id && editingAccount.siblingCode === account.code;
+    const isCreatingSub = editingAccount && !editingAccount.id && editingAccount.parentId === account.id;
 
     return (
       <div key={account.id} className="border-b border-border/50">
@@ -331,6 +333,31 @@ export const PlanoContasModal = ({ open, onOpenChange }: PlanoContasModalProps) 
             </div>
           )}
         </div>
+
+        {/* Interface para criar nova conta */}
+        {(isCreatingBelow || isCreatingSub) && (
+          <div 
+            className="flex items-center gap-2 p-3 bg-muted/30 border-l-2 border-primary"
+            style={{ paddingLeft: `${level * 24 + 12}px` }}
+          >
+            <span className="font-mono text-sm font-medium w-20 text-muted-foreground">
+              {isCreatingBelow ? generateNextCode(undefined, account.code) : generateNextCode(account.code)}
+            </span>
+            <Input
+              value={newAccountName}
+              onChange={(e) => setNewAccountName(e.target.value)}
+              className="flex-1"
+              placeholder="Nome da nova conta"
+              autoFocus
+            />
+            <Button size="sm" onClick={handleSaveAccount} disabled={loading || !newAccountName.trim()}>
+              Salvar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setEditingAccount(null)}>
+              Cancelar
+            </Button>
+          </div>
+        )}
 
         {/* Renderizar filhos se expandido */}
         {isExpanded && hasChildren && (
