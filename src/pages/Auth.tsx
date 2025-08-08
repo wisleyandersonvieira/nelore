@@ -44,7 +44,8 @@ const Auth = () => {
 
       toast({
         title: "Cadastro realizado!",
-        description: "Verifique seu email para confirmar o cadastro.",
+        description: "Seu cadastro foi enviado para análise. Após aprovação do administrador, você receberá acesso ao sistema.",
+        duration: 6000,
       });
     } catch (error: any) {
       toast({
@@ -62,7 +63,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -74,6 +75,25 @@ const Auth = () => {
           description: error.message,
         });
         return;
+      }
+
+      // Verificar se o usuário está ativo
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', data.user.id)
+          .single();
+
+        if (!profile?.is_active) {
+          await supabase.auth.signOut();
+          toast({
+            variant: "destructive",
+            title: "Acesso negado",
+            description: "Seu cadastro está aguardando aprovação do administrador.",
+          });
+          return;
+        }
       }
 
       navigate("/dashboard");
