@@ -18,6 +18,7 @@ interface User {
   is_active: boolean;
   store_id: string | null;
   created_at: string;
+  user_stores?: { store_id: string }[];
 }
 
 interface Store {
@@ -31,7 +32,7 @@ const Users = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
   const [isStoreDialogOpen, setIsStoreDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,7 +52,10 @@ const Users = () => {
           email,
           is_active,
           store_id,
-          created_at
+          created_at,
+          user_stores (
+            store_id
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -135,46 +139,71 @@ const Users = () => {
     }
   };
 
-  const handleAssignStore = async () => {
-    if (!selectedUser || !selectedStoreId) return;
+  const handleAssignStores = async () => {
+    if (!selectedUser || selectedStoreIds.length === 0) return;
 
     try {
-      const storeId = selectedStoreId === "none" ? null : selectedStoreId;
+      // Remove existing store assignments
+      await supabase
+        .from('user_stores')
+        .delete()
+        .eq('user_id', selectedUser.id);
+
+      // Add new store assignments
+      const userStoresData = selectedStoreIds.map(storeId => ({
+        user_id: selectedUser.id,
+        store_id: storeId
+      }));
+
       const { error } = await supabase
-        .from('profiles')
-        .update({ store_id: storeId })
-        .eq('id', selectedUser.id);
+        .from('user_stores')
+        .insert(userStoresData);
 
       if (error) throw error;
 
       toast({
-        title: "Loja vinculada",
-        description: "Loja foi vinculada ao usuário com sucesso.",
+        title: "Lojas vinculadas",
+        description: "Lojas foram vinculadas ao usuário com sucesso.",
       });
 
       setIsStoreDialogOpen(false);
       setSelectedUser(null);
-      setSelectedStoreId("");
+      setSelectedStoreIds([]);
       fetchUsers();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao vincular loja: " + error.message,
+        description: "Erro ao vincular lojas: " + error.message,
       });
     }
   };
 
   const openStoreDialog = (user: User) => {
     setSelectedUser(user);
-    setSelectedStoreId(user.store_id || "none");
+    const userStoreIds = user.user_stores?.map(us => us.store_id) || [];
+    setSelectedStoreIds(userStoreIds);
     setIsStoreDialogOpen(true);
   };
 
-  const getStoreName = (storeId: string | null) => {
-    if (!storeId) return "Nenhuma";
-    const store = stores.find(s => s.id === storeId);
-    return store ? `${store.name} (${store.code})` : "Loja não encontrada";
+  const getStoreNames = (user: User) => {
+    const userStoreIds = user.user_stores?.map(us => us.store_id) || [];
+    if (userStoreIds.length === 0) return "Nenhuma";
+    
+    const storeNames = userStoreIds.map(storeId => {
+      const store = stores.find(s => s.id === storeId);
+      return store ? `${store.name} (${store.code})` : "Loja não encontrada";
+    });
+    
+    return storeNames.join(", ");
+  };
+
+  const handleStoreToggle = (storeId: string) => {
+    setSelectedStoreIds(prev => 
+      prev.includes(storeId) 
+        ? prev.filter(id => id !== storeId)
+        : [...prev, storeId]
+    );
   };
 
   if (loading) {
@@ -239,7 +268,7 @@ const Users = () => {
                           {user.is_active ? "Aprovado" : "Pendente"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{getStoreName(user.store_id)}</TableCell>
+                      <TableCell>{getStoreNames(user)}</TableCell>
                       <TableCell>
                         {new Date(user.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
@@ -299,7 +328,7 @@ const Users = () => {
         <Dialog open={isStoreDialogOpen} onOpenChange={setIsStoreDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Vincular Loja ao Usuário</DialogTitle>
+              <DialogTitle>Vincular Lojas ao Usuário</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div>
@@ -309,24 +338,36 @@ const Users = () => {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="store">Loja</Label>
-                <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma loja" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma loja</SelectItem>
-                    {stores.map((store) => (
-                      <SelectItem key={store.id} value={store.id}>
+                <Label htmlFor="stores">Lojas</Label>
+                <div className="border rounded-md p-2 max-h-40 overflow-y-auto">
+                  {stores.map((store) => (
+                    <div key={store.id} className="flex items-center space-x-2 py-1">
+                      <input
+                        type="checkbox"
+                        id={store.id}
+                        checked={selectedStoreIds.includes(store.id)}
+                        onChange={() => handleStoreToggle(store.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor={store.id} className="text-sm cursor-pointer">
                         {store.name} ({store.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {selectedStoreIds.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Selecione pelo menos uma loja
+                  </p>
+                )}
               </div>
               <div className="flex gap-2 pt-4">
-                <Button onClick={handleAssignStore} className="flex-1">
-                  Vincular
+                <Button 
+                  onClick={handleAssignStores} 
+                  className="flex-1"
+                  disabled={selectedStoreIds.length === 0}
+                >
+                  Vincular Lojas
                 </Button>
                 <Button 
                   variant="outline" 
