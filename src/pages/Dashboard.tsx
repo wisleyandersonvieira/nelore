@@ -163,6 +163,8 @@ const Dashboard = () => {
                      onClick={() => {
                        if (module.id === "cadastros") {
                          navigate("/cadastros");
+                       } else if (module.id === "configuracoes") {
+                         navigate("/users");
                        }
                      }}
                   >

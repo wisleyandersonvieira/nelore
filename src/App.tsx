@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Cadastros from "./pages/Cadastros";
 import Suppliers from "./pages/Suppliers";
 import Stores from "./pages/Stores";
+import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,8 +27,9 @@ const App = () => (
           <Route path="/cadastros" element={<Cadastros />} />
           <Route path="/suppliers" element={<Suppliers />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="/stores" element={<Stores />} />
-              <Route path="*" element={<NotFound />} />
+          <Route path="/stores" element={<Stores />} />
+          <Route path="/users" element={<Users />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
