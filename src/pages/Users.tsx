@@ -139,9 +139,10 @@ const Users = () => {
     if (!selectedUser || !selectedStoreId) return;
 
     try {
+      const storeId = selectedStoreId === "none" ? null : selectedStoreId;
       const { error } = await supabase
         .from('profiles')
-        .update({ store_id: selectedStoreId })
+        .update({ store_id: storeId })
         .eq('id', selectedUser.id);
 
       if (error) throw error;
@@ -166,7 +167,7 @@ const Users = () => {
 
   const openStoreDialog = (user: User) => {
     setSelectedUser(user);
-    setSelectedStoreId(user.store_id || "");
+    setSelectedStoreId(user.store_id || "none");
     setIsStoreDialogOpen(true);
   };
 
@@ -314,7 +315,7 @@ const Users = () => {
                     <SelectValue placeholder="Selecione uma loja" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma loja</SelectItem>
+                    <SelectItem value="none">Nenhuma loja</SelectItem>
                     {stores.map((store) => (
                       <SelectItem key={store.id} value={store.id}>
                         {store.name} ({store.code})
