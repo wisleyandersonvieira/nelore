@@ -32,9 +32,9 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    unit_id: "",
-    group_id: "",
-    subgroup_id: "",
+    unit_id: undefined as string | undefined,
+    group_id: undefined as string | undefined,
+    subgroup_id: undefined as string | undefined,
     barcode: "",
     cost_price: "",
     unit_price: "",
@@ -65,7 +65,7 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
       fetchSubgroups(formData.group_id);
     } else {
       setSubgroups([]);
-      setFormData(prev => ({ ...prev, subgroup_id: "" }));
+      setFormData(prev => ({ ...prev, subgroup_id: undefined }));
     }
   }, [formData.group_id]);
 
@@ -147,9 +147,9 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
       setFormData({
         name: "",
         description: "",
-        unit_id: "",
-        group_id: "",
-        subgroup_id: "",
+        unit_id: undefined,
+        group_id: undefined,
+        subgroup_id: undefined,
         barcode: "",
         cost_price: "",
         unit_price: "",
@@ -353,9 +353,9 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
           onClick={() => setFormData({
             name: "",
             description: "",
-            unit_id: "",
-            group_id: "",
-            subgroup_id: "",
+            unit_id: undefined,
+            group_id: undefined,
+            subgroup_id: undefined,
             barcode: "",
             cost_price: "",
             unit_price: "",
