@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, X, Store } from "lucide-react";
+import { ArrowLeft, Check, X, Store, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -218,21 +218,31 @@ const Users = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate("/dashboard")}
-            size="sm"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Gestão de Usuários</h1>
-            <p className="text-muted-foreground">
-              Aprovar novos usuários e gerenciar lojas vinculadas
-            </p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/dashboard")}
+              size="sm"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Gestão de Usuários</h1>
+              <p className="text-muted-foreground">
+                Aprovar novos usuários e gerenciar lojas vinculadas
+              </p>
+            </div>
           </div>
+          
+          <Button 
+            onClick={() => navigate("/profiles")}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Gestão de Perfis
+          </Button>
         </div>
 
         <Card>

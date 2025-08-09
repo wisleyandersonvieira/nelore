@@ -434,6 +434,38 @@ export type Database = {
           },
         ]
       }
+      profile_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          module: string
+          permission: Database["public"]["Enums"]["permission_type"]
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module: string
+          permission: Database["public"]["Enums"]["permission_type"]
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module?: string
+          permission?: Database["public"]["Enums"]["permission_type"]
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -441,6 +473,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          profile_id: string | null
           role: Database["public"]["Enums"]["user_role"]
           store_id: string | null
           updated_at: string
@@ -451,6 +484,7 @@ export type Database = {
           id: string
           is_active?: boolean
           name: string
+          profile_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           store_id?: string | null
           updated_at?: string
@@ -461,11 +495,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          profile_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           store_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_store_id_fkey"
             columns: ["store_id"]
@@ -627,6 +669,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_stores: {
         Row: {

@@ -10,6 +10,7 @@ import Cadastros from "./pages/Cadastros";
 import Suppliers from "./pages/Suppliers";
 import Stores from "./pages/Stores";
 import Users from "./pages/Users";
+import Profiles from "./pages/Profiles";
 import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +32,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="/stores" element={<Stores />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/profiles" element={<Profiles />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
