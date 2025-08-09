@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Plus, Ruler } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Package, Plus, Ruler, ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { ProductList } from "@/components/ProductList";
 import { UnitsModal } from "@/components/UnitsModal";
+import { useNavigate } from "react-router-dom";
 
 export default function Products() {
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("register");
+  const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6 relative">
       <div className="flex items-center gap-3">
         <Package className="h-8 w-8 text-primary" />
         <div>
@@ -82,6 +85,16 @@ export default function Products() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Botão Voltar ao Menu */}
+      <Button
+        onClick={() => navigate('/dashboard')}
+        className="fixed bottom-6 right-6 z-50"
+        size="lg"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Voltar ao Menu
+      </Button>
     </div>
   );
 }
