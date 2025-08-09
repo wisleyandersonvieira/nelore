@@ -63,7 +63,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   useEffect(() => {
     // Se estiver editando, preencher o formulário
     if (editingProduct) {
-      console.log("Produto para editar:", editingProduct);
       setFormData({
         name: editingProduct.name || "",
         description: editingProduct.description || "",
@@ -74,15 +73,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         cost_price: editingProduct.cost_price?.toString() || ""
       });
       setNextCode(editingProduct.code);
-      console.log("Form data preenchido:", {
-        name: editingProduct.name || "",
-        description: editingProduct.description || "",
-        unit_id: editingProduct.unit_id || undefined,
-        group_id: editingProduct.group_id || undefined,
-        subgroup_id: editingProduct.subgroup_id || undefined,
-        barcode: editingProduct.barcode || "",
-        cost_price: editingProduct.cost_price?.toString() || ""
-      });
     } else {
       // Se não estiver editando, buscar próximo código
       const getNextCode = async () => {
@@ -263,7 +253,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           <Input
             id="code"
             value={nextCode}
-            readOnly={!!editingProduct}
+            readOnly
             className="bg-muted"
           />
         </div>
@@ -295,7 +285,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
               <Plus className="h-3 w-3" />
             </Button>
           </Label>
-          <Select value={formData.unit_id} onValueChange={(value) => setFormData({ ...formData, unit_id: value })}>
+          <Select key={`unit-${editingProduct?.id || 'new'}`} value={formData.unit_id} onValueChange={(value) => setFormData({ ...formData, unit_id: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione a unidade" />
             </SelectTrigger>
@@ -312,7 +302,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         {/* Grupo */}
         <div className="space-y-2">
           <Label htmlFor="group_id">Grupo</Label>
-          <Select value={formData.group_id} onValueChange={(value) => setFormData({ ...formData, group_id: value })}>
+          <Select key={`group-${editingProduct?.id || 'new'}`} value={formData.group_id} onValueChange={(value) => setFormData({ ...formData, group_id: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione o grupo" />
             </SelectTrigger>
@@ -330,6 +320,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         <div className="space-y-2">
           <Label htmlFor="subgroup_id">Subgrupo</Label>
           <Select 
+            key={`subgroup-${editingProduct?.id || 'new'}`}
             value={formData.subgroup_id} 
             onValueChange={(value) => setFormData({ ...formData, subgroup_id: value })}
             disabled={!formData.group_id}
