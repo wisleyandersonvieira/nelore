@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Edit, Ban, Trash2, Package } from "lucide-react";
 
@@ -19,6 +18,9 @@ interface Product {
   category: string;
   is_active: boolean;
   is_blocked: boolean;
+  group_id?: string;
+  subgroup_id?: string;
+  unit_id?: string;
   group?: { name: string };
   subgroup?: { name: string };
   unit?: { name: string; symbol: string };
@@ -32,14 +34,16 @@ interface Group {
   name: string;
 }
 
-export const ProductList = () => {
+interface ProductListProps {
+  onEditProduct?: (product: Product) => void;
+}
+
+export const ProductList = ({ onEditProduct }: ProductListProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [subgroups, setSubgroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   
   // Filters
   const [filters, setFilters] = useState({
@@ -62,11 +66,12 @@ export const ProductList = () => {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // Fetch products with related data
+      // Fetch products with related data including group_id and subgroup_id
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select(`
           id, code, name, description, category, is_active, is_blocked, barcode, cost_price, unit_price,
+          group_id, subgroup_id, unit_id,
           group:account_groups!group_id(name),
           subgroup:account_groups!subgroup_id(name),
           unit:units_of_measure!unit_id(name, symbol)
@@ -341,8 +346,9 @@ export const ProductList = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setEditingProduct(product);
-                              setShowEditModal(true);
+                              if (onEditProduct) {
+                                onEditProduct(product);
+                              }
                             }}
                             title="Editar"
                           >
@@ -376,21 +382,6 @@ export const ProductList = () => {
         </CardContent>
       </Card>
 
-      {/* Modal de Edição - Placeholder */}
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Editar Produto</DialogTitle>
-            <DialogDescription>
-              Funcionalidade de edição será implementada em breve.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <p>Produto selecionado: {editingProduct?.name}</p>
-            <Button onClick={() => setShowEditModal(false)}>Fechar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

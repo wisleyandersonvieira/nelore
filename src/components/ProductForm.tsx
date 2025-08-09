@@ -21,9 +21,27 @@ interface Group {
 
 interface ProductFormProps {
   onUnitsModalOpen: () => void;
+  editingProduct?: Product | null;
+  onSaveSuccess?: () => void;
 }
 
-export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
+interface Product {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  is_active: boolean;
+  is_blocked: boolean;
+  group_id?: string;
+  subgroup_id?: string;
+  unit_id?: string;
+  cost_price?: number;
+  unit_price?: number;
+  barcode?: string;
+}
+
+export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }: ProductFormProps) => {
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -44,7 +62,23 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+    
+    // Se estiver editando, preencher o formulário
+    if (editingProduct) {
+      setFormData({
+        name: editingProduct.name || "",
+        description: editingProduct.description || "",
+        unit_id: editingProduct.unit_id || undefined,
+        group_id: editingProduct.group_id || undefined,
+        subgroup_id: editingProduct.subgroup_id || undefined,
+        barcode: editingProduct.barcode || "",
+        cost_price: editingProduct.cost_price?.toString() || "",
+        unit_price: editingProduct.unit_price?.toString() || "",
+        category: editingProduct.category || ""
+      });
+      setNextCode(editingProduct.code);
+    }
+  }, [editingProduct]);
 
   // Add a function to refresh units when modal closes
   const refreshUnits = async () => {
@@ -122,7 +156,7 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.from("products").insert({
+      const productData = {
         code: nextCode,
         name: formData.name,
         description: formData.description || null,
@@ -134,37 +168,61 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
         unit_price: formData.unit_price ? parseFloat(formData.unit_price) : null,
         category: formData.category || null,
         is_active: true
-      });
+      };
+
+      let error;
+      
+      if (editingProduct) {
+        // Atualizar produto existente
+        const { error: updateError } = await supabase
+          .from("products")
+          .update(productData)
+          .eq("id", editingProduct.id);
+        error = updateError;
+      } else {
+        // Criar novo produto
+        const { error: insertError } = await supabase
+          .from("products")
+          .insert(productData);
+        error = insertError;
+      }
 
       if (error) throw error;
 
       toast({
         title: "Sucesso",
-        description: "Produto cadastrado com sucesso!",
+        description: editingProduct ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!",
       });
 
-      // Reset form and get next code
-      setFormData({
-        name: "",
-        description: "",
-        unit_id: undefined,
-        group_id: undefined,
-        subgroup_id: undefined,
-        barcode: "",
-        cost_price: "",
-        unit_price: "",
-        category: ""
-      });
+      // Reset form se não estiver editando
+      if (!editingProduct) {
+        setFormData({
+          name: "",
+          description: "",
+          unit_id: undefined,
+          group_id: undefined,
+          subgroup_id: undefined,
+          barcode: "",
+          cost_price: "",
+          unit_price: "",
+          category: ""
+        });
+        
+        // Get new next code
+        const { data: newCodeData } = await supabase.rpc('get_next_product_code');
+        setNextCode(newCodeData?.toString() || "1");
+      }
       
-      // Get new next code
-      const { data: newCodeData } = await supabase.rpc('get_next_product_code');
-      setNextCode(newCodeData?.toString() || "1");
+      // Chamar callback de sucesso se fornecido
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
       
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: error.message || "Não foi possível cadastrar o produto.",
+        description: error.message || `Não foi possível ${editingProduct ? 'atualizar' : 'cadastrar'} o produto.`,
       });
     } finally {
       setLoading(false);
@@ -196,7 +254,7 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
           <Input
             id="code"
             value={nextCode}
-            readOnly
+            readOnly={!!editingProduct}
             className="bg-muted"
           />
         </div>
@@ -345,7 +403,7 @@ export const ProductForm = ({ onUnitsModalOpen }: ProductFormProps) => {
       <div className="flex gap-2">
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Cadastrar Produto
+          {editingProduct ? 'Atualizar' : 'Cadastrar'} Produto
         </Button>
         <Button 
           type="button" 
