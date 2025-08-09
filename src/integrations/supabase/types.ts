@@ -360,42 +360,79 @@ export type Database = {
       }
       products: {
         Row: {
+          barcode: string | null
           category: string | null
           code: string | null
           cost_price: number | null
           created_at: string
           description: string | null
+          group_id: string | null
           id: string
           is_active: boolean
+          is_blocked: boolean
           name: string
+          subgroup_id: string | null
+          unit_id: string | null
           unit_price: number | null
           updated_at: string
         }
         Insert: {
+          barcode?: string | null
           category?: string | null
           code?: string | null
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          group_id?: string | null
           id?: string
           is_active?: boolean
+          is_blocked?: boolean
           name: string
+          subgroup_id?: string | null
+          unit_id?: string | null
           unit_price?: number | null
           updated_at?: string
         }
         Update: {
+          barcode?: string | null
           category?: string | null
           code?: string | null
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          group_id?: string | null
           id?: string
           is_active?: boolean
+          is_blocked?: boolean
           name?: string
+          subgroup_id?: string | null
+          unit_id?: string | null
           unit_price?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_subgroup_id_fkey"
+            columns: ["subgroup_id"]
+            isOneToOne: false
+            referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -522,6 +559,33 @@ export type Database = {
         }
         Relationships: []
       }
+      units_of_measure: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string
@@ -605,6 +669,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_product_code: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]

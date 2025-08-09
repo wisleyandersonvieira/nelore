@@ -165,6 +165,8 @@ const Dashboard = () => {
                          navigate("/cadastros");
                        } else if (module.id === "configuracoes") {
                          navigate("/users");
+                       } else if (module.id === "produtos") {
+                         navigate("/products");
                        }
                      }}
                   >
