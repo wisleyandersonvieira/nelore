@@ -1,3 +1,4 @@
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,30 +15,40 @@ import Profiles from "./pages/Profiles";
 import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/cadastros" element={<Cadastros />} />
-          <Route path="/suppliers" element={<Suppliers />} />
-          <Route path="/products" element={<Products />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="/stores" element={<Stores />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/profiles" element={<Profiles />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <TooltipProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/cadastros" element={<Cadastros />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/stores" element={<Stores />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/profiles" element={<Profiles />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <Toaster />
+            <Sonner />
+          </TooltipProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </React.StrictMode>
+  );
+}
 
 export default App;
