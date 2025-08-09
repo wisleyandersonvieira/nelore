@@ -58,7 +58,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
 
   useEffect(() => {
     fetchInitialData();
-    
+  }, []);
+
+  useEffect(() => {
     // Se estiver editando, preencher o formulário
     if (editingProduct) {
       setFormData({
@@ -71,6 +73,17 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         cost_price: editingProduct.cost_price?.toString() || ""
       });
       setNextCode(editingProduct.code);
+    } else {
+      // Se não estiver editando, buscar próximo código
+      const getNextCode = async () => {
+        try {
+          const { data: codeData } = await supabase.rpc('get_next_product_code');
+          setNextCode(codeData?.toString() || "1");
+        } catch (error) {
+          console.error("Error fetching next code:", error);
+        }
+      };
+      getNextCode();
     }
   }, [editingProduct]);
 
@@ -99,10 +112,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
 
   const fetchInitialData = async () => {
     try {
-      // Fetch next code
-      const { data: codeData } = await supabase.rpc('get_next_product_code');
-      setNextCode(codeData?.toString() || "1");
-
       // Fetch units
       const { data: unitsData } = await supabase
         .from("units_of_measure")
