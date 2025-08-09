@@ -60,56 +60,78 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     fetchInitialData();
   }, []);
 
-  // Efeito separado para preencher formulário quando produto for selecionado
+  // Limpar e carregar dados do produto para edição
   useEffect(() => {
     if (editingProduct) {
-      console.log("Editando produto:", editingProduct);
-      
-      // Preencher o formulário com os dados do produto
-      const newFormData = {
-        name: editingProduct.name || "",
-        description: editingProduct.description || "",
-        unit_id: editingProduct.unit_id || undefined,
-        group_id: editingProduct.group_id || undefined,
-        subgroup_id: editingProduct.subgroup_id || undefined,
-        barcode: editingProduct.barcode || "",
-        cost_price: editingProduct.cost_price?.toString() || ""
-      };
-      
-      console.log("Novo form data:", newFormData);
-      setFormData(newFormData);
-      setNextCode(editingProduct.code);
-      
-      // Se o produto tem grupo, buscar os subgrupos
-      if (editingProduct.group_id) {
-        fetchSubgroups(editingProduct.group_id);
-      }
+      loadProductData(editingProduct);
     } else {
-      // Resetar para novo produto
-      const resetFormData = {
-        name: "",
-        description: "",
-        unit_id: undefined,
-        group_id: undefined,
-        subgroup_id: undefined,
-        barcode: "",
-        cost_price: ""
-      };
-      setFormData(resetFormData);
-      setSubgroups([]);
-      
-      // Buscar próximo código
-      const getNextCode = async () => {
-        try {
-          const { data: codeData } = await supabase.rpc('get_next_product_code');
-          setNextCode(codeData?.toString() || "1");
-        } catch (error) {
-          console.error("Error fetching next code:", error);
-        }
-      };
-      getNextCode();
+      resetForm();
     }
   }, [editingProduct]);
+
+  const loadProductData = async (product: any) => {
+    console.log("Carregando dados do produto:", product);
+    
+    // Limpar formulário primeiro
+    setFormData({
+      name: "",
+      description: "",
+      unit_id: undefined,
+      group_id: undefined,
+      subgroup_id: undefined,
+      barcode: "",
+      cost_price: ""
+    });
+    
+    // Aguardar um pouco para garantir que o formulário foi limpo
+    setTimeout(() => {
+      setFormData({
+        name: product.name || "",
+        description: product.description || "",
+        unit_id: product.unit_id || undefined,
+        group_id: product.group_id || undefined,
+        subgroup_id: product.subgroup_id || undefined,
+        barcode: product.barcode || "",
+        cost_price: product.cost_price?.toString() || ""
+      });
+      setNextCode(product.code);
+      
+      // Se tem grupo, buscar subgrupos
+      if (product.group_id) {
+        fetchSubgroups(product.group_id);
+      }
+      
+      console.log("Dados carregados:", {
+        name: product.name || "",
+        description: product.description || "",
+        unit_id: product.unit_id || undefined,
+        group_id: product.group_id || undefined,
+        subgroup_id: product.subgroup_id || undefined,
+        barcode: product.barcode || "",
+        cost_price: product.cost_price?.toString() || ""
+      });
+    }, 100);
+  };
+
+  const resetForm = async () => {
+    setFormData({
+      name: "",
+      description: "",
+      unit_id: undefined,
+      group_id: undefined,
+      subgroup_id: undefined,
+      barcode: "",
+      cost_price: ""
+    });
+    setSubgroups([]);
+    
+    try {
+      const { data: codeData } = await supabase.rpc('get_next_product_code');
+      setNextCode(codeData?.toString() || "1");
+    } catch (error) {
+      console.error("Error fetching next code:", error);
+    }
+  };
 
   // Add a function to refresh units when modal closes
   const refreshUnits = async () => {
