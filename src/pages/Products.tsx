@@ -25,16 +25,16 @@ export default function Products() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="register" className="flex items-center gap-2">
+        <TabsList className="inline-flex h-12 w-full items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+          <TabsTrigger value="register" className="flex items-center gap-2 flex-1">
             <Plus className="h-4 w-4" />
             Cadastrar Produto
           </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
+          <TabsTrigger value="list" className="flex items-center gap-2 flex-1">
             <Package className="h-4 w-4" />
             Produtos Cadastrados
           </TabsTrigger>
-          <TabsTrigger value="units" className="flex items-center gap-2">
+          <TabsTrigger value="units" className="flex items-center gap-2 flex-1">
             <Ruler className="h-4 w-4" />
             Unidades de Medida
           </TabsTrigger>
