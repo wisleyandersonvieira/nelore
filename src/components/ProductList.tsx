@@ -45,8 +45,8 @@ export const ProductList = () => {
   const [filters, setFilters] = useState({
     description: "",
     code: "",
-    group_id: "",
-    subgroup_id: ""
+    group_id: undefined as string | undefined,
+    subgroup_id: undefined as string | undefined
   });
 
   const { toast } = useToast();
@@ -119,13 +119,13 @@ export const ProductList = () => {
       );
     }
 
-    if (filters.group_id) {
+    if (filters.group_id && filters.group_id !== "__all__") {
       filtered = filtered.filter(product => 
         product.group?.name === groups.find(g => g.id === filters.group_id)?.name
       );
     }
 
-    if (filters.subgroup_id) {
+    if (filters.subgroup_id && filters.subgroup_id !== "__all__") {
       filtered = filtered.filter(product => 
         product.subgroup?.name === subgroups.find(s => s.id === filters.subgroup_id)?.name
       );
@@ -190,8 +190,8 @@ export const ProductList = () => {
     setFilters({
       description: "",
       code: "",
-      group_id: "",
-      subgroup_id: ""
+      group_id: undefined,
+      subgroup_id: undefined
     });
   };
 
@@ -237,7 +237,7 @@ export const ProductList = () => {
                   <SelectValue placeholder="Todos os grupos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os grupos</SelectItem>
+                  <SelectItem value="__all__">Todos os grupos</SelectItem>
                   {groups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name}
@@ -254,7 +254,7 @@ export const ProductList = () => {
                   <SelectValue placeholder="Todos os subgrupos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os subgrupos</SelectItem>
+                  <SelectItem value="__all__">Todos os subgrupos</SelectItem>
                   {subgroups.map((subgroup) => (
                     <SelectItem key={subgroup.id} value={subgroup.id}>
                       {subgroup.name}
