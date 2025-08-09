@@ -61,8 +61,8 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   }, []);
 
   useEffect(() => {
-    // Se estiver editando, preencher o formulário
-    if (editingProduct) {
+    // Aguardar as opções serem carregadas antes de preencher o formulário
+    if (editingProduct && units.length > 0 && groups.length > 0) {
       setFormData({
         name: editingProduct.name || "",
         description: editingProduct.description || "",
@@ -73,7 +73,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         cost_price: editingProduct.cost_price?.toString() || ""
       });
       setNextCode(editingProduct.code);
-    } else {
+    } else if (!editingProduct) {
       // Se não estiver editando, buscar próximo código
       const getNextCode = async () => {
         try {
@@ -85,7 +85,14 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       };
       getNextCode();
     }
-  }, [editingProduct]);
+  }, [editingProduct, units, groups]);
+
+  // Buscar subgrupos quando estiver editando um produto que já tem grupo
+  useEffect(() => {
+    if (editingProduct && editingProduct.group_id && groups.length > 0) {
+      fetchSubgroups(editingProduct.group_id);
+    }
+  }, [editingProduct, groups]);
 
   // Add a function to refresh units when modal closes
   const refreshUnits = async () => {
