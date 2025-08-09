@@ -9,6 +9,7 @@ import { UnitsModal } from "@/components/UnitsModal";
 export default function Products() {
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("register");
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -20,7 +21,7 @@ export default function Products() {
         </div>
       </div>
 
-      <Tabs defaultValue="register" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="register" className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
@@ -59,6 +60,7 @@ export default function Products() {
         <TabsContent value="list" className="space-y-4">
           <ProductList onEditProduct={(product) => {
             setEditingProduct(product);
+            setActiveTab("register");
           }} />
         </TabsContent>
 
