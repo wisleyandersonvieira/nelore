@@ -54,6 +54,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     barcode: "",
     cost_price: ""
   });
+  const [formKey, setFormKey] = useState(0); // Key para forçar re-render
   const { toast } = useToast();
 
   useEffect(() => {
@@ -72,48 +73,33 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   const loadProductData = async (product: any) => {
     console.log("Carregando dados do produto:", product);
     
-    // Limpar formulário primeiro
-    setFormData({
-      name: "",
-      description: "",
-      unit_id: undefined,
-      group_id: undefined,
-      subgroup_id: undefined,
-      barcode: "",
-      cost_price: ""
-    });
+    // Forçar re-render incrementando a key
+    setFormKey(prev => prev + 1);
     
-    // Aguardar um pouco para garantir que o formulário foi limpo
-    setTimeout(() => {
-      setFormData({
-        name: product.name || "",
-        description: product.description || "",
-        unit_id: product.unit_id || undefined,
-        group_id: product.group_id || undefined,
-        subgroup_id: product.subgroup_id || undefined,
-        barcode: product.barcode || "",
-        cost_price: product.cost_price?.toString() || ""
-      });
-      setNextCode(product.code);
-      
-      // Se tem grupo, buscar subgrupos
-      if (product.group_id) {
-        fetchSubgroups(product.group_id);
-      }
-      
-      console.log("Dados carregados:", {
-        name: product.name || "",
-        description: product.description || "",
-        unit_id: product.unit_id || undefined,
-        group_id: product.group_id || undefined,
-        subgroup_id: product.subgroup_id || undefined,
-        barcode: product.barcode || "",
-        cost_price: product.cost_price?.toString() || ""
-      });
-    }, 100);
+    // Definir os dados do formulário
+    const newFormData = {
+      name: product.name || "",
+      description: product.description || "",
+      unit_id: product.unit_id || undefined,
+      group_id: product.group_id || undefined,
+      subgroup_id: product.subgroup_id || undefined,
+      barcode: product.barcode || "",
+      cost_price: product.cost_price?.toString() || ""
+    };
+    
+    setFormData(newFormData);
+    setNextCode(product.code);
+    
+    // Se tem grupo, buscar subgrupos
+    if (product.group_id) {
+      await fetchSubgroups(product.group_id);
+    }
+    
+    console.log("Dados carregados:", newFormData);
   };
 
   const resetForm = async () => {
+    setFormKey(prev => prev + 1); // Forçar re-render
     setFormData({
       name: "",
       description: "",
@@ -291,7 +277,8 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   };
 
   return (
-    <form key={editingProduct?.id || 'new'} onSubmit={handleSubmit} className="space-y-6">
+    <div key={formKey}>
+      <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Código (readonly) */}
         <div className="space-y-2">
@@ -331,7 +318,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
               <Plus className="h-3 w-3" />
             </Button>
           </Label>
-          <Select key={`unit-${editingProduct?.id || 'new'}`} value={formData.unit_id} onValueChange={(value) => setFormData({ ...formData, unit_id: value })}>
+          <Select value={formData.unit_id || ""} onValueChange={(value) => setFormData({ ...formData, unit_id: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione a unidade" />
             </SelectTrigger>
@@ -348,7 +335,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         {/* Grupo */}
         <div className="space-y-2">
           <Label htmlFor="group_id">Grupo</Label>
-          <Select key={`group-${editingProduct?.id || 'new'}`} value={formData.group_id} onValueChange={(value) => setFormData({ ...formData, group_id: value })}>
+          <Select value={formData.group_id || ""} onValueChange={(value) => setFormData({ ...formData, group_id: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione o grupo" />
             </SelectTrigger>
@@ -366,8 +353,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         <div className="space-y-2">
           <Label htmlFor="subgroup_id">Subgrupo</Label>
           <Select 
-            key={`subgroup-${editingProduct?.id || 'new'}`}
-            value={formData.subgroup_id} 
+            value={formData.subgroup_id || ""} 
             onValueChange={(value) => setFormData({ ...formData, subgroup_id: value })}
             disabled={!formData.group_id}
           >
@@ -444,6 +430,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           Limpar
         </Button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 };
