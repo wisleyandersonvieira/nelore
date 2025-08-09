@@ -63,6 +63,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   useEffect(() => {
     // Se estiver editando, preencher o formulário
     if (editingProduct) {
+      console.log("Produto para editar:", editingProduct);
       setFormData({
         name: editingProduct.name || "",
         description: editingProduct.description || "",
@@ -73,6 +74,15 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         cost_price: editingProduct.cost_price?.toString() || ""
       });
       setNextCode(editingProduct.code);
+      console.log("Form data preenchido:", {
+        name: editingProduct.name || "",
+        description: editingProduct.description || "",
+        unit_id: editingProduct.unit_id || undefined,
+        group_id: editingProduct.group_id || undefined,
+        subgroup_id: editingProduct.subgroup_id || undefined,
+        barcode: editingProduct.barcode || "",
+        cost_price: editingProduct.cost_price?.toString() || ""
+      });
     } else {
       // Se não estiver editando, buscar próximo código
       const getNextCode = async () => {
