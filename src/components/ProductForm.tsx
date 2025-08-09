@@ -76,7 +76,12 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     // Forçar re-render incrementando a key
     setFormKey(prev => prev + 1);
     
-    // Definir os dados do formulário
+    // Se tem grupo, buscar subgrupos primeiro
+    if (product.group_id) {
+      await fetchSubgroups(product.group_id);
+    }
+    
+    // Definir os dados do formulário após carregar subgrupos
     const newFormData = {
       name: product.name || "",
       description: product.description || "",
@@ -89,11 +94,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     
     setFormData(newFormData);
     setNextCode(product.code);
-    
-    // Se tem grupo, buscar subgrupos
-    if (product.group_id) {
-      await fetchSubgroups(product.group_id);
-    }
     
     console.log("Dados carregados:", newFormData);
   };
