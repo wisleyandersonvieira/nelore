@@ -15,7 +15,6 @@ interface Product {
   code: string;
   name: string;
   description: string;
-  category: string;
   is_active: boolean;
   is_blocked: boolean;
   group_id?: string;
@@ -25,7 +24,6 @@ interface Product {
   subgroup?: { name: string };
   unit?: { name: string; symbol: string };
   cost_price?: number;
-  unit_price?: number;
   barcode?: string;
 }
 
@@ -70,7 +68,7 @@ export const ProductList = ({ onEditProduct }: ProductListProps) => {
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select(`
-          id, code, name, description, category, is_active, is_blocked, barcode, cost_price, unit_price,
+          id, code, name, description, is_active, is_blocked, barcode, cost_price,
           group_id, subgroup_id, unit_id,
           group:account_groups!group_id(name),
           subgroup:account_groups!subgroup_id(name),

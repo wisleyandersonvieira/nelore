@@ -30,14 +30,12 @@ interface Product {
   code: string;
   name: string;
   description: string;
-  category: string;
   is_active: boolean;
   is_blocked: boolean;
   group_id?: string;
   subgroup_id?: string;
   unit_id?: string;
   cost_price?: number;
-  unit_price?: number;
   barcode?: string;
 }
 
@@ -54,9 +52,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     group_id: undefined as string | undefined,
     subgroup_id: undefined as string | undefined,
     barcode: "",
-    cost_price: "",
-    unit_price: "",
-    category: ""
+    cost_price: ""
   });
   const { toast } = useToast();
 
@@ -72,9 +68,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         group_id: editingProduct.group_id || undefined,
         subgroup_id: editingProduct.subgroup_id || undefined,
         barcode: editingProduct.barcode || "",
-        cost_price: editingProduct.cost_price?.toString() || "",
-        unit_price: editingProduct.unit_price?.toString() || "",
-        category: editingProduct.category || ""
+        cost_price: editingProduct.cost_price?.toString() || ""
       });
       setNextCode(editingProduct.code);
     }
@@ -165,8 +159,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         subgroup_id: formData.subgroup_id || null,
         barcode: formData.barcode || null,
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
-        unit_price: formData.unit_price ? parseFloat(formData.unit_price) : null,
-        category: formData.category || null,
         is_active: true
       };
 
@@ -203,9 +195,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           group_id: undefined,
           subgroup_id: undefined,
           barcode: "",
-          cost_price: "",
-          unit_price: "",
-          category: ""
+          cost_price: ""
         });
         
         // Get new next code
@@ -363,29 +353,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           />
         </div>
 
-        {/* Preço de Venda */}
-        <div className="space-y-2">
-          <Label htmlFor="unit_price">Preço de Venda</Label>
-          <Input
-            id="unit_price"
-            type="number"
-            step="0.01"
-            value={formData.unit_price}
-            onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
-            placeholder="0,00"
-          />
-        </div>
-
-        {/* Categoria */}
-        <div className="space-y-2">
-          <Label htmlFor="category">Categoria</Label>
-          <Input
-            id="category"
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            placeholder="Categoria do produto"
-          />
-        </div>
 
         {/* Descrição adicional */}
         <div className="space-y-2 md:col-span-3">
@@ -415,9 +382,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
             group_id: undefined,
             subgroup_id: undefined,
             barcode: "",
-            cost_price: "",
-            unit_price: "",
-            category: ""
+            cost_price: ""
           })}
         >
           Limpar
