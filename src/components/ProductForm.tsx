@@ -60,10 +60,13 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     fetchInitialData();
   }, []);
 
+  // Efeito separado para preencher formulário quando produto for selecionado
   useEffect(() => {
-    // Aguardar as opções serem carregadas antes de preencher o formulário
-    if (editingProduct && units.length > 0 && groups.length > 0) {
-      setFormData({
+    if (editingProduct) {
+      console.log("Editando produto:", editingProduct);
+      
+      // Preencher o formulário com os dados do produto
+      const newFormData = {
         name: editingProduct.name || "",
         description: editingProduct.description || "",
         unit_id: editingProduct.unit_id || undefined,
@@ -71,10 +74,31 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         subgroup_id: editingProduct.subgroup_id || undefined,
         barcode: editingProduct.barcode || "",
         cost_price: editingProduct.cost_price?.toString() || ""
-      });
+      };
+      
+      console.log("Novo form data:", newFormData);
+      setFormData(newFormData);
       setNextCode(editingProduct.code);
-    } else if (!editingProduct) {
-      // Se não estiver editando, buscar próximo código
+      
+      // Se o produto tem grupo, buscar os subgrupos
+      if (editingProduct.group_id) {
+        fetchSubgroups(editingProduct.group_id);
+      }
+    } else {
+      // Resetar para novo produto
+      const resetFormData = {
+        name: "",
+        description: "",
+        unit_id: undefined,
+        group_id: undefined,
+        subgroup_id: undefined,
+        barcode: "",
+        cost_price: ""
+      };
+      setFormData(resetFormData);
+      setSubgroups([]);
+      
+      // Buscar próximo código
       const getNextCode = async () => {
         try {
           const { data: codeData } = await supabase.rpc('get_next_product_code');
@@ -85,14 +109,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       };
       getNextCode();
     }
-  }, [editingProduct, units, groups]);
-
-  // Buscar subgrupos quando estiver editando um produto que já tem grupo
-  useEffect(() => {
-    if (editingProduct && editingProduct.group_id && groups.length > 0) {
-      fetchSubgroups(editingProduct.group_id);
-    }
-  }, [editingProduct, groups]);
+  }, [editingProduct]);
 
   // Add a function to refresh units when modal closes
   const refreshUnits = async () => {
@@ -252,7 +269,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form key={editingProduct?.id || 'new'} onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Código (readonly) */}
         <div className="space-y-2">
