@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, X, Store, Settings } from "lucide-react";
+import { ArrowLeft, Check, X, Store, Settings, UserCog } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,8 +17,10 @@ interface User {
   email: string;
   is_active: boolean;
   store_id: string | null;
+  profile_id: string | null;
   created_at: string;
   user_stores?: { store_id: string }[];
+  user_profiles?: { name: string };
 }
 
 interface Store {
@@ -27,19 +29,29 @@ interface Store {
   code: string;
 }
 
+interface Profile {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 const Users = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [isStoreDialogOpen, setIsStoreDialogOpen] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchUsers();
     fetchStores();
+    fetchProfiles();
   }, []);
 
   const fetchUsers = async () => {
@@ -52,9 +64,13 @@ const Users = () => {
           email,
           is_active,
           store_id,
+          profile_id,
           created_at,
           user_stores (
             store_id
+          ),
+          user_profiles (
+            name
           )
         `)
         .order('created_at', { ascending: false });
@@ -86,6 +102,25 @@ const Users = () => {
         variant: "destructive",
         title: "Erro",
         description: "Erro ao carregar lojas: " + error.message,
+      });
+    }
+  };
+
+  const fetchProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, name, description')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao carregar perfis: " + error.message,
       });
     }
   };
@@ -206,6 +241,41 @@ const Users = () => {
     );
   };
 
+  const openProfileDialog = (user: User) => {
+    setSelectedUser(user);
+    setSelectedProfileId(user.profile_id || "");
+    setIsProfileDialogOpen(true);
+  };
+
+  const handleAssignProfile = async () => {
+    if (!selectedUser || !selectedProfileId) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ profile_id: selectedProfileId })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Perfil vinculado",
+        description: "Perfil foi vinculado ao usuário com sucesso.",
+      });
+
+      setIsProfileDialogOpen(false);
+      setSelectedUser(null);
+      setSelectedProfileId("");
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao vincular perfil: " + error.message,
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -256,6 +326,7 @@ const Users = () => {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Perfil</TableHead>
                   <TableHead>Loja Vinculada</TableHead>
                   <TableHead>Data Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -264,7 +335,7 @@ const Users = () => {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nenhum usuário encontrado
                     </TableCell>
                   </TableRow>
@@ -277,6 +348,9 @@ const Users = () => {
                         <Badge variant={user.is_active ? "default" : "secondary"}>
                           {user.is_active ? "Aprovado" : "Pendente"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.user_profiles?.name || "Nenhum perfil"}
                       </TableCell>
                       <TableCell>{getStoreNames(user)}</TableCell>
                       <TableCell>
@@ -315,6 +389,15 @@ const Users = () => {
                               Desativar
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openProfileDialog(user)}
+                            className="h-8"
+                          >
+                            <UserCog className="h-4 w-4 mr-1" />
+                            Perfil
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -382,6 +465,59 @@ const Users = () => {
                 <Button 
                   variant="outline" 
                   onClick={() => setIsStoreDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para vincular perfil */}
+        <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Vincular Perfil ao Usuário</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div>
+                <Label className="text-sm font-medium">Usuário</Label>
+                <p className="text-sm text-muted-foreground">
+                  {selectedUser?.name} ({selectedUser?.email})
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile">Perfil</Label>
+                <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um perfil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profiles.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.name}
+                        {profile.description && (
+                          <span className="text-muted-foreground ml-2">
+                            - {profile.description}
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleAssignProfile} 
+                  className="flex-1"
+                  disabled={!selectedProfileId}
+                >
+                  Vincular Perfil
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsProfileDialogOpen(false)}
                   className="flex-1"
                 >
                   Cancelar
