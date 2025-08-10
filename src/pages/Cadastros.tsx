@@ -2,17 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Users, Store, FileText, FolderTree } from "lucide-react";
+import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard } from "lucide-react";
 import { SuppliersModal } from "@/components/SuppliersModal";
 import { StoresModal } from "@/components/StoresModal";
 import { GrupoModal } from "@/components/GrupoModal";
 import { SubgrupoModal } from "@/components/SubgrupoModal";
+import { CurrentAccountsModal } from "@/components/CurrentAccountsModal";
 
 const Cadastros = () => {
   const [suppliersModalOpen, setSuppliersModalOpen] = useState(false);
   const [storesModalOpen, setStoresModalOpen] = useState(false);
   const [grupoModalOpen, setGrupoModalOpen] = useState(false);
   const [subgrupoModalOpen, setSubgrupoModalOpen] = useState(false);
+  const [currentAccountsModalOpen, setCurrentAccountsModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const cadastroModules = [
@@ -47,6 +49,14 @@ const Cadastros = () => {
       icon: FolderTree,
       color: "bg-green-500", 
       onClick: () => setSubgrupoModalOpen(true),
+    },
+    {
+      id: "contas-correntes",
+      title: "Contas Correntes",
+      description: "Cadastro e gestão de contas bancárias",
+      icon: CreditCard,
+      color: "bg-purple-500", 
+      onClick: () => setCurrentAccountsModalOpen(true),
     },
   ];
 
@@ -119,6 +129,10 @@ const Cadastros = () => {
       <SubgrupoModal 
         open={subgrupoModalOpen} 
         onOpenChange={setSubgrupoModalOpen} 
+      />
+      <CurrentAccountsModal 
+        open={currentAccountsModalOpen} 
+        onOpenChange={setCurrentAccountsModalOpen} 
       />
     </div>
   );
