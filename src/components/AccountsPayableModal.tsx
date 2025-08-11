@@ -252,7 +252,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           store_id: userStore.data?.store_id,
           created_by: user.id,
           due_date: issueDate, // Using issue date as due date for now
-          account_id: "00000000-0000-0000-0000-000000000000", // Temporary, should be selected
+          account_id: "11111111-1111-1111-1111-111111111111", // Conta padrão: Contas a Pagar
         })
         .select()
         .single();

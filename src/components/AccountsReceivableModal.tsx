@@ -252,7 +252,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           store_id: userStore.data?.store_id,
           created_by: user.id,
           due_date: issueDate, // Using issue date as due date for now
-          account_id: "00000000-0000-0000-0000-000000000000", // Temporary, should be selected
+          account_id: "22222222-2222-2222-2222-222222222222", // Conta padrão: Contas a Receber
         })
         .select()
         .single();
