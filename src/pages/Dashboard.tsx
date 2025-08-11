@@ -229,15 +229,20 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* Modals */}
-      <AccountsPayableModal 
-        open={accountsPayableOpen} 
-        onOpenChange={setAccountsPayableOpen} 
-      />
-      <AccountsReceivableModal 
-        open={accountsReceivableOpen} 
-        onOpenChange={setAccountsReceivableOpen} 
-      />
+      {/* Account Modals */}
+      {accountsPayableOpen && (
+        <AccountsPayableModal 
+          open={accountsPayableOpen} 
+          onOpenChange={setAccountsPayableOpen} 
+        />
+      )}
+      
+      {accountsReceivableOpen && (
+        <AccountsReceivableModal 
+          open={accountsReceivableOpen} 
+          onOpenChange={setAccountsReceivableOpen} 
+        />
+      )}
     </div>
   );
 };
