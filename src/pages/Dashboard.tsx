@@ -17,10 +17,14 @@ import {
   Settings,
   Database
 } from "lucide-react";
+import { AccountsPayableModal } from "@/components/AccountsPayableModal";
+import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
+  const [accountsReceivableOpen, setAccountsReceivableOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -167,6 +171,10 @@ const Dashboard = () => {
                          navigate("/users");
                        } else if (module.id === "produtos") {
                          navigate("/products");
+                       } else if (module.id === "contas-pagar") {
+                         setAccountsPayableOpen(true);
+                       } else if (module.id === "contas-receber") {
+                         setAccountsReceivableOpen(true);
                        }
                      }}
                   >
@@ -220,6 +228,16 @@ const Dashboard = () => {
           </Card>
         </div>
       </main>
+
+      {/* Modals */}
+      <AccountsPayableModal 
+        open={accountsPayableOpen} 
+        onOpenChange={setAccountsPayableOpen} 
+      />
+      <AccountsReceivableModal 
+        open={accountsReceivableOpen} 
+        onOpenChange={setAccountsReceivableOpen} 
+      />
     </div>
   );
 };

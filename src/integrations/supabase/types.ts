@@ -56,13 +56,17 @@ export type Database = {
           created_at: string
           created_by: string
           description: string
+          document_number: string | null
+          document_type: string | null
           due_date: string
           id: string
+          issue_date: string | null
           notes: string | null
           payment_date: string | null
           status: string
           store_id: string
           supplier_id: string | null
+          total_amount: number | null
           updated_at: string
         }
         Insert: {
@@ -71,13 +75,17 @@ export type Database = {
           created_at?: string
           created_by: string
           description: string
+          document_number?: string | null
+          document_type?: string | null
           due_date: string
           id?: string
+          issue_date?: string | null
           notes?: string | null
           payment_date?: string | null
           status?: string
           store_id: string
           supplier_id?: string | null
+          total_amount?: number | null
           updated_at?: string
         }
         Update: {
@@ -86,13 +94,17 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string
+          document_number?: string | null
+          document_type?: string | null
           due_date?: string
           id?: string
+          issue_date?: string | null
           notes?: string | null
           payment_date?: string | null
           status?: string
           store_id?: string
           supplier_id?: string | null
+          total_amount?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -126,19 +138,79 @@ export type Database = {
           },
         ]
       }
+      accounts_payable_items: {
+        Row: {
+          account_payable_id: string
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          store_id: string
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          account_payable_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          store_id: string
+          total_price?: number
+          unit_price?: number
+        }
+        Update: {
+          account_payable_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          store_id?: string
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_items_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_items_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_receivable: {
         Row: {
           account_id: string
           amount: number
           created_at: string
           created_by: string
+          creditor_id: string | null
           description: string
+          document_number: string | null
+          document_type: string | null
           due_date: string
           id: string
+          issue_date: string | null
           notes: string | null
           payment_date: string | null
           status: string
           store_id: string
+          total_amount: number | null
           updated_at: string
         }
         Insert: {
@@ -146,13 +218,18 @@ export type Database = {
           amount: number
           created_at?: string
           created_by: string
+          creditor_id?: string | null
           description: string
+          document_number?: string | null
+          document_type?: string | null
           due_date: string
           id?: string
+          issue_date?: string | null
           notes?: string | null
           payment_date?: string | null
           status?: string
           store_id: string
+          total_amount?: number | null
           updated_at?: string
         }
         Update: {
@@ -160,13 +237,18 @@ export type Database = {
           amount?: number
           created_at?: string
           created_by?: string
+          creditor_id?: string | null
           description?: string
+          document_number?: string | null
+          document_type?: string | null
           due_date?: string
           id?: string
+          issue_date?: string | null
           notes?: string | null
           payment_date?: string | null
           status?: string
           store_id?: string
+          total_amount?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -185,7 +267,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "accounts_receivable_creditor_id_fkey"
+            columns: ["creditor_id"]
+            isOneToOne: false
+            referencedRelation: "creditors"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accounts_receivable_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_receivable_items: {
+        Row: {
+          account_receivable_id: string
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          store_id: string
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          account_receivable_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          store_id: string
+          total_price?: number
+          unit_price?: number
+        }
+        Update: {
+          account_receivable_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          store_id?: string
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_items_account_receivable_id_fkey"
+            columns: ["account_receivable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_items_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
