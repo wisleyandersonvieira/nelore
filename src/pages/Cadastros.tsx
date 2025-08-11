@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard } from "lucide-react";
 import { SuppliersModal } from "@/components/SuppliersModal";
+import { CreditorsModal } from "@/components/CreditorsModal";
 import { StoresModal } from "@/components/StoresModal";
 import { GrupoModal } from "@/components/GrupoModal";
 import { SubgrupoModal } from "@/components/SubgrupoModal";
@@ -11,6 +12,7 @@ import { CurrentAccountsModal } from "@/components/CurrentAccountsModal";
 
 const Cadastros = () => {
   const [suppliersModalOpen, setSuppliersModalOpen] = useState(false);
+  const [creditorsModalOpen, setCreditorsModalOpen] = useState(false);
   const [storesModalOpen, setStoresModalOpen] = useState(false);
   const [grupoModalOpen, setGrupoModalOpen] = useState(false);
   const [subgrupoModalOpen, setSubgrupoModalOpen] = useState(false);
@@ -25,6 +27,14 @@ const Cadastros = () => {
       icon: Users,
       color: "bg-orange-500",
       onClick: () => setSuppliersModalOpen(true),
+    },
+    {
+      id: "credores",
+      title: "Credores", 
+      description: "Cadastro e gestão de credores",
+      icon: Users,
+      color: "bg-green-600",
+      onClick: () => setCreditorsModalOpen(true),
     },
     {
       id: "lojas",
@@ -117,6 +127,10 @@ const Cadastros = () => {
       <SuppliersModal 
         open={suppliersModalOpen} 
         onOpenChange={setSuppliersModalOpen} 
+      />
+      <CreditorsModal 
+        open={creditorsModalOpen} 
+        onOpenChange={setCreditorsModalOpen} 
       />
       <StoresModal 
         open={storesModalOpen} 
