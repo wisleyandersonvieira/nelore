@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Search } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,6 +46,19 @@ interface ReceivableItem {
   store_name: string;
 }
 
+interface AccountReceivable {
+  id: string;
+  description: string;
+  amount: number;
+  due_date: string;
+  status: string;
+  document_type?: string;
+  document_number?: string;
+  creditors?: { name: string };
+  stores?: { name: string };
+  created_at: string;
+}
+
 const documentTypes = [
   { value: "NF", label: "Nota Fiscal (NF)" },
   { value: "RC", label: "Recibo (RC)" },
@@ -56,6 +69,8 @@ const documentTypes = [
 ];
 
 export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivableModalProps) {
+  const [activeTab, setActiveTab] = useState("view");
+  const [accountsReceivable, setAccountsReceivable] = useState<AccountReceivable[]>([]);
   const [creditors, setCreditors] = useState<Creditor[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -81,8 +96,34 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       fetchCreditors();
       fetchProducts();
       fetchStores();
+      if (activeTab === "view") {
+        fetchAccountsReceivable();
+      }
     }
-  }, [open]);
+  }, [open, activeTab]);
+
+  const fetchAccountsReceivable = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("accounts_receivable")
+        .select(`
+          *,
+          creditors(name),
+          stores(name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setAccountsReceivable(data || []);
+    } catch (error) {
+      console.error("Error fetching accounts receivable:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar contas a receber",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchCreditors = async () => {
     try {
@@ -187,28 +228,6 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
-  const getTotalByStore = () => {
-    const storeMap = new Map<string, { name: string; total: number }>();
-    
-    items.forEach(item => {
-      const existing = storeMap.get(item.store_id);
-      if (existing) {
-        existing.total += item.total_price;
-      } else {
-        storeMap.set(item.store_id, {
-          name: item.store_name,
-          total: item.total_price,
-        });
-      }
-    });
-
-    return Array.from(storeMap.entries()).map(([id, data]) => ({
-      store_id: id,
-      store_name: data.name,
-      total: data.total,
-    }));
-  };
-
   const handleSave = async () => {
     if (!creditorId || !documentType || !documentNumber || !issueDate) {
       toast({
@@ -251,8 +270,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           notes,
           store_id: userStore.data?.store_id,
           created_by: user.id,
-          due_date: issueDate, // Using issue date as due date for now
-          account_id: "22222222-2222-2222-2222-222222222222", // Conta padrão: Contas a Receber
+          due_date: issueDate,
+          account_id: "22222222-2222-2222-2222-222222222222",
         })
         .select()
         .single();
@@ -280,14 +299,15 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         description: "Conta a receber criada com sucesso",
       });
 
-      // Reset form
+      // Reset form and switch to view
       setCreditorId("");
       setDocumentType("");
       setDocumentNumber("");
       setIssueDate("");
       setNotes("");
       setItems([]);
-      onOpenChange(false);
+      setActiveTab("view");
+      fetchAccountsReceivable();
 
     } catch (error) {
       console.error("Error saving:", error);
@@ -307,227 +327,278 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         <DialogHeader>
           <DialogTitle>Contas a Receber</DialogTitle>
         </DialogHeader>
-
-        <Tabs defaultValue="form" className="w-full">
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="form">Formulário</TabsTrigger>
-            <TabsTrigger value="items">Itens ({items.length})</TabsTrigger>
+            <TabsTrigger value="view">Visualizar Contas</TabsTrigger>
+            <TabsTrigger value="create">Cadastrar Conta</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="form" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="creditor">Credor *</Label>
-                <Select value={creditorId} onValueChange={setCreditorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um credor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {creditors.map((creditor) => (
-                      <SelectItem key={creditor.id} value={creditor.id}>
-                        {creditor.name} {creditor.cnpj_cpf && `(${creditor.cnpj_cpf})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="documentType">Tipo do Documento *</Label>
-                <Select value={documentType} onValueChange={setDocumentType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="documentNumber">Número do Documento *</Label>
-                <Input
-                  id="documentNumber"
-                  value={documentNumber}
-                  onChange={(e) => setDocumentNumber(e.target.value)}
-                  placeholder="Ex: 12345"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="issueDate">Data de Emissão *</Label>
-                <Input
-                  id="issueDate"
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                />
-              </div>
+          <TabsContent value="view">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contas a Receber Cadastradas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Credor</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Tipo Doc.</TableHead>
+                        <TableHead>Número Doc.</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {accountsReceivable.map((account) => (
+                        <TableRow key={account.id}>
+                          <TableCell>{account.description}</TableCell>
+                          <TableCell>{account.creditors?.name || '-'}</TableCell>
+                          <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              account.status === 'paid' ? 'bg-green-100 text-green-800' :
+                              account.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {account.status === 'paid' ? 'Recebido' :
+                               account.status === 'pending' ? 'Pendente' : 'Vencido'}
+                            </span>
+                          </TableCell>
+                          <TableCell>{account.document_type || '-'}</TableCell>
+                          <TableCell>{account.document_number || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                      {accountsReceivable.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground">
+                            Nenhuma conta a receber encontrada
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observações adicionais..."
-                rows={3}
-              />
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Adicionar Item</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label>Produto</Label>
-                    <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.code ? `${product.code} - ` : ""}{product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Quantidade</Label>
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Valor Unitário</Label>
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={unitPrice}
-                      onChange={(e) => setUnitPrice(Number(e.target.value))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Loja</Label>
-                    <Select value={selectedStore} onValueChange={setSelectedStore}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stores.map((store) => (
-                          <SelectItem key={store.id} value={store.id}>
-                            {store.code} - {store.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <div className="text-lg font-semibold">
-                    Total do Item: R$ {(quantity * unitPrice).toFixed(2)}
-                  </div>
-                  <Button onClick={addItem}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Item
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
-          <TabsContent value="items" className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>Valor Unit.</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Loja</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.product_name}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
-                    <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
-                    <TableCell>{item.store_name}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <TabsContent value="create">
+            <div className="space-y-6">
+              <Tabs defaultValue="form" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="form">Formulário</TabsTrigger>
+                  <TabsTrigger value="items">Itens ({items.length})</TabsTrigger>
+                </TabsList>
 
-            {items.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Geral</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-primary">
-                      R$ {getTotalAmount().toFixed(2)}
+                <TabsContent value="form" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="creditor">Credor *</Label>
+                      <Select value={creditorId} onValueChange={setCreditorId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um credor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {creditors.map((creditor) => (
+                            <SelectItem key={creditor.id} value={creditor.id}>
+                              {creditor.name} {creditor.cnpj_cpf && `(${creditor.cnpj_cpf})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </CardContent>
-                </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total por Loja</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {getTotalByStore().map((storeTotal) => (
-                      <div key={storeTotal.store_id} className="flex justify-between">
-                        <span>{storeTotal.store_name}:</span>
-                        <span className="font-semibold">R$ {storeTotal.total.toFixed(2)}</span>
+                    <div className="space-y-2">
+                      <Label htmlFor="documentType">Tipo do Documento *</Label>
+                      <Select value={documentType} onValueChange={setDocumentType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {documentTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="documentNumber">Número do Documento *</Label>
+                      <Input
+                        id="documentNumber"
+                        value={documentNumber}
+                        onChange={(e) => setDocumentNumber(e.target.value)}
+                        placeholder="Ex: 12345"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="issueDate">Data de Emissão *</Label>
+                      <Input
+                        id="issueDate"
+                        type="date"
+                        value={issueDate}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Observações</Label>
+                    <Textarea
+                      id="notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Observações adicionais..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Adicionar Item</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                          <Label>Produto</Label>
+                          <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.map((product) => (
+                                <SelectItem key={product.id} value={product.id}>
+                                  {product.code ? `${product.code} - ` : ""}{product.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Quantidade</Label>
+                          <Input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={quantity}
+                            onChange={(e) => setQuantity(Number(e.target.value))}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Valor Unitário</Label>
+                          <Input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={unitPrice}
+                            onChange={(e) => setUnitPrice(Number(e.target.value))}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Loja</Label>
+                          <Select value={selectedStore} onValueChange={setSelectedStore}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                  {store.code} - {store.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
+
+                      <div className="flex justify-between items-center">
+                        <div className="text-lg font-semibold">
+                          Total do Item: R$ {(quantity * unitPrice).toFixed(2)}
+                        </div>
+                        <Button onClick={addItem}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Item
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="items" className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produto</TableHead>
+                        <TableHead>Quantidade</TableHead>
+                        <TableHead>Valor Unit.</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Loja</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.product_name}</TableCell>
+                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
+                          <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
+                          <TableCell>{item.store_name}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeItem(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {items.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Total Geral</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-primary">
+                          R$ {getTotalAmount().toFixed(2)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSave} disabled={loading}>
+                  {loading ? "Salvando..." : "Salvar"}
+                </Button>
               </div>
-            )}
+            </div>
           </TabsContent>
         </Tabs>
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "Salvando..." : "Salvar"}
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+export default AccountsReceivableModal;
