@@ -35,6 +35,13 @@ interface Store {
   code: string;
 }
 
+interface CurrentAccount {
+  id: string;
+  name: string;
+  bank: string;
+  account_number: string;
+}
+
 interface PayableItem {
   id?: string;
   product_id: string;
@@ -74,8 +81,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
+  const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
   const [items, setItems] = useState<PayableItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Payment form fields
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
   const { toast } = useToast();
 
   // Form fields
@@ -96,7 +108,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchSuppliers();
       fetchProducts();
       fetchStores();
-      if (activeTab === "view") {
+      fetchCurrentAccounts();
+      if (activeTab === "view" || activeTab === "payment") {
         fetchAccountsPayable();
       }
     }
@@ -179,6 +192,26 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       toast({
         title: "Erro",
         description: "Erro ao buscar lojas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchCurrentAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("current_accounts")
+        .select("id, name, bank, account_number")
+        .eq("is_active", true)
+        .order("name");
+
+      if (error) throw error;
+      setCurrentAccounts(data || []);
+    } catch (error) {
+      console.error("Error fetching current accounts:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar contas correntes",
         variant: "destructive",
       });
     }
@@ -321,6 +354,74 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
   };
 
+  const handlePayment = async (accountId: string) => {
+    if (!selectedAccountId || !paymentDate) {
+      toast({
+        title: "Erro",
+        description: "Selecione a conta corrente e data de pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("accounts_payable")
+        .update({
+          status: "paid",
+          payment_date: paymentDate,
+        })
+        .eq("id", accountId);
+
+      if (error) throw error;
+
+      // Create financial transaction record
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
+        
+        const account = accountsPayable.find(acc => acc.id === accountId);
+        if (account) {
+          await supabase
+            .from("financial_transactions")
+            .insert({
+              account_id: selectedAccountId,
+              store_id: userStore.data?.store_id,
+              transaction_type: "saida",
+              amount: account.amount,
+              transaction_date: paymentDate,
+              description: `Pagamento - ${account.description}`,
+              reference_type: "accounts_payable",
+              reference_id: accountId,
+              created_by: user.id,
+            });
+        }
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Pagamento registrado com sucesso",
+      });
+
+      // Reset form and refresh data
+      setSelectedAccountId("");
+      setPaymentDate("");
+      fetchAccountsPayable();
+
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao processar pagamento",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -329,8 +430,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="view">Visualizar Contas</TabsTrigger>
+            <TabsTrigger value="payment">Baixar Contas</TabsTrigger>
             <TabsTrigger value="create">Cadastrar Conta</TabsTrigger>
           </TabsList>
 
@@ -378,6 +480,88 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         <TableRow>
                           <TableCell colSpan={7} className="text-center text-muted-foreground">
                             Nenhuma conta a pagar encontrada
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="payment">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Baixar Contas a Pagar</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Conta Corrente *</Label>
+                      <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a conta" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name} - {account.bank} ({account.account_number})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Data de Pagamento *</Label>
+                      <Input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Fornecedor</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {accountsPayable.filter(account => account.status === 'pending').map((account) => (
+                        <TableRow key={account.id}>
+                          <TableCell>{account.description}</TableCell>
+                          <TableCell>{account.suppliers?.name || '-'}</TableCell>
+                          <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">
+                              Pendente
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              onClick={() => handlePayment(account.id)}
+                              disabled={loading || !selectedAccountId || !paymentDate}
+                            >
+                              {loading ? "Processando..." : "Baixar"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {accountsPayable.filter(account => account.status === 'pending').length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            Nenhuma conta pendente encontrada
                           </TableCell>
                         </TableRow>
                       )}
