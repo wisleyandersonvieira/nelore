@@ -138,6 +138,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchProducts();
       fetchStores();
       fetchCurrentAccounts();
+      if (activeTab === "view") {
+        // Buscar todas as contas por padrão na aba visualizar
+        fetchFilteredAccountsPayable();
+      }
       if (activeTab === "payment") {
         clearPaymentFilters();
       }
@@ -239,27 +243,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .select(`
           *,
           suppliers(name),
-          stores(name),
-          financial_transactions!accounts_payable_reference_id_fkey(
-            account_id,
-            current_accounts(name)
-          )
+          stores(name)
         `);
 
-      // Apply filters
+      // Apply filters only if they have values
       if (filterDateFrom) {
         query = query.gte("payment_date", filterDateFrom);
       }
       if (filterDateTo) {
         query = query.lte("payment_date", filterDateTo);
       }
-      if (filterSupplier && filterSupplier !== "all") {
+      if (filterSupplier && filterSupplier !== "all" && filterSupplier !== "") {
         query = query.eq("supplier_id", filterSupplier);
       }
-      if (filterStore && filterStore !== "all") {
+      if (filterStore && filterStore !== "all" && filterStore !== "") {
         query = query.eq("store_id", filterStore);
       }
-      if (filterDocumentNumber) {
+      if (filterDocumentNumber.trim()) {
         query = query.ilike("document_number", `%${filterDocumentNumber}%`);
       }
       if (filterDueDateFrom) {
