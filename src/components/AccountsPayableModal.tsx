@@ -300,7 +300,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setShowFilteredData(false);
   };
 
-  const handleEditAccount = (account: AccountPayable) => {
+  const handleEditAccount = async (account: AccountPayable) => {
     setEditingAccount(account);
     setIsEditing(true);
     // Find the actual supplier ID from the suppliers array
@@ -311,6 +311,41 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setIssueDate(account.issue_date || "");
     setDueDate(account.due_date || "");
     setNotes(account.notes || "");
+    
+    // Fetch items for this account
+    try {
+      const { data: itemsData, error } = await supabase
+        .from("accounts_payable_items")
+        .select(`
+          *,
+          products(name),
+          stores(name)
+        `)
+        .eq("account_payable_id", account.id);
+
+      if (error) throw error;
+
+      const formattedItems: PayableItem[] = (itemsData || []).map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        product_name: item.products?.name || "",
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        total_price: Number(item.total_price),
+        store_id: item.store_id,
+        store_name: item.stores?.name || ""
+      }));
+
+      setItems(formattedItems);
+    } catch (error) {
+      console.error("Error fetching account items:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar itens da conta",
+        variant: "destructive",
+      });
+    }
+    
     setActiveTab("create");
   };
 
@@ -554,50 +589,101 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (!user) throw new Error("Usuário não autenticado");
 
       const totalAmount = getTotalAmount();
-      const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
 
-      // Insert accounts payable
-      const { data: payable, error: payableError } = await supabase
-        .from("accounts_payable")
-        .insert({
-          supplier_id: supplierId,
-          document_type: documentType,
-          document_number: documentNumber,
-          issue_date: issueDate,
-          description: `${documentType} ${documentNumber}`,
-          amount: totalAmount,
-          total_amount: totalAmount,
-          notes,
-          store_id: userStore.data?.store_id,
-          created_by: user.id,
-          due_date: dueDate,
-          account_id: "11111111-1111-1111-1111-111111111111",
-        })
-        .select()
-        .single();
+      if (isEditing && editingAccount) {
+        // Update existing account
+        const { error: updateError } = await supabase
+          .from("accounts_payable")
+          .update({
+            supplier_id: supplierId,
+            document_type: documentType,
+            document_number: documentNumber,
+            issue_date: issueDate,
+            due_date: dueDate,
+            description: `${documentType} ${documentNumber}`,
+            amount: totalAmount,
+            total_amount: totalAmount,
+            notes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingAccount.id);
 
-      if (payableError) throw payableError;
+        if (updateError) throw updateError;
 
-      // Insert items
-      const itemsToInsert = items.map(item => ({
-        account_payable_id: payable.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        store_id: item.store_id,
-      }));
+        // Delete existing items
+        const { error: deleteItemsError } = await supabase
+          .from("accounts_payable_items")
+          .delete()
+          .eq("account_payable_id", editingAccount.id);
 
-      const { error: itemsError } = await supabase
-        .from("accounts_payable_items")
-        .insert(itemsToInsert);
+        if (deleteItemsError) throw deleteItemsError;
 
-      if (itemsError) throw itemsError;
+        // Insert new items
+        const itemsToInsert = items.map(item => ({
+          account_payable_id: editingAccount.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          store_id: item.store_id,
+        }));
 
-      toast({
-        title: "Sucesso",
-        description: "Conta a pagar criada com sucesso",
-      });
+        const { error: itemsError } = await supabase
+          .from("accounts_payable_items")
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+
+        toast({
+          title: "Sucesso",
+          description: "Conta a pagar atualizada com sucesso",
+        });
+      } else {
+        // Create new account
+        const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
+
+        const { data: payable, error: payableError } = await supabase
+          .from("accounts_payable")
+          .insert({
+            supplier_id: supplierId,
+            document_type: documentType,
+            document_number: documentNumber,
+            issue_date: issueDate,
+            description: `${documentType} ${documentNumber}`,
+            amount: totalAmount,
+            total_amount: totalAmount,
+            notes,
+            store_id: userStore.data?.store_id,
+            created_by: user.id,
+            due_date: dueDate,
+            account_id: "11111111-1111-1111-1111-111111111111",
+          })
+          .select()
+          .single();
+
+        if (payableError) throw payableError;
+
+        // Insert items
+        const itemsToInsert = items.map(item => ({
+          account_payable_id: payable.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          store_id: item.store_id,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("accounts_payable_items")
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+
+        toast({
+          title: "Sucesso",
+          description: "Conta a pagar criada com sucesso",
+        });
+      }
 
       // Reset form and switch to view
       setSupplierId("");
