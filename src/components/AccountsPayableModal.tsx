@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import * as pdfjsLib from 'pdfjs-dist';
 
 interface AccountsPayableModalProps {
   open: boolean;
@@ -660,6 +661,140 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         variant: "destructive",
       });
     }
+  };
+
+  const extractDataFromPDF = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Configure PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+      
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      const page = await pdf.getPage(1); // Primeira página
+      const textContent = await page.getTextContent();
+      
+      const text = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+
+      console.log('Texto extraído do PDF:', text);
+
+      // Extrair CNPJ (formato XX.XXX.XXX/XXXX-XX)
+      const cnpjMatch = text.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
+      const cnpj = cnpjMatch ? cnpjMatch[1] : null;
+
+      // Extrair número do documento (procura por padrões de número após "Nº" ou similar)
+      const docNumberMatch = text.match(/N[ºo°]\s*(\d+)/i) || text.match(/SÉRIE:\s*\d+\s*(\d+)/);
+      const documentNumber = docNumberMatch ? docNumberMatch[1] : null;
+
+      // Extrair data de emissão (formatos DD/MM/YYYY)
+      const dateMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/);
+      const issueDate = dateMatch ? dateMatch[1] : null;
+
+      return {
+        cnpj,
+        documentNumber,
+        issueDate,
+        text // Para debug
+      };
+    } catch (error) {
+      console.error('Erro ao extrair dados do PDF:', error);
+      throw error;
+    }
+  };
+
+  const handleNFEUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione apenas arquivos PDF",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Extrair dados do PDF
+      const extractedData = await extractDataFromPDF(file);
+      console.log('Dados extraídos:', extractedData);
+
+      // Verificar se encontrou CNPJ
+      if (!extractedData.cnpj) {
+        toast({
+          title: "Erro",
+          description: "CNPJ do fornecedor não encontrado no PDF",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Buscar fornecedor pelo CNPJ
+      const { data: supplier, error: supplierError } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('cnpj_cpf', extractedData.cnpj)
+        .eq('is_active', true)
+        .single();
+
+      if (supplierError || !supplier) {
+        toast({
+          title: "Fornecedor não encontrado",
+          description: `O fornecedor com CNPJ ${extractedData.cnpj} não está cadastrado. Cadastre o fornecedor e tente novamente.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Upload do arquivo
+      const fileName = `nfe_${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('account-documents')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Pré-preencher formulário
+      setSupplierId(supplier.id);
+      setDocumentType('NF');
+      setDocumentNumber(extractedData.documentNumber || '');
+      setIssueDate(extractedData.issueDate ? formatDateForInput(extractedData.issueDate) : '');
+      
+      // Adicionar arquivo aos anexos existentes
+      setExistingAttachments(prev => [
+        ...prev,
+        {
+          name: file.name,
+          url: fileName,
+          size: file.size
+        }
+      ]);
+
+      toast({
+        title: "NFE processada com sucesso",
+        description: `Fornecedor: ${supplier.name}${extractedData.documentNumber ? `, Documento: ${extractedData.documentNumber}` : ''}`,
+      });
+
+    } catch (error) {
+      console.error('Erro ao processar NFE:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao processar arquivo da NFE",
+        variant: "destructive",
+      });
+    }
+
+    // Limpar input
+    event.target.value = '';
+  };
+
+  const formatDateForInput = (dateString: string) => {
+    // Converte DD/MM/YYYY para YYYY-MM-DD
+    const [day, month, year] = dateString.split('/');
+    return `${year}-${month}-${day}`;
   };
 
   const handleSave = async () => {
@@ -1375,6 +1510,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             onChange={handleFileUpload}
                             className="hidden"
                           />
+                          <input
+                            id="nfe-upload"
+                            type="file"
+                            accept=".pdf"
+                            onChange={handleNFEUpload}
+                            className="hidden"
+                          />
                           <Button
                             type="button"
                             variant="outline"
@@ -1383,6 +1525,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           >
                             <Upload className="h-4 w-4" />
                             Selecionar Arquivos
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            onClick={() => document.getElementById('nfe-upload')?.click()}
+                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                          >
+                            <FileDown className="h-4 w-4" />
+                            Cadastrar NFE
                           </Button>
                           <span className="text-sm text-muted-foreground">
                             PDF, imagens, documentos (máx. 10MB cada)
