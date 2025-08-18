@@ -631,18 +631,35 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('account-documents')
-        .getPublicUrl(fileName);
-
+      // Store the file path instead of public URL for private buckets
       uploadedFiles.push({
         name: file.name,
-        url: publicUrl,
+        url: fileName, // Store file path for private bucket
         size: file.size
       });
     }
 
     return uploadedFiles;
+  };
+
+  const downloadFile = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+      if (error) throw error;
+
+      // Open the signed URL in a new tab
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao baixar arquivo",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -1392,7 +1409,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => window.open(file.url, '_blank')}
+                                    onClick={() => downloadFile(file.url, file.name)}
                                   >
                                     Ver
                                   </Button>
