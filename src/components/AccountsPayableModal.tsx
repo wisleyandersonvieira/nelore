@@ -61,6 +61,8 @@ interface AccountPayable {
   status: string;
   document_type?: string;
   document_number?: string;
+  issue_date?: string;
+  notes?: string;
   suppliers?: { name: string };
   stores?: { name: string };
   created_at: string;
@@ -90,6 +92,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [paymentDate, setPaymentDate] = useState("");
   const { toast } = useToast();
 
+  // Filter fields
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterSupplier, setFilterSupplier] = useState("");
+  const [filterStore, setFilterStore] = useState("");
+  const [filterDocumentNumber, setFilterDocumentNumber] = useState("");
+  const [filterCurrentAccount, setFilterCurrentAccount] = useState("");
+  const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
+  const [filterDueDateTo, setFilterDueDateTo] = useState("");
+  const [showFilteredData, setShowFilteredData] = useState(false);
+
+  // Edit mode
+  const [editingAccount, setEditingAccount] = useState<AccountPayable | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
   // Form fields
   const [supplierId, setSupplierId] = useState("");
   const [documentType, setDocumentType] = useState("");
@@ -109,7 +126,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchProducts();
       fetchStores();
       fetchCurrentAccounts();
-      if (activeTab === "view" || activeTab === "payment") {
+      if (activeTab === "payment") {
         fetchAccountsPayable();
       }
     }
@@ -135,6 +152,127 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         description: "Erro ao buscar contas a pagar",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchFilteredAccountsPayable = async () => {
+    try {
+      let query = supabase
+        .from("accounts_payable")
+        .select(`
+          *,
+          suppliers(name),
+          stores(name),
+          financial_transactions!accounts_payable_reference_id_fkey(
+            account_id,
+            current_accounts(name)
+          )
+        `);
+
+      // Apply filters
+      if (filterDateFrom) {
+        query = query.gte("payment_date", filterDateFrom);
+      }
+      if (filterDateTo) {
+        query = query.lte("payment_date", filterDateTo);
+      }
+      if (filterSupplier) {
+        query = query.eq("supplier_id", filterSupplier);
+      }
+      if (filterStore) {
+        query = query.eq("store_id", filterStore);
+      }
+      if (filterDocumentNumber) {
+        query = query.ilike("document_number", `%${filterDocumentNumber}%`);
+      }
+      if (filterDueDateFrom) {
+        query = query.gte("due_date", filterDueDateFrom);
+      }
+      if (filterDueDateTo) {
+        query = query.lte("due_date", filterDueDateTo);
+      }
+
+      query = query.order("created_at", { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setAccountsPayable(data || []);
+      setShowFilteredData(true);
+    } catch (error) {
+      console.error("Error fetching filtered accounts payable:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar contas a pagar filtradas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const clearFilters = () => {
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterSupplier("");
+    setFilterStore("");
+    setFilterDocumentNumber("");
+    setFilterCurrentAccount("");
+    setFilterDueDateFrom("");
+    setFilterDueDateTo("");
+    setAccountsPayable([]);
+    setShowFilteredData(false);
+  };
+
+  const handleEditAccount = (account: AccountPayable) => {
+    setEditingAccount(account);
+    setIsEditing(true);
+    // Find the actual supplier ID from the suppliers array
+    const supplier = suppliers.find(s => s.name === account.suppliers?.name);
+    setSupplierId(supplier?.id || "");
+    setDocumentType(account.document_type || "");
+    setDocumentNumber(account.document_number || "");
+    setIssueDate(account.issue_date || "");
+    setNotes(account.notes || "");
+    setActiveTab("create");
+  };
+
+  const handleReversePayment = async (accountId: string) => {
+    setLoading(true);
+    try {
+      // Update account status back to pending
+      const { error: updateError } = await supabase
+        .from("accounts_payable")
+        .update({
+          status: "pending",
+          payment_date: null,
+        })
+        .eq("id", accountId);
+
+      if (updateError) throw updateError;
+
+      // Delete financial transaction record
+      const { error: deleteError } = await supabase
+        .from("financial_transactions")
+        .delete()
+        .eq("reference_id", accountId)
+        .eq("reference_type", "accounts_payable");
+
+      if (deleteError) throw deleteError;
+
+      toast({
+        title: "Sucesso",
+        description: "Baixa estornada com sucesso",
+      });
+
+      fetchFilteredAccountsPayable();
+    } catch (error) {
+      console.error("Error reversing payment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao estornar baixa",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -339,8 +477,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setIssueDate("");
       setNotes("");
       setItems([]);
+      setIsEditing(false);
+      setEditingAccount(null);
       setActiveTab("view");
-      fetchAccountsPayable();
 
     } catch (error) {
       console.error("Error saving:", error);
@@ -438,55 +577,177 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
           <TabsContent value="view">
             <div className="space-y-4">
+              {/* Filtros */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Contas a Pagar Cadastradas</CardTitle>
+                  <CardTitle>Filtros de Busca</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Fornecedor</TableHead>
-                        <TableHead>Vencimento</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Tipo Doc.</TableHead>
-                        <TableHead>Número Doc.</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {accountsPayable.map((account) => (
-                        <TableRow key={account.id}>
-                          <TableCell>{account.description}</TableCell>
-                          <TableCell>{account.suppliers?.name || '-'}</TableCell>
-                          <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
-                          <TableCell>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              account.status === 'paid' ? 'bg-green-100 text-green-800' :
-                              account.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {account.status === 'paid' ? 'Pago' :
-                               account.status === 'pending' ? 'Pendente' : 'Vencido'}
-                            </span>
-                          </TableCell>
-                          <TableCell>{account.document_type || '-'}</TableCell>
-                          <TableCell>{account.document_number || '-'}</TableCell>
-                        </TableRow>
-                      ))}
-                      {accountsPayable.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground">
-                            Nenhuma conta a pagar encontrada
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="filter-date-from">Data Baixa (De)</Label>
+                      <Input
+                        id="filter-date-from"
+                        type="date"
+                        value={filterDateFrom}
+                        onChange={(e) => setFilterDateFrom(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-date-to">Data Baixa (Até)</Label>
+                      <Input
+                        id="filter-date-to"
+                        type="date"
+                        value={filterDateTo}
+                        onChange={(e) => setFilterDateTo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-supplier">Fornecedor</Label>
+                      <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o fornecedor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Todos</SelectItem>
+                          {suppliers.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-store">Loja</Label>
+                      <Select value={filterStore} onValueChange={setFilterStore}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a loja" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Todas</SelectItem>
+                          {stores.map((store) => (
+                            <SelectItem key={store.id} value={store.id}>
+                              {store.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-document">Número Documento</Label>
+                      <Input
+                        id="filter-document"
+                        value={filterDocumentNumber}
+                        onChange={(e) => setFilterDocumentNumber(e.target.value)}
+                        placeholder="Digite o número do documento"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-due-date-from">Vencimento (De)</Label>
+                      <Input
+                        id="filter-due-date-from"
+                        type="date"
+                        value={filterDueDateFrom}
+                        onChange={(e) => setFilterDueDateFrom(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-due-date-to">Vencimento (Até)</Label>
+                      <Input
+                        id="filter-due-date-to"
+                        type="date"
+                        value={filterDueDateTo}
+                        onChange={(e) => setFilterDueDateTo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={fetchFilteredAccountsPayable}>
+                      Aplicar Filtros
+                    </Button>
+                    <Button variant="outline" onClick={clearFilters}>
+                      Limpar Filtros
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
+
+              {/* Resultados */}
+              {showFilteredData && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Contas a Pagar</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Fornecedor</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Tipo Doc.</TableHead>
+                          <TableHead>Número Doc.</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {accountsPayable.map((account) => (
+                          <TableRow key={account.id}>
+                            <TableCell>{account.description}</TableCell>
+                            <TableCell>{account.suppliers?.name || '-'}</TableCell>
+                            <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                            <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                account.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                account.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {account.status === 'paid' ? 'Pago' :
+                                 account.status === 'pending' ? 'Pendente' : 'Vencido'}
+                              </span>
+                            </TableCell>
+                            <TableCell>{account.document_type || '-'}</TableCell>
+                            <TableCell>{account.document_number || '-'}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {account.status === 'paid' ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleReversePayment(account.id)}
+                                    disabled={loading}
+                                  >
+                                    Estornar
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleEditAccount(account)}
+                                  >
+                                    Editar
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {accountsPayable.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                              Nenhuma conta a pagar encontrada com os filtros aplicados
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
