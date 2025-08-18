@@ -176,10 +176,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (filterDateTo) {
         query = query.lte("payment_date", filterDateTo);
       }
-      if (filterSupplier) {
+      if (filterSupplier && filterSupplier !== "all") {
         query = query.eq("supplier_id", filterSupplier);
       }
-      if (filterStore) {
+      if (filterStore && filterStore !== "all") {
         query = query.eq("store_id", filterStore);
       }
       if (filterDocumentNumber) {
@@ -212,8 +212,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const clearFilters = () => {
     setFilterDateFrom("");
     setFilterDateTo("");
-    setFilterSupplier("");
-    setFilterStore("");
+    setFilterSupplier("all");
+    setFilterStore("all");
     setFilterDocumentNumber("");
     setFilterCurrentAccount("");
     setFilterDueDateFrom("");
@@ -609,7 +609,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <SelectValue placeholder="Selecione o fornecedor" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todos</SelectItem>
+                          <SelectItem value="all">Todos</SelectItem>
                           {suppliers.map((supplier) => (
                             <SelectItem key={supplier.id} value={supplier.id}>
                               {supplier.name}
@@ -625,7 +625,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <SelectValue placeholder="Selecione a loja" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todas</SelectItem>
+                          <SelectItem value="all">Todas</SelectItem>
                           {stores.map((store) => (
                             <SelectItem key={store.id} value={store.id}>
                               {store.name}
