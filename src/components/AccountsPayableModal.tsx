@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -67,6 +67,7 @@ interface AccountPayable {
   stores?: { name: string };
   created_at: string;
   payment_date?: string;
+  attachments?: Array<{name: string, url: string, size: number}>;
 }
 
 const documentTypes = [
@@ -133,6 +134,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [selectedStore, setSelectedStore] = useState("");
 
+  // File upload fields
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url: string, size: number}>>([]);
+
   useEffect(() => {
     if (open) {
       fetchSuppliers();
@@ -162,7 +167,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setAccountsPayable(data || []);
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+      }));
+      setAccountsPayable(formattedData);
     } catch (error) {
       console.error("Error fetching accounts payable:", error);
       toast({
@@ -212,7 +221,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const { data, error } = await query;
 
       if (error) throw error;
-      setAccountsPayable(data || []);
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+      }));
+      setAccountsPayable(formattedData);
       setPaymentShowFilteredData(true);
     } catch (error) {
       console.error("Error fetching filtered payment accounts:", error);
@@ -275,7 +288,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const { data, error } = await query;
 
       if (error) throw error;
-      setAccountsPayable(data || []);
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+      }));
+      setAccountsPayable(formattedData);
       setShowFilteredData(true);
     } catch (error) {
       console.error("Error fetching filtered accounts payable:", error);
@@ -311,6 +328,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setIssueDate(account.issue_date || "");
     setDueDate(account.due_date || "");
     setNotes(account.notes || "");
+
+    // Load existing attachments
+    if (account.attachments && Array.isArray(account.attachments)) {
+      setExistingAttachments(account.attachments);
+    } else {
+      setExistingAttachments([]);
+    }
+    setAttachments([]);
     
     // Fetch items for this account
     try {
@@ -563,6 +588,63 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    
+    const newFiles = Array.from(files).filter(file => {
+      // Limit file size to 10MB
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Erro",
+          description: `Arquivo ${file.name} é muito grande. Máximo 10MB.`,
+          variant: "destructive",
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    setAttachments(prev => [...prev, ...newFiles]);
+    event.target.value = ''; // Reset input
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = (index: number) => {
+    setExistingAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadAttachments = async (accountId: string): Promise<Array<{name: string, url: string, size: number}>> => {
+    const uploadedFiles: Array<{name: string, url: string, size: number}> = [];
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    for (const file of attachments) {
+      const fileName = `${user.id}/${accountId}/${Date.now()}-${file.name}`;
+      
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('account-documents')
+        .getPublicUrl(fileName);
+
+      uploadedFiles.push({
+        name: file.name,
+        url: publicUrl,
+        size: file.size
+      });
+    }
+
+    return uploadedFiles;
+  };
+
   const handleSave = async () => {
     if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate) {
       toast({
@@ -589,6 +671,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (!user) throw new Error("Usuário não autenticado");
 
       const totalAmount = getTotalAmount();
+      
+      // Upload new attachments if any
+      let newAttachments: Array<{name: string, url: string, size: number}> = [];
+      if (attachments.length > 0) {
+        newAttachments = await uploadAttachments(isEditing && editingAccount ? editingAccount.id : '');
+      }
+      
+      // Combine existing and new attachments
+      const allAttachments = [...existingAttachments, ...newAttachments];
 
       if (isEditing && editingAccount) {
         // Update existing account
@@ -604,6 +695,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             amount: totalAmount,
             total_amount: totalAmount,
             notes,
+            attachments: allAttachments,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingAccount.id);
@@ -661,7 +753,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .select()
           .single();
 
-        if (payableError) throw payableError;
+        // Upload attachments for new account
+        if (attachments.length > 0) {
+          newAttachments = await uploadAttachments(payable.id);
+          
+          // Update the account with attachments
+          await supabase
+            .from("accounts_payable")
+            .update({ attachments: newAttachments })
+            .eq("id", payable.id);
+        }
+
 
         // Insert items
         const itemsToInsert = items.map(item => ({
@@ -693,6 +795,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setDueDate("");
       setNotes("");
       setItems([]);
+      setAttachments([]);
+      setExistingAttachments([]);
       setIsEditing(false);
       setEditingAccount(null);
       setActiveTab("view");
@@ -1232,6 +1336,118 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       rows={3}
                     />
                   </div>
+
+                  {/* Seção de Anexos */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Anexos de Documentos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Upload de novos arquivos */}
+                      <div className="space-y-2">
+                        <Label htmlFor="file-upload">Adicionar Documentos</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="file-upload"
+                            type="file"
+                            multiple
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('file-upload')?.click()}
+                            className="flex items-center gap-2"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Selecionar Arquivos
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            PDF, imagens, documentos (máx. 10MB cada)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Lista de anexos existentes */}
+                      {existingAttachments.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Arquivos Existentes</Label>
+                          <div className="space-y-2">
+                            {existingAttachments.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 border rounded">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4" />
+                                  <span className="text-sm">{file.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    ({(file.size / 1024).toFixed(1)} KB)
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(file.url, '_blank')}
+                                  >
+                                    Ver
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeExistingAttachment(index)}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Lista de novos anexos */}
+                      {attachments.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Novos Arquivos</Label>
+                          <div className="space-y-2">
+                            {attachments.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 border rounded bg-blue-50">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4" />
+                                  <span className="text-sm">{file.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    ({(file.size / 1024).toFixed(1)} KB)
+                                  </span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeAttachment(index)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {attachments.length === 0 && existingAttachments.length === 0 && (
+                        <div className="text-center py-4 text-muted-foreground">
+                          Nenhum documento anexado
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   <Card>
                     <CardHeader>
