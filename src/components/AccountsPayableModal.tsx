@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -66,6 +66,7 @@ interface AccountPayable {
   suppliers?: { name: string };
   stores?: { name: string };
   created_at: string;
+  payment_date?: string;
 }
 
 const documentTypes = [
@@ -347,6 +348,56 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       toast({
         title: "Erro",
         description: "Erro ao estornar baixa",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (accountId: string, status: string) => {
+    if (status === 'paid') {
+      toast({
+        title: "Ação não permitida",
+        description: "Não é possível excluir uma conta paga. Estorne o pagamento primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("Tem certeza que deseja excluir esta conta a pagar?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Delete items first (foreign key constraint)
+      const { error: itemsError } = await supabase
+        .from("accounts_payable_items")
+        .delete()
+        .eq("account_payable_id", accountId);
+
+      if (itemsError) throw itemsError;
+
+      // Delete the account
+      const { error: accountError } = await supabase
+        .from("accounts_payable")
+        .delete()
+        .eq("id", accountId);
+
+      if (accountError) throw accountError;
+
+      toast({
+        title: "Sucesso",
+        description: "Conta a pagar excluída com sucesso",
+      });
+
+      fetchFilteredAccountsPayable();
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir conta a pagar",
         variant: "destructive",
       });
     } finally {
@@ -767,8 +818,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <TableHead>Vencimento</TableHead>
                           <TableHead>Valor</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Tipo Doc.</TableHead>
-                          <TableHead>Número Doc.</TableHead>
+                          <TableHead>Data Pagamento</TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -781,34 +831,51 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
-                                account.status === 'paid' ? 'bg-green-100 text-green-800' :
-                                account.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
+                                account.status === 'paid' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-yellow-100 text-yellow-800'
                               }`}>
-                                {account.status === 'paid' ? 'Pago' :
-                                 account.status === 'pending' ? 'Pendente' : 'Vencido'}
+                                {account.status === 'paid' ? 'Pago' : 'Pendente'}
                               </span>
                             </TableCell>
-                            <TableCell>{account.document_type || '-'}</TableCell>
-                            <TableCell>{account.document_number || '-'}</TableCell>
+                            <TableCell>
+                              {account.payment_date 
+                                ? new Date(account.payment_date).toLocaleDateString('pt-BR')
+                                : '-'
+                              }
+                            </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditAccount(account)}
+                                  disabled={loading}
+                                  title="Editar conta"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                
                                 {account.status === 'paid' ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleReversePayment(account.id)}
                                     disabled={loading}
+                                    title="Estornar pagamento"
                                   >
-                                    Estornar
+                                    <RefreshCw className="h-4 w-4" />
                                   </Button>
                                 ) : (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleEditAccount(account)}
+                                    onClick={() => handleDeleteAccount(account.id, account.status)}
+                                    disabled={loading}
+                                    title="Excluir conta"
+                                    className="text-red-600 hover:text-red-700"
                                   >
-                                    Editar
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
                                 )}
                               </div>
@@ -817,8 +884,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         ))}
                         {accountsPayable.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground">
-                              Nenhuma conta a pagar encontrada com os filtros aplicados
+                            <TableCell colSpan={7} className="text-center text-muted-foreground">
+                              {showFilteredData 
+                                ? "Nenhuma conta encontrada com os filtros aplicados"
+                                : "Carregando contas..."
+                              }
                             </TableCell>
                           </TableRow>
                         )}
