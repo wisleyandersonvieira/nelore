@@ -103,6 +103,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
   const [showFilteredData, setShowFilteredData] = useState(false);
 
+  // Payment tab filters
+  const [paymentFilterDateFrom, setPaymentFilterDateFrom] = useState("");
+  const [paymentFilterDateTo, setPaymentFilterDateTo] = useState("");
+  const [paymentFilterSupplier, setPaymentFilterSupplier] = useState("");
+  const [paymentFilterStore, setPaymentFilterStore] = useState("");
+  const [paymentFilterDocumentNumber, setPaymentFilterDocumentNumber] = useState("");
+  const [paymentFilterCurrentAccount, setPaymentFilterCurrentAccount] = useState("");
+  const [paymentFilterDueDateFrom, setPaymentFilterDueDateFrom] = useState("");
+  const [paymentFilterDueDateTo, setPaymentFilterDueDateTo] = useState("");
+  const [paymentShowFilteredData, setPaymentShowFilteredData] = useState(false);
+
   // Edit mode
   const [editingAccount, setEditingAccount] = useState<AccountPayable | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -112,6 +123,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [documentType, setDocumentType] = useState("");
   const [documentNumber, setDocumentNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
 
   // Item form fields
@@ -127,7 +139,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchStores();
       fetchCurrentAccounts();
       if (activeTab === "payment") {
-        fetchAccountsPayable();
+        clearPaymentFilters();
       }
     }
   }, [open, activeTab]);
@@ -141,6 +153,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           suppliers(name),
           stores(name)
         `)
+        .eq("status", "pending")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -153,6 +166,70 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         variant: "destructive",
       });
     }
+  };
+
+  const fetchFilteredPaymentAccounts = async () => {
+    try {
+      let query = supabase
+        .from("accounts_payable")
+        .select(`
+          *,
+          suppliers(name),
+          stores(name)
+        `)
+        .eq("status", "pending");
+
+      // Apply payment filters
+      if (paymentFilterDateFrom) {
+        query = query.gte("payment_date", paymentFilterDateFrom);
+      }
+      if (paymentFilterDateTo) {
+        query = query.lte("payment_date", paymentFilterDateTo);
+      }
+      if (paymentFilterSupplier && paymentFilterSupplier !== "all") {
+        query = query.eq("supplier_id", paymentFilterSupplier);
+      }
+      if (paymentFilterStore && paymentFilterStore !== "all") {
+        query = query.eq("store_id", paymentFilterStore);
+      }
+      if (paymentFilterDocumentNumber) {
+        query = query.ilike("document_number", `%${paymentFilterDocumentNumber}%`);
+      }
+      if (paymentFilterDueDateFrom) {
+        query = query.gte("due_date", paymentFilterDueDateFrom);
+      }
+      if (paymentFilterDueDateTo) {
+        query = query.lte("due_date", paymentFilterDueDateTo);
+      }
+
+      query = query.order("created_at", { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setAccountsPayable(data || []);
+      setPaymentShowFilteredData(true);
+    } catch (error) {
+      console.error("Error fetching filtered payment accounts:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar contas a pagar filtradas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const clearPaymentFilters = () => {
+    setPaymentFilterDateFrom("");
+    setPaymentFilterDateTo("");
+    setPaymentFilterSupplier("all");
+    setPaymentFilterStore("all");
+    setPaymentFilterDocumentNumber("");
+    setPaymentFilterCurrentAccount("");
+    setPaymentFilterDueDateFrom("");
+    setPaymentFilterDueDateTo("");
+    setAccountsPayable([]);
+    setPaymentShowFilteredData(false);
   };
 
   const fetchFilteredAccountsPayable = async () => {
@@ -231,6 +308,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
     setIssueDate(account.issue_date || "");
+    setDueDate(account.due_date || "");
     setNotes(account.notes || "");
     setActiveTab("create");
   };
@@ -400,7 +478,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const handleSave = async () => {
-    if (!supplierId || !documentType || !documentNumber || !issueDate) {
+    if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
@@ -441,7 +519,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           notes,
           store_id: userStore.data?.store_id,
           created_by: user.id,
-          due_date: issueDate,
+          due_date: dueDate,
           account_id: "11111111-1111-1111-1111-111111111111",
         })
         .select()
@@ -475,6 +553,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setDocumentType("");
       setDocumentNumber("");
       setIssueDate("");
+      setDueDate("");
       setNotes("");
       setItems([]);
       setIsEditing(false);
@@ -753,6 +832,84 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
           <TabsContent value="payment">
             <div className="space-y-4">
+              {/* Filtros da aba de pagamento */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Filtros de Busca</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="payment-filter-supplier">Fornecedor</Label>
+                      <Select value={paymentFilterSupplier} onValueChange={setPaymentFilterSupplier}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o fornecedor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {suppliers.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="payment-filter-store">Loja</Label>
+                      <Select value={paymentFilterStore} onValueChange={setPaymentFilterStore}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a loja" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {stores.map((store) => (
+                            <SelectItem key={store.id} value={store.id}>
+                              {store.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="payment-filter-document">Número Documento</Label>
+                      <Input
+                        id="payment-filter-document"
+                        value={paymentFilterDocumentNumber}
+                        onChange={(e) => setPaymentFilterDocumentNumber(e.target.value)}
+                        placeholder="Digite o número do documento"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="payment-filter-due-date-from">Vencimento (De)</Label>
+                      <Input
+                        id="payment-filter-due-date-from"
+                        type="date"
+                        value={paymentFilterDueDateFrom}
+                        onChange={(e) => setPaymentFilterDueDateFrom(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="payment-filter-due-date-to">Vencimento (Até)</Label>
+                      <Input
+                        id="payment-filter-due-date-to"
+                        type="date"
+                        value={paymentFilterDueDateTo}
+                        onChange={(e) => setPaymentFilterDueDateTo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={fetchFilteredPaymentAccounts}>
+                      Aplicar Filtros
+                    </Button>
+                    <Button variant="outline" onClick={clearPaymentFilters}>
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Baixar Contas a Pagar</CardTitle>
@@ -797,7 +954,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {accountsPayable.filter(account => account.status === 'pending').map((account) => (
+                      {accountsPayable.map((account) => (
                         <TableRow key={account.id}>
                           <TableCell>{account.description}</TableCell>
                           <TableCell>{account.suppliers?.name || '-'}</TableCell>
@@ -819,10 +976,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           </TableCell>
                         </TableRow>
                       ))}
-                      {accountsPayable.filter(account => account.status === 'pending').length === 0 && (
+                      {accountsPayable.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center text-muted-foreground">
-                            Nenhuma conta pendente encontrada
+                            {paymentShowFilteredData 
+                              ? "Nenhuma conta pendente encontrada com os filtros aplicados"
+                              : "Use os filtros acima para buscar contas pendentes"
+                            }
                           </TableCell>
                         </TableRow>
                       )}
@@ -892,6 +1052,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         type="date"
                         value={issueDate}
                         onChange={(e) => setIssueDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dueDate">Data de Vencimento *</Label>
+                      <Input
+                        id="dueDate"
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
                       />
                     </div>
                   </div>
