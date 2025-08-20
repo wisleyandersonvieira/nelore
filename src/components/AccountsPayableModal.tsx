@@ -667,13 +667,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      // Configure PDF.js worker with fallback
-      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.min.js',
-          import.meta.url,
-        ).toString();
-      }
+      // Configure PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.js`;
       
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       const page = await pdf.getPage(1); // Primeira página
