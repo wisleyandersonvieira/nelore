@@ -667,10 +667,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      // Configure PDF.js worker - use jsdelivr CDN which works better with Vite
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.worker.min.js`;
+      // Disable worker to avoid module loading issues in Vite
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
       
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      const pdf = await pdfjsLib.getDocument({
+        data: arrayBuffer,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true
+      }).promise;
+      
       const page = await pdf.getPage(1); // Primeira página
       const textContent = await page.getTextContent();
       
@@ -680,23 +686,50 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       console.log('Texto extraído do PDF:', text);
 
-      // Extrair CNPJ (formato XX.XXX.XXX/XXXX-XX)
-      const cnpjMatch = text.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
-      const cnpj = cnpjMatch ? cnpjMatch[1] : null;
+      // Extrair CNPJ (formato XX.XXX.XXX/XXXX-XX ou apenas números)
+      const cnpjMatch = text.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/) || 
+                      text.match(/(\d{14})/);
+      let cnpj = cnpjMatch ? cnpjMatch[1] : null;
+      
+      // Se encontrou CNPJ sem formatação, aplicar formatação
+      if (cnpj && cnpj.length === 14 && !/[.\-\/]/.test(cnpj)) {
+        cnpj = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+      }
 
       // Extrair número do documento (procura por padrões de número após "Nº" ou similar)
-      const docNumberMatch = text.match(/N[ºo°]\s*(\d+)/i) || text.match(/SÉRIE:\s*\d+\s*(\d+)/);
+      const docNumberMatch = text.match(/N[ºo°]\s*(\d+)/i) || 
+                           text.match(/SÉRIE:\s*\d+\s*(\d+)/) ||
+                           text.match(/NOTA\s*FISCAL\s*(\d+)/i) ||
+                           text.match(/NF[-\s]*(\d+)/i);
       const documentNumber = docNumberMatch ? docNumberMatch[1] : null;
 
-      // Extrair data de emissão (formatos DD/MM/YYYY)
-      const dateMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/);
-      const issueDate = dateMatch ? dateMatch[1] : null;
+      // Extrair data de emissão (formatos DD/MM/YYYY ou DD/MM/AA)
+      const dateMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/) || 
+                       text.match(/(\d{2}\/\d{2}\/\d{2})/);
+      let issueDate = dateMatch ? dateMatch[1] : null;
+      
+      // Se data no formato YY, converter para YYYY
+      if (issueDate && issueDate.length === 8) {
+        const parts = issueDate.split('/');
+        if (parts[2].length === 2) {
+          const year = parseInt(parts[2]);
+          parts[2] = year > 50 ? `19${year}` : `20${year}`;
+          issueDate = parts.join('/');
+        }
+      }
+
+      // Procurar valor total (diferentes padrões)
+      const valueMatch = text.match(/TOTAL[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
+                        text.match(/VALOR[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
+                        text.match(/R\$\s*([\d.,]+)/);
+      const totalValue = valueMatch ? parseFloat(valueMatch[1].replace(/\./g, '').replace(',', '.')) : null;
 
       return {
         cnpj,
         documentNumber,
         issueDate,
-        text // Para debug
+        totalValue,
+        text: text.substring(0, 500) + '...' // Texto truncado para debug
       };
     } catch (error) {
       console.error('Erro ao extrair dados do PDF:', error);
@@ -763,6 +796,20 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setDocumentNumber(extractedData.documentNumber || '');
       setIssueDate(extractedData.issueDate ? formatDateForInput(extractedData.issueDate) : '');
       
+      // Se encontrou valor total, criar um item genérico
+      if (extractedData.totalValue && extractedData.totalValue > 0) {
+        const genericItem: PayableItem = {
+          product_id: '', // Será preenchido pelo usuário
+          product_name: 'Item da NFE', // Nome genérico
+          quantity: 1,
+          unit_price: extractedData.totalValue,
+          total_price: extractedData.totalValue,
+          store_id: '',
+          store_name: ''
+        };
+        setItems([genericItem]);
+      }
+      
       // Adicionar arquivo aos anexos existentes
       setExistingAttachments(prev => [
         ...prev,
@@ -775,7 +822,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       toast({
         title: "NFE processada com sucesso",
-        description: `Fornecedor: ${supplier.name}${extractedData.documentNumber ? `, Documento: ${extractedData.documentNumber}` : ''}`,
+        description: `Fornecedor: ${supplier.name}${extractedData.documentNumber ? `\nDocumento: ${extractedData.documentNumber}` : ''}${extractedData.issueDate ? `\nData: ${extractedData.issueDate}` : ''}${extractedData.totalValue ? `\nValor: R$ ${extractedData.totalValue.toFixed(2)}` : ''}`,
       });
 
     } catch (error) {
