@@ -671,9 +671,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const arrayBuffer = await file.arrayBuffer();
       console.log('✅ ArrayBuffer criado, tamanho:', arrayBuffer.byteLength);
       
-      // Configure pdfjs for browser usage
-      console.log('⚙️ Configurando PDF.js worker...');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+      // Configure pdfjs for browser usage - use cdnjs for better CORS support
+      console.log('⚙️ Configurando PDF.js worker via cdnjs...');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       
       console.log('📖 Carregando documento PDF...');
       const loadingTask = pdfjsLib.getDocument({
