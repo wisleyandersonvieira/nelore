@@ -673,7 +673,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       
       // Configure pdfjs for browser usage
       console.log('⚙️ Configurando PDF.js worker...');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
       
       console.log('📖 Carregando documento PDF...');
       const loadingTask = pdfjsLib.getDocument({
