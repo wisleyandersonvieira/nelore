@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import * as pdfjsLib from 'pdfjs-dist';
+import pdf from 'pdf-parse';
 
 interface AccountsPayableModalProps {
   open: boolean;
@@ -667,22 +667,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      // Disable worker to avoid module loading issues in Vite
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-      
-      const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-        useWorkerFetch: false,
-        isEvalSupported: false,
-        useSystemFonts: true
-      }).promise;
-      
-      const page = await pdf.getPage(1); // Primeira página
-      const textContent = await page.getTextContent();
-      
-      const text = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
+      // Use pdf-parse library which is simpler and more reliable
+      const data = await pdf(Buffer.from(arrayBuffer));
+      const text = data.text;
 
       console.log('Texto extraído do PDF:', text);
 
