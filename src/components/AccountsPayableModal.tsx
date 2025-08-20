@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import pdf from 'pdf-parse';
+import * as pdfjsLib from 'pdfjs-dist';
 
 interface AccountsPayableModalProps {
   open: boolean;
@@ -667,9 +667,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      // Use pdf-parse library which is simpler and more reliable
-      const data = await pdf(Buffer.from(arrayBuffer));
-      const text = data.text;
+      // Configure pdfjs for browser usage without external worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+      
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        useSystemFonts: true,
+      });
+      
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1); // Primeira página
+      const textContent = await page.getTextContent();
+      
+      const text = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
 
       console.log('Texto extraído do PDF:', text);
 
