@@ -664,28 +664,47 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const extractDataFromPDF = async (file: File) => {
+    console.log('🔄 Iniciando extração de dados do PDF:', file.name);
+    
     try {
+      console.log('📄 Convertendo arquivo para ArrayBuffer...');
       const arrayBuffer = await file.arrayBuffer();
+      console.log('✅ ArrayBuffer criado, tamanho:', arrayBuffer.byteLength);
       
-      // Configure pdfjs for browser usage without external worker
+      // Configure pdfjs for browser usage
+      console.log('⚙️ Configurando PDF.js worker...');
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
       
+      console.log('📖 Carregando documento PDF...');
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
         useSystemFonts: true,
+        disableAutoFetch: true,
+        disableStream: true,
       });
       
       const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1); // Primeira página
+      console.log('✅ PDF carregado, páginas:', pdf.numPages);
+      
+      console.log('📋 Extraindo texto da primeira página...');
+      const page = await pdf.getPage(1);
       const textContent = await page.getTextContent();
       
       const text = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
+        .map((item: any) => {
+          if (item && typeof item.str === 'string') {
+            return item.str;
+          }
+          return '';
+        })
+        .join(' ')
+        .trim();
 
-      console.log('Texto extraído do PDF:', text);
+      console.log('✅ Texto extraído, comprimento:', text.length);
+      console.log('📝 Primeiros 200 caracteres:', text.substring(0, 200));
 
       // Extrair CNPJ (formato XX.XXX.XXX/XXXX-XX ou apenas números)
+      console.log('🔍 Procurando CNPJ...');
       const cnpjMatch = text.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/) || 
                       text.match(/(\d{14})/);
       let cnpj = cnpjMatch ? cnpjMatch[1] : null;
@@ -694,15 +713,20 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (cnpj && cnpj.length === 14 && !/[.\-\/]/.test(cnpj)) {
         cnpj = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
       }
+      console.log('🆔 CNPJ encontrado:', cnpj || 'Não encontrado');
 
-      // Extrair número do documento (procura por padrões de número após "Nº" ou similar)
+      // Extrair número do documento
+      console.log('🔍 Procurando número do documento...');
       const docNumberMatch = text.match(/N[ºo°]\s*(\d+)/i) || 
                            text.match(/SÉRIE:\s*\d+\s*(\d+)/) ||
                            text.match(/NOTA\s*FISCAL\s*(\d+)/i) ||
-                           text.match(/NF[-\s]*(\d+)/i);
+                           text.match(/NF[-\s]*(\d+)/i) ||
+                           text.match(/DOCUMENTO\s*(\d+)/i);
       const documentNumber = docNumberMatch ? docNumberMatch[1] : null;
+      console.log('📄 Número do documento:', documentNumber || 'Não encontrado');
 
-      // Extrair data de emissão (formatos DD/MM/YYYY ou DD/MM/AA)
+      // Extrair data de emissão
+      console.log('🔍 Procurando data de emissão...');
       const dateMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/) || 
                        text.match(/(\d{2}\/\d{2}\/\d{2})/);
       let issueDate = dateMatch ? dateMatch[1] : null;
@@ -716,31 +740,53 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           issueDate = parts.join('/');
         }
       }
+      console.log('📅 Data de emissão:', issueDate || 'Não encontrada');
 
-      // Procurar valor total (diferentes padrões)
+      // Procurar valor total
+      console.log('🔍 Procurando valor total...');
       const valueMatch = text.match(/TOTAL[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
                         text.match(/VALOR[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
-                        text.match(/R\$\s*([\d.,]+)/);
-      const totalValue = valueMatch ? parseFloat(valueMatch[1].replace(/\./g, '').replace(',', '.')) : null;
+                        text.match(/R\$\s*([\d.,]+)/) ||
+                        text.match(/VALOR\s+TOTAL\s+([\d.,]+)/i);
+      
+      let totalValue = null;
+      if (valueMatch) {
+        const cleanValue = valueMatch[1].replace(/\./g, '').replace(',', '.');
+        totalValue = parseFloat(cleanValue);
+        if (isNaN(totalValue)) totalValue = null;
+      }
+      console.log('💰 Valor total:', totalValue || 'Não encontrado');
 
-      return {
+      const result = {
         cnpj,
         documentNumber,
         issueDate,
         totalValue,
-        text: text.substring(0, 500) + '...' // Texto truncado para debug
+        text: text.substring(0, 300) + '...' // Texto truncado para debug
       };
+
+      console.log('✅ Extração concluída com sucesso:', result);
+      return result;
+      
     } catch (error) {
-      console.error('Erro ao extrair dados do PDF:', error);
+      console.error('❌ Erro ao extrair dados do PDF:', error);
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'Sem stack trace');
       throw error;
     }
   };
 
   const handleNFEUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🚀 Iniciando processo de upload da NFE...');
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log('❌ Nenhum arquivo selecionado');
+      return;
+    }
+
+    console.log('📁 Arquivo selecionado:', file.name, 'Tipo:', file.type, 'Tamanho:', file.size);
 
     if (file.type !== 'application/pdf') {
+      console.log('❌ Tipo de arquivo inválido:', file.type);
       toast({
         title: "Erro",
         description: "Por favor, selecione apenas arquivos PDF",
@@ -750,53 +796,67 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
 
     try {
+      console.log('📊 Extraindo dados do PDF...');
       // Extrair dados do PDF
       const extractedData = await extractDataFromPDF(file);
-      console.log('Dados extraídos:', extractedData);
+      console.log('✅ Dados extraídos com sucesso:', extractedData);
 
       // Verificar se encontrou CNPJ
       if (!extractedData.cnpj) {
+        console.log('❌ CNPJ não encontrado no PDF');
         toast({
-          title: "Erro",
-          description: "CNPJ do fornecedor não encontrado no PDF",
+          title: "Aviso",
+          description: "CNPJ do fornecedor não foi encontrado no PDF. Você pode preencher manualmente.",
           variant: "destructive",
         });
-        return;
+        // Não retorna aqui, continua o processo mesmo sem CNPJ
+      } else {
+        console.log('🔍 Buscando fornecedor pelo CNPJ:', extractedData.cnpj);
+        
+        // Buscar fornecedor pelo CNPJ
+        const { data: supplier, error: supplierError } = await supabase
+          .from('suppliers')
+          .select('*')
+          .eq('cnpj_cpf', extractedData.cnpj)
+          .eq('is_active', true)
+          .single();
+
+        if (supplierError || !supplier) {
+          console.log('❌ Fornecedor não encontrado para CNPJ:', extractedData.cnpj);
+          toast({
+            title: "Fornecedor não encontrado",
+            description: `O fornecedor com CNPJ ${extractedData.cnpj} não está cadastrado. Cadastre o fornecedor primeiro ou preencha manualmente.`,
+            variant: "destructive",
+          });
+          // Continua mesmo sem encontrar fornecedor
+        } else {
+          console.log('✅ Fornecedor encontrado:', supplier.name);
+          setSupplierId(supplier.id);
+        }
       }
 
-      // Buscar fornecedor pelo CNPJ
-      const { data: supplier, error: supplierError } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('cnpj_cpf', extractedData.cnpj)
-        .eq('is_active', true)
-        .single();
-
-      if (supplierError || !supplier) {
-        toast({
-          title: "Fornecedor não encontrado",
-          description: `O fornecedor com CNPJ ${extractedData.cnpj} não está cadastrado. Cadastre o fornecedor e tente novamente.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
+      console.log('💾 Fazendo upload do arquivo...');
       // Upload do arquivo
       const fileName = `nfe_${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('account-documents')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('❌ Erro no upload:', uploadError);
+        throw uploadError;
+      }
+      console.log('✅ Upload realizado:', fileName);
 
       // Pré-preencher formulário
-      setSupplierId(supplier.id);
+      console.log('📝 Preenchendo formulário...');
       setDocumentType('NF');
       setDocumentNumber(extractedData.documentNumber || '');
       setIssueDate(extractedData.issueDate ? formatDateForInput(extractedData.issueDate) : '');
       
       // Se encontrou valor total, criar um item genérico
       if (extractedData.totalValue && extractedData.totalValue > 0) {
+        console.log('💰 Criando item com valor:', extractedData.totalValue);
         const genericItem: PayableItem = {
           product_id: '', // Será preenchido pelo usuário
           product_name: 'Item da NFE', // Nome genérico
@@ -810,6 +870,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       }
       
       // Adicionar arquivo aos anexos existentes
+      console.log('📎 Adicionando anexo...');
       setExistingAttachments(prev => [
         ...prev,
         {
@@ -819,16 +880,30 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         }
       ]);
 
+      console.log('🎉 Processo concluído com sucesso!');
       toast({
         title: "NFE processada com sucesso",
-        description: `Fornecedor: ${supplier.name}${extractedData.documentNumber ? `\nDocumento: ${extractedData.documentNumber}` : ''}${extractedData.issueDate ? `\nData: ${extractedData.issueDate}` : ''}${extractedData.totalValue ? `\nValor: R$ ${extractedData.totalValue.toFixed(2)}` : ''}`,
+        description: `${extractedData.cnpj ? `CNPJ: ${extractedData.cnpj}` : 'CNPJ não encontrado'}${extractedData.documentNumber ? `\nDocumento: ${extractedData.documentNumber}` : ''}${extractedData.issueDate ? `\nData: ${extractedData.issueDate}` : ''}${extractedData.totalValue ? `\nValor: R$ ${extractedData.totalValue.toFixed(2)}` : ''}`,
       });
 
     } catch (error) {
-      console.error('Erro ao processar NFE:', error);
+      console.error('❌ Erro ao processar NFE:', error);
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'Sem stack trace');
+      
+      let errorMessage = 'Erro ao processar arquivo da NFE';
+      if (error instanceof Error) {
+        if (error.message.includes('worker')) {
+          errorMessage = 'Erro no carregamento do PDF. Tente novamente.';
+        } else if (error.message.includes('Invalid PDF')) {
+          errorMessage = 'Arquivo PDF inválido ou corrompido.';
+        } else {
+          errorMessage = `Erro: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "Erro",
-        description: "Erro ao processar arquivo da NFE",
+        description: errorMessage,
         variant: "destructive",
       });
     }
