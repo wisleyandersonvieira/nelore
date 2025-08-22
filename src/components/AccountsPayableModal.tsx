@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
 import * as pdfjsLib from 'pdfjs-dist';
 
 interface AccountsPayableModalProps {
@@ -686,27 +686,36 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const pdf = await loadingTask.promise;
       console.log('✅ PDF carregado, páginas:', pdf.numPages);
       
-      console.log('📋 Extraindo texto da primeira página...');
-      const page = await pdf.getPage(1);
-      const textContent = await page.getTextContent();
+      // Extrair texto de todas as páginas para encontrar itens
+      let allText = '';
+      const textContent = [];
       
-      const text = textContent.items
-        .map((item: any) => {
-          if (item && typeof item.str === 'string') {
-            return item.str;
-          }
-          return '';
-        })
-        .join(' ')
-        .trim();
+      for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 3); pageNum++) {
+        console.log(`📋 Extraindo texto da página ${pageNum}...`);
+        const page = await pdf.getPage(pageNum);
+        const pageTextContent = await page.getTextContent();
+        
+        const pageText = pageTextContent.items
+          .map((item: any) => {
+            if (item && typeof item.str === 'string') {
+              return item.str;
+            }
+            return '';
+          })
+          .join(' ')
+          .trim();
+        
+        allText += pageText + ' ';
+        textContent.push(...pageTextContent.items);
+      }
 
-      console.log('✅ Texto extraído, comprimento:', text.length);
-      console.log('📝 Primeiros 200 caracteres:', text.substring(0, 200));
+      console.log('✅ Texto extraído, comprimento:', allText.length);
+      console.log('📝 Primeiros 200 caracteres:', allText.substring(0, 200));
 
       // Extrair CNPJ (formato XX.XXX.XXX/XXXX-XX ou apenas números)
       console.log('🔍 Procurando CNPJ...');
-      const cnpjMatch = text.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/) || 
-                      text.match(/(\d{14})/);
+      const cnpjMatch = allText.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/) || 
+                      allText.match(/(\d{14})/);
       let cnpj = cnpjMatch ? cnpjMatch[1] : null;
       
       // Se encontrou CNPJ sem formatação, aplicar formatação
@@ -717,18 +726,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       // Extrair número do documento
       console.log('🔍 Procurando número do documento...');
-      const docNumberMatch = text.match(/N[ºo°]\s*(\d+)/i) || 
-                           text.match(/SÉRIE:\s*\d+\s*(\d+)/) ||
-                           text.match(/NOTA\s*FISCAL\s*(\d+)/i) ||
-                           text.match(/NF[-\s]*(\d+)/i) ||
-                           text.match(/DOCUMENTO\s*(\d+)/i);
+      const docNumberMatch = allText.match(/N[ºo°]\s*(\d+)/i) || 
+                           allText.match(/SÉRIE:\s*\d+\s*(\d+)/) ||
+                           allText.match(/NOTA\s*FISCAL\s*(\d+)/i) ||
+                           allText.match(/NF[-\s]*(\d+)/i) ||
+                           allText.match(/DOCUMENTO\s*(\d+)/i);
       const documentNumber = docNumberMatch ? docNumberMatch[1] : null;
       console.log('📄 Número do documento:', documentNumber || 'Não encontrado');
 
       // Extrair data de emissão
       console.log('🔍 Procurando data de emissão...');
-      const dateMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/) || 
-                       text.match(/(\d{2}\/\d{2}\/\d{2})/);
+      const dateMatch = allText.match(/(\d{2}\/\d{2}\/\d{4})/) || 
+                       allText.match(/(\d{2}\/\d{2}\/\d{2})/);
       let issueDate = dateMatch ? dateMatch[1] : null;
       
       // Se data no formato YY, converter para YYYY
@@ -744,10 +753,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       // Procurar valor total
       console.log('🔍 Procurando valor total...');
-      const valueMatch = text.match(/TOTAL[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
-                        text.match(/VALOR[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
-                        text.match(/R\$\s*([\d.,]+)/) ||
-                        text.match(/VALOR\s+TOTAL\s+([\d.,]+)/i);
+      const valueMatch = allText.match(/TOTAL[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
+                        allText.match(/VALOR[\s\w]*:?\s*R?\$?\s*([\d.,]+)/i) ||
+                        allText.match(/R\$\s*([\d.,]+)/) ||
+                        allText.match(/VALOR\s+TOTAL\s+([\d.,]+)/i);
       
       let totalValue = null;
       if (valueMatch) {
@@ -757,12 +766,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       }
       console.log('💰 Valor total:', totalValue || 'Não encontrado');
 
+      // Extrair itens da NFE
+      console.log('🔍 Procurando itens da NFE...');
+      const items = await extractNFEItems(allText, textContent, supplierId);
+      console.log('📦 Itens encontrados:', items.length);
+
       const result = {
         cnpj,
         documentNumber,
         issueDate,
         totalValue,
-        text: text.substring(0, 300) + '...' // Texto truncado para debug
+        items,
+        text: allText.substring(0, 300) + '...' // Texto truncado para debug
       };
 
       console.log('✅ Extração concluída com sucesso:', result);
@@ -772,6 +787,80 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       console.error('❌ Erro ao extrair dados do PDF:', error);
       console.error('Stack trace:', error instanceof Error ? error.stack : 'Sem stack trace');
       throw error;
+    }
+  };
+
+  // Função para extrair itens da NFE
+  const extractNFEItems = async (text: string, textContent: any[], supplierId: string) => {
+    console.log('🔍 Iniciando extração de itens da NFE...');
+    
+    try {
+      const items = [];
+      const lines = text.split('\n').filter(line => line.trim().length > 0);
+      
+      // Buscar códigos de produtos vinculados ao fornecedor
+      const { data: supplierCodes } = await supabase
+        .from('product_supplier_codes')
+        .select('supplier_code, product_id')
+        .eq('supplier_id', supplierId);
+
+      // Buscar informações dos produtos
+      const productIds = supplierCodes?.map(sc => sc.product_id) || [];
+      const { data: products } = productIds.length > 0 ? await supabase
+        .from('products')
+        .select('id, name, code')
+        .in('id', productIds) : { data: [] };
+
+      console.log('🔗 Códigos do fornecedor encontrados:', supplierCodes?.length || 0);
+
+      // Padrões para identificar itens na NFE
+      const itemPatterns = [
+        // Padrão comum: código seguido de descrição, quantidade, valor unitário
+        /(\d+)\s+([A-Za-z][\w\s]+?)\s+(\d+[,.]\d*)\s+[\w\s]*\s*([\d.,]+)\s*([\d.,]+)/g,
+        // Padrão alternativo com mais flexibilidade
+        /^(\d+)\s+(.+?)\s+(\d+[,.]\d*)\s+.*?([\d.,]+)$/gm
+      ];
+
+      for (const pattern of itemPatterns) {
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+          const [, codigo, descricao, quantidade, valorUnitario, valorTotal] = match;
+          
+          if (codigo && descricao && quantidade && valorUnitario) {
+            // Limpar e converter valores
+            const qtd = parseFloat(quantidade.replace(',', '.'));
+            const vlrUnit = parseFloat(valorUnitario.replace(/\./g, '').replace(',', '.'));
+            const vlrTotal = valorTotal ? parseFloat(valorTotal.replace(/\./g, '').replace(',', '.')) : qtd * vlrUnit;
+            
+            // Verificar se temos esse código vinculado ao fornecedor
+            const supplierCode = supplierCodes?.find(sc => sc.supplier_code === codigo);
+            const product = supplierCode ? products?.find(p => p.id === supplierCode.product_id) : null;
+            
+            const item = {
+              codigo,
+              descricao: descricao.trim(),
+              quantidade: qtd,
+              valor_unitario: vlrUnit,
+              valor_total: vlrTotal,
+              found: !!supplierCode,
+              product_id: product?.id,
+              product_name: product?.name
+            };
+
+            // Evitar duplicatas
+            if (!items.find(i => i.codigo === codigo)) {
+              items.push(item);
+            }
+          }
+        }
+      }
+
+      console.log(`📦 ${items.length} itens extraídos da NFE`);
+      return items;
+      
+    } catch (error) {
+      console.error('❌ Erro ao extrair itens da NFE:', error);
+      return [];
     }
   };
 
@@ -868,19 +957,26 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setDocumentNumber(extractedData.documentNumber || '');
       setIssueDate(extractedData.issueDate ? formatDateForInput(extractedData.issueDate) : '');
       
-      // Se encontrou valor total, criar um item genérico
-      if (extractedData.totalValue && extractedData.totalValue > 0) {
-        console.log('💰 Criando item com valor:', extractedData.totalValue);
-        const genericItem: PayableItem = {
-          product_id: '', // Será preenchido pelo usuário
-          product_name: 'Item da NFE', // Nome genérico
-          quantity: 1,
-          unit_price: extractedData.totalValue,
-          total_price: extractedData.totalValue,
-          store_id: '',
-          store_name: ''
-        };
-        setItems([genericItem]);
+      // Se encontrou itens, abrir modal de validação
+      if (extractedData.items && extractedData.items.length > 0) {
+        console.log('📦 Abrindo modal de validação dos itens...');
+        setNfeItems(extractedData.items);
+        setShowValidationModal(true);
+      } else {
+        // Se encontrou valor total, criar um item genérico
+        if (extractedData.totalValue && extractedData.totalValue > 0) {
+          console.log('💰 Criando item com valor:', extractedData.totalValue);
+          const genericItem: PayableItem = {
+            product_id: '', // Será preenchido pelo usuário
+            product_name: 'Item da NFE', // Nome genérico
+            quantity: 1,
+            unit_price: extractedData.totalValue,
+            total_price: extractedData.totalValue,
+            store_id: '',
+            store_name: ''
+          };
+          setItems([genericItem]);
+        }
       }
       
       // Adicionar arquivo aos anexos existentes
@@ -1886,6 +1982,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Modal de Validação dos Itens da NFE */}
+        <NFEItemsValidationModal
+          open={showValidationModal}
+          onOpenChange={setShowValidationModal}
+          nfeItems={nfeItems}
+          stores={stores}
+          supplierId={supplierId}
+          onItemsValidated={handleValidatedItems}
+        />
       </DialogContent>
     </Dialog>
   );
