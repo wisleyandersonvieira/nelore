@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2 } from "lucide-react";
+import { ProductSupplierCodes } from "./ProductSupplierCodes";
 
 interface Unit {
   id: string;
@@ -45,6 +46,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   const [groups, setGroups] = useState<Group[]>([]);
   const [subgroups, setSubgroups] = useState<Group[]>([]);
   const [nextCode, setNextCode] = useState<string>("");
+  const [supplierCodes, setSupplierCodes] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -214,10 +216,36 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         error = updateError;
       } else {
         // Criar novo produto
-        const { error: insertError } = await supabase
+        const { data: newProduct, error: insertError } = await supabase
           .from("products")
-          .insert(productData);
+          .insert(productData)
+          .select("id")
+          .single();
+        
         error = insertError;
+        
+        // Se o produto foi criado com sucesso e há códigos de fornecedores, salvá-los
+        if (!error && newProduct && supplierCodes.length > 0) {
+          const codesToInsert = supplierCodes.map(code => ({
+            product_id: newProduct.id,
+            supplier_id: code.supplier_id,
+            supplier_code: code.supplier_code
+          }));
+
+          const { error: codesError } = await supabase
+            .from("product_supplier_codes")
+            .insert(codesToInsert);
+
+          if (codesError) {
+            console.error("Error saving supplier codes:", codesError);
+            // Não vamos falhar o produto por causa dos códigos, apenas alertar
+            toast({
+              variant: "destructive",
+              title: "Aviso",
+              description: "Produto criado, mas houve erro ao salvar códigos dos fornecedores.",
+            });
+          }
+        }
       }
 
       if (error) throw error;
@@ -408,6 +436,12 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           />
         </div>
       </div>
+
+      {/* Códigos dos Fornecedores */}
+      <ProductSupplierCodes 
+        productId={editingProduct?.id}
+        onCodesChange={setSupplierCodes}
+      />
 
       <div className="flex gap-2">
         <Button type="submit" disabled={loading}>

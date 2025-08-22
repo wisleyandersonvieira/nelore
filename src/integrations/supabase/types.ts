@@ -625,6 +625,33 @@ export type Database = {
           },
         ]
       }
+      product_supplier_codes: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          supplier_code: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          supplier_code: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          supplier_code?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string | null
