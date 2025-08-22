@@ -801,7 +801,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     
     try {
       const items = [];
-      const lines = text.split('\n').filter(line => line.trim().length > 0);
       
       // Buscar códigos de produtos vinculados ao fornecedor
       const { data: supplierCodes } = await supabase
@@ -818,43 +817,117 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       console.log('🔗 Códigos do fornecedor encontrados:', supplierCodes?.length || 0);
 
-      // Padrões para identificar itens na NFE
-      const itemPatterns = [
-        // Padrão comum: código seguido de descrição, quantidade, valor unitário
-        /(\d+)\s+([A-Za-z][\w\s]+?)\s+(\d+[,.]\d*)\s+[\w\s]*\s*([\d.,]+)\s*([\d.,]+)/g,
-        // Padrão alternativo com mais flexibilidade
-        /^(\d+)\s+(.+?)\s+(\d+[,.]\d*)\s+.*?([\d.,]+)$/gm
-      ];
-
-      for (const pattern of itemPatterns) {
-        let match;
-        while ((match = pattern.exec(text)) !== null) {
-          const [, codigo, descricao, quantidade, valorUnitario, valorTotal] = match;
+      // Dividir o texto em linhas para análise sequencial
+      const lines = text.split(/[\n\r]+/).map(line => line.trim()).filter(line => line.length > 0);
+      
+      // Procurar por indicadores de início da tabela de produtos
+      let inProductTable = false;
+      let currentProduct: any = null;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Detectar início da tabela de produtos
+        if (line.includes('COD.PROD') || line.includes('CÓDIGO') || 
+            line.includes('DESCRIÇÃO') || line.includes('PRODUTO')) {
+          inProductTable = true;
+          console.log('📋 Encontrou início da tabela de produtos na linha:', line);
+          continue;
+        }
+        
+        // Se estamos na tabela de produtos, procurar por códigos
+        if (inProductTable) {
+          // Parar se encontrarmos indicadores de fim da tabela
+          if (line.includes('TOTAL') && line.includes('VALOR') && line.match(/[\d.,]+$/)) {
+            console.log('📋 Fim da tabela de produtos detectado');
+            break;
+          }
           
-          if (codigo && descricao && quantidade && valorUnitario) {
-            // Limpar e converter valores
-            const qtd = parseFloat(quantidade.replace(',', '.'));
-            const vlrUnit = parseFloat(valorUnitario.replace(/\./g, '').replace(',', '.'));
-            const vlrTotal = valorTotal ? parseFloat(valorTotal.replace(/\./g, '').replace(',', '.')) : qtd * vlrUnit;
+          // Procurar por linhas que começam com código numérico
+          const codeMatch = line.match(/^(\d{3,6})\s/);
+          
+          if (codeMatch) {
+            const codigo = codeMatch[1];
+            console.log('🔍 Código encontrado:', codigo, 'na linha:', line);
+            
+            // Iniciar um novo produto
+            currentProduct = {
+              codigo,
+              descricao: '',
+              quantidade: 0,
+              valor_unitario: 0,
+              valor_total: 0,
+              found: false,
+              product_id: null,
+              product_name: null
+            };
+            
+            // Extrair descrição da mesma linha
+            const afterCode = line.substring(codeMatch[0].length).trim();
+            currentProduct.descricao = afterCode;
+            
+            // Procurar por quantidade, valor unitário e valor total nas próximas linhas
+            for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+              const nextLine = lines[j];
+              
+              // Buscar padrões de quantidade e valores
+              const valuePattern = /(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)/;
+              const valueMatch = nextLine.match(valuePattern);
+              
+              if (valueMatch) {
+                // Tentar diferentes interpretações baseadas no contexto
+                const values = valueMatch.slice(1).map(v => parseFloat(v.replace(/\./g, '').replace(',', '.')));
+                
+                // Heurística: o primeiro valor menor geralmente é quantidade
+                // O segundo valor maior é valor unitário
+                // O terceiro valor maior é valor total
+                if (values.length >= 3) {
+                  currentProduct.quantidade = values[0];
+                  currentProduct.valor_unitario = values[1];
+                  currentProduct.valor_total = values[2];
+                  
+                  console.log(`💰 Valores encontrados - Qtd: ${currentProduct.quantidade}, Vlr Unit: ${currentProduct.valor_unitario}, Vlr Total: ${currentProduct.valor_total}`);
+                  break;
+                }
+              }
+              
+              // Buscar também padrões mais específicos com UN, KG, etc.
+              const specificPattern = /UN\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)/;
+              const specificMatch = nextLine.match(specificPattern);
+              
+              if (specificMatch) {
+                const values = specificMatch.slice(1).map(v => parseFloat(v.replace(/\./g, '').replace(',', '.')));
+                currentProduct.quantidade = values[0];
+                currentProduct.valor_unitario = values[1];
+                currentProduct.valor_total = values[2];
+                
+                console.log(`💰 Valores específicos encontrados - Qtd: ${currentProduct.quantidade}, Vlr Unit: ${currentProduct.valor_unitario}, Vlr Total: ${currentProduct.valor_total}`);
+                break;
+              }
+            }
             
             // Verificar se temos esse código vinculado ao fornecedor
             const supplierCode = supplierCodes?.find(sc => sc.supplier_code === codigo);
             const product = supplierCode ? products?.find(p => p.id === supplierCode.product_id) : null;
             
-            const item = {
-              codigo,
-              descricao: descricao.trim(),
-              quantidade: qtd,
-              valor_unitario: vlrUnit,
-              valor_total: vlrTotal,
-              found: !!supplierCode,
-              product_id: product?.id,
-              product_name: product?.name
-            };
-
-            // Evitar duplicatas
-            if (!items.find(i => i.codigo === codigo)) {
-              items.push(item);
+            if (supplierCode) {
+              currentProduct.found = true;
+              currentProduct.product_id = product?.id;
+              currentProduct.product_name = product?.name;
+              console.log('✅ Produto encontrado no cadastro:', product?.name);
+            } else {
+              console.log('❌ Código não encontrado no cadastro do fornecedor:', codigo);
+            }
+            
+            // Adicionar item se tiver dados mínimos
+            if (currentProduct.codigo && currentProduct.descricao && 
+                currentProduct.quantidade > 0 && currentProduct.valor_unitario > 0) {
+              
+              // Evitar duplicatas
+              if (!items.find(i => i.codigo === codigo)) {
+                items.push({ ...currentProduct });
+                console.log('📦 Item adicionado:', currentProduct);
+              }
             }
           }
         }
