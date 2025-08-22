@@ -836,8 +836,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       }
 
       console.log('💾 Fazendo upload do arquivo...');
-      // Upload do arquivo
-      const fileName = `nfe_${Date.now()}_${file.name}`;
+      
+      // Get current user's store ID for organizing files
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('store_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!userProfile?.store_id) {
+        throw new Error('Usuário sem loja definida');
+      }
+
+      // Upload do arquivo com store_id no path para atender as políticas RLS
+      const fileName = `${userProfile.store_id}/nfe_${Date.now()}_${file.name}`;
+      console.log('📁 Caminho do arquivo:', fileName);
+      
       const { error: uploadError } = await supabase.storage
         .from('account-documents')
         .upload(fileName, file);
