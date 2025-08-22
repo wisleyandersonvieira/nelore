@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -120,6 +121,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   // Edit mode
   const [editingAccount, setEditingAccount] = useState<AccountPayable | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // NFE validation modal
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [nfeItems, setNfeItems] = useState<any[]>([]);
 
   // Form fields
   const [supplierId, setSupplierId] = useState("");
@@ -1026,6 +1031,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     // Converte DD/MM/YYYY para YYYY-MM-DD
     const [day, month, year] = dateString.split('/');
     return `${year}-${month}-${day}`;
+  };
+
+  const handleValidatedItems = (validatedItems: any[]) => {
+    setItems(validatedItems);
+    setShowValidationModal(false);
+    toast({
+      title: "Sucesso",
+      description: `${validatedItems.length} itens importados da NFE com sucesso!`,
+    });
   };
 
   const handleSave = async () => {
