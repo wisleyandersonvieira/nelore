@@ -34,9 +34,12 @@ export const ProductSupplierCodes = ({ productId, onCodesChange }: ProductSuppli
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("ProductSupplierCodes - productId changed:", productId);
     fetchSuppliers();
     if (productId) {
       fetchProductSupplierCodes();
+    } else {
+      setSupplierCodes([]);
     }
   }, [productId]);
 
@@ -64,24 +67,37 @@ export const ProductSupplierCodes = ({ productId, onCodesChange }: ProductSuppli
     
     setLoading(true);
     try {
-      const { data } = await supabase
+      // Primeiro buscar os códigos
+      const { data: codesData } = await supabase
         .from("product_supplier_codes")
-        .select(`
-          id,
-          supplier_id,
-          supplier_code,
-          suppliers!inner(name)
-        `)
+        .select("id, supplier_id, supplier_code")
         .eq("product_id", productId);
 
-      const codes = data?.map(item => ({
-        id: item.id,
-        supplier_id: item.supplier_id,
-        supplier_code: item.supplier_code,
-        supplier_name: (item.suppliers as any)?.name
-      })) || [];
+      if (!codesData || codesData.length === 0) {
+        setSupplierCodes([]);
+        return;
+      }
+
+      // Buscar os nomes dos fornecedores
+      const supplierIds = codesData.map(code => code.supplier_id);
+      const { data: suppliersData } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .in("id", supplierIds);
+
+      // Combinar os dados
+      const codes = codesData.map(code => {
+        const supplier = suppliersData?.find(s => s.id === code.supplier_id);
+        return {
+          id: code.id,
+          supplier_id: code.supplier_id,
+          supplier_code: code.supplier_code,
+          supplier_name: supplier?.name || "Fornecedor não encontrado"
+        };
+      });
 
       setSupplierCodes(codes);
+      console.log("Códigos carregados:", codes);
     } catch (error) {
       console.error("Error fetching product supplier codes:", error);
     } finally {
