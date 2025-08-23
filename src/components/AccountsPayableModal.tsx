@@ -818,191 +818,161 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       console.log('🔗 Códigos do fornecedor encontrados:', supplierCodes?.length || 0);
       console.log('🔗 Códigos cadastrados:', supplierCodes?.map(sc => sc.supplier_code) || []);
 
-      // Dividir texto em linhas e limpar
+      // Dividir texto em linhas
       const lines = text.split(/[\n\r]+/).map(line => line.trim()).filter(line => line.length > 0);
       console.log('📄 Total de linhas para análise:', lines.length);
       
-      // Procurar por códigos dinamicamente (sequências de 3-6 dígitos)
-      const foundCodes = new Set<string>();
+      // Procurar pela tabela de produtos da NFE
+      // Identificar o início da tabela de produtos
+      let productTableStartIndex = -1;
+      let productTableEndIndex = -1;
       
-      // Primeiro, identificar todos os possíveis códigos de produto no texto
+      // Procurar por indicadores de início da tabela de produtos
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        // Procurar por códigos que começam a linha ou estão após espaços
-        const codeMatches = line.match(/(?:^|\s)(\d{3,6})(?:\s|$)/g);
-        if (codeMatches) {
-          codeMatches.forEach(match => {
-            const code = match.trim();
-            if (code.length >= 3 && code.length <= 6) {
-              foundCodes.add(code);
-            }
-          });
+        const line = lines[i].toUpperCase();
+        if (line.includes('DADOS DOS PRODUTOS') || 
+            line.includes('CÓD') && line.includes('PROD') ||
+            line.includes('DESCRIÇÃO') && line.includes('PRODUTOS') ||
+            (line.includes('CÓD') || line.includes('CODIGO')) && (line.includes('DESCRIÇ') || line.includes('QUANT'))) {
+          productTableStartIndex = i;
+          console.log('🎯 Início da tabela de produtos encontrado na linha:', i, '→', line);
+          break;
         }
       }
       
-      console.log('🔍 Códigos encontrados no texto:', Array.from(foundCodes));
-      
-      // Procurar cada código encontrado e extrair seus dados
-      for (const code of Array.from(foundCodes)) {
-        console.log(`🔍 Processando código ${code}...`);
-        
-        // Encontrar a linha principal do código (que contém descrição e valores)
-        let bestMatch = { lineIndex: -1, line: '', confidence: 0 };
-        
+      // Se não encontrou cabeçalho, procurar por linhas que parecem ser produtos
+      if (productTableStartIndex === -1) {
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          
-          // Verificar se a linha contém o código seguido de texto descritivo
-          if (line.includes(code)) {
-            let confidence = 0;
-            
-            // Aumentar confiança se tem padrão de tabela (código + descrição + números)
-            const afterCode = line.substring(line.indexOf(code) + code.length);
-            const hasDescription = /[a-zA-ZÀ-ÿ\s]{10,}/.test(afterCode);
-            const hasNumbers = /\d+[,.]?\d*/.test(afterCode);
-            
-            if (hasDescription) confidence += 3;
-            if (hasNumbers) confidence += 2;
-            if (line.includes('UN') || line.includes('KG') || line.includes('LT')) confidence += 2;
-            if (/^\d+\s/.test(line.trim())) confidence += 1; // Linha começa com código
-            
-            if (confidence > bestMatch.confidence) {
-              bestMatch = { lineIndex: i, line, confidence };
-            }
+          // Procurar linhas que começam com código de 3-4 dígitos seguido de descrição e números
+          if (/^\d{3,4}\s+[A-ZÀ-ÿ]/.test(line) && /\d+[,.]?\d+.*\d+[,.]?\d+.*\d+[,.]?\d+/.test(line)) {
+            productTableStartIndex = i;
+            console.log('🎯 Possível início de produtos encontrado na linha:', i, '→', line);
+            break;
           }
         }
+      }
+      
+      if (productTableStartIndex === -1) {
+        console.log('❌ Não foi possível identificar a tabela de produtos');
+        return [];
+      }
+      
+      // Procurar o fim da tabela de produtos
+      for (let i = productTableStartIndex + 1; i < lines.length; i++) {
+        const line = lines[i].toUpperCase();
+        if (line.includes('CÁLCULO DO IMPOSTO') || 
+            line.includes('TRANSPORTADOR') ||
+            line.includes('DADOS ADICIONAIS') ||
+            line.includes('BASE DE CÁLCULO') ||
+            line.includes('VALOR TOTAL') && line.includes('PRODUTOS') ||
+            line.includes('TOTAL DOS PRODUTOS')) {
+          productTableEndIndex = i;
+          console.log('🏁 Fim da tabela de produtos encontrado na linha:', i, '→', line);
+          break;
+        }
+      }
+      
+      if (productTableEndIndex === -1) {
+        productTableEndIndex = Math.min(productTableStartIndex + 50, lines.length - 1);
+      }
+      
+      console.log(`📋 Analisando tabela de produtos das linhas ${productTableStartIndex} até ${productTableEndIndex}`);
+      
+      // Extrair produtos apenas da região identificada
+      for (let i = productTableStartIndex; i <= productTableEndIndex; i++) {
+        const line = lines[i];
         
-        if (bestMatch.lineIndex === -1) {
-          console.log(`❌ Código ${code} não encontrou linha válida`);
+        // Procurar linhas que começam com código de produto (3-4 dígitos)
+        const productLineMatch = line.match(/^(\d{3,4})\s+(.+)/);
+        if (!productLineMatch) continue;
+        
+        const codigo = productLineMatch[1];
+        const restOfLine = productLineMatch[2];
+        
+        console.log(`🔍 Processando linha de produto: ${codigo} → ${restOfLine}`);
+        
+        // Extrair valores numéricos da linha
+        // Padrão esperado: DESCRIÇÃO ... UNIDADE QUANTIDADE VALOR_UNITARIO VALOR_TOTAL
+        const numberMatches = restOfLine.match(/(\d+(?:[,.]\d+)?)/g);
+        
+        if (!numberMatches || numberMatches.length < 3) {
+          console.log(`❌ Código ${codigo}: números insuficientes`, numberMatches);
           continue;
         }
         
-        console.log(`✅ Código ${code} melhor match (confiança ${bestMatch.confidence}):`, bestMatch.line);
+        // Extrair descrição (tudo antes dos números)
+        let descricao = restOfLine.replace(/\s+\d+(?:[,.]\d+)?.*$/, '').trim();
         
-        const codeLine = bestMatch.line;
-        let currentProduct: any = {
-          codigo: code,
-          descricao: '',
-          quantidade: 0,
-          valor_unitario: 0,
-          valor_total: 0,
+        // Limpar códigos extras da descrição
+        descricao = descricao.replace(/\(\w+\).*$/g, '').trim();
+        descricao = descricao.replace(/\d{8,}/g, '').trim(); // Remove códigos longos
+        
+        if (!descricao) {
+          descricao = `Produto código ${codigo}`;
+        }
+        
+        // Pegar os últimos 3 números como quantidade, valor unitário e valor total
+        const relevantNumbers = numberMatches.slice(-3);
+        
+        const quantidade = parseFloat(relevantNumbers[0].replace(',', '.'));
+        const valorUnitario = parseFloat(relevantNumbers[1].replace(/\./g, '').replace(',', '.'));
+        const valorTotal = parseFloat(relevantNumbers[2].replace(/\./g, '').replace(',', '.'));
+        
+        // Validar se os valores fazem sentido
+        if (quantidade <= 0 || valorUnitario <= 0 || valorTotal <= 0) {
+          console.log(`❌ Código ${codigo}: valores inválidos`, { quantidade, valorUnitario, valorTotal });
+          continue;
+        }
+        
+        // Verificar se quantidade * valor unitário ≈ valor total
+        const calculatedTotal = quantidade * valorUnitario;
+        const tolerance = Math.max(calculatedTotal * 0.05, 0.01); // 5% de tolerância ou 1 centavo
+        
+        let finalValueUnit = valorUnitario;
+        if (Math.abs(calculatedTotal - valorTotal) > tolerance) {
+          // Recalcular valor unitário se não bater
+          finalValueUnit = valorTotal / quantidade;
+          console.log(`🔧 Código ${codigo}: ajustando valor unitário de ${valorUnitario} para ${finalValueUnit}`);
+        }
+        
+        const currentProduct = {
+          codigo,
+          descricao,
+          quantidade,
+          valor_unitario: finalValueUnit,
+          valor_total: valorTotal,
           found: false,
           product_id: null,
           product_name: null
         };
         
-        // Extrair descrição (texto entre o código e os números finais)
-        const codeIndex = codeLine.indexOf(code);
-        const afterCode = codeLine.substring(codeIndex + code.length).trim();
-        
-        // Procurar por descrição antes dos valores numéricos finais
-        const descMatch = afterCode.match(/^(.+?)(?:\s+UN|\s+KG|\s+LT|\s+\d+[,.]?\d*\s+\d+[,.]?\d*\s+[\d,.]+)/);
-        if (descMatch) {
-          currentProduct.descricao = descMatch[1].trim();
-        } else {
-          // Fallback: pegar até os números finais
-          const descFallback = afterCode.replace(/\s+\d+[,.]?\d*(\s+\d+[,.]?\d*)*\s*$/, '').trim();
-          currentProduct.descricao = descFallback || `Produto código ${code}`;
-        }
-        
-        console.log(`📝 Descrição extraída para ${code}:`, currentProduct.descricao);
-        
-        // Extrair valores numéricos da linha (quantidade, valor unitário, valor total)
-        // Padrões comuns: UN 30,0000 91,5764 2.747,29 ou 30 91,5764 2.747,29
-        const numberMatches = codeLine.match(/(\d+[,.]?\d*)/g);
-        
-        if (numberMatches && numberMatches.length >= 3) {
-          // Pegar os últimos 3 números como quantidade, valor unitário e valor total
-          const relevantNumbers = numberMatches.slice(-3);
-          
-          currentProduct.quantidade = parseFloat(relevantNumbers[0].replace(',', '.'));
-          currentProduct.valor_unitario = parseFloat(relevantNumbers[1].replace(/\./g, '').replace(',', '.'));
-          currentProduct.valor_total = parseFloat(relevantNumbers[2].replace(/\./g, '').replace(',', '.'));
-          
-          // Validar se os valores fazem sentido (quantidade * valor_unitario ≈ valor_total)
-          const calculatedTotal = currentProduct.quantidade * currentProduct.valor_unitario;
-          const tolerance = calculatedTotal * 0.1; // 10% de tolerância
-          
-          if (Math.abs(calculatedTotal - currentProduct.valor_total) > tolerance && currentProduct.valor_total > 0) {
-            // Se a multiplicação não bate, ajustar os valores
-            if (currentProduct.quantidade > 0 && currentProduct.valor_total > 0) {
-              currentProduct.valor_unitario = currentProduct.valor_total / currentProduct.quantidade;
-            }
-          }
-          
-          console.log(`📊 Valores extraídos para ${code}:`, {
-            quantidade: currentProduct.quantidade,
-            valor_unitario: currentProduct.valor_unitario,
-            valor_total: currentProduct.valor_total,
-            numeros_encontrados: relevantNumbers
-          });
-        }
-        
         // Verificar se temos esse código vinculado ao fornecedor
-        const supplierCode = supplierCodes?.find(sc => sc.supplier_code === code);
+        const supplierCode = supplierCodes?.find(sc => sc.supplier_code === codigo);
         const product = supplierCode ? products?.find(p => p.id === supplierCode.product_id) : null;
         
-        if (supplierCode) {
+        if (supplierCode && product) {
           currentProduct.found = true;
-          currentProduct.product_id = product?.id;
-          currentProduct.product_name = product?.name;
-          console.log('✅ Produto encontrado no cadastro:', product?.name);
+          currentProduct.product_id = product.id;
+          currentProduct.product_name = product.name;
+          console.log(`✅ Código ${codigo}: produto encontrado no cadastro →`, product.name);
         } else {
-          console.log(`❌ Código ${code} não encontrado no cadastro do fornecedor`);
+          console.log(`⚠️ Código ${codigo}: produto não encontrado no cadastro`);
         }
         
-        // Adicionar item se tiver dados mínimos
-        if (currentProduct.codigo && currentProduct.descricao && 
-            (currentProduct.quantidade > 0 || currentProduct.valor_total > 0)) {
-          
-          // Se não tem quantidade mas tem valor total, assumir quantidade 1
-          if (currentProduct.quantidade === 0 && currentProduct.valor_total > 0) {
-            currentProduct.quantidade = 1;
-            currentProduct.valor_unitario = currentProduct.valor_total;
-          }
-          
-          items.push({ ...currentProduct });
-          console.log('📦 Item adicionado:', currentProduct);
-        } else {
-          console.log(`⚠️ Item ${code} não adicionado - dados insuficientes:`, currentProduct);
-        }
+        console.log(`📊 Produto extraído:`, {
+          codigo: currentProduct.codigo,
+          descricao: currentProduct.descricao,
+          quantidade: currentProduct.quantidade,
+          valor_unitario: currentProduct.valor_unitario,
+          valor_total: currentProduct.valor_total,
+          found: currentProduct.found
+        });
+        
+        items.push(currentProduct);
       }
 
       console.log(`📦 ${items.length} itens extraídos da NFE`);
-      
-      // Se não conseguiu extrair nenhum item, tentar método de fallback
-      if (items.length === 0) {
-        console.log('⚠️ Nenhum item extraído, tentando método de fallback...');
-        
-        // Procurar por linhas que contenham padrões de tabela de produtos
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          
-          // Procurar por linhas que comecem com código e tenham estrutura de produto
-          const productLineMatch = line.match(/^(\d{3,6})\s+(.+?)\s+(UN|KG|LT)?\s*(\d+[,.]?\d*)\s+(\d+[,.]?\d*)\s+([\d,.]+)/);
-          
-          if (productLineMatch) {
-            const [, code, desc, unit, qty, unitPrice, total] = productLineMatch;
-            
-            const supplierCode = supplierCodes?.find(sc => sc.supplier_code === code);
-            const product = supplierCode ? products?.find(p => p.id === supplierCode.product_id) : null;
-            
-            items.push({
-              codigo: code,
-              descricao: desc.trim(),
-              quantidade: parseFloat(qty.replace(',', '.')),
-              valor_unitario: parseFloat(unitPrice.replace(/\./g, '').replace(',', '.')),
-              valor_total: parseFloat(total.replace(/\./g, '').replace(',', '.')),
-              found: !!supplierCode,
-              product_id: product?.id,
-              product_name: product?.name
-            });
-            
-            console.log('📦 Item extraído por fallback:', { code, desc: desc.trim() });
-          }
-        }
-      }
       
       return items;
       
