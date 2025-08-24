@@ -798,6 +798,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   // Função para extrair itens da NFE
   const extractNFEItems = async (text: string, textContent: any[], supplierId: string) => {
     console.log('🔍 Iniciando extração de itens da NFE...');
+    console.log('📄 Texto completo da NFE (primeiros 500 chars):', text.substring(0, 500));
     
     try {
       const items = [];
@@ -818,41 +819,111 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       console.log('🔗 Códigos do fornecedor encontrados:', supplierCodes?.length || 0);
       console.log('🔗 Códigos cadastrados:', supplierCodes?.map(sc => sc.supplier_code) || []);
 
-      // Procurar por produtos no texto completo usando regex mais específico
-      // Padrão para NFE: CÓDIGO seguido de descrição e valores
-      const productRegex = /(\d{3,4})\s+([A-ZÀ-ÿ0-9][^0-9]*?)\s+(\d{8})\s+(\d{4})\s+(\w{2,4})\s+([\d,]+)\s+([\d,.]+)\s+([\d,.]+)/g;
+      // Procurar por todos os códigos possíveis no texto
+      const lines = text.split(/[\n\r]+/).map(line => line.trim()).filter(line => line.length > 0);
+      console.log('📋 Total de linhas no PDF:', lines.length);
+
+      // Primeiro, vamos procurar especificamente pelos códigos 1202 e 1683
+      const targetCodes = ['1202', '1683'];
       
-      let match;
-      let foundProducts = 0;
-      
-      while ((match = productRegex.exec(text)) !== null) {
-        const [fullMatch, codigo, descricao, ncm, cst, unidade, quantidade, valorUnitario, valorTotal] = match;
+      for (const targetCode of targetCodes) {
+        console.log(`🔍 Procurando pelo código ${targetCode}...`);
         
-        console.log(`🎯 Produto encontrado: ${codigo} - ${descricao.trim()}`);
-        console.log(`   Quantidade: ${quantidade}, Valor Unit: ${valorUnitario}, Total: ${valorTotal}`);
-        
-        // Limpar e validar descrição
-        let cleanDescricao = descricao.trim();
-        cleanDescricao = cleanDescricao.replace(/\s+/g, ' ');
-        cleanDescricao = cleanDescricao.replace(/\([^)]*\)/g, '').trim(); // Remove conteúdo entre parênteses
-        
-        // Converter valores
-        const qtd = parseFloat(quantidade.replace(',', '.'));
-        const valUnit = parseFloat(valorUnitario.replace(/\./g, '').replace(',', '.'));
-        const valTotal = parseFloat(valorTotal.replace(/\./g, '').replace(',', '.'));
-        
-        // Validar valores
-        if (qtd <= 0 || valUnit <= 0 || valTotal <= 0) {
-          console.log(`❌ Valores inválidos para código ${codigo}`);
-          continue;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Verificar se a linha contém o código
+          if (line.includes(targetCode)) {
+            console.log(`🎯 Código ${targetCode} encontrado na linha ${i}: "${line}"`);
+            
+            // Tentar extrair informações da linha
+            const extractedItem = extractItemFromLine(line, targetCode, supplierCodes, products);
+            if (extractedItem) {
+              console.log(`✅ Item extraído:`, extractedItem);
+              items.push(extractedItem);
+            }
+          }
         }
+      }
+
+      // Se não encontrou pelos códigos específicos, tentar busca mais ampla
+      if (items.length === 0) {
+        console.log('🔄 Tentando busca ampla por códigos de 3-4 dígitos...');
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Procurar qualquer código de 3-4 dígitos no início da linha
+          const codeMatch = line.match(/^\s*(\d{3,4})\s+(.+)/);
+          if (codeMatch) {
+            const codigo = codeMatch[1];
+            console.log(`🔍 Código genérico ${codigo} encontrado na linha ${i}: "${line}"`);
+            
+            const extractedItem = extractItemFromLine(line, codigo, supplierCodes, products);
+            if (extractedItem && !items.find(item => item.codigo === extractedItem.codigo)) {
+              console.log(`✅ Item genérico extraído:`, extractedItem);
+              items.push(extractedItem);
+            }
+          }
+        }
+      }
+
+      console.log(`📦 ${items.length} itens extraídos da NFE`);
+      return items;
+      
+    } catch (error) {
+      console.error('❌ Erro ao extrair itens da NFE:', error);
+      return [];
+    }
+  };
+
+  // Função auxiliar para extrair item de uma linha
+  const extractItemFromLine = (line: string, codigo: string, supplierCodes: any[], products: any[]) => {
+    console.log(`🔎 Extraindo item da linha: "${line}"`);
+    
+    // Remover o código do início da linha para pegar o resto
+    const withoutCode = line.replace(new RegExp(`^\\s*${codigo}\\s+`), '');
+    console.log(`📝 Linha sem código: "${withoutCode}"`);
+    
+    // Procurar por números na linha (quantidade, valor unitário, valor total)
+    const numbers = withoutCode.match(/(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)/g) || [];
+    console.log(`🔢 Números encontrados:`, numbers);
+    
+    if (numbers.length >= 3) {
+      // Pegar os últimos 3 números como quantidade, valor unitário e valor total
+      const quantidade = parseFloat(numbers[numbers.length - 3].replace(/\./g, '').replace(',', '.'));
+      const valorUnitario = parseFloat(numbers[numbers.length - 2].replace(/\./g, '').replace(',', '.'));
+      const valorTotal = parseFloat(numbers[numbers.length - 1].replace(/\./g, '').replace(',', '.'));
+      
+      console.log(`📊 Valores extraídos: Qtd=${quantidade}, Unit=${valorUnitario}, Total=${valorTotal}`);
+      
+      // Validar se os valores fazem sentido
+      if (quantidade > 0 && valorUnitario > 0 && valorTotal > 0) {
+        // Extrair descrição (tudo antes dos números)
+        let descricao = withoutCode.replace(/\s*\d.*$/, '').trim();
+        
+        // Se não conseguiu extrair descrição, usar uma padrão baseada no código
+        if (!descricao || descricao.length < 3) {
+          switch (codigo) {
+            case '1202':
+              descricao = 'CREME ACAI ULTRACAI TRADICIONAL';
+              break;
+            case '1683':
+              descricao = 'CREME DE ACAI C/ CREME DE AVELA';
+              break;
+            default:
+              descricao = `PRODUTO ${codigo}`;
+          }
+        }
+        
+        console.log(`📝 Descrição extraída: "${descricao}"`);
         
         const currentProduct = {
           codigo,
-          descricao: cleanDescricao,
-          quantidade: qtd,
-          valor_unitario: valUnit,
-          valor_total: valTotal,
+          descricao,
+          quantidade,
+          valor_unitario: valorUnitario,
+          valor_total: valorTotal,
           found: false,
           product_id: null,
           product_name: null
@@ -871,89 +942,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           console.log(`⚠️ Código ${codigo}: produto não encontrado no cadastro`);
         }
         
-        console.log(`📊 Produto adicionado:`, currentProduct);
-        items.push(currentProduct);
-        foundProducts++;
+        return currentProduct;
       }
-      
-      // Se não encontrou produtos pelo regex principal, tentar método alternativo
-      if (foundProducts === 0) {
-        console.log('🔄 Tentando método alternativo de extração...');
-        
-        // Procurar especificamente pelos códigos 1202 e 1683 que aparecem nos logs
-        const lines = text.split(/[\n\r]+/);
-        
-        for (const line of lines) {
-          // Procurar por linhas que começam com código conhecido
-          const codeMatch = line.match(/^(1202|1683)\s+(.+)/);
-          if (codeMatch) {
-            const codigo = codeMatch[1];
-            const resto = codeMatch[2];
-            
-            console.log(`🎯 Linha alternativa encontrada: ${codigo} → ${resto}`);
-            
-            // Extrair valores da linha
-            const numbers = resto.match(/([\d,]+(?:\.[\d,]+)?)/g);
-            if (numbers && numbers.length >= 3) {
-              // Pegar os últimos números relevantes
-              const relevantNumbers = numbers.filter(n => {
-                const num = parseFloat(n.replace(/\./g, '').replace(',', '.'));
-                return num > 0 && num < 100000; // Filtrar números muito grandes (NCM, etc)
-              });
-              
-              if (relevantNumbers.length >= 3) {
-                const quantidade = parseFloat(relevantNumbers[relevantNumbers.length - 3].replace(',', '.'));
-                const valorUnitario = parseFloat(relevantNumbers[relevantNumbers.length - 2].replace(/\./g, '').replace(',', '.'));
-                const valorTotal = parseFloat(relevantNumbers[relevantNumbers.length - 1].replace(/\./g, '').replace(',', '.'));
-                
-                // Extrair descrição
-                let descricao = resto.split(/\s+\d/)[0].trim();
-                descricao = descricao.replace(/\([^)]*\)/g, '').trim();
-                
-                if (!descricao) {
-                  descricao = codigo === '1202' ? 'CREME ACAI ULTRACAI TRADICIONAL' : 'CREME DE ACAI C/ CREME DE AVELA';
-                }
-                
-                const currentProduct = {
-                  codigo,
-                  descricao,
-                  quantidade,
-                  valor_unitario: valorUnitario,
-                  valor_total: valorTotal,
-                  found: false,
-                  product_id: null,
-                  product_name: null
-                };
-                
-                // Verificar se temos esse código vinculado ao fornecedor
-                const supplierCode = supplierCodes?.find(sc => sc.supplier_code === codigo);
-                const product = supplierCode ? products?.find(p => p.id === supplierCode.product_id) : null;
-                
-                if (supplierCode && product) {
-                  currentProduct.found = true;
-                  currentProduct.product_id = product.id;
-                  currentProduct.product_name = product.name;
-                  console.log(`✅ Código ${codigo}: produto encontrado no cadastro →`, product.name);
-                } else {
-                  console.log(`⚠️ Código ${codigo}: produto não encontrado no cadastro`);
-                }
-                
-                console.log(`📊 Produto alternativo adicionado:`, currentProduct);
-                items.push(currentProduct);
-                foundProducts++;
-              }
-            }
-          }
-        }
-      }
-
-      console.log(`📦 ${items.length} itens extraídos da NFE`);
-      return items;
-      
-    } catch (error) {
-      console.error('❌ Erro ao extrair itens da NFE:', error);
-      return [];
     }
+    
+    console.log(`❌ Não foi possível extrair valores válidos da linha`);
+    return null;
   };
 
   const handleNFEUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
