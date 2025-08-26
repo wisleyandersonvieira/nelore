@@ -15,7 +15,8 @@ import {
   LogOut,
   BarChart3,
   Settings,
-  Database
+  Database,
+  FileBarChart
 } from "lucide-react";
 import { AccountsPayableModal } from "@/components/AccountsPayableModal";
 import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
@@ -104,6 +105,13 @@ const Dashboard = () => {
       color: "bg-orange-500",
     },
     {
+      id: "dre",
+      title: "DRE",
+      description: "Demonstrativo de Resultados do Exercício",
+      icon: FileBarChart,
+      color: "bg-teal-500",
+    },
+    {
       id: "relatorios",
       title: "Relatórios",
       description: "Dashboards e relatórios financeiros",
@@ -171,6 +179,8 @@ const Dashboard = () => {
                          navigate("/users");
                        } else if (module.id === "produtos") {
                          navigate("/products");
+                       } else if (module.id === "dre") {
+                         navigate("/dre");
                        } else if (module.id === "contas-pagar") {
                          setAccountsPayableOpen(true);
                        } else if (module.id === "contas-receber") {

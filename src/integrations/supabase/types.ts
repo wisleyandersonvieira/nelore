@@ -561,6 +561,202 @@ export type Database = {
         }
         Relationships: []
       }
+      dre_entries: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          month: number
+          store_id: string
+          structure_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          month: number
+          store_id: string
+          structure_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          month?: number
+          store_id?: string
+          structure_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dre_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_entries_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_entries_structure_id_fkey"
+            columns: ["structure_id"]
+            isOneToOne: false
+            referencedRelation: "dre_structures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dre_entry_values: {
+        Row: {
+          comment: string | null
+          created_at: string
+          entry_id: string
+          id: string
+          structure_item_id: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          entry_id: string
+          id?: string
+          structure_item_id: string
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          entry_id?: string
+          id?: string
+          structure_item_id?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dre_entry_values_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "dre_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_entry_values_structure_item_id_fkey"
+            columns: ["structure_item_id"]
+            isOneToOne: false
+            referencedRelation: "dre_structure_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dre_structure_items: {
+        Row: {
+          account_group_id: string | null
+          created_at: string
+          id: string
+          item_type: string
+          name: string
+          operation_type: string
+          parent_id: string | null
+          position_order: number
+          structure_id: string
+          sum_items: string[] | null
+        }
+        Insert: {
+          account_group_id?: string | null
+          created_at?: string
+          id?: string
+          item_type: string
+          name: string
+          operation_type?: string
+          parent_id?: string | null
+          position_order: number
+          structure_id: string
+          sum_items?: string[] | null
+        }
+        Update: {
+          account_group_id?: string | null
+          created_at?: string
+          id?: string
+          item_type?: string
+          name?: string
+          operation_type?: string
+          parent_id?: string | null
+          position_order?: number
+          structure_id?: string
+          sum_items?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dre_structure_items_account_group_id_fkey"
+            columns: ["account_group_id"]
+            isOneToOne: false
+            referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_structure_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "dre_structure_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_structure_items_structure_id_fkey"
+            columns: ["structure_id"]
+            isOneToOne: false
+            referencedRelation: "dre_structures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dre_structures: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dre_structures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           account_id: string
