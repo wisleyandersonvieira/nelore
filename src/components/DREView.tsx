@@ -233,15 +233,19 @@ export const DREView: React.FC = () => {
   };
 
   const calculateSumLineTotal = (sumItems: string[], data: DREData): number => {
-    return sumItems.reduce((total, itemId) => {
-      const item = structureItems.find(i => i.id === itemId);
-      if (!item) return total;
-
+    // Sum all groups/items above this sum line, considering their position
+    const currentSumLineIndex = structureItems.findIndex(item => item.sum_items?.includes(sumItems[0]));
+    const itemsToSum = structureItems.slice(0, currentSumLineIndex).filter(item => 
+      item.item_type === 'group' || item.item_type === 'sum_line'
+    );
+    
+    return itemsToSum.reduce((total, item) => {
       if (item.item_type === 'group') {
-        return total + calculateGroupTotal(itemId, data);
-      } else if (item.item_type === 'subgroup') {
-        const value = data.values[itemId] || 0;
-        return total + (item.operation_type === 'credit' ? value : -value);
+        const groupTotal = calculateGroupTotal(item.id, data);
+        return total + (item.operation_type === 'credit' ? groupTotal : -groupTotal);
+      } else if (item.item_type === 'sum_line' && item.sum_items) {
+        const sumLineTotal = calculateSumLineTotal(item.sum_items, data);
+        return total + (item.operation_type === 'credit' ? sumLineTotal : -sumLineTotal);
       }
       return total;
     }, 0);
@@ -415,8 +419,10 @@ export const DREView: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {structureItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableRow key={item.id} className={item.item_type === 'group' ? 'font-bold' : ''}>
+                      <TableCell className={item.item_type === 'group' ? 'font-bold' : 'font-medium'}>
+                        {item.name}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={
                           item.item_type === 'group' ? 'default' : 
@@ -428,7 +434,7 @@ export const DREView: React.FC = () => {
                       </TableCell>
                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
                         periodData.map((data, index) => (
-                          <TableCell key={`${periodKey}-${index}`} className="text-right">
+                          <TableCell key={`${periodKey}-${index}`} className={`text-right ${item.item_type === 'group' ? 'font-bold' : ''}`}>
                             {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
                             {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
                             {item.item_type === 'sum_line' && item.sum_items && 

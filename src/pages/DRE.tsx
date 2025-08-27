@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DREStructure } from "@/components/DREStructure";
 import { DRERegister } from "@/components/DRERegister";
 import { DREView } from "@/components/DREView";
-import { FileBarChart, Plus, Eye } from "lucide-react";
+import { DREManager } from "@/components/DREManager";
+import { FileBarChart, Plus, Eye, Settings } from "lucide-react";
 
 const DRE: React.FC = () => {
   return (
@@ -27,7 +28,7 @@ const DRE: React.FC = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="structure" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="structure" className="flex items-center space-x-2">
                   <FileBarChart className="h-4 w-4" />
                   <span>Estrutura DRE</span>
@@ -35,6 +36,10 @@ const DRE: React.FC = () => {
                 <TabsTrigger value="register" className="flex items-center space-x-2">
                   <Plus className="h-4 w-4" />
                   <span>Cadastrar DRE</span>
+                </TabsTrigger>
+                <TabsTrigger value="manage" className="flex items-center space-x-2">
+                  <Settings className="h-4 w-4" />
+                  <span>Gerenciar DREs</span>
                 </TabsTrigger>
                 <TabsTrigger value="view" className="flex items-center space-x-2">
                   <Eye className="h-4 w-4" />
@@ -48,6 +53,10 @@ const DRE: React.FC = () => {
 
               <TabsContent value="register" className="mt-6">
                 <DRERegister />
+              </TabsContent>
+
+              <TabsContent value="manage" className="mt-6">
+                <DREManager />
               </TabsContent>
 
               <TabsContent value="view" className="mt-6">
