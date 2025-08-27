@@ -249,7 +249,36 @@ export const DREStructure: React.FC = () => {
   const updateItem = (index: number, updatedItem: Partial<StructureItem>) => {
     const items = [...currentStructure.items];
     items[index] = { ...items[index], ...updatedItem };
+    
+    // Se está atualizando o account_group_id, atualizar também o nome
+    if (updatedItem.account_group_id) {
+      const selectedGroup = accountGroups.find(g => g.id === updatedItem.account_group_id);
+      if (selectedGroup) {
+        items[index].name = selectedGroup.name;
+      }
+    }
+    
     setCurrentStructure({ ...currentStructure, items });
+  };
+
+  // Função para obter apenas grupos (sem parent_id)
+  const getMainGroups = () => {
+    return accountGroups.filter(group => !group.parent_id);
+  };
+
+  // Função para obter subgrupos de um grupo específico
+  const getSubgroups = (parentGroupId: string) => {
+    return accountGroups.filter(group => group.parent_id === parentGroupId);
+  };
+
+  // Função para encontrar o grupo pai de um subgrupo (o último grupo adicionado antes do subgrupo)
+  const findParentGroup = (currentIndex: number) => {
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      if (currentStructure.items[i].item_type === 'group') {
+        return currentStructure.items[i].account_group_id;
+      }
+    }
+    return null;
   };
 
   const removeItem = (index: number) => {
@@ -333,17 +362,17 @@ export const DREStructure: React.FC = () => {
                 </div>
 
                 {currentStructure.items.length > 0 && (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Grupo de Conta</TableHead>
-                        <TableHead>Operação</TableHead>
-                        <TableHead>Ordem</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Grupo de Conta</TableHead>
+                          <TableHead>Operação</TableHead>
+                          <TableHead>Ordem</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
                     <TableBody>
                       {currentStructure.items.map((item, index) => (
                         <TableRow key={index}>
@@ -356,33 +385,47 @@ export const DREStructure: React.FC = () => {
                                item.item_type === 'subgroup' ? 'Subgrupo' : 'Soma'}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Input
-                              value={item.name}
-                              onChange={(e) => updateItem(index, { name: e.target.value })}
-                              placeholder="Nome do item"
-                              className="w-full"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {item.item_type !== 'sum_line' && (
-                              <Select
-                                value={item.account_group_id || ''}
-                                onValueChange={(value) => updateItem(index, { account_group_id: value })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o grupo" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {accountGroups.map((group) => (
-                                    <SelectItem key={group.id} value={group.id}>
-                                      {group.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          </TableCell>
+                           <TableCell>
+                             <span className="font-medium">
+                               {item.name || 
+                                (item.item_type === 'sum_line' 
+                                  ? 'Linha de Soma' 
+                                  : 'Selecione um ' + (item.item_type === 'group' ? 'grupo' : 'subgrupo')
+                                )
+                               }
+                             </span>
+                           </TableCell>
+                           <TableCell>
+                             {item.item_type !== 'sum_line' && (
+                               <Select
+                                 value={item.account_group_id || ''}
+                                 onValueChange={(value) => updateItem(index, { account_group_id: value })}
+                               >
+                                 <SelectTrigger>
+                                   <SelectValue placeholder={
+                                     item.item_type === 'group' 
+                                       ? "Selecione o grupo" 
+                                       : "Selecione o subgrupo"
+                                   } />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                   {(item.item_type === 'group' 
+                                     ? getMainGroups()
+                                     : item.item_type === 'subgroup' 
+                                       ? getSubgroups(findParentGroup(index) || '')
+                                       : []
+                                   ).map((group) => (
+                                     <SelectItem key={group.id} value={group.id}>
+                                       {group.name}
+                                     </SelectItem>
+                                   ))}
+                                 </SelectContent>
+                               </Select>
+                             )}
+                             {item.item_type === 'sum_line' && (
+                               <span className="text-muted-foreground">-</span>
+                             )}
+                           </TableCell>
                           <TableCell>
                             <Select
                               value={item.operation_type}
