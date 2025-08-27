@@ -232,20 +232,18 @@ export const DREView: React.FC = () => {
     }, 0);
   };
 
-  const calculateSumLineTotal = (sumItems: string[], data: DREData): number => {
-    // Sum all groups/items above this sum line, considering their position
-    const currentSumLineIndex = structureItems.findIndex(item => item.sum_items?.includes(sumItems[0]));
-    const itemsToSum = structureItems.slice(0, currentSumLineIndex).filter(item => 
-      item.item_type === 'group' || item.item_type === 'sum_line'
-    );
+  const calculateSumLineTotal = (sumLineId: string, data: DREData): number => {
+    // Find the current sum line position
+    const currentSumLineIndex = structureItems.findIndex(item => item.id === sumLineId);
+    if (currentSumLineIndex === -1) return 0;
     
-    return itemsToSum.reduce((total, item) => {
-      if (item.item_type === 'group') {
-        const groupTotal = calculateGroupTotal(item.id, data);
-        return total + (item.operation_type === 'credit' ? groupTotal : -groupTotal);
-      } else if (item.item_type === 'sum_line' && item.sum_items) {
-        const sumLineTotal = calculateSumLineTotal(item.sum_items, data);
-        return total + (item.operation_type === 'credit' ? sumLineTotal : -sumLineTotal);
+    // Sum all subgroups that are above this sum line
+    const itemsAbove = structureItems.slice(0, currentSumLineIndex);
+    
+    return itemsAbove.reduce((total, item) => {
+      if (item.item_type === 'subgroup') {
+        const value = data.values[item.id] || 0;
+        return total + (item.operation_type === 'credit' ? value : -value);
       }
       return total;
     }, 0);
@@ -437,9 +435,7 @@ export const DREView: React.FC = () => {
                           <TableCell key={`${periodKey}-${index}`} className={`text-right ${item.item_type === 'group' ? 'font-bold' : ''}`}>
                             {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
                             {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
-                            {item.item_type === 'sum_line' && item.sum_items && 
-                             formatCurrency(calculateSumLineTotal(item.sum_items, data))
-                            }
+                            {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
                           </TableCell>
                         ))
                       )}
