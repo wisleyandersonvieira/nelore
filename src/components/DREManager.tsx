@@ -36,7 +36,7 @@ export const DREManager: React.FC = () => {
   const { toast } = useToast();
 
   const months = [
-    { value: "", label: "Todos os meses" },
+    { value: "all", label: "Todos os meses" },
     { value: "1", label: "Janeiro" },
     { value: "2", label: "Fevereiro" },
     { value: "3", label: "Março" },
@@ -97,15 +97,15 @@ export const DREManager: React.FC = () => {
         .order('month', { ascending: false })
         .order('created_at', { ascending: false });
 
-      if (selectedStore) {
+      if (selectedStore && selectedStore !== 'all') {
         query = query.eq('store_id', selectedStore);
       }
 
-      if (selectedMonth) {
+      if (selectedMonth && selectedMonth !== 'all') {
         query = query.eq('month', parseInt(selectedMonth));
       }
 
-      if (selectedYear) {
+      if (selectedYear && selectedYear !== 'all') {
         query = query.eq('year', parseInt(selectedYear));
       }
 
@@ -194,7 +194,7 @@ export const DREManager: React.FC = () => {
                   <SelectValue placeholder="Todas as lojas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as lojas</SelectItem>
+                  <SelectItem value="all">Todas as lojas</SelectItem>
                   {stores.map((store) => (
                     <SelectItem key={store.id} value={store.id}>
                       {store.name}
@@ -227,7 +227,7 @@ export const DREManager: React.FC = () => {
                   <SelectValue placeholder="Todos os anos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os anos</SelectItem>
+                  <SelectItem value="all">Todos os anos</SelectItem>
                   {Array.from({ length: 5 }, (_, i) => {
                     const year = new Date().getFullYear() - 2 + i;
                     return (
