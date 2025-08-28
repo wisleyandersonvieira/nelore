@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -65,6 +65,7 @@ interface AccountPayable {
   document_number?: string;
   issue_date?: string;
   notes?: string;
+  store_id?: string;
   suppliers?: { name: string };
   stores?: { name: string };
   created_at: string;
@@ -91,9 +92,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [items, setItems] = useState<PayableItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Payment form fields
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAccount, setPaymentAccount] = useState<AccountPayable | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
+  const [surcharge, setSurcharge] = useState<number>(0);
+  const [discount, setDiscount] = useState<number>(0);
   const { toast } = useToast();
 
   // Filter fields
@@ -321,6 +326,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setFilterDueDateTo("");
     setAccountsPayable([]);
     setShowFilteredData(false);
+  };
+
+  const openPaymentModal = (account: AccountPayable) => {
+    setPaymentAccount(account);
+    setSelectedAccountId("");
+    setPaymentDate("");
+    setSurcharge(0);
+    setDiscount(0);
+    setShowPaymentModal(true);
   };
 
   const handleEditAccount = async (account: AccountPayable) => {
@@ -1294,61 +1308,74 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
   };
 
-  const handlePayment = async (accountId: string) => {
-    if (!selectedAccountId || !paymentDate) {
+  const handlePayment = async () => {
+    if (!paymentAccount || !selectedAccountId || !paymentDate) {
       toast({
         title: "Erro",
-        description: "Selecione a conta corrente e data de pagamento",
+        description: "Preencha todos os campos obrigatórios",
         variant: "destructive",
       });
       return;
     }
 
     setLoading(true);
-
     try {
-      const { error } = await supabase
+      const originalAmount = Number(paymentAccount.amount);
+      const finalAmount = originalAmount + surcharge - discount;
+
+      // Update account status to paid
+      const { error: updateError } = await supabase
         .from("accounts_payable")
         .update({
           status: "paid",
           payment_date: paymentDate,
+          amount: finalAmount, // Update with final amount including surcharge/discount
         })
-        .eq("id", accountId);
+        .eq("id", paymentAccount.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      // Create financial transaction record
+      // Create financial transaction
       const user = (await supabase.auth.getUser()).data.user;
-      if (user) {
-        const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
-        
-        const account = accountsPayable.find(acc => acc.id === accountId);
-        if (account) {
-          await supabase
-            .from("financial_transactions")
-            .insert({
-              account_id: selectedAccountId,
-              store_id: userStore.data?.store_id,
-              transaction_type: "saida",
-              amount: account.amount,
-              transaction_date: paymentDate,
-              description: `Pagamento - ${account.description}`,
-              reference_type: "accounts_payable",
-              reference_id: accountId,
-              created_by: user.id,
-            });
-        }
+      if (!user) {
+        throw new Error("User not authenticated");
       }
+
+      // Get user's store_id for the transaction
+      const { data: userProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        console.warn("Could not get user store_id:", profileError);
+      }
+
+      const { error: transactionError } = await supabase
+        .from("financial_transactions")
+        .insert({
+          store_id: userProfile?.store_id || paymentAccount.store_id || null,
+          account_id: selectedAccountId,
+          transaction_type: "saida", // Use "saida" instead of "debit"
+          amount: finalAmount,
+          transaction_date: paymentDate,
+          description: `Pagamento: ${paymentAccount.description}${surcharge > 0 ? ` + Acréscimo: R$ ${surcharge.toFixed(2)}` : ''}${discount > 0 ? ` - Desconto: R$ ${discount.toFixed(2)}` : ''}`,
+          reference_id: paymentAccount.id,
+          reference_type: "accounts_payable",
+          created_by: user.id
+        });
+
+      if (transactionError) throw transactionError;
 
       toast({
         title: "Sucesso",
-        description: "Pagamento registrado com sucesso",
+        description: "Pagamento processado com sucesso",
       });
 
-      // Reset form and refresh data
-      setSelectedAccountId("");
-      setPaymentDate("");
-      fetchAccountsPayable();
+      setShowPaymentModal(false);
+      setPaymentAccount(null);
+      fetchFilteredAccountsPayable();
 
     } catch (error) {
       console.error("Error processing payment:", error);
@@ -1370,9 +1397,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="view">Visualizar Contas</TabsTrigger>
-            <TabsTrigger value="payment">Baixar Contas</TabsTrigger>
             <TabsTrigger value="create">Cadastrar Conta</TabsTrigger>
           </TabsList>
 
@@ -1538,16 +1564,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     <RefreshCw className="h-4 w-4" />
                                   </Button>
                                 ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleDeleteAccount(account.id, account.status)}
-                                    disabled={loading}
-                                    title="Excluir conta"
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openPaymentModal(account)}
+                                      disabled={loading}
+                                      title="Pagar conta"
+                                      className="text-green-600 hover:text-green-700"
+                                    >
+                                      <DollarSign className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDeleteAccount(account.id, account.status)}
+                                      disabled={loading}
+                                      title="Excluir conta"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
                                 )}
                               </div>
                             </TableCell>
@@ -1568,169 +1606,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </CardContent>
                 </Card>
               )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payment">
-            <div className="space-y-4">
-              {/* Filtros da aba de pagamento */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Filtros de Busca</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <div>
-                      <Label htmlFor="payment-filter-supplier">Fornecedor</Label>
-                      <Select value={paymentFilterSupplier} onValueChange={setPaymentFilterSupplier}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o fornecedor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="payment-filter-store">Loja</Label>
-                      <Select value={paymentFilterStore} onValueChange={setPaymentFilterStore}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a loja" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          {stores.map((store) => (
-                            <SelectItem key={store.id} value={store.id}>
-                              {store.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="payment-filter-document">Número Documento</Label>
-                      <Input
-                        id="payment-filter-document"
-                        value={paymentFilterDocumentNumber}
-                        onChange={(e) => setPaymentFilterDocumentNumber(e.target.value)}
-                        placeholder="Digite o número do documento"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="payment-filter-due-date-from">Vencimento (De)</Label>
-                      <Input
-                        id="payment-filter-due-date-from"
-                        type="date"
-                        value={paymentFilterDueDateFrom}
-                        onChange={(e) => setPaymentFilterDueDateFrom(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="payment-filter-due-date-to">Vencimento (Até)</Label>
-                      <Input
-                        id="payment-filter-due-date-to"
-                        type="date"
-                        value={paymentFilterDueDateTo}
-                        onChange={(e) => setPaymentFilterDueDateTo(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={fetchFilteredPaymentAccounts}>
-                      Aplicar Filtros
-                    </Button>
-                    <Button variant="outline" onClick={clearPaymentFilters}>
-                      Limpar Filtros
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Baixar Contas a Pagar</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Conta Corrente *</Label>
-                      <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a conta" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentAccounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name} - {account.bank} ({account.account_number})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Data de Pagamento *</Label>
-                      <Input
-                        type="date"
-                        value={paymentDate}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Fornecedor</TableHead>
-                        <TableHead>Vencimento</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {accountsPayable.map((account) => (
-                        <TableRow key={account.id}>
-                          <TableCell>{account.description}</TableCell>
-                          <TableCell>{account.suppliers?.name || '-'}</TableCell>
-                          <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
-                          <TableCell>
-                            <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">
-                              Pendente
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => handlePayment(account.id)}
-                              disabled={loading || !selectedAccountId || !paymentDate}
-                            >
-                              {loading ? "Processando..." : "Baixar"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {accountsPayable.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground">
-                            {paymentShowFilteredData 
-                              ? "Nenhuma conta pendente encontrada com os filtros aplicados"
-                              : "Use os filtros acima para buscar contas pendentes"
-                            }
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
@@ -2090,6 +1965,101 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           supplierId={supplierId}
           onItemsValidated={handleValidatedItems}
         />
+
+        {/* Modal de Pagamento */}
+        <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Pagar Conta</DialogTitle>
+            </DialogHeader>
+            
+            {paymentAccount && (
+              <div className="space-y-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="font-medium">{paymentAccount.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Fornecedor: {paymentAccount.suppliers?.name || '-'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
+                  </p>
+                  <p className="text-lg font-semibold text-primary">
+                    Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Conta Corrente *</Label>
+                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currentAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name} - {account.bank} ({account.account_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Data de Pagamento *</Label>
+                  <Input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Acréscimo (R$)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={surcharge}
+                      onChange={(e) => setSurcharge(Number(e.target.value) || 0)}
+                      placeholder="0,00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Desconto (R$)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discount}
+                      onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                      placeholder="0,00"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <p className="text-lg font-bold text-center">
+                    Valor Final: R$ {(Number(paymentAccount.amount) + surcharge - discount).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handlePayment} 
+                    disabled={loading || !selectedAccountId || !paymentDate}
+                  >
+                    {loading ? "Processando..." : "Confirmar Pagamento"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
