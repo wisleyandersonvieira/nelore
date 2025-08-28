@@ -802,7 +802,7 @@ export type Database = {
             foreignKeyName: "financial_transactions_account_id_fkey"
             columns: ["account_id"]
             isOneToOne: false
-            referencedRelation: "chart_of_accounts"
+            referencedRelation: "current_accounts"
             referencedColumns: ["id"]
           },
           {
