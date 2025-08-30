@@ -1248,6 +1248,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .select()
           .single();
 
+        if (payableError) throw payableError;
+        if (!payable) throw new Error("Falha ao criar conta a pagar");
+
         // Upload attachments for new account
         if (attachments.length > 0) {
           newAttachments = await uploadAttachments(payable.id);
