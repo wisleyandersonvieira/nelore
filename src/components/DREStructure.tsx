@@ -209,9 +209,26 @@ export const DREStructure: React.FC = () => {
     if (!confirm("Tem certeza que deseja excluir esta estrutura?")) return;
 
     try {
+      // Primeiro excluir os itens da estrutura
+      const { error: itemsError } = await supabase
+        .from('dre_structure_items')
+        .delete()
+        .eq('structure_id', structureId);
+
+      if (itemsError) throw itemsError;
+
+      // Depois excluir as entradas relacionadas
+      const { error: entriesError } = await supabase
+        .from('dre_entries')
+        .delete()
+        .eq('structure_id', structureId);
+
+      if (entriesError) throw entriesError;
+
+      // Por fim, excluir a estrutura
       const { error } = await supabase
         .from('dre_structures')
-        .update({ is_active: false })
+        .delete()
         .eq('id', structureId);
 
       if (error) throw error;
