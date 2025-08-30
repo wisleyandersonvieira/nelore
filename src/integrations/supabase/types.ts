@@ -454,6 +454,7 @@ export type Database = {
           name: string
           phone: string | null
           state: string | null
+          store_id: string
           updated_at: string
         }
         Insert: {
@@ -468,6 +469,7 @@ export type Database = {
           name: string
           phone?: string | null
           state?: string | null
+          store_id: string
           updated_at?: string
         }
         Update: {
@@ -482,9 +484,18 @@ export type Database = {
           name?: string
           phone?: string | null
           state?: string | null
+          store_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_creditors_store"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       current_account_stores: {
         Row: {
@@ -1059,6 +1070,7 @@ export type Database = {
           name: string
           phone: string | null
           state: string | null
+          store_id: string
           updated_at: string
         }
         Insert: {
@@ -1073,6 +1085,7 @@ export type Database = {
           name: string
           phone?: string | null
           state?: string | null
+          store_id: string
           updated_at?: string
         }
         Update: {
@@ -1087,9 +1100,18 @@ export type Database = {
           name?: string
           phone?: string | null
           state?: string | null
+          store_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_suppliers_store"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       units_of_measure: {
         Row: {

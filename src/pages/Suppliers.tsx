@@ -20,6 +20,7 @@ interface Supplier {
   phone: string | null;
   email: string | null;
   contact_person: string | null;
+  store_id: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -31,6 +32,7 @@ const Suppliers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [activeTab, setActiveTab] = useState("register");
+  const [userStoreId, setUserStoreId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -47,8 +49,26 @@ const Suppliers = () => {
   });
 
   useEffect(() => {
+    fetchUserStoreId();
     fetchSuppliers();
   }, []);
+
+  const fetchUserStoreId = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("store_id")
+          .eq("id", user.id)
+          .single();
+        
+        setUserStoreId(profile?.store_id || null);
+      }
+    } catch (error) {
+      console.error("Error fetching user store:", error);
+    }
+  };
 
   const formatCnpjCpf = (value: string) => {
     const cleaned = value.replace(/\D/g, "");
@@ -148,9 +168,18 @@ const Suppliers = () => {
           description: "Fornecedor atualizado com sucesso!",
         });
       } else {
+        if (!userStoreId) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Usuário não associado a uma loja.",
+          });
+          return;
+        }
+        
         const { error } = await supabase
           .from("suppliers")
-          .insert([formData]);
+          .insert([{ ...formData, store_id: userStoreId }]);
 
         if (error) throw error;
         toast({

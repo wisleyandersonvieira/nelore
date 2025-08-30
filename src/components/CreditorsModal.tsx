@@ -31,6 +31,7 @@ interface Creditor {
   email?: string;
   city?: string;
   state?: string;
+  store_id: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -47,6 +48,7 @@ export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingCreditor, setEditingCreditor] = useState<Creditor | null>(null);
   const [activeTab, setActiveTab] = useState("register");
+  const [userStoreId, setUserStoreId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -62,9 +64,27 @@ export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
 
   useEffect(() => {
     if (open) {
+      fetchUserStoreId();
       fetchCreditors();
     }
   }, [open]);
+
+  const fetchUserStoreId = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("store_id")
+          .eq("id", user.id)
+          .single();
+        
+        setUserStoreId(profile?.store_id || null);
+      }
+    } catch (error) {
+      console.error("Error fetching user store:", error);
+    }
+  };
 
   const fetchCreditors = async () => {
     try {
@@ -171,6 +191,15 @@ export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
         });
       } else {
         // Create new creditor
+        if (!userStoreId) {
+          toast({
+            title: "Erro",
+            description: "Usuário não associado a uma loja",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         const { error } = await supabase
           .from("creditors")
           .insert({
@@ -182,6 +211,7 @@ export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
             email: formData.email || null,
             city: formData.city || null,
             state: formData.state || null,
+            store_id: userStoreId,
           });
 
         if (error) throw error;
