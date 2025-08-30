@@ -145,11 +145,12 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
 
     setLoading(true);
     try {
-      // Verificar se existem contas associadas a este grupo
+      // Verificar se existem contas ATIVAS associadas a este grupo
       const { data: accounts, error: checkError } = await supabase
         .from("chart_of_accounts")
         .select("id")
         .eq("group_id", grupo.id)
+        .eq("is_active", true)
         .limit(1);
 
       if (checkError) throw checkError;
