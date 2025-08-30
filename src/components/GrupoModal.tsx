@@ -145,6 +145,24 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
 
     setLoading(true);
     try {
+      // Verificar se existem contas associadas a este grupo
+      const { data: accounts, error: checkError } = await supabase
+        .from("chart_of_accounts")
+        .select("id")
+        .eq("group_id", grupo.id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (accounts && accounts.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Não é possível excluir",
+          description: "Este grupo possui contas associadas. Remova as contas antes de excluir o grupo.",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("account_groups")
         .delete()
@@ -153,11 +171,11 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
       if (error) throw error;
       toast({ title: "Sucesso", description: "Grupo excluído com sucesso!" });
       await fetchGrupos();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível excluir o grupo.",
+        description: error.message || "Não foi possível excluir o grupo.",
       });
     } finally {
       setLoading(false);
