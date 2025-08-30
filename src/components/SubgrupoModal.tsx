@@ -354,9 +354,9 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
               <CardTitle>Subgrupos Cadastrados</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-[400px] overflow-y-auto">
+              <div className="max-h-[300px] overflow-y-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead 
                         className="cursor-pointer hover:bg-muted/50 select-none"

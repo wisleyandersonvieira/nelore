@@ -309,9 +309,9 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
               <CardTitle>Grupos Cadastrados</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-[400px] overflow-y-auto">
+              <div className="max-h-[300px] overflow-y-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Classe</TableHead>
