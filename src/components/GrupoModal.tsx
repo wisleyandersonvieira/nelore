@@ -175,6 +175,31 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
         return;
       }
 
+      // Verificar se o grupo está sendo usado na estrutura do DRE
+      const { data: dreItems, error: dreError } = await supabase
+        .from("dre_structure_items")
+        .select(`
+          id, 
+          name,
+          dre_structures!inner(name)
+        `)
+        .eq("account_group_id", grupo.id)
+        .limit(3);
+
+      if (dreError) throw dreError;
+
+      if (dreItems && dreItems.length > 0) {
+        const dreItemNames = dreItems.map(item => `"${item.name}" (${item.dre_structures.name})`).join(", ");
+        const countText = dreItems.length === 1 ? "1 item" : `${dreItems.length} itens`;
+        
+        toast({
+          variant: "destructive",
+          title: "Não é possível excluir",
+          description: `Este grupo está sendo usado em ${countText} da estrutura DRE: ${dreItemNames}${dreItems.length > 3 ? "..." : ""}. Remova essas referências antes de excluir o grupo.`,
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("account_groups")
         .delete()
