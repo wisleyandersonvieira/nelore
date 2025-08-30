@@ -156,10 +156,21 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
       if (checkError) throw checkError;
 
       if (accounts && accounts.length > 0) {
+        // Buscar detalhes das contas para mostrar na mensagem
+        const { data: accountDetails } = await supabase
+          .from("chart_of_accounts")
+          .select("name")
+          .eq("group_id", grupo.id)
+          .eq("is_active", true)
+          .limit(3);
+
+        const accountNames = accountDetails?.map(acc => acc.name).join(", ") || "";
+        const countText = accounts.length === 1 ? "1 conta ativa" : `${accounts.length} contas ativas`;
+        
         toast({
           variant: "destructive",
           title: "Não é possível excluir",
-          description: "Este grupo possui contas associadas. Remova as contas antes de excluir o grupo.",
+          description: `Este grupo possui ${countText} associada(s): ${accountNames}${accounts.length > 3 ? "..." : ""}. Remova as contas antes de excluir o grupo.`,
         });
         return;
       }
