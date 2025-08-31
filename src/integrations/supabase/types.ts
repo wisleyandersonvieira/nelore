@@ -51,7 +51,7 @@ export type Database = {
       }
       accounts_payable: {
         Row: {
-          account_id: string
+          account_id: string | null
           amount: number
           attachments: Json | null
           created_at: string
@@ -72,7 +72,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          account_id: string
+          account_id?: string | null
           amount: number
           attachments?: Json | null
           created_at?: string
@@ -93,7 +93,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          account_id?: string
+          account_id?: string | null
           amount?: number
           attachments?: Json | null
           created_at?: string
