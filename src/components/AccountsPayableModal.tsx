@@ -1415,12 +1415,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
       if (attachments.length > 0) {
         uploadedAttachments = await uploadAttachments(payable.id);
-        
-        // Atualizar a conta com os anexos
-        await supabase
+      }
+      
+      // Combinar anexos existentes (como NFE) com novos anexos
+      const allAttachments = [...existingAttachments, ...uploadedAttachments];
+      
+      if (allAttachments.length > 0) {
+        console.log('💾 Atualizando conta com anexos:', allAttachments);
+        const { error: updateError } = await supabase
           .from("accounts_payable")
-          .update({ attachments: uploadedAttachments })
+          .update({ attachments: allAttachments })
           .eq("id", payable.id);
+          
+        if (updateError) {
+          console.error('❌ Erro ao atualizar anexos:', updateError);
+          throw updateError;
+        }
+        console.log('✅ Anexos salvos com sucesso');
       }
 
       // Inserir os itens
