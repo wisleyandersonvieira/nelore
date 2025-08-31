@@ -107,6 +107,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [paymentDate, setPaymentDate] = useState("");
   const [surcharge, setSurcharge] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
+  const [accountInstallments, setAccountInstallments] = useState<any[]>([]);
+  const [selectedInstallments, setSelectedInstallments] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Filter fields
@@ -343,12 +345,30 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setShowFilteredData(false);
   };
 
-  const openPaymentModal = (account: AccountPayable) => {
+  const openPaymentModal = async (account: AccountPayable) => {
     setPaymentAccount(account);
     setSelectedAccountId("");
     setPaymentDate("");
     setSurcharge(0);
     setDiscount(0);
+    setAccountInstallments([]);
+    setSelectedInstallments([]);
+
+    // Check if account has installments
+    try {
+      const { data: installmentsData, error } = await supabase
+        .from("accounts_payable_installments")
+        .select("*")
+        .eq("account_payable_id", account.id)
+        .order("installment_number");
+
+      if (error) throw error;
+
+      setAccountInstallments(installmentsData || []);
+    } catch (error) {
+      console.error("Error fetching installments:", error);
+    }
+
     setShowPaymentModal(true);
   };
 
@@ -1376,24 +1396,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       return;
     }
 
+    // If account has installments, check if at least one is selected
+    if (accountInstallments.length > 0 && selectedInstallments.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Selecione pelo menos uma parcela para pagar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const originalAmount = Number(paymentAccount.amount);
-      const finalAmount = originalAmount + surcharge - discount;
-
-      // Update account status to paid
-      const { error: updateError } = await supabase
-        .from("accounts_payable")
-        .update({
-          status: "paid",
-          payment_date: paymentDate,
-          amount: finalAmount, // Update with final amount including surcharge/discount
-        })
-        .eq("id", paymentAccount.id);
-
-      if (updateError) throw updateError;
-
-      // Create financial transaction
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
         throw new Error("User not authenticated");
@@ -1410,26 +1424,99 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         console.warn("Could not get user store_id:", profileError);
       }
 
-      const { error: transactionError } = await supabase
-        .from("financial_transactions")
-        .insert({
-          store_id: userProfile?.store_id || paymentAccount.store_id || null,
-          account_id: selectedAccountId,
-          transaction_type: "saida", // Use "saida" instead of "debit"
-          amount: finalAmount,
-          transaction_date: paymentDate,
-          description: `Pagamento: ${paymentAccount.description}${surcharge > 0 ? ` + Acréscimo: R$ ${surcharge.toFixed(2)}` : ''}${discount > 0 ? ` - Desconto: R$ ${discount.toFixed(2)}` : ''}`,
-          reference_id: paymentAccount.id,
-          reference_type: "accounts_payable",
-          created_by: user.id
+      if (accountInstallments.length > 0) {
+        // Payment with installments
+        const installmentsToPay = accountInstallments.filter(inst => 
+          selectedInstallments.includes(inst.id)
+        );
+
+        let totalPaymentAmount = 0;
+
+        // Update each selected installment
+        for (const installment of installmentsToPay) {
+          const installmentAmount = Number(installment.amount);
+          const finalAmount = installmentAmount + surcharge - discount;
+          totalPaymentAmount += finalAmount;
+
+          // Create financial transaction for each installment
+          const { error: transactionError } = await supabase
+            .from("financial_transactions")
+            .insert({
+              store_id: userProfile?.store_id || paymentAccount.store_id || null,
+              account_id: selectedAccountId,
+              transaction_type: "saida",
+              amount: finalAmount,
+              transaction_date: paymentDate,
+              description: `Pagamento Parcela ${installment.installment_number}: ${paymentAccount.description}${surcharge > 0 ? ` + Acréscimo: R$ ${surcharge.toFixed(2)}` : ''}${discount > 0 ? ` - Desconto: R$ ${discount.toFixed(2)}` : ''}`,
+              reference_id: installment.id,
+              reference_type: "accounts_payable_installments",
+              created_by: user.id
+            });
+
+          if (transactionError) throw transactionError;
+        }
+
+        // Check if all installments are now paid
+        const remainingInstallments = accountInstallments.filter(inst => 
+          !selectedInstallments.includes(inst.id)
+        );
+
+        const accountStatus = remainingInstallments.length === 0 ? "paid" : "partial";
+        
+        // Update account status
+        const { error: updateAccountError } = await supabase
+          .from("accounts_payable")
+          .update({
+            status: accountStatus,
+            payment_date: accountStatus === "paid" ? paymentDate : null,
+          })
+          .eq("id", paymentAccount.id);
+
+        if (updateAccountError) throw updateAccountError;
+
+        toast({
+          title: "Sucesso",
+          description: `${selectedInstallments.length} parcela(s) paga(s) com sucesso`,
         });
+      } else {
+        // Payment without installments (original logic)
+        const originalAmount = Number(paymentAccount.amount);
+        const finalAmount = originalAmount + surcharge - discount;
 
-      if (transactionError) throw transactionError;
+        // Update account status to paid
+        const { error: updateError } = await supabase
+          .from("accounts_payable")
+          .update({
+            status: "paid",
+            payment_date: paymentDate,
+            amount: finalAmount,
+          })
+          .eq("id", paymentAccount.id);
 
-      toast({
-        title: "Sucesso",
-        description: "Pagamento processado com sucesso",
-      });
+        if (updateError) throw updateError;
+
+        // Create financial transaction
+        const { error: transactionError } = await supabase
+          .from("financial_transactions")
+          .insert({
+            store_id: userProfile?.store_id || paymentAccount.store_id || null,
+            account_id: selectedAccountId,
+            transaction_type: "saida",
+            amount: finalAmount,
+            transaction_date: paymentDate,
+            description: `Pagamento: ${paymentAccount.description}${surcharge > 0 ? ` + Acréscimo: R$ ${surcharge.toFixed(2)}` : ''}${discount > 0 ? ` - Desconto: R$ ${discount.toFixed(2)}` : ''}`,
+            reference_id: paymentAccount.id,
+            reference_type: "accounts_payable",
+            created_by: user.id
+          });
+
+        if (transactionError) throw transactionError;
+
+        toast({
+          title: "Sucesso",
+          description: "Pagamento processado com sucesso",
+        });
+      }
 
       setShowPaymentModal(false);
       setPaymentAccount(null);
@@ -2186,7 +2273,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Pagamento */}
         <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Pagar Conta</DialogTitle>
             </DialogHeader>
@@ -2205,6 +2292,70 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
                   </p>
                 </div>
+
+                {/* Installments Section */}
+                {accountInstallments.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold">Selecione as parcelas para pagar:</h3>
+                    <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                      <div className="space-y-2">
+                        {accountInstallments.map((installment) => {
+                          const isPaid = installment.payment_date !== null;
+                          return (
+                            <div key={installment.id} className={`flex items-center justify-between p-3 border rounded ${isPaid ? 'bg-green-50 border-green-200' : 'bg-white'}`}>
+                              <div className="flex items-center space-x-3">
+                                {!isPaid && (
+                                  <input
+                                    type="checkbox"
+                                    id={installment.id}
+                                    checked={selectedInstallments.includes(installment.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedInstallments([...selectedInstallments, installment.id]);
+                                      } else {
+                                        setSelectedInstallments(selectedInstallments.filter(id => id !== installment.id));
+                                      }
+                                    }}
+                                    className="h-4 w-4"
+                                  />
+                                )}
+                                <div>
+                                  <p className="font-medium">
+                                    Parcela {installment.installment_number}
+                                    {isPaid && <span className="ml-2 text-green-600 text-sm">(PAGA)</span>}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                                    {isPaid && (
+                                      <span className="ml-2">
+                                        - Paga em: {new Date(installment.payment_date).toLocaleDateString('pt-BR')}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">R$ {Number(installment.amount).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    {selectedInstallments.length > 0 && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="font-medium text-blue-800">
+                          {selectedInstallments.length} parcela(s) selecionada(s) - 
+                          Total: R$ {accountInstallments
+                            .filter(inst => selectedInstallments.includes(inst.id))
+                            .reduce((sum, inst) => sum + Number(inst.amount), 0)
+                            .toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Conta Corrente *</Label>
@@ -2259,7 +2410,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
                 <div className="p-4 bg-primary/10 rounded-lg">
                   <p className="text-lg font-bold text-center">
-                    Valor Final: R$ {(Number(paymentAccount.amount) + surcharge - discount).toFixed(2)}
+                    Valor Final: R$ {(() => {
+                      const baseAmount = accountInstallments.length > 0 
+                        ? accountInstallments
+                            .filter(inst => selectedInstallments.includes(inst.id))
+                            .reduce((sum, inst) => sum + Number(inst.amount), 0)
+                        : Number(paymentAccount.amount);
+                      return (baseAmount + surcharge - discount).toFixed(2);
+                    })()}
                   </p>
                 </div>
 
@@ -2269,7 +2427,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </Button>
                   <Button 
                     onClick={handlePayment} 
-                    disabled={loading || !selectedAccountId || !paymentDate}
+                    disabled={loading || !selectedAccountId || !paymentDate || (accountInstallments.length > 0 && selectedInstallments.length === 0)}
                   >
                     {loading ? "Processando..." : "Confirmar Pagamento"}
                   </Button>
