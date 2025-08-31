@@ -826,23 +826,41 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setExistingAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Função para sanitizar nome de arquivo para storage
+  const sanitizeFileName = (fileName: string): string => {
+    return fileName
+      .normalize('NFD') // Decompor caracteres acentuados
+      .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+      .replace(/[^a-zA-Z0-9._-]/g, '_') // Substituir caracteres especiais por underscore
+      .replace(/_{2,}/g, '_') // Substituir múltiplos underscores por um só
+      .replace(/^_|_$/g, ''); // Remover underscores do início e fim
+  };
+
   const uploadAttachments = async (accountId: string): Promise<Array<{name: string, url: string, size: number}>> => {
     const uploadedFiles: Array<{name: string, url: string, size: number}> = [];
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error("Usuário não autenticado");
 
     for (const file of attachments) {
-      const fileName = `${user.id}/${accountId}/${Date.now()}-${file.name}`;
+      const sanitizedName = sanitizeFileName(file.name);
+      const fileName = `${user.id}/${accountId}/${Date.now()}_${sanitizedName}`;
+      
+      console.log(`📎 Fazendo upload do arquivo: ${file.name} -> ${fileName}`);
       
       const { data, error } = await supabase.storage
         .from('account-documents')
         .upload(fileName, file);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro no upload:', error);
+        throw error;
+      }
+
+      console.log(`✅ Upload realizado: ${fileName}`);
 
       // Store the file path instead of public URL for private buckets
       uploadedFiles.push({
-        name: file.name,
+        name: file.name, // Manter nome original para exibição
         url: fileName, // Store file path for private bucket
         size: file.size
       });
