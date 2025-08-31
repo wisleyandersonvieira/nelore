@@ -378,6 +378,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         ...item,
         attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
       }));
+      
+      console.log('📊 Dados das contas buscadas:', formattedData.map(item => ({
+        id: item.id,
+        description: item.description,
+        attachments: item.attachments
+      })));
+      
       setAccountsPayable(formattedData);
       setShowFilteredData(true);
     } catch (error) {
@@ -431,6 +438,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const handleEditAccount = async (account: AccountPayable) => {
+    console.log('🔍 Editando conta:', account);
+    console.log('📎 Anexos da conta:', account.attachments);
+    
     setEditingAccount(account);
     setIsEditing(true);
     // Find the actual supplier ID from the suppliers array
@@ -446,8 +456,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
     // Load existing attachments
     if (account.attachments && Array.isArray(account.attachments)) {
+      console.log('✅ Carregando anexos existentes:', account.attachments);
       setExistingAttachments(account.attachments);
     } else {
+      console.log('❌ Nenhum anexo encontrado ou anexos inválidos:', account.attachments);
       setExistingAttachments([]);
     }
     setAttachments([]);
