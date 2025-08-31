@@ -1852,7 +1852,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 
-                                {(account.status === 'paid' || account.status === 'partial') ? (
+                                {account.status === 'paid' && (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -1862,7 +1862,33 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   >
                                     <RefreshCw className="h-4 w-4" />
                                   </Button>
-                                ) : (
+                                )}
+                                
+                                {account.status === 'partial' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openPaymentModal(account)}
+                                      disabled={loading}
+                                      title="Pagar conta"
+                                      className="text-green-600 hover:text-green-700"
+                                    >
+                                      <DollarSign className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleReversePayment(account)}
+                                      disabled={loading}
+                                      title="Estornar pagamento"
+                                    >
+                                      <RefreshCw className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                
+                                {account.status === 'pending' && (
                                   <>
                                     <Button
                                       size="sm"
