@@ -1913,6 +1913,67 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     });
   };
 
+  // Função para criar parcelas de teste
+  const createTestInstallments = async () => {
+    if (!editingAccount?.id) {
+      toast({
+        title: "Erro", 
+        description: "Conta não encontrada para criar parcelas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('🧪 Criando parcelas de teste para conta:', editingAccount.id);
+      
+      const totalAmount = editingAccount.amount || 0;
+      const numberOfInstallments = 3; // Criar 3 parcelas de teste
+      const installmentAmount = totalAmount / numberOfInstallments;
+      
+      const testInstallments = [];
+      for (let i = 1; i <= numberOfInstallments; i++) {
+        const installmentDate = new Date(editingAccount.due_date || new Date());
+        installmentDate.setMonth(installmentDate.getMonth() + i - 1);
+        
+        testInstallments.push({
+          account_payable_id: editingAccount.id,
+          installment_number: i,
+          due_date: installmentDate.toISOString().split('T')[0],
+          amount: installmentAmount,
+        });
+      }
+
+      const { error } = await supabase
+        .from("accounts_payable_installments")
+        .insert(testInstallments);
+
+      if (error) throw error;
+
+      // Recarregar as parcelas
+      const { data: installmentsData } = await supabase
+        .from("accounts_payable_installments")
+        .select("*")
+        .eq("account_payable_id", editingAccount.id)
+        .order("installment_number");
+
+      console.log('✅ Parcelas de teste criadas:', installmentsData);
+      setAccountInstallments(installmentsData || []);
+
+      toast({
+        title: "Sucesso",
+        description: `${numberOfInstallments} parcelas de teste criadas com sucesso!`,
+      });
+    } catch (error) {
+      console.error("❌ Erro ao criar parcelas de teste:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar parcelas de teste",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -2517,11 +2578,19 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   <Button onClick={handleRecordNote} disabled={loading}>
                     Gravar Nota
                   </Button>
-                ) : (
+                 ) : (
                   <>
                     <Button variant="outline" onClick={openInstallmentsModal}>
                       Parcelas {installments.length > 0 && `(${installments.length})`}
                     </Button>
+                    
+                    {/* Botão para criar parcelas de teste se não houver parcelas */}
+                    {accountInstallments.length === 0 && (
+                      <Button variant="outline" onClick={createTestInstallments}>
+                        🧪 Criar Parcelas de Teste
+                      </Button>
+                    )}
+                    
                     <Button onClick={handleSave} disabled={loading}>
                       {loading ? "Salvando..." : "Salvar"}
                     </Button>
