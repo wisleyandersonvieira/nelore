@@ -440,6 +440,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const handleEditAccount = async (account: AccountPayable) => {
     console.log('🔍 Editando conta:', account);
     console.log('📎 Anexos da conta:', account.attachments);
+    console.log('📎 Tipo dos anexos:', typeof account.attachments);
+    console.log('📎 É array?', Array.isArray(account.attachments));
+    console.log('📎 Anexos stringified:', JSON.stringify(account.attachments));
     
     setEditingAccount(account);
     setIsEditing(true);
@@ -1348,6 +1351,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const handleRecordNote = async () => {
+    console.log('🚀 Iniciando handleRecordNote...');
+    console.log('📎 existingAttachments:', existingAttachments);
+    console.log('📎 attachments:', attachments);
+    
     if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
@@ -1411,14 +1418,19 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (payableError) throw payableError;
       if (!payable) throw new Error("Falha ao criar conta a pagar");
 
+      console.log('💾 Conta criada com ID:', payable.id);
+
       // Upload dos anexos se existirem
       let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
       if (attachments.length > 0) {
+        console.log('📤 Fazendo upload de novos anexos:', attachments.length);
         uploadedAttachments = await uploadAttachments(payable.id);
       }
       
       // Combinar anexos existentes (como NFE) com novos anexos
       const allAttachments = [...existingAttachments, ...uploadedAttachments];
+      console.log('📋 Total de anexos para salvar:', allAttachments.length);
+      console.log('📋 Anexos detalhados:', allAttachments);
       
       if (allAttachments.length > 0) {
         console.log('💾 Atualizando conta com anexos:', allAttachments);
@@ -1455,12 +1467,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       // Configurar como editando a conta recém criada
       const accountWithAttachments = {
         ...payable,
-        attachments: uploadedAttachments
+        attachments: allAttachments // CORRIGIDO: usar allAttachments em vez de uploadedAttachments
       } as AccountPayable;
+      
+      console.log('🔧 Configurando conta para edição:', accountWithAttachments);
+      console.log('🔧 Anexos na conta configurada:', accountWithAttachments.attachments);
       
       setEditingAccount(accountWithAttachments);
       setIsEditing(true);
-      setExistingAttachments(uploadedAttachments);
+      setExistingAttachments(allAttachments); // CORRIGIDO: usar allAttachments
       setAttachments([]); // Limpar anexos novos
       
       setNoteRecorded(true);
