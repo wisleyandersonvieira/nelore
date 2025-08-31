@@ -1438,6 +1438,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           const finalAmount = installmentAmount + surcharge - discount;
           totalPaymentAmount += finalAmount;
 
+          // Mark installment as paid
+          const { error: updateInstallmentError } = await supabase
+            .from("accounts_payable_installments")
+            .update({
+              payment_date: paymentDate
+            })
+            .eq("id", installment.id);
+
+          if (updateInstallmentError) throw updateInstallmentError;
+
           // Create financial transaction for each installment
           const { error: transactionError } = await supabase
             .from("financial_transactions")
@@ -1457,11 +1467,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         }
 
         // Check if all installments are now paid
-        const remainingInstallments = accountInstallments.filter(inst => 
-          !selectedInstallments.includes(inst.id)
-        );
+        const { data: updatedInstallments, error: checkError } = await supabase
+          .from("accounts_payable_installments")
+          .select("payment_date")
+          .eq("account_payable_id", paymentAccount.id);
 
-        const accountStatus = remainingInstallments.length === 0 ? "paid" : "partial";
+        if (checkError) throw checkError;
+
+        const allPaid = updatedInstallments?.every(inst => inst.payment_date !== null);
+        const accountStatus = allPaid ? "paid" : "partial";
         
         // Update account status
         const { error: updateAccountError } = await supabase
