@@ -1317,7 +1317,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     });
   };
 
-  const handleRecordNote = () => {
+  const handleRecordNote = async () => {
     if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
@@ -1336,11 +1336,108 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       return;
     }
 
-    setNoteRecorded(true);
-    toast({
-      title: "Sucesso",
-      description: "Nota gravada! Agora você pode configurar parcelas ou salvar diretamente.",
-    });
+    try {
+      setLoading(true);
+
+      // Obter usuário atual
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Usuário não autenticado");
+
+      // Primeiro, criar a conta a pagar
+      const userProfile = (await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("id", user.id)
+        .single()).data;
+
+      if (!userProfile?.store_id) {
+        throw new Error('Usuário sem loja definida');
+      }
+
+      const totalAmount = getTotalAmount();
+      
+      const { data: payable, error: payableError } = await supabase
+        .from("accounts_payable")
+        .insert({
+          store_id: userProfile.store_id,
+          supplier_id: supplierId,
+          account_id: "",
+          description: `${documentType} ${documentNumber}`,
+          document_type: documentType,
+          document_number: documentNumber,
+          issue_date: issueDate,
+          due_date: dueDate,
+          data_competencia: dataCompetencia,
+          amount: totalAmount,
+          total_amount: totalAmount,
+          status: "pending",
+          notes: notes,
+          created_by: user.id,
+          attachments: [] // Inicialmente vazio, será atualizado abaixo
+        })
+        .select()
+        .single();
+
+      if (payableError) throw payableError;
+      if (!payable) throw new Error("Falha ao criar conta a pagar");
+
+      // Upload dos anexos se existirem
+      let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
+      if (attachments.length > 0) {
+        uploadedAttachments = await uploadAttachments(payable.id);
+        
+        // Atualizar a conta com os anexos
+        await supabase
+          .from("accounts_payable")
+          .update({ attachments: uploadedAttachments })
+          .eq("id", payable.id);
+      }
+
+      // Inserir os itens
+      if (items.length > 0) {
+        const itemsToInsert = items.map(item => ({
+          account_payable_id: payable.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          store_id: item.store_id
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("accounts_payable_items")
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Configurar como editando a conta recém criada
+      const accountWithAttachments = {
+        ...payable,
+        attachments: uploadedAttachments
+      } as AccountPayable;
+      
+      setEditingAccount(accountWithAttachments);
+      setIsEditing(true);
+      setExistingAttachments(uploadedAttachments);
+      setAttachments([]); // Limpar anexos novos
+      
+      setNoteRecorded(true);
+      toast({
+        title: "Sucesso",
+        description: "Nota gravada com anexos! Agora você pode configurar parcelas ou finalizar.",
+      });
+
+    } catch (error) {
+      console.error("Error recording note:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao gravar nota",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async () => {
