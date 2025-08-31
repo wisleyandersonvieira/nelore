@@ -421,6 +421,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
     // Check if account has installments
     try {
+      console.log('🔍 Verificando parcelas para conta:', account.id);
       const { data: installmentsData, error } = await supabase
         .from("accounts_payable_installments")
         .select("*")
@@ -429,6 +430,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       if (error) throw error;
 
+      console.log('📋 Parcelas encontradas:', installmentsData);
       setAccountInstallments(installmentsData || []);
     } catch (error) {
       console.error("Error fetching installments:", error);
