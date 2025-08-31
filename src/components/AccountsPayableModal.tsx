@@ -1361,7 +1361,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .insert({
           store_id: userProfile.store_id,
           supplier_id: supplierId,
-          account_id: "",
+          account_id: null, // Será definido quando pagar a conta
           description: `${documentType} ${documentNumber}`,
           document_type: documentType,
           document_number: documentNumber,
