@@ -295,12 +295,64 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         `);
 
       // Apply filters only if they have values
-      if (filterDateFrom) {
-        query = query.gte("payment_date", filterDateFrom);
+      if (filterDateFrom || filterDateTo) {
+        // Para filtro de data de baixa, precisamos buscar contas que tenham payment_date
+        // OU que tenham parcelas com payment_date dentro do período
+        
+        let accountsWithPaymentDate = [];
+        let accountsWithInstallmentPaymentDate = [];
+        
+        // Buscar contas com payment_date principal
+        if (filterDateFrom && filterDateTo) {
+          const { data: mainPaymentData } = await supabase
+            .from("accounts_payable")
+            .select("id")
+            .gte("payment_date", filterDateFrom)
+            .lte("payment_date", filterDateTo);
+          accountsWithPaymentDate = mainPaymentData?.map(item => item.id) || [];
+        } else if (filterDateFrom) {
+          const { data: mainPaymentData } = await supabase
+            .from("accounts_payable")
+            .select("id")
+            .gte("payment_date", filterDateFrom);
+          accountsWithPaymentDate = mainPaymentData?.map(item => item.id) || [];
+        } else if (filterDateTo) {
+          const { data: mainPaymentData } = await supabase
+            .from("accounts_payable")
+            .select("id")
+            .lte("payment_date", filterDateTo);
+          accountsWithPaymentDate = mainPaymentData?.map(item => item.id) || [];
+        }
+        
+        // Buscar contas que têm parcelas com payment_date no período
+        let installmentQuery = supabase
+          .from("accounts_payable_installments")
+          .select("account_payable_id")
+          .not("payment_date", "is", null);
+        
+        if (filterDateFrom) {
+          installmentQuery = installmentQuery.gte("payment_date", filterDateFrom);
+        }
+        if (filterDateTo) {
+          installmentQuery = installmentQuery.lte("payment_date", filterDateTo);
+        }
+        
+        const { data: installmentData } = await installmentQuery;
+        accountsWithInstallmentPaymentDate = installmentData?.map(item => item.account_payable_id) || [];
+        
+        // Combinar IDs de ambas as buscas
+        const allAccountIds = [...new Set([...accountsWithPaymentDate, ...accountsWithInstallmentPaymentDate])];
+        
+        if (allAccountIds.length > 0) {
+          query = query.in("id", allAccountIds);
+        } else {
+          // Se não encontrou nenhuma conta com pagamento no período, retornar vazio
+          setAccountsPayable([]);
+          setShowFilteredData(true);
+          return;
+        }
       }
-      if (filterDateTo) {
-        query = query.lte("payment_date", filterDateTo);
-      }
+      
       if (filterSupplier && filterSupplier !== "all" && filterSupplier !== "") {
         query = query.eq("supplier_id", filterSupplier);
       }
@@ -1836,7 +1888,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             </TableCell>
                             <TableCell>
                               {account.payment_date 
-                                ? new Date(account.payment_date).toLocaleDateString('pt-BR')
+                                ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')
                                 : '-'
                               }
                             </TableCell>
@@ -2456,11 +2508,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   </p>
                                   <p className="text-sm text-muted-foreground">
                                     Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
-                                    {isPaid && (
-                                      <span className="ml-2">
-                                        - Paga em: {new Date(installment.payment_date).toLocaleDateString('pt-BR')}
-                                      </span>
-                                    )}
+                                     {isPaid && (
+                                       <span className="ml-2">
+                                         - Paga em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                       </span>
+                                     )}
                                   </p>
                                 </div>
                               </div>
@@ -2618,9 +2670,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
-                                  <span className="ml-2">
-                                    - Paga em: {new Date(installment.payment_date).toLocaleDateString('pt-BR')}
-                                  </span>
+                                   <span className="ml-2">
+                                     - Paga em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                   </span>
                                 </p>
                               </div>
                             </div>
