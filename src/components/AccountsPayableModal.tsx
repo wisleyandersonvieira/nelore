@@ -64,6 +64,7 @@ interface AccountPayable {
   document_type?: string;
   document_number?: string;
   issue_date?: string;
+  data_competencia?: string;
   notes?: string;
   store_id?: string;
   suppliers?: { name: string };
@@ -71,6 +72,13 @@ interface AccountPayable {
   created_at: string;
   payment_date?: string;
   attachments?: Array<{name: string, url: string, size: number}>;
+}
+
+interface Installment {
+  id?: string;
+  installment_number: number;
+  due_date: string;
+  amount: number;
 }
 
 const documentTypes = [
@@ -137,7 +145,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [documentNumber, setDocumentNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dataCompetencia, setDataCompetencia] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Parcelas
+  const [noteRecorded, setNoteRecorded] = useState(false);
+  const [showInstallmentsModal, setShowInstallmentsModal] = useState(false);
+  const [numberOfInstallments, setNumberOfInstallments] = useState(1);
+  const [installments, setInstallments] = useState<Installment[]>([]);
 
   // Item form fields
   const [selectedProduct, setSelectedProduct] = useState("");
@@ -347,7 +362,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setDocumentNumber(account.document_number || "");
     setIssueDate(account.issue_date || "");
     setDueDate(account.due_date || "");
+    setDataCompetencia(account.data_competencia || "");
     setNotes(account.notes || "");
+    setNoteRecorded(true); // Ao editar, considerar como nota já gravada
 
     // Load existing attachments
     if (account.attachments && Array.isArray(account.attachments)) {
@@ -1140,8 +1157,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     });
   };
 
-  const handleSave = async () => {
-    if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate) {
+  const handleRecordNote = () => {
+    if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
@@ -1154,6 +1171,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       toast({
         title: "Erro",
         description: "Adicione pelo menos um item",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setNoteRecorded(true);
+    toast({
+      title: "Sucesso",
+      description: "Nota gravada! Agora você pode configurar parcelas ou salvar diretamente.",
+    });
+  };
+
+  const handleSave = async () => {
+    if (!noteRecorded) {
+      toast({
+        title: "Erro",
+        description: "Primeiro grave a nota antes de salvar",
         variant: "destructive",
       });
       return;
@@ -1186,6 +1220,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             document_number: documentNumber,
             issue_date: issueDate,
             due_date: dueDate,
+            data_competencia: dataCompetencia,
             description: `${documentType} ${documentNumber}`,
             amount: totalAmount,
             total_amount: totalAmount,
@@ -1236,13 +1271,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             document_type: documentType,
             document_number: documentNumber,
             issue_date: issueDate,
+            data_competencia: dataCompetencia,
             description: `${documentType} ${documentNumber}`,
             amount: totalAmount,
             total_amount: totalAmount,
             notes,
             store_id: userStore.data?.store_id,
             created_by: user.id,
-            due_date: dueDate,
+            due_date: installments.length > 0 ? installments[0].due_date : dueDate,
             account_id: "11111111-1111-1111-1111-111111111111",
           })
           .select()
@@ -1279,6 +1315,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         if (itemsError) throw itemsError;
 
+        // Se há parcelas, inserir as parcelas
+        if (installments.length > 0) {
+          const installmentsToInsert = installments.map(installment => ({
+            account_payable_id: payable.id,
+            installment_number: installment.installment_number,
+            due_date: installment.due_date,
+            amount: installment.amount,
+          }));
+
+          const { error: installmentsError } = await supabase
+            .from("accounts_payable_installments")
+            .insert(installmentsToInsert);
+
+          if (installmentsError) throw installmentsError;
+        }
+
         toast({
           title: "Sucesso",
           description: "Conta a pagar criada com sucesso",
@@ -1291,10 +1343,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setDocumentNumber("");
       setIssueDate("");
       setDueDate("");
+      setDataCompetencia("");
       setNotes("");
       setItems([]);
       setAttachments([]);
       setExistingAttachments([]);
+      setNoteRecorded(false);
+      setInstallments([]);
       setIsEditing(false);
       setEditingAccount(null);
       setActiveTab("view");
@@ -1390,6 +1445,56 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     } finally {
       setLoading(false);
     }
+  };
+
+  const openInstallmentsModal = () => {
+    if (!noteRecorded) {
+      toast({
+        title: "Erro",
+        description: "Primeiro grave a nota antes de configurar parcelas",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowInstallmentsModal(true);
+  };
+
+  const generateInstallments = () => {
+    const totalAmount = getTotalAmount();
+    const installmentAmount = totalAmount / numberOfInstallments;
+    const newInstallments: Installment[] = [];
+    
+    for (let i = 1; i <= numberOfInstallments; i++) {
+      const installmentDate = new Date(dueDate);
+      installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+      
+      newInstallments.push({
+        installment_number: i,
+        due_date: installmentDate.toISOString().split('T')[0],
+        amount: i === numberOfInstallments 
+          ? totalAmount - (installmentAmount * (numberOfInstallments - 1)) // Ajustar última parcela
+          : installmentAmount
+      });
+    }
+    
+    setInstallments(newInstallments);
+  };
+
+  const updateInstallment = (index: number, field: string, value: string | number) => {
+    const updatedInstallments = [...installments];
+    updatedInstallments[index] = {
+      ...updatedInstallments[index],
+      [field]: value
+    };
+    setInstallments(updatedInstallments);
+  };
+
+  const confirmInstallments = () => {
+    setShowInstallmentsModal(false);
+    toast({
+      title: "Sucesso",
+      description: `${installments.length} parcelas configuradas com sucesso!`,
+    });
   };
 
   return (
@@ -1683,6 +1788,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         onChange={(e) => setDueDate(e.target.value)}
                       />
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dataCompetencia">Data de Competência *</Label>
+                      <Input
+                        id="dataCompetencia"
+                        type="date"
+                        value={dataCompetencia}
+                        onChange={(e) => setDataCompetencia(e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -1951,9 +2066,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 <Button variant="outline" onClick={() => onOpenChange(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={loading}>
-                  {loading ? "Salvando..." : "Salvar"}
-                </Button>
+                
+                {!noteRecorded ? (
+                  <Button onClick={handleRecordNote} disabled={loading}>
+                    Gravar Nota
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={openInstallmentsModal}>
+                      Parcelas {installments.length > 0 && `(${installments.length})`}
+                    </Button>
+                    <Button onClick={handleSave} disabled={loading}>
+                      {loading ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </TabsContent>
@@ -1968,6 +2095,94 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           supplierId={supplierId}
           onItemsValidated={handleValidatedItems}
         />
+
+        {/* Modal de Parcelas */}
+        <Dialog open={showInstallmentsModal} onOpenChange={setShowInstallmentsModal}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Configurar Parcelas</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-medium">Valor Total: R$ {getTotalAmount().toFixed(2)}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quantidade de Parcelas</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={numberOfInstallments}
+                    onChange={(e) => setNumberOfInstallments(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={generateInstallments} className="w-full">
+                    Gerar Parcelas
+                  </Button>
+                </div>
+              </div>
+
+              {installments.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Parcelas Configuradas</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Parcela</TableHead>
+                        <TableHead>Data de Vencimento</TableHead>
+                        <TableHead>Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {installments.map((installment, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{installment.installment_number}ª</TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={installment.due_date}
+                              onChange={(e) => updateInstallment(index, 'due_date', e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={installment.amount}
+                              onChange={(e) => updateInstallment(index, 'amount', parseFloat(e.target.value) || 0)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <p className="font-semibold">
+                      Total das Parcelas: R$ {installments.reduce((sum, inst) => sum + inst.amount, 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowInstallmentsModal(false)}>
+                  Cancelar
+                </Button>
+                {installments.length > 0 && (
+                  <Button onClick={confirmInstallments}>
+                    Confirmar Parcelas
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Modal de Pagamento */}
         <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>

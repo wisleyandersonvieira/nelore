@@ -56,6 +56,7 @@ export type Database = {
           attachments: Json | null
           created_at: string
           created_by: string
+          data_competencia: string | null
           description: string
           document_number: string | null
           document_type: string | null
@@ -76,6 +77,7 @@ export type Database = {
           attachments?: Json | null
           created_at?: string
           created_by: string
+          data_competencia?: string | null
           description: string
           document_number?: string | null
           document_type?: string | null
@@ -96,6 +98,7 @@ export type Database = {
           attachments?: Json | null
           created_at?: string
           created_by?: string
+          data_competencia?: string | null
           description?: string
           document_number?: string | null
           document_type?: string | null
@@ -137,6 +140,44 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_payable_installments: {
+        Row: {
+          account_payable_id: string
+          amount: number
+          created_at: string
+          due_date: string
+          id: string
+          installment_number: number
+          updated_at: string
+        }
+        Insert: {
+          account_payable_id: string
+          amount: number
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_number: number
+          updated_at?: string
+        }
+        Update: {
+          account_payable_id?: string
+          amount?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_installments_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
             referencedColumns: ["id"]
           },
         ]
