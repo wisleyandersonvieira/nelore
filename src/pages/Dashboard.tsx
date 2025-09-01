@@ -181,6 +181,8 @@ const Dashboard = () => {
                          navigate("/products");
                        } else if (module.id === "dre") {
                          navigate("/dre");
+                       } else if (module.id === "relatorios") {
+                         navigate("/reports");
                        } else if (module.id === "contas-pagar") {
                          setAccountsPayableOpen(true);
                        } else if (module.id === "contas-receber") {
