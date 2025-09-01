@@ -453,6 +453,33 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   const handleEditAccount = async (account: AccountPayable) => {
     console.log('🔍 Editando conta:', account);
+    
+    // Verificar se a conta tem parcelas pagas (Regra 1)
+    const { data: installmentsData, error: installmentsError } = await supabase
+      .from("accounts_payable_installments")
+      .select("payment_date")
+      .eq("account_payable_id", account.id)
+      .not("payment_date", "is", null);
+    
+    if (installmentsError) {
+      console.error("❌ Erro ao verificar parcelas pagas:", installmentsError);
+      toast({
+        title: "Erro",
+        description: "Erro ao verificar status dos pagamentos",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (installmentsData && installmentsData.length > 0) {
+      toast({
+        title: "Edição não permitida",
+        description: "Esta conta possui pagamentos realizados. Para editar, é necessário estornar os pagamentos primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     console.log('📎 Anexos da conta:', account.attachments);
     console.log('📎 Tipo dos anexos:', typeof account.attachments);
     console.log('📎 É array?', Array.isArray(account.attachments));
@@ -1728,6 +1755,48 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       toast({
         title: "Erro",
         description: "Selecione pelo menos uma parcela para pagar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se a conta corrente está vinculada às lojas dos itens (Regra 2)
+    try {
+      // Buscar itens da conta para obter as lojas
+      const { data: accountItems, error: itemsError } = await supabase
+        .from("accounts_payable_items")
+        .select("store_id")
+        .eq("account_payable_id", paymentAccount.id);
+
+      if (itemsError) throw itemsError;
+
+      // Buscar quais lojas estão vinculadas à conta corrente selecionada
+      const { data: accountStores, error: storesError } = await supabase
+        .from("current_account_stores")
+        .select("store_id")
+        .eq("account_id", selectedAccountId);
+
+      if (storesError) throw storesError;
+
+      // Verificar se todas as lojas dos itens estão permitidas na conta corrente
+      const itemStoreIds = [...new Set(accountItems?.map(item => item.store_id) || [])];
+      const allowedStoreIds = accountStores?.map(store => store.store_id) || [];
+
+      const unauthorizedStores = itemStoreIds.filter(storeId => !allowedStoreIds.includes(storeId));
+
+      if (unauthorizedStores.length > 0) {
+        toast({
+          title: "Conta corrente não autorizada",
+          description: "A conta corrente selecionada não está vinculada a todas as lojas dos itens desta conta a pagar.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("❌ Erro ao validar conta corrente:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao validar a conta corrente",
         variant: "destructive",
       });
       return;
