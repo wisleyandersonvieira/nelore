@@ -70,6 +70,13 @@ interface AccountReceivable {
   payment_date?: string;
 }
 
+interface Installment {
+  id?: string;
+  installment_number: number;
+  due_date: string;
+  amount: number;
+}
+
 const documentTypes = [
   { value: "NF", label: "Nota Fiscal (NF)" },
   { value: "RC", label: "Recibo (RC)" },
@@ -141,8 +148,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Note recorded state
+  // Parcelas
   const [noteRecorded, setNoteRecorded] = useState(false);
+  const [showInstallmentsModal, setShowInstallmentsModal] = useState(false);
+  const [numberOfInstallments, setNumberOfInstallments] = useState(1);
+  const [installments, setInstallments] = useState<Installment[]>([]);
 
   // Item form fields
   const [selectedProduct, setSelectedProduct] = useState("");
@@ -178,6 +188,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setQuantity(1);
       setUnitPrice(0);
       setNoteRecorded(false);
+      setInstallments([]);
       setEditingAccount(null);
       setIsEditing(false);
       setIsRealEdit(false);
@@ -507,6 +518,105 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
+  const handleRecordNote = () => {
+    if (!creditorId || !issueDate || !dueDate) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios (Credor, Data Emissão, Data Vencimento)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setNoteRecorded(true);
+    toast({
+      title: "Sucesso",
+      description: "Nota gravada! Agora adicione os itens.",
+    });
+  };
+
+  const generateInstallments = () => {
+    if (numberOfInstallments < 1 || numberOfInstallments > 12) {
+      toast({
+        title: "Erro",
+        description: "Número de parcelas deve ser entre 1 e 12",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalAmount = getTotalAmount();
+    if (totalAmount <= 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione itens antes de gerar as parcelas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const baseAmount = totalAmount / numberOfInstallments;
+    const newInstallments: Installment[] = [];
+    
+    for (let i = 0; i < numberOfInstallments; i++) {
+      const installmentDate = new Date(dueDate);
+      installmentDate.setMonth(installmentDate.getMonth() + i);
+      
+      newInstallments.push({
+        installment_number: i + 1,
+        due_date: installmentDate.toISOString().split('T')[0],
+        amount: parseFloat(baseAmount.toFixed(2))
+      });
+    }
+
+    // Ajustar diferença de centavos na última parcela
+    const totalInstallments = newInstallments.reduce((sum, inst) => sum + inst.amount, 0);
+    const difference = totalAmount - totalInstallments;
+    if (difference !== 0) {
+      newInstallments[newInstallments.length - 1].amount += difference;
+    }
+
+    setInstallments(newInstallments);
+  };
+
+  const updateInstallment = (index: number, field: keyof Installment, value: any) => {
+    const updated = [...installments];
+    updated[index] = { ...updated[index], [field]: value };
+    setInstallments(updated);
+  };
+
+  const confirmInstallments = () => {
+    const totalInstallments = installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const totalAmount = getTotalAmount();
+    
+    if (Math.abs(totalInstallments - totalAmount) > 0.01) {
+      toast({
+        title: "Erro",
+        description: "A soma das parcelas deve ser igual ao valor total",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setShowInstallmentsModal(false);
+    toast({
+      title: "Sucesso",
+      description: `${installments.length} parcela(s) configurada(s)`,
+    });
+  };
+
+  const openInstallmentsModal = () => {
+    if (getTotalAmount() <= 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione itens antes de configurar as parcelas",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowInstallmentsModal(true);
+  };
+
   const handleSave = async () => {
     if (!creditorId || items.length === 0 || !issueDate || !dueDate) {
       toast({
@@ -517,9 +627,19 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       return;
     }
 
+    if (!currentAccounts.length) {
+      toast({
+        title: "Erro",
+        description: "Nenhuma conta corrente encontrada. Cadastre uma conta corrente primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const totalAmount = getTotalAmount();
+      const defaultAccountId = currentAccounts[0]?.id;
 
       if (isEditing && editingAccount) {
         // Update existing account
@@ -533,7 +653,6 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             issue_date: issueDate,
             due_date: dueDate,
             amount: totalAmount,
-            total_amount: totalAmount,
             notes,
             status: "pending",
           })
@@ -582,7 +701,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             notes,
             status: "pending",
             store_id: items[0]?.store_id,
-            account_id: selectedAccountId || currentAccounts[0]?.id || "",
+            account_id: defaultAccountId,
             created_by: "system",
           })
           .select()
@@ -621,6 +740,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setNotes("");
       setItems([]);
       setNoteRecorded(false);
+      setInstallments([]);
       setIsEditing(false);
       setEditingAccount(null);
       setActiveTab("view");
@@ -689,7 +809,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       toast({
         title: "Sucesso",
-        description: "Pagamento processado com sucesso",
+        description: "Recebimento processado com sucesso",
       });
 
       setShowPaymentModal(false);
@@ -862,7 +982,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 ? "bg-green-100 text-green-800" 
                                 : "bg-yellow-100 text-yellow-800"
                             }`}>
-                              {account.status === "paid" ? "Pago" : "Pendente"}
+                              {account.status === "paid" ? "Recebido" : "Pendente"}
                             </span>
                           </TableCell>
                           <TableCell>
@@ -999,171 +1119,165 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             </div>
 
             {!isViewOnly && (
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => setNoteRecorded(true)}
-                  disabled={!creditorId || !issueDate || !dueDate}
-                >
-                  Gravar Nota
-                </Button>
-              </div>
-            )}
-
-            {(noteRecorded || isViewOnly) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Itens da Conta</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {!isViewOnly && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <Label>Produto *</Label>
-                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecionar produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label>Quantidade *</Label>
-                        <Input
-                          type="number"
-                          value={quantity}
-                          onChange={(e) => setQuantity(Number(e.target.value))}
-                          min="0.01"
-                          step="0.01"
-                        />
-                      </div>
-
-                      <div>
-                        <Label>Preço Unitário *</Label>
-                        <Input
-                          type="number"
-                          value={unitPrice}
-                          onChange={(e) => setUnitPrice(Number(e.target.value))}
-                          min="0.01"
-                          step="0.01"
-                        />
-                      </div>
-
-                      <div>
-                        <Label>Loja *</Label>
-                        <Select value={selectedStore} onValueChange={setSelectedStore}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecionar loja" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {stores.map((store) => (
-                              <SelectItem key={store.id} value={store.id}>
-                                {store.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+              <Tabs defaultValue="items" className="w-full">
+                <TabsList className="grid w-full grid-cols-1">
+                  <TabsTrigger value="items">Itens</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="items" className="space-y-4">
+                  {!noteRecorded ? (
+                    <div className="text-center p-8 bg-muted rounded-lg">
+                      <p className="text-muted-foreground mb-4">
+                        Preencha os dados principais e clique em "Gravar Nota" para adicionar itens
+                      </p>
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <Label>Produto *</Label>
+                          <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar produto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.map((product) => (
+                                <SelectItem key={product.id} value={product.id}>
+                                  {product.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                  {!isViewOnly && (
-                    <Button onClick={addItem}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Item
-                    </Button>
-                  )}
+                        <div>
+                          <Label>Quantidade *</Label>
+                          <Input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => setQuantity(Number(e.target.value))}
+                            min="0.01"
+                            step="0.01"
+                          />
+                        </div>
 
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Produto</TableHead>
-                          <TableHead>Quantidade</TableHead>
-                          <TableHead>Preço Unit.</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Loja</TableHead>
-                          {!isViewOnly && <TableHead>Ações</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{item.product_name}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>
-                              R$ {item.unit_price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell>
-                              R$ {item.total_price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell>{item.store_name}</TableCell>
-                            {!isViewOnly && (
+                        <div>
+                          <Label>Preço Unitário *</Label>
+                          <Input
+                            type="number"
+                            value={unitPrice}
+                            onChange={(e) => setUnitPrice(Number(e.target.value))}
+                            min="0.01"
+                            step="0.01"
+                          />
+                        </div>
+
+                        <div>
+                          <Label>Loja *</Label>
+                          <Select value={selectedStore} onValueChange={setSelectedStore}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar loja" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                  {store.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <Button onClick={addItem}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar Item
+                      </Button>
+
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Produto</TableHead>
+                            <TableHead>Quantidade</TableHead>
+                            <TableHead>Valor Unit.</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Loja</TableHead>
+                            <TableHead>Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {items.map((item, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{item.product_name}</TableCell>
+                              <TableCell>{item.quantity}</TableCell>
+                              <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
+                              <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
+                              <TableCell>{item.store_name}</TableCell>
                               <TableCell>
                                 <Button
-                                  size="sm"
                                   variant="outline"
+                                  size="sm"
                                   onClick={() => removeItem(index)}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
 
-                  {items.length > 0 && (
-                    <div className="flex justify-end">
-                      <div className="text-lg font-semibold">
-                        Total: R$ {getTotalAmount().toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
+                      {items.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Total Geral</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold text-primary">
+                              R$ {getTotalAmount().toFixed(2)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </>
                   )}
-                </CardContent>
-              </Card>
+                </TabsContent>
+              </Tabs>
             )}
 
-            {!isViewOnly && (
-              <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={loading}>
-                  {loading ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}
+            <div className="flex justify-end gap-2 pt-4">
+              {isViewOnly ? (
+                <Button variant="outline" onClick={() => {
+                  setIsViewOnly(false);
+                  setViewOnlyAccount(null);
+                  setActiveTab("view");
+                }}>
+                  Voltar
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setActiveTab("view");
-                    setIsEditing(false);
-                    setEditingAccount(null);
-                  }}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            )}
-
-            {isViewOnly && (
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setActiveTab("view");
-                    setIsViewOnly(false);
-                    setViewOnlyAccount(null);
-                  }}
-                >
-                  Fechar
-                </Button>
-              </div>
-            )}
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancelar
+                  </Button>
+                  
+                  {!noteRecorded ? (
+                    <Button onClick={handleRecordNote} disabled={loading}>
+                      Gravar Nota
+                    </Button>
+                   ) : (
+                    <>
+                      <Button variant="outline" onClick={openInstallmentsModal}>
+                        Parcelas {installments.length > 0 && `(${installments.length})`}
+                      </Button>
+                      
+                      <Button onClick={handleSave} disabled={loading}>
+                        {loading ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="payment" className="space-y-4">
@@ -1286,25 +1400,113 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           </TabsContent>
         </Tabs>
 
+        {/* Modal de Parcelas */}
+        <Dialog open={showInstallmentsModal} onOpenChange={setShowInstallmentsModal}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Configurar Parcelas</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-medium">Valor Total: R$ {getTotalAmount().toFixed(2)}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quantidade de Parcelas</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={numberOfInstallments}
+                    onChange={(e) => setNumberOfInstallments(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={generateInstallments} className="w-full">
+                    Gerar Parcelas
+                  </Button>
+                </div>
+              </div>
+
+              {installments.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Parcelas Configuradas</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Parcela</TableHead>
+                        <TableHead>Data de Vencimento</TableHead>
+                        <TableHead>Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {installments.map((installment, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{installment.installment_number}ª</TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={installment.due_date}
+                              onChange={(e) => updateInstallment(index, 'due_date', e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={installment.amount}
+                              onChange={(e) => updateInstallment(index, 'amount', parseFloat(e.target.value) || 0)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <p className="font-semibold">
+                      Total das Parcelas: R$ {installments.reduce((sum, inst) => sum + inst.amount, 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowInstallmentsModal(false)}>
+                  Cancelar
+                </Button>
+                {installments.length > 0 && (
+                  <Button onClick={confirmInstallments}>
+                    Confirmar Parcelas
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Payment Modal */}
         {showPaymentModal && paymentAccount && (
           <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Processar Recebimento</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label>Descrição</Label>
-                  <Input value={paymentAccount.description} disabled />
-                </div>
-                
-                <div>
-                  <Label>Valor Original</Label>
-                  <Input 
-                    value={`R$ ${paymentAccount.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    disabled 
-                  />
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="font-medium">{paymentAccount.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Credor: {paymentAccount.creditors?.name || '-'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
+                  </p>
+                  <p className="text-lg font-semibold text-primary">
+                    Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
+                  </p>
                 </div>
 
                 <div>
