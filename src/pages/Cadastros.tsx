@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard } from "lucide-react";
+import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings } from "lucide-react";
 import { SuppliersModal } from "@/components/SuppliersModal";
 import { CreditorsModal } from "@/components/CreditorsModal";
 import { StoresModal } from "@/components/StoresModal";
 import { GrupoModal } from "@/components/GrupoModal";
 import { SubgrupoModal } from "@/components/SubgrupoModal";
 import { CurrentAccountsModal } from "@/components/CurrentAccountsModal";
+import { ParametersModal } from "@/components/ParametersModal";
 
 const Cadastros = () => {
   const [suppliersModalOpen, setSuppliersModalOpen] = useState(false);
@@ -17,6 +18,7 @@ const Cadastros = () => {
   const [grupoModalOpen, setGrupoModalOpen] = useState(false);
   const [subgrupoModalOpen, setSubgrupoModalOpen] = useState(false);
   const [currentAccountsModalOpen, setCurrentAccountsModalOpen] = useState(false);
+  const [parametersModalOpen, setParametersModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const cadastroModules = [
@@ -67,6 +69,14 @@ const Cadastros = () => {
       icon: CreditCard,
       color: "bg-purple-500", 
       onClick: () => setCurrentAccountsModalOpen(true),
+    },
+    {
+      id: "parametros",
+      title: "Parâmetros",
+      description: "Configuração de parâmetros do sistema",
+      icon: Settings,
+      color: "bg-indigo-500", 
+      onClick: () => setParametersModalOpen(true),
     },
   ];
 
@@ -147,6 +157,10 @@ const Cadastros = () => {
       <CurrentAccountsModal 
         open={currentAccountsModalOpen} 
         onOpenChange={setCurrentAccountsModalOpen} 
+      />
+      <ParametersModal 
+        open={parametersModalOpen} 
+        onOpenChange={setParametersModalOpen} 
       />
     </div>
   );
