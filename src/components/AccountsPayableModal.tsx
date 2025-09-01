@@ -2062,11 +2062,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const confirmInstallments = async () => {
-    if (!editingAccount?.id) {
+    // Para contas novas (não estão sendo editadas), apenas fechar o modal
+    // As parcelas serão inseridas no handleSave
+    if (!isEditing || !editingAccount?.id) {
+      setShowInstallmentsModal(false);
       toast({
-        title: "Erro",
-        description: "Nenhuma conta selecionada para configurar parcelas",
-        variant: "destructive",
+        title: "Parcelas configuradas",
+        description: `${installments.length} parcelas configuradas. Clique em "Salvar" para finalizar.`,
       });
       return;
     }
@@ -2074,6 +2076,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       setLoading(true);
 
+      // Apenas para contas existentes sendo editadas:
       // Primeiro, remover parcelas existentes
       const { error: deleteError } = await supabase
         .from("accounts_payable_installments")
@@ -2110,13 +2113,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       toast({
         title: "Sucesso",
-        description: `${installments.length} parcelas salvas com sucesso no banco de dados!`,
+        description: `${installments.length} parcelas salvas com sucesso!`,
       });
     } catch (error) {
       console.error("Erro ao salvar parcelas:", error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar parcelas no banco de dados",
+        description: "Erro ao salvar parcelas",
         variant: "destructive",
       });
     } finally {
