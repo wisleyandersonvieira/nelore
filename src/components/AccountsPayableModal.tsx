@@ -1915,6 +1915,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       return;
     }
 
+    // Buscar produtos configurados para acréscimo e desconto
+    let surchargeProduct = null;
+    let discountProduct = null;
+    
+    if (surcharge > 0) {
+      const { data: surchargeParam } = await supabase
+        .from("system_parameters")
+        .select("product_id, products!inner(id, name, code)")
+        .eq("parameter_key", "acrescimo")
+        .single();
+      surchargeProduct = surchargeParam?.products;
+    }
+    
+    if (discount > 0) {
+      const { data: discountParam } = await supabase
+        .from("system_parameters")
+        .select("product_id, products!inner(id, name, code)")
+        .eq("parameter_key", "desconto")
+        .single();
+      discountProduct = discountParam?.products;
+    }
+
     // Verificar se a conta corrente está vinculada às lojas dos itens (Regra 2)
     try {
       // Buscar itens da conta para obter as lojas
@@ -1989,6 +2011,60 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           const finalAmount = installmentAmount + surcharge - discount;
           totalPaymentAmount += finalAmount;
 
+          // Inserir item de acréscimo se houver
+          if (surcharge > 0 && surchargeProduct) {
+            const { error: surchargeItemError } = await supabase
+              .from("accounts_payable_items")
+              .insert({
+                account_payable_id: paymentAccount.id,
+                product_id: surchargeProduct.id,
+                quantity: 1,
+                unit_price: surcharge,
+                total_price: surcharge,
+                store_id: userProfile?.store_id || paymentAccount.store_id,
+              });
+            
+            if (surchargeItemError) throw surchargeItemError;
+            
+            // Atualizar o valor da parcela
+            const { error: updateInstallmentAmountError } = await supabase
+              .from("accounts_payable_installments")
+              .update({
+                amount: finalAmount
+              })
+              .eq("id", installment.id);
+              
+            if (updateInstallmentAmountError) throw updateInstallmentAmountError;
+          }
+
+          // Inserir item de desconto se houver
+          if (discount > 0 && discountProduct) {
+            const { error: discountItemError } = await supabase
+              .from("accounts_payable_items")
+              .insert({
+                account_payable_id: paymentAccount.id,
+                product_id: discountProduct.id,
+                quantity: 1,
+                unit_price: -discount, // Valor negativo para desconto
+                total_price: -discount,
+                store_id: userProfile?.store_id || paymentAccount.store_id,
+              });
+            
+            if (discountItemError) throw discountItemError;
+            
+            // Atualizar o valor da parcela se ainda não foi atualizado
+            if (surcharge === 0) {
+              const { error: updateInstallmentAmountError } = await supabase
+                .from("accounts_payable_installments")
+                .update({
+                  amount: finalAmount
+                })
+                .eq("id", installment.id);
+                
+              if (updateInstallmentAmountError) throw updateInstallmentAmountError;
+            }
+          }
+
           // Mark installment as paid
           const { error: updateInstallmentError } = await supabase
             .from("accounts_payable_installments")
@@ -2041,12 +2117,47 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         toast({
           title: "Sucesso",
-          description: `${selectedInstallments.length} parcela(s) paga(s) com sucesso`,
+          description: `${selectedInstallments.length} parcela(s) paga(s) com sucesso${(surcharge > 0 || discount > 0) ? " e itens de ajuste adicionados" : ""}`,
         });
       } else {
         // Payment without installments (original logic)
         const originalAmount = Number(paymentAccount.amount);
         const finalAmount = originalAmount + surcharge - discount;
+
+        // Inserir item de acréscimo se houver
+        if (surcharge > 0 && surchargeProduct) {
+          const { error: surchargeItemError } = await supabase
+            .from("accounts_payable_items")
+            .insert({
+              account_payable_id: paymentAccount.id,
+              product_id: surchargeProduct.id,
+              quantity: 1,
+              unit_price: surcharge,
+              total_price: surcharge,
+              store_id: userProfile?.store_id || paymentAccount.store_id,
+            });
+          
+          if (surchargeItemError) throw surchargeItemError;
+        }
+
+        // Inserir item de desconto se houver
+        if (discount > 0 && discountProduct) {
+          const { error: discountItemError } = await supabase
+            .from("accounts_payable_items")
+            .insert({
+              account_payable_id: paymentAccount.id,
+              product_id: discountProduct.id,
+              quantity: 1,
+              unit_price: -discount, // Valor negativo para desconto
+              total_price: -discount,
+              store_id: userProfile?.store_id || paymentAccount.store_id,
+            });
+          
+          if (discountItemError) throw discountItemError;
+        }
+
+        // Atualizar o valor total da conta se houver acréscimo ou desconto
+        const updatedTotalAmount = originalAmount + surcharge - discount;
 
         // Update account status to paid
         const { error: updateError } = await supabase
@@ -2055,6 +2166,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             status: "paid",
             payment_date: paymentDate,
             amount: finalAmount,
+            total_amount: updatedTotalAmount,
           })
           .eq("id", paymentAccount.id);
 
@@ -2079,7 +2191,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         toast({
           title: "Sucesso",
-          description: "Pagamento processado com sucesso",
+          description: `Pagamento processado com sucesso${(surcharge > 0 || discount > 0) ? " e itens de ajuste adicionados" : ""}`,
         });
       }
 
