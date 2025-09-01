@@ -411,6 +411,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const openPaymentModal = async (account: AccountPayable) => {
+    console.log('💰 Abrindo modal de pagamento para conta:', account.id);
     setPaymentAccount(account);
     setSelectedAccountId("");
     setPaymentDate("");
@@ -428,12 +429,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .eq("account_payable_id", account.id)
         .order("installment_number");
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar parcelas:', error);
+        throw error;
+      }
 
-      console.log('📋 Parcelas encontradas:', installmentsData);
+      console.log('📋 Parcelas encontradas para pagamento:', installmentsData?.length || 0, 'parcelas');
+      console.log('📋 Detalhes das parcelas:', installmentsData);
+      
       setAccountInstallments(installmentsData || []);
+      
+      if (installmentsData && installmentsData.length > 0) {
+        console.log('✅ Conta tem parcelas - exibindo seleção de parcelas');
+      } else {
+        console.log('ℹ️ Conta não tem parcelas - exibindo pagamento total');
+      }
     } catch (error) {
-      console.error("Error fetching installments:", error);
+      console.error("❌ Erro ao buscar parcelas:", error);
     }
 
     setShowPaymentModal(true);
@@ -1913,66 +1925,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     });
   };
 
-  // Função para criar parcelas de teste
-  const createTestInstallments = async () => {
-    if (!editingAccount?.id) {
-      toast({
-        title: "Erro", 
-        description: "Conta não encontrada para criar parcelas",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      console.log('🧪 Criando parcelas de teste para conta:', editingAccount.id);
-      
-      const totalAmount = editingAccount.amount || 0;
-      const numberOfInstallments = 3; // Criar 3 parcelas de teste
-      const installmentAmount = totalAmount / numberOfInstallments;
-      
-      const testInstallments = [];
-      for (let i = 1; i <= numberOfInstallments; i++) {
-        const installmentDate = new Date(editingAccount.due_date || new Date());
-        installmentDate.setMonth(installmentDate.getMonth() + i - 1);
-        
-        testInstallments.push({
-          account_payable_id: editingAccount.id,
-          installment_number: i,
-          due_date: installmentDate.toISOString().split('T')[0],
-          amount: installmentAmount,
-        });
-      }
-
-      const { error } = await supabase
-        .from("accounts_payable_installments")
-        .insert(testInstallments);
-
-      if (error) throw error;
-
-      // Recarregar as parcelas
-      const { data: installmentsData } = await supabase
-        .from("accounts_payable_installments")
-        .select("*")
-        .eq("account_payable_id", editingAccount.id)
-        .order("installment_number");
-
-      console.log('✅ Parcelas de teste criadas:', installmentsData);
-      setAccountInstallments(installmentsData || []);
-
-      toast({
-        title: "Sucesso",
-        description: `${numberOfInstallments} parcelas de teste criadas com sucesso!`,
-      });
-    } catch (error) {
-      console.error("❌ Erro ao criar parcelas de teste:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao criar parcelas de teste",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2584,12 +2536,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       Parcelas {installments.length > 0 && `(${installments.length})`}
                     </Button>
                     
-                    {/* Botão para criar parcelas de teste se não houver parcelas */}
-                    {accountInstallments.length === 0 && (
-                      <Button variant="outline" onClick={createTestInstallments}>
-                        🧪 Criar Parcelas de Teste
-                      </Button>
-                    )}
                     
                     <Button onClick={handleSave} disabled={loading}>
                       {loading ? "Salvando..." : "Salvar"}
