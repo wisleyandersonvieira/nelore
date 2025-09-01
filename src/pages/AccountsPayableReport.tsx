@@ -57,15 +57,46 @@ const AccountsPayableReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Use fetch with explicit typing to avoid TypeScript complexity
+      // Fetch accounts with suppliers, stores and installments
       const { data: allAccounts, error } = await supabase
         .from("accounts_payable")
-        .select("*") as { data: any[] | null; error: any };
+        .select(`
+          *,
+          suppliers(id, name),
+          stores(id, name),
+          accounts_payable_installments(*)
+        `) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      // Filter for unpaid accounts only
-      let accountsData = (allAccounts || []).filter((account: any) => !account.is_paid);
+      // Filter for unpaid accounts only and expand installments
+      let accountsData: any[] = [];
+      (allAccounts || []).forEach((account: any) => {
+        if (account.status === 'paid') return;
+        
+        if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
+          // Has installments - create one row per unpaid installment
+          account.accounts_payable_installments.forEach((installment: any) => {
+            if (!installment.payment_date) { // Only unpaid installments
+              accountsData.push({
+                ...account,
+                due_date: installment.due_date,
+                amount: installment.amount,
+                installment_number: installment.installment_number,
+                total_installments: account.accounts_payable_installments.length,
+                installment_id: installment.id
+              });
+            }
+          });
+        } else {
+          // No installments - single payment
+          accountsData.push({
+            ...account,
+            installment_number: 1,
+            total_installments: 1
+          });
+        }
+      });
 
       // Apply client-side filtering for all filters
       if (filters.due_start || filters.due_end) {
@@ -153,11 +184,11 @@ const AccountsPayableReport = () => {
     
     const tableData = accounts.map(account => [
       account.description,
-      "N/A", // Supplier name - would need join to get actual name
-      "N/A", // Store name - would need join to get actual name
+      account.suppliers?.name || "N/A",
+      account.stores?.name || "N/A", 
       new Date(account.due_date).toLocaleDateString("pt-BR"),
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-      (account.installments || 1) > 1 ? `Parcelado (${account.installments}x)` : "À vista"
+      account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
     (doc as any).autoTable({
@@ -172,11 +203,11 @@ const AccountsPayableReport = () => {
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: account.description,
-      Fornecedor: "N/A", // Would need join to get actual name
-      Loja: "N/A", // Would need join to get actual name
+      Fornecedor: account.suppliers?.name || "N/A",
+      Loja: account.stores?.name || "N/A",
       Vencimento: new Date(account.due_date).toLocaleDateString("pt-BR"),
       Valor: account.amount || 0,
-      Parcelas: (account.installments || 1) > 1 ? `Parcelado (${account.installments}x)` : "À vista"
+      Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -362,11 +393,11 @@ const AccountsPayableReport = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account) => (
-                    <TableRow key={account.id}>
+                  {accounts.map((account, index) => (
+                    <TableRow key={`${account.id}-${account.installment_id || index}`}>
                       <TableCell>{account.description}</TableCell>
-                      <TableCell>N/A</TableCell>
-                      <TableCell>N/A</TableCell>
+                      <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
+                      <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{new Date(account.due_date).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
                         {account.amount?.toLocaleString("pt-BR", {
@@ -375,7 +406,7 @@ const AccountsPayableReport = () => {
                         }) || "N/A"}
                       </TableCell>
                       <TableCell>
-                        {(account.installments || 1) > 1 ? `Parcelado (${account.installments}x)` : "À vista"}
+                        {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
                       </TableCell>
                     </TableRow>
                   ))}

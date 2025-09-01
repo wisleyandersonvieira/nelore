@@ -57,15 +57,47 @@ const PaidAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Use fetch with explicit typing to avoid TypeScript complexity
+      // Fetch paid accounts with suppliers, stores and installments
       const { data: allAccounts, error } = await supabase
         .from("accounts_payable")
-        .select("*") as { data: any[] | null; error: any };
+        .select(`
+          *,
+          suppliers(id, name),
+          stores(id, name),
+          accounts_payable_installments(*)
+        `) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      // Filter for paid accounts only
-      let accountsData = (allAccounts || []).filter((account: any) => account.is_paid);
+      // Filter for paid accounts only and expand installments
+      let accountsData: any[] = [];
+      (allAccounts || []).forEach((account: any) => {
+        if (account.status !== 'paid') return;
+        
+        if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
+          // Has installments - create one row per paid installment
+          account.accounts_payable_installments.forEach((installment: any) => {
+            if (installment.payment_date) { // Only paid installments
+              accountsData.push({
+                ...account,
+                due_date: installment.due_date,
+                amount: installment.amount,
+                payment_date: installment.payment_date,
+                installment_number: installment.installment_number,
+                total_installments: account.accounts_payable_installments.length,
+                installment_id: installment.id
+              });
+            }
+          });
+        } else if (account.payment_date) {
+          // No installments - single payment
+          accountsData.push({
+            ...account,
+            installment_number: 1,
+            total_installments: 1
+          });
+        }
+      });
 
       // Apply client-side filtering
       if (filters.payment_start || filters.payment_end) {
@@ -153,15 +185,16 @@ const PaidAccountsReport = () => {
     
     const tableData = accounts.map(account => [
       account.description,
-      "N/A", // Supplier name - would need join to get actual name
-      "N/A", // Store name - would need join to get actual name  
-      account.payment_date ? new Date(account.payment_date).toLocaleDateString("pt-BR") : "N/A",
+      account.suppliers?.name || "N/A",
+      account.stores?.name || "N/A",
+      new Date(account.due_date).toLocaleDateString("pt-BR"),
+      new Date(account.payment_date).toLocaleDateString("pt-BR"),
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-      (account.installments || 1) > 1 ? `Parcelado (${account.installments}x)` : "À vista"
+      account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
     (doc as any).autoTable({
-      head: [["Título", "Fornecedor", "Loja", "Data Pagamento", "Valor", "Parcelas"]],
+      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
       startY: 30,
     });
@@ -172,11 +205,12 @@ const PaidAccountsReport = () => {
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: account.description,
-      Fornecedor: "N/A", // Would need join to get actual name
-      Loja: "N/A", // Would need join to get actual name
-      "Data Pagamento": account.payment_date ? new Date(account.payment_date).toLocaleDateString("pt-BR") : "N/A",
+      Fornecedor: account.suppliers?.name || "N/A",
+      Loja: account.stores?.name || "N/A",
+      Vencimento: new Date(account.due_date).toLocaleDateString("pt-BR"),
+      Pagamento: new Date(account.payment_date).toLocaleDateString("pt-BR"),
       Valor: account.amount || 0,
-      Parcelas: (account.installments || 1) > 1 ? `Parcelado (${account.installments}x)` : "À vista"
+      Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -356,17 +390,19 @@ const PaidAccountsReport = () => {
                     <TableHead>Título</TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Loja</TableHead>
+                    <TableHead>Vencimento</TableHead>
                     <TableHead>Data Pagamento</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Parcelas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account) => (
-                    <TableRow key={account.id}>
+                  {accounts.map((account, index) => (
+                    <TableRow key={`${account.id}-${account.installment_id || index}`}>
                       <TableCell>{account.description}</TableCell>
-                      <TableCell>N/A</TableCell>
-                      <TableCell>N/A</TableCell>
+                      <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
+                      <TableCell>{account.stores?.name || "N/A"}</TableCell>
+                      <TableCell>{new Date(account.due_date).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
                         {account.payment_date ? new Date(account.payment_date).toLocaleDateString("pt-BR") : "N/A"}
                       </TableCell>
@@ -377,7 +413,7 @@ const PaidAccountsReport = () => {
                         }) || "N/A"}
                       </TableCell>
                       <TableCell>
-                        {(account.installments || 1) > 1 ? `Parcelado (${account.installments}x)` : "À vista"}
+                        {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
                       </TableCell>
                     </TableRow>
                   ))}
