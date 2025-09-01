@@ -1693,7 +1693,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         if (itemsError) throw itemsError;
 
         // Se há parcelas configuradas durante a edição, inserir as parcelas
-        if (installments.length > 0) {
+        // APENAS se não for uma edição real (pois edições reais já inserem parcelas no confirmInstallments)
+        if (installments.length > 0 && !isRealEdit) {
           const installmentsToInsert = installments.map(installment => ({
             account_payable_id: editingAccount.id,
             installment_number: installment.installment_number,
