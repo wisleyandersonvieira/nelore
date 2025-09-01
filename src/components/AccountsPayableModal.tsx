@@ -1607,11 +1607,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           }
         }
 
-        // Se deve excluir parcelas, excluir e atualizar o valor da conta para evitar loop
+        // Se deve excluir parcelas, não salva ainda - apenas exclui as parcelas e aguarda nova configuração
         if (shouldDeleteInstallments) {
-          console.log('🗑️ Excluindo parcelas antigas e atualizando valor da conta');
-          
-          // Primeiro excluir as parcelas
+          console.log('🗑️ Excluindo parcelas antigas devido à mudança de valor');
           const { error: deleteInstallmentsError } = await supabase
             .from("accounts_payable_installments")
             .delete()
@@ -1619,30 +1617,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             
           if (deleteInstallmentsError) throw deleteInstallmentsError;
           
-          // Depois atualizar o valor da conta para evitar detecção de mudança na próxima tentativa
-          const { error: updateAmountError } = await supabase
-            .from("accounts_payable")
-            .update({
-              amount: totalAmount,
-              total_amount: totalAmount,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", editingAccount.id);
-            
-          if (updateAmountError) throw updateAmountError;
-          
-          // Atualizar o valor local para evitar confusão
-          if (editingAccount) {
-            editingAccount.amount = totalAmount;
-          }
-          
           toast({
             title: "Parcelas excluídas",
             description: "As parcelas foram excluídas devido à alteração do valor. Configure novas parcelas antes de salvar a conta.",
             variant: "destructive",
           });
           
-          console.log('🛑 Parcelas excluídas e valor atualizado - aguardando nova configuração');
+          console.log('🛑 Não salvando conta devido à exclusão de parcelas - aguardando nova configuração');
           // NÃO salva a conta, apenas retorna para aguardar configuração de parcelas
           return;
         }
