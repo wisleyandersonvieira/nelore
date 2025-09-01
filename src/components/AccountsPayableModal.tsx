@@ -1607,7 +1607,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           }
         }
 
-        // Update existing account
+        // Se deve excluir parcelas, não salva ainda - apenas exclui as parcelas e aguarda nova configuração
+        if (shouldDeleteInstallments) {
+          console.log('🗑️ Excluindo parcelas antigas devido à mudança de valor');
+          const { error: deleteInstallmentsError } = await supabase
+            .from("accounts_payable_installments")
+            .delete()
+            .eq("account_payable_id", editingAccount.id);
+            
+          if (deleteInstallmentsError) throw deleteInstallmentsError;
+          
+          toast({
+            title: "Parcelas excluídas",
+            description: "As parcelas foram excluídas devido à alteração do valor. Configure novas parcelas antes de salvar a conta.",
+            variant: "destructive",
+          });
+          
+          console.log('🛑 Não salvando conta devido à exclusão de parcelas - aguardando nova configuração');
+          // NÃO salva a conta, apenas retorna para aguardar configuração de parcelas
+          return;
+        }
+
+        // Update existing account (só executa se não houver exclusão de parcelas)
         const { error: updateError } = await supabase
           .from("accounts_payable")
           .update({
@@ -1627,17 +1648,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .eq("id", editingAccount.id);
 
         if (updateError) throw updateError;
-
-        // Excluir parcelas se necessário
-        if (shouldDeleteInstallments) {
-          console.log('🗑️ Excluindo parcelas antigas devido à mudança de valor');
-          const { error: deleteInstallmentsError } = await supabase
-            .from("accounts_payable_installments")
-            .delete()
-            .eq("account_payable_id", editingAccount.id);
-            
-          if (deleteInstallmentsError) throw deleteInstallmentsError;
-        }
 
         // Delete existing items
         const { error: deleteItemsError } = await supabase
@@ -1667,15 +1677,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           title: "Sucesso",
           description: "Conta a pagar atualizada com sucesso",
         });
-
-        // Se excluiu parcelas, mostrar aviso específico
-        if (shouldDeleteInstallments) {
-          toast({
-            title: "Parcelas excluídas",
-            description: "As parcelas foram excluídas devido à alteração do valor. Configure novas parcelas se necessário.",
-            variant: "default",
-          });
-        }
       } else {
         // Create new account
         const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
@@ -1753,7 +1754,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         });
       }
 
-      // Reset form and switch to view
+      // Reset form and switch to view (não executar se excluiu parcelas durante edição)
+      // O return já deveria ter impedido chegar aqui, mas adicionar flag para segurança
       setSupplierId("");
       setDocumentType("");
       setDocumentNumber("");
