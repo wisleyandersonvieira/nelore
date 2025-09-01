@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -145,6 +145,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   // Estado para controlar se é edição real (carregada da lista) ou apenas nota gravada
   const [isRealEdit, setIsRealEdit] = useState(false);
 
+  // View-only mode
+  const [isViewOnly, setIsViewOnly] = useState(false);
+  const [viewOnlyAccount, setViewOnlyAccount] = useState<AccountPayable | null>(null);
+
   // NFE validation modal
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [nfeItems, setNfeItems] = useState<any[]>([]);
@@ -210,6 +214,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setEditingAccount(null);
       setIsEditing(false);
       setIsRealEdit(false);
+      setIsViewOnly(false);
+      setViewOnlyAccount(null);
     }
   }, [open, activeTab]);
 
@@ -530,6 +536,70 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setExistingAttachments(account.attachments);
     } else {
       console.log('❌ Nenhum anexo encontrado ou anexos inválidos:', account.attachments);
+      setExistingAttachments([]);
+    }
+    setAttachments([]);
+    
+    // Fetch items for this account
+    try {
+      const { data: itemsData, error } = await supabase
+        .from("accounts_payable_items")
+        .select(`
+          *,
+          products(name),
+          stores(name)
+        `)
+        .eq("account_payable_id", account.id);
+
+      if (error) throw error;
+
+      const formattedItems: PayableItem[] = (itemsData || []).map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        product_name: item.products?.name || "",
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        total_price: Number(item.total_price),
+        store_id: item.store_id,
+        store_name: item.stores?.name || ""
+      }));
+
+      setItems(formattedItems);
+    } catch (error) {
+      console.error("Error fetching account items:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar itens da conta",
+        variant: "destructive",
+      });
+    }
+    
+    setActiveTab("create");
+  };
+
+  const handleViewOnlyAccount = async (account: AccountPayable) => {
+    console.log('👁️ Visualizando conta:', account);
+    
+    setViewOnlyAccount(account);
+    setIsViewOnly(true);
+    setIsEditing(false);
+    setIsRealEdit(false);
+    
+    // Find the actual supplier ID from the suppliers array
+    const supplier = suppliers.find(s => s.name === account.suppliers?.name);
+    setSupplierId(supplier?.id || "");
+    setDocumentType(account.document_type || "");
+    setDocumentNumber(account.document_number || "");
+    setIssueDate(account.issue_date || "");
+    setDueDate(account.due_date || "");
+    setDataCompetencia(account.data_competencia || "");
+    setNotes(account.notes || "");
+    setNoteRecorded(true);
+
+    // Load existing attachments
+    if (account.attachments && Array.isArray(account.attachments)) {
+      setExistingAttachments(account.attachments);
+    } else {
       setExistingAttachments([]);
     }
     setAttachments([]);
@@ -2479,6 +2549,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  onClick={() => handleViewOnlyAccount(account)}
+                                  disabled={loading}
+                                  title="Visualizar conta"
+                                  className="text-blue-600 hover:text-blue-700"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   onClick={() => handleEditAccount(account)}
                                   disabled={loading}
                                   title="Editar conta"
@@ -2580,7 +2661,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="supplier">Fornecedor *</Label>
-                      <Select value={supplierId} onValueChange={setSupplierId}>
+                      <Select value={supplierId} onValueChange={setSupplierId} disabled={isViewOnly}>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um fornecedor" />
                         </SelectTrigger>
@@ -2596,7 +2677,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
                     <div className="space-y-2">
                       <Label htmlFor="documentType">Tipo do Documento *</Label>
-                      <Select value={documentType} onValueChange={setDocumentType}>
+                      <Select value={documentType} onValueChange={setDocumentType} disabled={isViewOnly}>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o tipo" />
                         </SelectTrigger>
@@ -2617,6 +2698,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         value={documentNumber}
                         onChange={(e) => setDocumentNumber(e.target.value)}
                         placeholder="Ex: 12345"
+                        disabled={isViewOnly}
                       />
                     </div>
 
@@ -2627,6 +2709,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         type="date"
                         value={issueDate}
                         onChange={(e) => setIssueDate(e.target.value)}
+                        disabled={isViewOnly}
                       />
                     </div>
 
@@ -2637,6 +2720,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         type="date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
+                        disabled={isViewOnly}
                       />
                     </div>
 
@@ -2659,6 +2743,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Observações adicionais..."
                       rows={3}
+                      disabled={isViewOnly}
                     />
                   </div>
 
@@ -2849,7 +2934,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-2">
                           <Label>Produto</Label>
-                          <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                          <Select value={selectedProduct} onValueChange={setSelectedProduct} disabled={isViewOnly}>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
@@ -2909,7 +2994,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         <div className="text-lg font-semibold">
                           Total do Item: R$ {(quantity * unitPrice).toFixed(2)}
                         </div>
-                        <Button onClick={addItem}>
+                        <Button onClick={addItem} disabled={isViewOnly}>
                           <Plus className="h-4 w-4 mr-2" />
                           Adicionar Item
                         </Button>
@@ -2966,24 +3051,36 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
               </Tabs>
 
               <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancelar
-                </Button>
-                
-                {!noteRecorded ? (
-                  <Button onClick={handleRecordNote} disabled={loading}>
-                    Gravar Nota
+                {isViewOnly ? (
+                  <Button variant="outline" onClick={() => {
+                    setIsViewOnly(false);
+                    setViewOnlyAccount(null);
+                    setActiveTab("view");
+                  }}>
+                    Voltar
                   </Button>
-                 ) : (
+                ) : (
                   <>
-                    <Button variant="outline" onClick={openInstallmentsModal}>
-                      Parcelas {installments.length > 0 && `(${installments.length})`}
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      Cancelar
                     </Button>
                     
-                    
-                    <Button onClick={handleSave} disabled={loading}>
-                      {loading ? "Salvando..." : "Salvar"}
-                    </Button>
+                    {!noteRecorded ? (
+                      <Button onClick={handleRecordNote} disabled={loading}>
+                        Gravar Nota
+                      </Button>
+                     ) : (
+                      <>
+                        <Button variant="outline" onClick={openInstallmentsModal}>
+                          Parcelas {installments.length > 0 && `(${installments.length})`}
+                        </Button>
+                        
+                        
+                        <Button onClick={handleSave} disabled={loading}>
+                          {loading ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
