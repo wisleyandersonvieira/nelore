@@ -1157,6 +1157,38 @@ export type Database = {
           },
         ]
       }
+      system_parameters: {
+        Row: {
+          created_at: string
+          id: string
+          parameter_key: string
+          product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          parameter_key: string
+          product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          parameter_key?: string
+          product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_parameters_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units_of_measure: {
         Row: {
           created_at: string

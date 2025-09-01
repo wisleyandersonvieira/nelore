@@ -64,12 +64,28 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
     if (!parameter) return;
 
     try {
-      // Aqui você pode implementar a lógica para carregar o parâmetro atual
-      // Por enquanto, vamos apenas resetar
-      setCurrentProductId("");
-      setSelectedProductId("");
+      const { data, error } = await supabase
+        .from('system_parameters')
+        .select('product_id, products!inner(id, name, code)')
+        .eq('parameter_key', parameter.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data && data.product_id) {
+        setCurrentProductId(data.product_id);
+        setSelectedProductId(data.product_id);
+      } else {
+        setCurrentProductId("");
+        setSelectedProductId("");
+      }
     } catch (error) {
       console.error('Erro ao carregar parâmetro atual:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar configuração atual",
+        variant: "destructive",
+      });
     }
   };
 
@@ -85,8 +101,34 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
 
     setLoading(true);
     try {
-      // Aqui você implementará a lógica para salvar o parâmetro
-      // Por enquanto vamos apenas simular o salvamento
+      // Verificar se já existe um parâmetro configurado
+      const { data: existing, error: checkError } = await supabase
+        .from('system_parameters')
+        .select('id')
+        .eq('parameter_key', parameter.id)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existing) {
+        // Atualizar parâmetro existente
+        const { error: updateError } = await supabase
+          .from('system_parameters')
+          .update({ product_id: selectedProductId })
+          .eq('id', existing.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Inserir novo parâmetro
+        const { error: insertError } = await supabase
+          .from('system_parameters')
+          .insert({
+            parameter_key: parameter.id,
+            product_id: selectedProductId
+          });
+
+        if (insertError) throw insertError;
+      }
       
       toast({
         title: "Sucesso",
@@ -107,13 +149,35 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
     }
   };
 
-  const handleClear = () => {
-    setSelectedProductId("");
-    setCurrentProductId("");
-    toast({
-      title: "Parâmetro limpo",
-      description: `Parâmetro ${parameter?.name} foi removido`,
-    });
+  const handleClear = async () => {
+    if (!parameter) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('system_parameters')
+        .delete()
+        .eq('parameter_key', parameter.id);
+
+      if (error) throw error;
+
+      setSelectedProductId("");
+      setCurrentProductId("");
+      
+      toast({
+        title: "Parâmetro limpo",
+        description: `Parâmetro ${parameter.name} foi removido`,
+      });
+    } catch (error) {
+      console.error('Erro ao limpar parâmetro:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao limpar parâmetro",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!parameter) return null;
@@ -177,8 +241,8 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
                       <p className="text-sm text-muted-foreground">Código: {currentProduct.code}</p>
                     )}
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleClear}>
-                    Limpar
+                  <Button variant="outline" size="sm" onClick={handleClear} disabled={loading}>
+                    {loading ? "Limpando..." : "Limpar"}
                   </Button>
                 </div>
               </CardContent>

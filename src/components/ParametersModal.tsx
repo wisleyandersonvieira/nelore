@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { ProductParameterModal } from "./ProductParameterModal";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ParametersModalProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface Parameter {
 export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) => {
   const [selectedParameter, setSelectedParameter] = useState<Parameter | null>(null);
   const [productParameterOpen, setProductParameterOpen] = useState(false);
+  const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId: string; productName: string }>>({});
 
   // Parâmetros padrão do sistema
   const systemParameters: Parameter[] = [
@@ -31,14 +33,47 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       name: 'Acréscimos',
       description: 'Configurar produto para acréscimos nas contas',
       type: 'acrescimo',
+      productId: configuredParameters['acrescimo']?.productId,
+      productName: configuredParameters['acrescimo']?.productName,
     },
     {
       id: 'desconto',
       name: 'Desconto',
       description: 'Configurar produto para descontos nas contas',
       type: 'desconto',
+      productId: configuredParameters['desconto']?.productId,
+      productName: configuredParameters['desconto']?.productName,
     },
   ];
+
+  useEffect(() => {
+    if (open) {
+      loadConfiguredParameters();
+    }
+  }, [open, productParameterOpen]);
+
+  const loadConfiguredParameters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_parameters')
+        .select('parameter_key, product_id, products!inner(name)')
+        .in('parameter_key', ['acrescimo', 'desconto']);
+
+      if (error) throw error;
+
+      const configured: Record<string, { productId: string; productName: string }> = {};
+      data?.forEach((param: any) => {
+        configured[param.parameter_key] = {
+          productId: param.product_id,
+          productName: param.products.name
+        };
+      });
+      
+      setConfiguredParameters(configured);
+    } catch (error) {
+      console.error('Erro ao carregar parâmetros configurados:', error);
+    }
+  };
 
   const handleParameterClick = (parameter: Parameter) => {
     setSelectedParameter(parameter);
@@ -87,41 +122,44 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {systemParameters.map((parameter) => (
-                <Card 
-                  key={parameter.id} 
-                  className={`cursor-pointer transition-colors ${getParameterColor(parameter.type)} border-2 hover:border-primary/50`}
-                  onClick={() => handleParameterClick(parameter)}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        {getParameterIcon(parameter.type)}
-                        {parameter.name}
-                      </CardTitle>
-                      <Badge variant="secondary" className="text-xs">
-                        {parameter.type === 'acrescimo' ? 'ACRÉSCIMO' : 'DESCONTO'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <CardDescription className="text-sm mb-3">
-                      {parameter.description}
-                    </CardDescription>
-                    <div className="flex justify-between items-center">
-                      <Button size="sm" variant="outline" className="text-xs">
-                        <Settings className="h-3 w-3 mr-1" />
-                        Configurar
-                      </Button>
-                      {parameter.productId && (
-                        <Badge variant="default" className="text-xs">
-                          Produto: {parameter.productName}
+              {systemParameters.map((parameter) => {
+                const configuredParam = configuredParameters[parameter.id];
+                return (
+                  <Card 
+                    key={parameter.id} 
+                    className={`cursor-pointer transition-colors ${getParameterColor(parameter.type)} border-2 hover:border-primary/50`}
+                    onClick={() => handleParameterClick(parameter)}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          {getParameterIcon(parameter.type)}
+                          {parameter.name}
+                        </CardTitle>
+                        <Badge variant="secondary" className="text-xs">
+                          {parameter.type === 'acrescimo' ? 'ACRÉSCIMO' : 'DESCONTO'}
                         </Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <CardDescription className="text-sm mb-3">
+                        {parameter.description}
+                      </CardDescription>
+                      <div className="flex justify-between items-center">
+                        <Button size="sm" variant="outline" className="text-xs">
+                          <Settings className="h-3 w-3 mr-1" />
+                          Configurar
+                        </Button>
+                        {configuredParam && (
+                          <Badge variant="default" className="text-xs">
+                            Produto: {configuredParam.productName}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             <div className="border-t pt-4">
