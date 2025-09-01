@@ -169,6 +169,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [quantity, setQuantity] = useState<number>(1);
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [selectedStore, setSelectedStore] = useState("");
+  const [defaultStore, setDefaultStore] = useState(""); // Loja padrão para todos os itens
 
   // File upload fields
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -187,6 +188,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (activeTab === "payment") {
         clearPaymentFilters();
       }
+    } else {
+      // Reset form quando modal for fechado
+      setSupplierId("");
+      setDocumentType("");
+      setDocumentNumber("");
+      setIssueDate("");
+      setDueDate("");
+      setDataCompetencia("");
+      setNotes("");
+      setItems([]);
+      setDefaultStore("");
+      setSelectedStore("");
+      setSelectedProduct("");
+      setQuantity(1);
+      setUnitPrice(0);
+      setAttachments([]);
+      setExistingAttachments([]);
+      setNoteRecorded(false);
+      setInstallments([]);
+      setEditingAccount(null);
+      setIsEditing(false);
+      setIsRealEdit(false);
     }
   }, [open, activeTab]);
 
@@ -801,7 +824,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const addItem = () => {
-    if (!selectedProduct || !selectedStore || quantity <= 0 || unitPrice <= 0) {
+    // Usar loja padrão se não houver loja selecionada e houver loja padrão definida
+    const storeToUse = selectedStore || defaultStore;
+    
+    if (!selectedProduct || !storeToUse || quantity <= 0 || unitPrice <= 0) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos do item",
@@ -811,7 +837,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
 
     const product = products.find(p => p.id === selectedProduct);
-    const store = stores.find(s => s.id === selectedStore);
+    const store = stores.find(s => s.id === storeToUse);
 
     if (!product || !store) return;
 
@@ -823,7 +849,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       quantity,
       unit_price: unitPrice,
       total_price: totalPrice,
-      store_id: selectedStore,
+      store_id: storeToUse,
       store_name: store.name,
     };
 
@@ -833,7 +859,40 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setSelectedProduct("");
     setQuantity(1);
     setUnitPrice(0);
-    setSelectedStore("");
+    // Só resetar a loja selecionada se não houver loja padrão
+    if (!defaultStore) {
+      setSelectedStore("");
+    }
+  };
+
+  // Função para aplicar loja padrão a todos os itens existentes
+  const applyDefaultStoreToAllItems = (defaultStoreId: string) => {
+    if (!defaultStoreId) return;
+    
+    const store = stores.find(s => s.id === defaultStoreId);
+    if (!store) return;
+
+    const updatedItems = items.map(item => ({
+      ...item,
+      store_id: defaultStoreId,
+      store_name: store.name
+    }));
+    
+    setItems(updatedItems);
+  };
+
+  // Função chamada quando muda a loja padrão
+  const handleDefaultStoreChange = (storeId: string) => {
+    setDefaultStore(storeId);
+    
+    if (storeId) {
+      // Se há itens existentes, perguntar se quer aplicar a loja padrão neles
+      if (items.length > 0) {
+        applyDefaultStoreToAllItems(storeId);
+      }
+      // Limpar a seleção individual se houver loja padrão
+      setSelectedStore("");
+    }
   };
 
   const removeItem = (index: number) => {
@@ -1406,7 +1465,20 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const handleValidatedItems = (validatedItems: any[]) => {
-    setItems(validatedItems);
+    // Se há loja padrão definida, aplicar aos itens que não têm loja
+    const itemsWithDefaultStore = validatedItems.map(item => {
+      if (!item.store_id && defaultStore) {
+        const store = stores.find(s => s.id === defaultStore);
+        return {
+          ...item,
+          store_id: defaultStore,
+          store_name: store?.name || ''
+        };
+      }
+      return item;
+    });
+    
+    setItems(itemsWithDefaultStore);
     setShowValidationModal(false);
     toast({
       title: "Sucesso",
@@ -1800,6 +1872,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setDataCompetencia("");
       setNotes("");
       setItems([]);
+      setDefaultStore(""); // Reset loja padrão
+      setSelectedStore("");
       setAttachments([]);
       setExistingAttachments([]);
       setNoteRecorded(false);
@@ -2609,6 +2683,42 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </TabsContent>
 
                 <TabsContent value="items" className="space-y-4">
+                  {/* Seção de Loja Padrão */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Loja Padrão (Opcional)</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Selecione uma loja padrão para aplicar automaticamente a todos os itens. 
+                        {items.length > 0 && " Será aplicada aos itens existentes também."}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-4 items-end">
+                        <div className="flex-1 space-y-2">
+                          <Label>Loja Padrão</Label>
+                          <Select value={defaultStore} onValueChange={handleDefaultStoreChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Nenhuma loja padrão selecionada" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Nenhuma loja padrão</SelectItem>
+                              {stores.map((store) => (
+                                <SelectItem key={store.id} value={store.id}>
+                                  {store.code} - {store.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {defaultStore && (
+                          <div className="text-sm text-green-600 font-medium">
+                            ✓ Loja padrão ativa
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardHeader>
                       <CardTitle>Adicionar Item</CardTitle>
@@ -2654,10 +2764,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Loja</Label>
-                          <Select value={selectedStore} onValueChange={setSelectedStore}>
+                          <Label>
+                            Loja {defaultStore && <span className="text-sm text-muted-foreground">(opcional - loja padrão ativa)</span>}
+                          </Label>
+                          <Select value={selectedStore} onValueChange={setSelectedStore} disabled={!!defaultStore}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
+                              <SelectValue placeholder={defaultStore ? 
+                                stores.find(s => s.id === defaultStore)?.name : "Selecione"} />
                             </SelectTrigger>
                             <SelectContent>
                               {stores.map((store) => (
