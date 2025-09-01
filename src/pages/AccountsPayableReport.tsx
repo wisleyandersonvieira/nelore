@@ -57,43 +57,64 @@ const AccountsPayableReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      const query = supabase
+      // Use fetch with explicit typing to avoid TypeScript complexity
+      const { data: allAccounts, error } = await supabase
         .from("accounts_payable")
-        .select("*")
-        .eq("is_paid", false);
-
-      if (filters.due_start) {
-        query = query.gte("due_date", filters.due_start);
-      }
-      if (filters.due_end) {
-        query = query.lte("due_date", filters.due_end);
-      }
-      if (filters.competencia_start) {
-        query = query.gte("data_competencia", filters.competencia_start);
-      }
-      if (filters.competencia_end) {
-        query = query.lte("data_competencia", filters.competencia_end);
-      }
-      if (filters.created_start) {
-        query = query.gte("created_at", filters.created_start + "T00:00:00");
-      }
-      if (filters.created_end) {
-        query = query.lte("created_at", filters.created_end + "T23:59:59");
-      }
-      if (filters.supplier_id && filters.supplier_id !== "all") {
-        query = query.eq("supplier_id", filters.supplier_id);
-      }
-      if (filters.store_id && filters.store_id !== "all") {
-        query = query.eq("store_id", filters.store_id);
-      }
-
-      const { data, error } = await query;
+        .select("*") as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      let accountsData = data || [];
+      // Filter for unpaid accounts only
+      let accountsData = (allAccounts || []).filter((account: any) => !account.is_paid);
 
-      // Remove product filtering for now since we're not joining the related tables
+      // Apply client-side filtering for all filters
+      if (filters.due_start || filters.due_end) {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.due_date) return false;
+          const dueDate = new Date(account.due_date);
+          const startDate = filters.due_start ? new Date(filters.due_start) : null;
+          const endDate = filters.due_end ? new Date(filters.due_end) : null;
+          
+          if (startDate && dueDate < startDate) return false;
+          if (endDate && dueDate > endDate) return false;
+          return true;
+        });
+      }
+
+      if (filters.competencia_start || filters.competencia_end) {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.data_competencia) return false;
+          const competenciaDate = new Date(account.data_competencia);
+          const startDate = filters.competencia_start ? new Date(filters.competencia_start) : null;
+          const endDate = filters.competencia_end ? new Date(filters.competencia_end) : null;
+          
+          if (startDate && competenciaDate < startDate) return false;
+          if (endDate && competenciaDate > endDate) return false;
+          return true;
+        });
+      }
+
+      if (filters.created_start || filters.created_end) {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.created_at) return false;
+          const createdDate = new Date(account.created_at);
+          const startDate = filters.created_start ? new Date(filters.created_start + "T00:00:00") : null;
+          const endDate = filters.created_end ? new Date(filters.created_end + "T23:59:59") : null;
+          
+          if (startDate && createdDate < startDate) return false;
+          if (endDate && createdDate > endDate) return false;
+          return true;
+        });
+      }
+
+      if (filters.supplier_id && filters.supplier_id !== "all") {
+        accountsData = accountsData.filter((account: any) => account.supplier_id === filters.supplier_id);
+      }
+
+      if (filters.store_id && filters.store_id !== "all") {
+        accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
+      }
+
       setAccounts(accountsData);
       toast({
         title: "Pesquisa realizada",
