@@ -1917,12 +1917,67 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setInstallments(updatedInstallments);
   };
 
-  const confirmInstallments = () => {
-    setShowInstallmentsModal(false);
-    toast({
-      title: "Sucesso",
-      description: `${installments.length} parcelas configuradas com sucesso!`,
-    });
+  const confirmInstallments = async () => {
+    if (!editingAccount?.id) {
+      toast({
+        title: "Erro",
+        description: "Nenhuma conta selecionada para configurar parcelas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Primeiro, remover parcelas existentes
+      const { error: deleteError } = await supabase
+        .from("accounts_payable_installments")
+        .delete()
+        .eq("account_payable_id", editingAccount.id);
+
+      if (deleteError) throw deleteError;
+
+      // Inserir novas parcelas
+      const installmentsToInsert = installments.map(installment => ({
+        account_payable_id: editingAccount.id,
+        installment_number: installment.installment_number,
+        due_date: installment.due_date,
+        amount: installment.amount,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("accounts_payable_installments")
+        .insert(installmentsToInsert);
+
+      if (insertError) throw insertError;
+
+      // Recarregar parcelas para atualizar o state
+      const { data: reloadedInstallments, error: reloadError } = await supabase
+        .from("accounts_payable_installments")
+        .select("*")
+        .eq("account_payable_id", editingAccount.id)
+        .order("installment_number");
+
+      if (reloadError) throw reloadError;
+
+      setAccountInstallments(reloadedInstallments || []);
+      setShowInstallmentsModal(false);
+
+      toast({
+        title: "Sucesso",
+        description: `${installments.length} parcelas salvas com sucesso no banco de dados!`,
+      });
+    } catch (error) {
+      console.error("Erro ao salvar parcelas:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar parcelas no banco de dados",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
 
