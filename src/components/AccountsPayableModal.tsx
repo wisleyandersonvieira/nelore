@@ -2701,7 +2701,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               <SelectValue placeholder="Nenhuma loja padrão selecionada" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Nenhuma loja padrão</SelectItem>
                               {stores.map((store) => (
                                 <SelectItem key={store.id} value={store.id}>
                                   {store.code} - {store.name}
@@ -2710,11 +2709,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             </SelectContent>
                           </Select>
                         </div>
-                        {defaultStore && (
-                          <div className="text-sm text-green-600 font-medium">
-                            ✓ Loja padrão ativa
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {defaultStore && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDefaultStoreChange("")}
+                            >
+                              Limpar Loja Padrão
+                            </Button>
+                          )}
+                          {defaultStore && (
+                            <div className="text-sm text-green-600 font-medium">
+                              ✓ Loja padrão ativa
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
