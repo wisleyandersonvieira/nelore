@@ -641,6 +641,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const totalAmount = getTotalAmount();
       const defaultAccountId = currentAccounts[0]?.id;
 
+      if (!defaultAccountId) {
+        throw new Error("Nenhuma conta corrente disponível");
+      }
+
       if (isEditing && editingAccount) {
         // Update existing account
         const { error } = await supabase
@@ -689,6 +693,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       } else {
         // Create new account
         const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          throw new Error("Usuário não autenticado");
+        }
+
         const { data: accountData, error } = await supabase
           .from("accounts_receivable")
           .insert({
@@ -703,7 +712,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             status: "pending",
             store_id: items[0]?.store_id,
             account_id: defaultAccountId,
-            created_by: user?.id,
+            created_by: user.id,
           })
           .select()
           .single();
