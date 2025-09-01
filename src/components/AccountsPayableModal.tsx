@@ -142,6 +142,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   // Edit mode
   const [editingAccount, setEditingAccount] = useState<AccountPayable | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  // Estado para controlar se é edição real (carregada da lista) ou apenas nota gravada
+  const [isRealEdit, setIsRealEdit] = useState(false);
 
   // NFE validation modal
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -487,6 +489,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     
     setEditingAccount(account);
     setIsEditing(true);
+    setIsRealEdit(true); // Esta é uma edição real de conta existente
     // Find the actual supplier ID from the suppliers array
     const supplier = suppliers.find(s => s.name === account.suppliers?.name);
     setSupplierId(supplier?.id || "");
@@ -1536,6 +1539,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       
       setEditingAccount(accountWithAttachments);
       setIsEditing(true);
+      setIsRealEdit(false); // Esta é uma nova conta, não uma edição real
       setExistingAttachments(allAttachments); // CORRIGIDO: usar allAttachments
       setAttachments([]); // Limpar anexos novos
       
@@ -1800,6 +1804,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setNoteRecorded(false);
       setInstallments([]);
       setIsEditing(false);
+      setIsRealEdit(false);
       setEditingAccount(null);
       setActiveTab("view");
 
@@ -2062,9 +2067,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const confirmInstallments = async () => {
-    // Para contas novas (não estão sendo editadas), apenas fechar o modal
+    // Para contas novas (apenas gravadas, não editadas de verdade), apenas fechar o modal
     // As parcelas serão inseridas no handleSave
-    if (!isEditing || !editingAccount?.id) {
+    if (!isRealEdit || !editingAccount?.id) {
       setShowInstallmentsModal(false);
       toast({
         title: "Parcelas configuradas",
