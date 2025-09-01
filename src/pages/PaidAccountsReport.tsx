@@ -10,7 +10,7 @@ import { ArrowLeft, Download, Filter, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const PaidAccountsReport = () => {
@@ -233,7 +233,7 @@ const PaidAccountsReport = () => {
       { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [["Título", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
       startY: filterInfo.length > 0 ? 45 : 35,
