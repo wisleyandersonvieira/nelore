@@ -1607,7 +1607,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           }
         }
 
-        // Se deve excluir parcelas, não salva ainda - apenas exclui as parcelas e aguarda nova configuração
+        // Se deve excluir parcelas, excluir e atualizar o valor da conta para evitar detecção futura
         if (shouldDeleteInstallments) {
           console.log('🗑️ Excluindo parcelas antigas devido à mudança de valor');
           const { error: deleteInstallmentsError } = await supabase
@@ -1616,6 +1616,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             .eq("account_payable_id", editingAccount.id);
             
           if (deleteInstallmentsError) throw deleteInstallmentsError;
+
+          // Atualizar o valor da conta no banco para evitar detecção de mudança futura
+          const { error: updateAmountError } = await supabase
+            .from("accounts_payable")
+            .update({
+              amount: newTotal,
+              total_amount: newTotal,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", editingAccount.id);
+            
+          if (updateAmountError) throw updateAmountError;
+
+          // Atualizar o valor local também
+          setEditingAccount({...editingAccount, amount: newTotal});
           
           toast({
             title: "Parcelas excluídas",
@@ -1672,6 +1687,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .insert(itemsToInsert);
 
         if (itemsError) throw itemsError;
+
+        // Se há parcelas configuradas durante a edição, inserir as parcelas
+        if (installments.length > 0) {
+          const installmentsToInsert = installments.map(installment => ({
+            account_payable_id: editingAccount.id,
+            installment_number: installment.installment_number,
+            due_date: installment.due_date,
+            amount: installment.amount,
+          }));
+
+          const { error: installmentsError } = await supabase
+            .from("accounts_payable_installments")
+            .insert(installmentsToInsert);
+
+          if (installmentsError) throw installmentsError;
+        }
 
         toast({
           title: "Sucesso",
