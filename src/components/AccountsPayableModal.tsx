@@ -2453,6 +2453,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     </CardContent>
                   </Card>
 
+                </TabsContent>
+
+                <TabsContent value="items" className="space-y-4">
                   <Card>
                     <CardHeader>
                       <CardTitle>Adicionar Item</CardTitle>
@@ -2525,9 +2528,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </div>
                     </CardContent>
                   </Card>
-                </TabsContent>
 
-                <TabsContent value="items" className="space-y-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
