@@ -74,9 +74,9 @@ const AccountsPayableReports = () => {
     competencia_end: "",
     created_start: "",
     created_end: "",
-    supplier_id: "",
-    store_id: "",
-    product_id: "",
+    supplier_id: "all",
+    store_id: "all",
+    product_id: "all",
   });
 
   const [pendingAccounts, setPendingAccounts] = useState<PayableAccount[]>([]);
@@ -156,10 +156,10 @@ const AccountsPayableReports = () => {
     if (filters.created_end) {
       query = query.lte("created_at", filters.created_end + "T23:59:59");
     }
-    if (filters.supplier_id) {
+    if (filters.supplier_id && filters.supplier_id !== "all") {
       query = query.eq("supplier_id", filters.supplier_id);
     }
-    if (filters.store_id) {
+    if (filters.store_id && filters.store_id !== "all") {
       query = query.eq("store_id", filters.store_id);
     }
 
@@ -178,7 +178,7 @@ const AccountsPayableReports = () => {
       let paidData = (paidRes.data || []) as PayableAccount[];
 
       // Filter by product if specified
-      if (filters.product_id) {
+      if (filters.product_id && filters.product_id !== "all") {
         const filterByProduct = (accounts: PayableAccount[]) =>
           accounts.filter((account) =>
             account.accounts_payable_items?.some((item) =>
@@ -216,9 +216,9 @@ const AccountsPayableReports = () => {
       competencia_end: "",
       created_start: "",
       created_end: "",
-      supplier_id: "",
-      store_id: "",
-      product_id: "",
+      supplier_id: "all",
+      store_id: "all",
+      product_id: "all",
     });
     setPendingAccounts([]);
     setPaidAccounts([]);
@@ -377,7 +377,7 @@ const AccountsPayableReports = () => {
                   <SelectValue placeholder="Selecionar fornecedor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {suppliers.map((supplier) => (
                     <SelectItem key={supplier.id} value={supplier.id}>
                       {supplier.name}
@@ -393,7 +393,7 @@ const AccountsPayableReports = () => {
                   <SelectValue placeholder="Selecionar loja" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   {stores.map((store) => (
                     <SelectItem key={store.id} value={store.id}>
                       {store.name}
@@ -409,7 +409,7 @@ const AccountsPayableReports = () => {
                   <SelectValue placeholder="Selecionar produto" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name}
