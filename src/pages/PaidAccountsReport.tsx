@@ -181,8 +181,38 @@ const PaidAccountsReport = () => {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
-    doc.text("Relatório de Contas Pagas", 20, 20);
     
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS PAGAS", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas já quitadas", 105, 28, { align: "center" });
+    
+    // Date range info
+    let filterInfo = [];
+    if (filters.payment_start || filters.payment_end) {
+      const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
+      const end = filters.payment_end ? new Date(filters.payment_end).toLocaleDateString("pt-BR") : "Hoje";
+      filterInfo.push(`Pagamento: ${start} a ${end}`);
+    }
+    if (filters.supplier_id !== "all") {
+      const supplier = suppliers.find(s => s.id === filters.supplier_id);
+      if (supplier) filterInfo.push(`Fornecedor: ${supplier.name}`);
+    }
+    if (filters.store_id !== "all") {
+      const store = stores.find(s => s.id === filters.store_id);
+      if (store) filterInfo.push(`Loja: ${store.name}`);
+    }
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+    
+    // Table data
     const tableData = accounts.map(account => [
       account.description,
       account.suppliers?.name || "N/A",
@@ -193,11 +223,43 @@ const PaidAccountsReport = () => {
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
+    // Calculate total
+    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    
+    // Add total row
+    tableData.push([
+      { content: "TOTAL", colSpan: 5, styles: { fontStyle: "bold", halign: "right" } },
+      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+    ]);
+
     (doc as any).autoTable({
       head: [["Título", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: 30,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [34, 197, 94],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      margin: { left: 20, right: 20 }
     });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
 
     doc.save("contas-pagas.pdf");
   };
@@ -417,6 +479,17 @@ const PaidAccountsReport = () => {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {/* Total Row */}
+                  <TableRow className="border-t-2 font-bold bg-muted/50">
+                    <TableCell colSpan={5} className="text-right">Total:</TableCell>
+                    <TableCell>
+                      {accounts.reduce((sum, account) => sum + (account.amount || 0), 0).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}
+                    </TableCell>
+                    <TableCell>{accounts.length} parcela(s)</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </CardContent>
