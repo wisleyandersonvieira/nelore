@@ -688,6 +688,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         });
       } else {
         // Create new account
+        const { data: { user } } = await supabase.auth.getUser();
         const { data: accountData, error } = await supabase
           .from("accounts_receivable")
           .insert({
@@ -702,7 +703,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             status: "pending",
             store_id: items[0]?.store_id,
             account_id: defaultAccountId,
-            created_by: "system",
+            created_by: user?.id,
           })
           .select()
           .single();
