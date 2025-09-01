@@ -16,6 +16,9 @@ import Products from "./pages/Products";
 import DRE from "./pages/DRE";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
+import AccountsPayableModule from "./pages/AccountsPayableModule";
+import AccountsPayableReport from "./pages/AccountsPayableReport";
+import PaidAccountsReport from "./pages/PaidAccountsReport";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,7 +46,10 @@ function App() {
               <Route path="/users" element={<Users />} />
               <Route path="/profiles" element={<Profiles />} />
               <Route path="/dre" element={<DRE />} />
-              <Route path="/reports" element={<Reports />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/reports/accounts-payable" element={<AccountsPayableModule />} />
+            <Route path="/reports/accounts-payable/pending" element={<AccountsPayableReport />} />
+            <Route path="/reports/accounts-payable/paid" element={<PaidAccountsReport />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
