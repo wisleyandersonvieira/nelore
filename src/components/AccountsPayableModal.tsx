@@ -1585,6 +1585,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const allAttachments = [...existingAttachments, ...newAttachments];
 
       if (isEditing && editingAccount) {
+        // Verificar se houve mudança no valor total
+        const currentTotal = editingAccount.amount;
+        const newTotal = totalAmount;
+        let shouldDeleteInstallments = false;
+        
+        if (Math.abs(newTotal - currentTotal) > 0.01) { // Comparação com tolerância para decimais
+          console.log('💸 Valor alterado de', currentTotal, 'para', newTotal, '- verificando parcelas existentes');
+          
+          // Verificar se existem parcelas
+          const { data: existingInstallments, error: installmentsError } = await supabase
+            .from("accounts_payable_installments")
+            .select("id")
+            .eq("account_payable_id", editingAccount.id);
+            
+          if (installmentsError) throw installmentsError;
+          
+          if (existingInstallments && existingInstallments.length > 0) {
+            shouldDeleteInstallments = true;
+            console.log('🗑️ Parcelas serão excluídas devido à mudança de valor');
+          }
+        }
+
         // Update existing account
         const { error: updateError } = await supabase
           .from("accounts_payable")
@@ -1605,6 +1627,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .eq("id", editingAccount.id);
 
         if (updateError) throw updateError;
+
+        // Excluir parcelas se necessário
+        if (shouldDeleteInstallments) {
+          console.log('🗑️ Excluindo parcelas antigas devido à mudança de valor');
+          const { error: deleteInstallmentsError } = await supabase
+            .from("accounts_payable_installments")
+            .delete()
+            .eq("account_payable_id", editingAccount.id);
+            
+          if (deleteInstallmentsError) throw deleteInstallmentsError;
+        }
 
         // Delete existing items
         const { error: deleteItemsError } = await supabase
@@ -1634,6 +1667,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           title: "Sucesso",
           description: "Conta a pagar atualizada com sucesso",
         });
+
+        // Se excluiu parcelas, mostrar aviso específico
+        if (shouldDeleteInstallments) {
+          toast({
+            title: "Parcelas excluídas",
+            description: "As parcelas foram excluídas devido à alteração do valor. Configure novas parcelas se necessário.",
+            variant: "default",
+          });
+        }
       } else {
         // Create new account
         const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
