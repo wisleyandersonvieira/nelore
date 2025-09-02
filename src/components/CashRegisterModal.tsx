@@ -325,6 +325,25 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     setDeliveryItems(prev => prev.filter((_, i) => i !== index));
   };
 
+  const viewAttachment = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .createSignedUrl(filePath, 60); // URL válida por 60 segundos
+      
+      if (error) {
+        console.error('Erro ao gerar URL do anexo:', error);
+        toast.error('Erro ao abrir anexo');
+        return;
+      }
+      
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error('Erro ao visualizar anexo:', error);
+      toast.error('Erro ao visualizar anexo');
+    }
+  };
+
   const uploadAttachments = async (cashControlId: string): Promise<string[]> => {
     const uploadedUrls: string[] = [];
     
@@ -339,11 +358,9 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         continue;
       }
       
-      const { data: { publicUrl } } = supabase.storage
-        .from('account-documents')
-        .getPublicUrl(fileName);
-      
-      uploadedUrls.push(publicUrl);
+      // Para bucket privado, usamos o caminho do arquivo direto
+      // A URL será gerada quando necessário com createSignedUrl
+      uploadedUrls.push(fileName);
     }
     
     return uploadedUrls;
@@ -716,7 +733,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(url, '_blank')}
+                              onClick={() => viewAttachment(url)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
