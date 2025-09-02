@@ -20,12 +20,14 @@ import {
 } from "lucide-react";
 import { AccountsPayableModal } from "@/components/AccountsPayableModal";
 import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
+import { CashControlModal } from "@/components/CashControlModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
   const [accountsReceivableOpen, setAccountsReceivableOpen] = useState(false);
+  const [cashControlOpen, setCashControlOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -187,6 +189,8 @@ const Dashboard = () => {
                          setAccountsPayableOpen(true);
                        } else if (module.id === "contas-receber") {
                          setAccountsReceivableOpen(true);
+                       } else if (module.id === "caixa") {
+                         setCashControlOpen(true);
                        }
                      }}
                   >
@@ -253,6 +257,13 @@ const Dashboard = () => {
         <AccountsReceivableModal 
           open={accountsReceivableOpen} 
           onOpenChange={setAccountsReceivableOpen} 
+        />
+      )}
+
+      {cashControlOpen && (
+        <CashControlModal 
+          open={cashControlOpen} 
+          onOpenChange={setCashControlOpen} 
         />
       )}
     </div>
