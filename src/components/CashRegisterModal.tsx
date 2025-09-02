@@ -374,9 +374,13 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   // Função utilitária para visualização e download
   const viewAttachment = async (filePath: string, mode: 'inline' | 'download' = 'inline') => {
     try {
+      // Detectar se é PDF para forçar download
+      const fileExtension = filePath.split('.').pop()?.toLowerCase();
+      const isPdf = fileExtension === 'pdf';
+      
       // Se já é uma URL completa (anexos antigos), abrir diretamente
       if (filePath.startsWith('http')) {
-        if (mode === 'inline') {
+        if (mode === 'inline' && !isPdf) {
           window.open(filePath, '_blank');
         } else {
           const link = document.createElement('a');
@@ -387,24 +391,10 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         return;
       }
       
-      // Para paths do bucket, gerar signed URL com parâmetros específicos para PDFs
-      const signedUrlOptions: any = {
-        expiresIn: 3600
-      };
-      
-      // Para visualização inline, configurar transform para garantir content-disposition correto
-      if (mode === 'inline') {
-        const fileExtension = filePath.split('.').pop()?.toLowerCase();
-        if (fileExtension === 'pdf') {
-          signedUrlOptions.transform = {
-            format: 'origin'
-          };
-        }
-      }
-      
+      // Para paths do bucket, gerar signed URL
       const { data, error } = await supabase.storage
         .from('account-documents')
-        .createSignedUrl(filePath, signedUrlOptions.expiresIn, signedUrlOptions.transform ? { transform: signedUrlOptions.transform } : undefined);
+        .createSignedUrl(filePath, 3600);
       
       if (error) {
         console.error('Erro ao gerar URL do anexo:', error);
@@ -412,39 +402,17 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         return;
       }
       
-      if (mode === 'inline') {
-        // Para PDFs, garantir que abre em nova aba
-        const fileExtension = filePath.split('.').pop()?.toLowerCase();
-        if (fileExtension === 'pdf') {
-          // Criar um iframe temporário para abrir PDFs corretamente
-          const newWindow = window.open('', '_blank');
-          if (newWindow) {
-            newWindow.document.write(`
-              <html>
-                <head>
-                  <title>Visualizar PDF</title>
-                  <style>
-                    body { margin: 0; padding: 0; }
-                    iframe { width: 100vw; height: 100vh; border: none; }
-                  </style>
-                </head>
-                <body>
-                  <iframe src="${data.signedUrl}" type="application/pdf"></iframe>
-                </body>
-              </html>
-            `);
-            newWindow.document.close();
-          }
-        } else {
-          window.open(data.signedUrl, '_blank');
-        }
-      } else {
+      // Para PDFs, sempre fazer download. Para outros arquivos, seguir o mode
+      if (isPdf || mode === 'download') {
         const link = document.createElement('a');
         link.href = data.signedUrl;
         link.download = filePath.split('/').pop() || 'arquivo';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        toast.success('Download iniciado');
+      } else {
+        window.open(data.signedUrl, '_blank');
       }
     } catch (error) {
       console.error('Erro ao visualizar anexo:', error);
