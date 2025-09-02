@@ -383,10 +383,27 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         if (mode === 'inline' && !isPdf) {
           window.open(filePath, '_blank');
         } else {
-          const link = document.createElement('a');
-          link.href = filePath;
-          link.download = filePath.split('/').pop() || 'arquivo';
-          link.click();
+          // Para downloads, usar fetch + blob para evitar bloqueio
+          try {
+            const response = await fetch(filePath);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filePath.split('/').pop() || 'arquivo';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast.success('Download realizado com sucesso');
+          } catch (fetchError) {
+            console.error('Erro no fetch:', fetchError);
+            // Fallback para método anterior
+            const link = document.createElement('a');
+            link.href = filePath;
+            link.download = filePath.split('/').pop() || 'arquivo';
+            link.click();
+          }
         }
         return;
       }
@@ -404,13 +421,27 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       
       // Para PDFs, sempre fazer download. Para outros arquivos, seguir o mode
       if (isPdf || mode === 'download') {
-        const link = document.createElement('a');
-        link.href = data.signedUrl;
-        link.download = filePath.split('/').pop() || 'arquivo';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success('Download iniciado');
+        // Usar fetch + blob para evitar bloqueio do navegador
+        try {
+          const response = await fetch(data.signedUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filePath.split('/').pop() || 'arquivo';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast.success('Download realizado com sucesso');
+        } catch (fetchError) {
+          console.error('Erro no fetch do arquivo:', fetchError);
+          toast.error('Erro ao fazer download do arquivo');
+        }
       } else {
         window.open(data.signedUrl, '_blank');
       }
