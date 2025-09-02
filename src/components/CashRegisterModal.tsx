@@ -327,16 +327,24 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
   const viewAttachment = async (filePath: string) => {
     try {
+      console.log('viewAttachment chamado com filePath:', filePath);
+      
       // Se já é uma URL completa (anexos antigos), abrir diretamente
       if (filePath.startsWith('http')) {
+        console.log('Abrindo URL direta:', filePath);
         window.open(filePath, '_blank');
         return;
       }
+      
+      console.log('Tentando gerar signed URL para:', filePath);
+      console.log('Bucket: account-documents');
       
       // Para paths relativos (anexos novos), gerar signed URL
       const { data, error } = await supabase.storage
         .from('account-documents')
         .createSignedUrl(filePath, 60); // URL válida por 60 segundos
+      
+      console.log('Resultado da createSignedUrl:', { data, error });
       
       if (error) {
         console.error('Erro ao gerar URL do anexo:', error);
@@ -344,6 +352,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         return;
       }
       
+      console.log('Abrindo signed URL:', data.signedUrl);
       window.open(data.signedUrl, '_blank');
     } catch (error) {
       console.error('Erro ao visualizar anexo:', error);
