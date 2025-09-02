@@ -1,0 +1,702 @@
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { Trash2, Plus, Upload, DollarSign, CreditCard, Building2, Truck } from "lucide-react";
+
+interface CashRegisterModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  date: Date;
+  storeId: string;
+}
+
+interface CashControl {
+  id?: string;
+  date: string;
+  saldo_inicial: number;
+  contagem_dinheiro: number;
+  despesas_pagas: number;
+  valor_mantido_caixa: number;
+  faturamento_dinheiro: number;
+  faturamento_cartao: number;
+  faturamento_conta: number;
+  faturamento_delivery: number;
+  faturamento_total: number;
+  valor_fechamento_pdv: number;
+  diferenca: number;
+  anexos: any;
+}
+
+interface CardItem {
+  id?: string;
+  card_account_id: string;
+  card_name?: string;
+  valor: number;
+}
+
+interface AccountItem {
+  id?: string;
+  current_account_id: string;
+  account_name?: string;
+  valor: number;
+}
+
+interface DeliveryItem {
+  id?: string;
+  delivery_account_id: string;
+  delivery_name?: string;
+  valor: number;
+}
+
+interface CardAccount {
+  id: string;
+  name: string;
+}
+
+interface CurrentAccount {
+  id: string;
+  name: string;
+}
+
+interface DeliveryAccount {
+  id: string;
+  name: string;
+}
+
+const formSchema = z.object({
+  saldo_inicial: z.number().min(0),
+  contagem_dinheiro: z.number().min(0),
+  despesas_pagas: z.number().min(0),
+  valor_mantido_caixa: z.number().min(0),
+  valor_fechamento_pdv: z.number().min(0),
+});
+
+export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashRegisterModalProps) => {
+  const [cashControl, setCashControl] = useState<CashControl | null>(null);
+  const [cardItems, setCardItems] = useState<CardItem[]>([]);
+  const [accountItems, setAccountItems] = useState<AccountItem[]>([]);
+  const [deliveryItems, setDeliveryItems] = useState<DeliveryItem[]>([]);
+  
+  const [cardAccounts, setCardAccounts] = useState<CardAccount[]>([]);
+  const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
+  const [deliveryAccounts, setDeliveryAccounts] = useState<DeliveryAccount[]>([]);
+  
+  const [loading, setLoading] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      saldo_inicial: 0,
+      contagem_dinheiro: 0,
+      despesas_pagas: 0,
+      valor_mantido_caixa: 0,
+      valor_fechamento_pdv: 0,
+    },
+  });
+
+  const dateString = date.toISOString().split('T')[0];
+
+  useEffect(() => {
+    if (open) {
+      fetchData();
+      fetchAccounts();
+    }
+  }, [open, dateString, storeId]);
+
+  const fetchData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cash_control')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('date', dateString)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setCashControl(data);
+        form.reset({
+          saldo_inicial: Number(data.saldo_inicial) || 0,
+          contagem_dinheiro: Number(data.contagem_dinheiro) || 0,
+          despesas_pagas: Number(data.despesas_pagas) || 0,
+          valor_mantido_caixa: Number(data.valor_mantido_caixa) || 0,
+          valor_fechamento_pdv: Number(data.valor_fechamento_pdv) || 0,
+        });
+
+        // Fetch items
+        await fetchItems(data.id);
+      } else {
+        setCashControl(null);
+        setCardItems([]);
+        setAccountItems([]);
+        setDeliveryItems([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do caixa:', error);
+      toast.error('Erro ao carregar dados do caixa');
+    }
+  };
+
+  const fetchItems = async (cashControlId: string) => {
+    try {
+      // Fetch card items
+      const { data: cardData } = await supabase
+        .from('cash_control_card_items')
+        .select(`
+          *,
+          card_accounts (name)
+        `)
+        .eq('cash_control_id', cashControlId);
+
+      // Fetch account items
+      const { data: accountData } = await supabase
+        .from('cash_control_account_items')
+        .select(`
+          *,
+          current_accounts (name)
+        `)
+        .eq('cash_control_id', cashControlId);
+
+      // Fetch delivery items
+      const { data: deliveryData } = await supabase
+        .from('cash_control_delivery_items')
+        .select(`
+          *,
+          delivery_accounts (name)
+        `)
+        .eq('cash_control_id', cashControlId);
+
+      setCardItems(cardData?.map(item => ({
+        ...item,
+        card_name: (item as any).card_accounts?.name,
+        valor: Number(item.valor)
+      })) || []);
+
+      setAccountItems(accountData?.map(item => ({
+        ...item,
+        account_name: (item as any).current_accounts?.name,
+        valor: Number(item.valor)
+      })) || []);
+
+      setDeliveryItems(deliveryData?.map(item => ({
+        ...item,
+        delivery_name: (item as any).delivery_accounts?.name,
+        valor: Number(item.valor)
+      })) || []);
+    } catch (error) {
+      console.error('Erro ao carregar itens:', error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      // Fetch card accounts for this store
+      const { data: cardData } = await supabase
+        .from('card_accounts')
+        .select(`
+          id, name,
+          card_account_stores!inner (store_id)
+        `)
+        .eq('card_account_stores.store_id', storeId)
+        .eq('is_active', true);
+
+      // Fetch current accounts for this store
+      const { data: currentData } = await supabase
+        .from('current_accounts')
+        .select(`
+          id, name,
+          current_account_stores!inner (store_id)
+        `)
+        .eq('current_account_stores.store_id', storeId)
+        .eq('is_active', true);
+
+      // Fetch delivery accounts for this store
+      const { data: deliveryData } = await supabase
+        .from('delivery_accounts')
+        .select(`
+          id, name,
+          delivery_account_stores!inner (store_id)
+        `)
+        .eq('delivery_account_stores.store_id', storeId)
+        .eq('is_active', true);
+
+      setCardAccounts(cardData || []);
+      setCurrentAccounts(currentData || []);
+      setDeliveryAccounts(deliveryData || []);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+    }
+  };
+
+  // Watch form values for automatic calculations
+  const watchedValues = form.watch();
+  
+  const faturamentoDinheiro = (watchedValues.contagem_dinheiro || 0) + 
+                              (watchedValues.despesas_pagas || 0) + 
+                              (watchedValues.valor_mantido_caixa || 0) - 
+                              (watchedValues.saldo_inicial || 0);
+
+  const faturamentoCartao = cardItems.reduce((sum, item) => sum + (item.valor || 0), 0);
+  const faturamentoConta = accountItems.reduce((sum, item) => sum + (item.valor || 0), 0);
+  const faturamentoDelivery = deliveryItems.reduce((sum, item) => sum + (item.valor || 0), 0);
+  
+  const faturamentoTotal = faturamentoDinheiro + faturamentoCartao + faturamentoConta + faturamentoDelivery;
+  const diferenca = faturamentoTotal - (watchedValues.valor_fechamento_pdv || 0);
+
+  const addCardItem = (cardId: string, valor: number) => {
+    const cardAccount = cardAccounts.find(c => c.id === cardId);
+    if (cardAccount && valor > 0) {
+      setCardItems(prev => [...prev, {
+        card_account_id: cardId,
+        card_name: cardAccount.name,
+        valor
+      }]);
+    }
+  };
+
+  const addAccountItem = (accountId: string, valor: number) => {
+    const currentAccount = currentAccounts.find(c => c.id === accountId);
+    if (currentAccount && valor > 0) {
+      setAccountItems(prev => [...prev, {
+        current_account_id: accountId,
+        account_name: currentAccount.name,
+        valor
+      }]);
+    }
+  };
+
+  const addDeliveryItem = (deliveryId: string, valor: number) => {
+    const deliveryAccount = deliveryAccounts.find(d => d.id === deliveryId);
+    if (deliveryAccount && valor > 0) {
+      setDeliveryItems(prev => [...prev, {
+        delivery_account_id: deliveryId,
+        delivery_name: deliveryAccount.name,
+        valor
+      }]);
+    }
+  };
+
+  const removeCardItem = (index: number) => {
+    setCardItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeAccountItem = (index: number) => {
+    setAccountItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeDeliveryItem = (index: number) => {
+    setDeliveryItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const onSubmit = async (data: any) => {
+    try {
+      setLoading(true);
+
+      let cashControlId = cashControl?.id;
+
+      if (cashControlId) {
+        // Update existing cash control
+        const { error } = await supabase
+          .from('cash_control')
+          .update({
+            saldo_inicial: data.saldo_inicial,
+            contagem_dinheiro: data.contagem_dinheiro,
+            despesas_pagas: data.despesas_pagas,
+            valor_mantido_caixa: data.valor_mantido_caixa,
+            faturamento_dinheiro: faturamentoDinheiro,
+            faturamento_cartao: faturamentoCartao,
+            faturamento_conta: faturamentoConta,
+            faturamento_delivery: faturamentoDelivery,
+            faturamento_total: faturamentoTotal,
+            valor_fechamento_pdv: data.valor_fechamento_pdv,
+            diferenca: diferenca,
+          })
+          .eq('id', cashControlId);
+
+        if (error) throw error;
+      } else {
+        // Create new cash control
+        const { data: newCashControl, error } = await supabase
+          .from('cash_control')
+          .insert({
+            store_id: storeId,
+            date: dateString,
+            saldo_inicial: data.saldo_inicial,
+            contagem_dinheiro: data.contagem_dinheiro,
+            despesas_pagas: data.despesas_pagas,
+            valor_mantido_caixa: data.valor_mantido_caixa,
+            faturamento_dinheiro: faturamentoDinheiro,
+            faturamento_cartao: faturamentoCartao,
+            faturamento_conta: faturamentoConta,
+            faturamento_delivery: faturamentoDelivery,
+            faturamento_total: faturamentoTotal,
+            valor_fechamento_pdv: data.valor_fechamento_pdv,
+            diferenca: diferenca,
+            created_by: (await supabase.auth.getUser()).data.user?.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        cashControlId = newCashControl.id;
+      }
+
+      // Save items
+      await saveItems(cashControlId);
+
+      toast.success('Fechamento de caixa salvo com sucesso!');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erro ao salvar fechamento:', error);
+      toast.error('Erro ao salvar fechamento de caixa');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveItems = async (cashControlId: string) => {
+    // Delete existing items
+    await supabase.from('cash_control_card_items').delete().eq('cash_control_id', cashControlId);
+    await supabase.from('cash_control_account_items').delete().eq('cash_control_id', cashControlId);
+    await supabase.from('cash_control_delivery_items').delete().eq('cash_control_id', cashControlId);
+
+    // Insert card items
+    if (cardItems.length > 0) {
+      await supabase.from('cash_control_card_items').insert(
+        cardItems.map(item => ({
+          cash_control_id: cashControlId,
+          card_account_id: item.card_account_id,
+          valor: item.valor,
+        }))
+      );
+    }
+
+    // Insert account items
+    if (accountItems.length > 0) {
+      await supabase.from('cash_control_account_items').insert(
+        accountItems.map(item => ({
+          cash_control_id: cashControlId,
+          current_account_id: item.current_account_id,
+          valor: item.valor,
+        }))
+      );
+    }
+
+    // Insert delivery items
+    if (deliveryItems.length > 0) {
+      await supabase.from('cash_control_delivery_items').insert(
+        deliveryItems.map(item => ({
+          cash_control_id: cashControlId,
+          delivery_account_id: item.delivery_account_id,
+          valor: item.valor,
+        }))
+      );
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            Controle de Caixa - {date.toLocaleDateString('pt-BR')}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* BLOCO 1: DINHEIRO */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  DINHEIRO
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="saldo_inicial"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Saldo Inicial</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="contagem_dinheiro"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contagem Dinheiro</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="despesas_pagas"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Despesas Pagas</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="valor_mantido_caixa"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Valor Mantido no Caixa</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <Label>Faturamento Dinheiro: R$ {faturamentoDinheiro.toFixed(2)}</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* BLOCO 2: CARTÃO */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  CARTÃO
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <CardItemsSection
+                  items={cardItems}
+                  accounts={cardAccounts}
+                  onAdd={addCardItem}
+                  onRemove={removeCardItem}
+                  accountKeyName="card_account_id"
+                  accountDisplayName="card_name"
+                  placeholder="Selecione um cartão"
+                />
+                <div className="bg-muted p-4 rounded-lg">
+                  <Label>Faturamento Cartão: R$ {faturamentoCartao.toFixed(2)}</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* BLOCO 3: CONTAS */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  CONTAS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <AccountItemsSection
+                  items={accountItems}
+                  accounts={currentAccounts}
+                  onAdd={addAccountItem}
+                  onRemove={removeAccountItem}
+                  accountKeyName="current_account_id"
+                  accountDisplayName="account_name"
+                  placeholder="Selecione uma conta"
+                />
+                <div className="bg-muted p-4 rounded-lg">
+                  <Label>Faturamento Conta: R$ {faturamentoConta.toFixed(2)}</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* BLOCO 4: DELIVERY */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  DELIVERY
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <DeliveryItemsSection
+                  items={deliveryItems}
+                  accounts={deliveryAccounts}
+                  onAdd={addDeliveryItem}
+                  onRemove={removeDeliveryItem}
+                  accountKeyName="delivery_account_id"
+                  accountDisplayName="delivery_name"
+                  placeholder="Selecione uma conta delivery"
+                />
+                <div className="bg-muted p-4 rounded-lg">
+                  <Label>Faturamento Delivery: R$ {faturamentoDelivery.toFixed(2)}</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* TOTAIS E FECHAMENTO */}
+            <Card>
+              <CardHeader>
+                <CardTitle>FECHAMENTO</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted p-4 rounded-lg">
+                  <Label className="text-lg font-bold">Faturamento Total: R$ {faturamentoTotal.toFixed(2)}</Label>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="valor_fechamento_pdv"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor Total Fechamento PDV</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className={`p-4 rounded-lg ${diferenca === 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <Label className="text-lg font-bold">
+                    Diferença: R$ {diferenca.toFixed(2)}
+                  </Label>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Salvando...' : 'Gravar Fechamento'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Componente para seção de itens de cartão
+const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, accountDisplayName, placeholder }: any) => {
+  const [selectedAccount, setSelectedAccount] = useState('');
+  const [valor, setValor] = useState('');
+
+  const handleAdd = () => {
+    if (selectedAccount && valor && parseFloat(valor) > 0) {
+      onAdd(selectedAccount, parseFloat(valor));
+      setSelectedAccount('');
+      setValor('');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder={placeholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {accounts.map((account: any) => (
+              <SelectItem key={account.id} value={account.id}>
+                {account.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          type="number"
+          step="0.01"
+          placeholder="Valor"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          className="w-32"
+        />
+        <Button type="button" onClick={handleAdd}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {items.length > 0 && (
+        <div className="space-y-2">
+          {items.map((item: any, index: number) => (
+            <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
+              <span>{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemove(index)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Componente para seção de itens de conta
+const AccountItemsSection = CardItemsSection;
+
+// Componente para seção de itens de delivery
+const DeliveryItemsSection = CardItemsSection;

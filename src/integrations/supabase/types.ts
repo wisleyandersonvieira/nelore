@@ -536,46 +536,82 @@ export type Database = {
       }
       cash_control: {
         Row: {
+          anexos: Json | null
           closing_balance: number
+          contagem_dinheiro: number | null
           created_at: string
           created_by: string
           date: string
+          despesas_pagas: number | null
+          diferenca: number | null
+          faturamento_cartao: number | null
+          faturamento_conta: number | null
+          faturamento_delivery: number | null
+          faturamento_dinheiro: number | null
+          faturamento_total: number | null
           id: string
           image_urls: string[] | null
           notes: string | null
           opening_balance: number
+          saldo_inicial: number | null
           store_id: string
           total_expenses: number
           total_sales: number
           updated_at: string
+          valor_fechamento_pdv: number | null
+          valor_mantido_caixa: number | null
         }
         Insert: {
+          anexos?: Json | null
           closing_balance?: number
+          contagem_dinheiro?: number | null
           created_at?: string
           created_by: string
           date: string
+          despesas_pagas?: number | null
+          diferenca?: number | null
+          faturamento_cartao?: number | null
+          faturamento_conta?: number | null
+          faturamento_delivery?: number | null
+          faturamento_dinheiro?: number | null
+          faturamento_total?: number | null
           id?: string
           image_urls?: string[] | null
           notes?: string | null
           opening_balance?: number
+          saldo_inicial?: number | null
           store_id: string
           total_expenses?: number
           total_sales?: number
           updated_at?: string
+          valor_fechamento_pdv?: number | null
+          valor_mantido_caixa?: number | null
         }
         Update: {
+          anexos?: Json | null
           closing_balance?: number
+          contagem_dinheiro?: number | null
           created_at?: string
           created_by?: string
           date?: string
+          despesas_pagas?: number | null
+          diferenca?: number | null
+          faturamento_cartao?: number | null
+          faturamento_conta?: number | null
+          faturamento_delivery?: number | null
+          faturamento_dinheiro?: number | null
+          faturamento_total?: number | null
           id?: string
           image_urls?: string[] | null
           notes?: string | null
           opening_balance?: number
+          saldo_inicial?: number | null
           store_id?: string
           total_expenses?: number
           total_sales?: number
           updated_at?: string
+          valor_fechamento_pdv?: number | null
+          valor_mantido_caixa?: number | null
         }
         Relationships: [
           {
@@ -590,6 +626,132 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_control_account_items: {
+        Row: {
+          cash_control_id: string
+          created_at: string
+          current_account_id: string
+          id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cash_control_id: string
+          created_at?: string
+          current_account_id: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          cash_control_id?: string
+          created_at?: string
+          current_account_id?: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_control_account_items_cash_control_id_fkey"
+            columns: ["cash_control_id"]
+            isOneToOne: false
+            referencedRelation: "cash_control"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_control_account_items_current_account_id_fkey"
+            columns: ["current_account_id"]
+            isOneToOne: false
+            referencedRelation: "current_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_control_card_items: {
+        Row: {
+          card_account_id: string
+          cash_control_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          card_account_id: string
+          cash_control_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          card_account_id?: string
+          cash_control_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_control_card_items_card_account_id_fkey"
+            columns: ["card_account_id"]
+            isOneToOne: false
+            referencedRelation: "card_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_control_card_items_cash_control_id_fkey"
+            columns: ["cash_control_id"]
+            isOneToOne: false
+            referencedRelation: "cash_control"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_control_delivery_items: {
+        Row: {
+          cash_control_id: string
+          created_at: string
+          delivery_account_id: string
+          id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cash_control_id: string
+          created_at?: string
+          delivery_account_id: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          cash_control_id?: string
+          created_at?: string
+          delivery_account_id?: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_control_delivery_items_cash_control_id_fkey"
+            columns: ["cash_control_id"]
+            isOneToOne: false
+            referencedRelation: "cash_control"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_control_delivery_items_delivery_account_id_fkey"
+            columns: ["delivery_account_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_accounts"
             referencedColumns: ["id"]
           },
         ]

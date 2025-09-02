@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, Store } from "lucide-react";
 import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { CashDateModal } from "@/components/CashDateModal";
 
 interface Store {
   id: string;
@@ -19,6 +20,8 @@ const CashControl = () => {
   const navigate = useNavigate();
   const [store, setStore] = useState<Store | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [dateModalOpen, setDateModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,9 +57,9 @@ const CashControl = () => {
   };
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      // Aqui será implementada a navegação para as funções do caixa
-      console.log('Data selecionada:', format(date, 'dd/MM/yyyy'));
+    if (date && storeId) {
+      setSelectedDate(date);
+      setDateModalOpen(true);
     }
   };
 
@@ -178,6 +181,15 @@ const CashControl = () => {
           </p>
         </div>
       </main>
+
+      {selectedDate && storeId && (
+        <CashDateModal
+          open={dateModalOpen}
+          onOpenChange={setDateModalOpen}
+          date={selectedDate}
+          storeId={storeId}
+        />
+      )}
     </div>
   );
 };
