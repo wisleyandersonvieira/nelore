@@ -327,6 +327,13 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
   const viewAttachment = async (filePath: string) => {
     try {
+      // Se já é uma URL completa (anexos antigos), abrir diretamente
+      if (filePath.startsWith('http')) {
+        window.open(filePath, '_blank');
+        return;
+      }
+      
+      // Para paths relativos (anexos novos), gerar signed URL
       const { data, error } = await supabase.storage
         .from('account-documents')
         .createSignedUrl(filePath, 60); // URL válida por 60 segundos
