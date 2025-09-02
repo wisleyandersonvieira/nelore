@@ -18,6 +18,7 @@ interface CashRegisterModalProps {
   onOpenChange: (open: boolean) => void;
   date: Date;
   storeId: string;
+  mode?: 'view' | 'edit' | 'create';
 }
 
 interface CashControl {
@@ -81,7 +82,7 @@ const formSchema = z.object({
   valor_fechamento_pdv: z.number().min(0),
 });
 
-export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashRegisterModalProps) => {
+export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'create' }: CashRegisterModalProps) => {
   const [cashControl, setCashControl] = useState<CashControl | null>(null);
   const [cardItems, setCardItems] = useState<CardItem[]>([]);
   const [accountItems, setAccountItems] = useState<AccountItem[]>([]);
@@ -90,8 +91,12 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
   const [cardAccounts, setCardAccounts] = useState<CardAccount[]>([]);
   const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
   const [deliveryAccounts, setDeliveryAccounts] = useState<DeliveryAccount[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [editInfo, setEditInfo] = useState<{edited_at?: string; edited_by?: string} | null>(null);
   
   const [loading, setLoading] = useState(false);
+
+  const isReadOnly = mode === 'view';
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -134,6 +139,14 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
           valor_fechamento_pdv: Number(data.valor_fechamento_pdv) || 0,
         });
 
+        // Set edit info if exists
+        if (data.edited_at && data.edited_by) {
+          setEditInfo({
+            edited_at: data.edited_at,
+            edited_by: data.edited_by
+          });
+        }
+
         // Fetch items
         await fetchItems(data.id);
       } else {
@@ -141,6 +154,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
         setCardItems([]);
         setAccountItems([]);
         setDeliveryItems([]);
+        setEditInfo(null);
       }
     } catch (error) {
       console.error('Erro ao carregar dados do caixa:', error);
@@ -321,6 +335,8 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
             faturamento_total: faturamentoTotal,
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
+            edited_at: new Date().toISOString(),
+            edited_by: (await supabase.auth.getUser()).data.user?.id,
           })
           .eq('id', cashControlId);
 
@@ -432,14 +448,15 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Saldo Inicial</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                          />
-                        </FormControl>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          {...field}
+                          disabled={isReadOnly}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -456,6 +473,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                             type="number"
                             step="0.01"
                             {...field}
+                            disabled={isReadOnly}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                           />
                         </FormControl>
@@ -475,6 +493,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                             type="number"
                             step="0.01"
                             {...field}
+                            disabled={isReadOnly}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                           />
                         </FormControl>
@@ -494,6 +513,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                             type="number"
                             step="0.01"
                             {...field}
+                            disabled={isReadOnly}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                           />
                         </FormControl>
@@ -526,6 +546,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                   accountKeyName="card_account_id"
                   accountDisplayName="card_name"
                   placeholder="Selecione um cartão"
+                  isReadOnly={isReadOnly}
                 />
                 <div className="bg-muted p-4 rounded-lg">
                   <Label>Faturamento Cartão: R$ {faturamentoCartao.toFixed(2)}</Label>
@@ -550,6 +571,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                   accountKeyName="current_account_id"
                   accountDisplayName="account_name"
                   placeholder="Selecione uma conta"
+                  isReadOnly={isReadOnly}
                 />
                 <div className="bg-muted p-4 rounded-lg">
                   <Label>Faturamento Conta: R$ {faturamentoConta.toFixed(2)}</Label>
@@ -574,6 +596,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                   accountKeyName="delivery_account_id"
                   accountDisplayName="delivery_name"
                   placeholder="Selecione uma conta delivery"
+                  isReadOnly={isReadOnly}
                 />
                 <div className="bg-muted p-4 rounded-lg">
                   <Label>Faturamento Delivery: R$ {faturamentoDelivery.toFixed(2)}</Label>
@@ -597,14 +620,15 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Valor Total Fechamento PDV</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
-                      </FormControl>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            disabled={isReadOnly}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -616,13 +640,70 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
                   </Label>
                 </div>
 
+                {/* Campo de Anexos */}
+                <div className="space-y-2">
+                  <Label>Anexos</Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      disabled={isReadOnly}
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setAttachments(prev => [...prev, ...files]);
+                      }}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className={`cursor-pointer flex flex-col items-center justify-center text-gray-500 ${isReadOnly ? 'cursor-not-allowed opacity-50' : ''}`}
+                    >
+                      <Upload className="h-8 w-8 mb-2" />
+                      <span>Clique para adicionar anexos (PDF, JPG, PNG)</span>
+                    </label>
+                    
+                    {attachments.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {attachments.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded">
+                            <span className="text-sm">{file.name}</span>
+                            {!isReadOnly && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Informações de Edição */}
+                {mode === 'edit' && editInfo && (
+                  <div className="bg-muted p-4 rounded-lg">
+                    <Label className="text-sm font-medium">
+                      Caixa editado em {new Date(editInfo.edited_at!).toLocaleString('pt-BR')} por {editInfo.edited_by}
+                    </Label>
+                  </div>
+                )}
+
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                    Cancelar
+                    {isReadOnly ? 'Fechar' : 'Cancelar'}
                   </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Salvando...' : 'Gravar Fechamento'}
-                  </Button>
+                  {!isReadOnly && (
+                    <Button type="submit" disabled={loading}>
+                      {loading ? 'Salvando...' : 'Gravar Fechamento'}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -634,7 +715,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId }: CashReg
 };
 
 // Componente para seção de itens de cartão
-const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, accountDisplayName, placeholder }: any) => {
+const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, accountDisplayName, placeholder, isReadOnly }: any) => {
   const [selectedAccount, setSelectedAccount] = useState('');
   const [valor, setValor] = useState('');
 
@@ -648,45 +729,49 @@ const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
-        <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-          <SelectTrigger className="flex-1">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent>
-            {accounts.map((account: any) => (
-              <SelectItem key={account.id} value={account.id}>
-                {account.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          type="number"
-          step="0.01"
-          placeholder="Valor"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          className="w-32"
-        />
-        <Button type="button" onClick={handleAdd}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
+      {!isReadOnly && (
+        <div className="flex gap-4">
+          <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account: any) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="number"
+            step="0.01"
+            placeholder="Valor"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className="w-32"
+          />
+          <Button type="button" onClick={handleAdd}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {items.length > 0 && (
         <div className="space-y-2">
           {items.map((item: any, index: number) => (
             <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
               <span>{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemove(index)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {!isReadOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemove(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
         </div>

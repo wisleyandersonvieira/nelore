@@ -544,6 +544,8 @@ export type Database = {
           date: string
           despesas_pagas: number | null
           diferenca: number | null
+          edited_at: string | null
+          edited_by: string | null
           faturamento_cartao: number | null
           faturamento_conta: number | null
           faturamento_delivery: number | null
@@ -570,6 +572,8 @@ export type Database = {
           date: string
           despesas_pagas?: number | null
           diferenca?: number | null
+          edited_at?: string | null
+          edited_by?: string | null
           faturamento_cartao?: number | null
           faturamento_conta?: number | null
           faturamento_delivery?: number | null
@@ -596,6 +600,8 @@ export type Database = {
           date?: string
           despesas_pagas?: number | null
           diferenca?: number | null
+          edited_at?: string | null
+          edited_by?: string | null
           faturamento_cartao?: number | null
           faturamento_conta?: number | null
           faturamento_delivery?: number | null

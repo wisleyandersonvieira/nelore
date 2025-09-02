@@ -186,6 +186,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
         onOpenChange={handleRegisterModalClose}
         date={date}
         storeId={storeId}
+        mode={mode}
       />
     </>
   );

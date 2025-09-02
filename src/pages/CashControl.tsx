@@ -23,12 +23,14 @@ const CashControl = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [datesWithData, setDatesWithData] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (storeId) {
       fetchStore();
+      fetchDatesWithData();
     }
-  }, [storeId]);
+  }, [storeId, currentDate]);
 
   const fetchStore = async () => {
     try {
@@ -48,6 +50,29 @@ const CashControl = () => {
     }
   };
 
+  const fetchDatesWithData = async () => {
+    if (!storeId) return;
+
+    try {
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+      const { data, error } = await supabase
+        .from('cash_control')
+        .select('date')
+        .eq('store_id', storeId)
+        .gte('date', startOfMonth.toISOString().split('T')[0])
+        .lte('date', endOfMonth.toISOString().split('T')[0]);
+
+      if (error) throw error;
+
+      const dates = new Set(data?.map(item => item.date) || []);
+      setDatesWithData(dates);
+    } catch (error) {
+      console.error('Erro ao carregar datas com dados:', error);
+    }
+  };
+
   const handlePreviousMonth = () => {
     setCurrentDate(subMonths(currentDate, 1));
   };
@@ -60,6 +85,14 @@ const CashControl = () => {
     if (date && storeId) {
       setSelectedDate(date);
       setDateModalOpen(true);
+    }
+  };
+
+  const handleDateModalClose = (open: boolean) => {
+    setDateModalOpen(open);
+    if (!open) {
+      // Refresh dates with data when modal closes
+      fetchDatesWithData();
     }
   };
 
@@ -145,6 +178,12 @@ const CashControl = () => {
           month={currentDate}
           onMonthChange={setCurrentDate}
           onSelect={handleDateSelect}
+          modifiers={{
+            hasData: (date) => datesWithData.has(date.toISOString().split('T')[0])
+          }}
+          modifiersClassNames={{
+            hasData: "bg-yellow-100 border-2 border-yellow-300"
+          }}
           className={cn(
             "rounded-lg border shadow-lg p-8 pointer-events-auto bg-card",
             "scale-125 transform"
@@ -166,7 +205,8 @@ const CashControl = () => {
             row: "flex w-full mt-4",
             cell: "h-14 w-14 text-center text-lg p-0 relative cursor-pointer hover:bg-accent rounded-md transition-colors",
             day: cn(
-              "h-14 w-14 p-0 font-normal aria-selected:opacity-100 hover:bg-accent rounded-md text-lg transition-colors"
+              "h-14 w-14 p-0 font-normal aria-selected:opacity-100 hover:bg-accent rounded-md text-lg transition-colors",
+              "data-[has-data=true]:bg-yellow-100 data-[has-data=true]:border-2 data-[has-data=true]:border-yellow-300"
             ),
             day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
             day_today: "bg-accent text-accent-foreground font-semibold ring-2 ring-primary",
@@ -185,7 +225,7 @@ const CashControl = () => {
       {selectedDate && storeId && (
         <CashDateModal
           open={dateModalOpen}
-          onOpenChange={setDateModalOpen}
+          onOpenChange={handleDateModalClose}
           date={selectedDate}
           storeId={storeId}
         />
