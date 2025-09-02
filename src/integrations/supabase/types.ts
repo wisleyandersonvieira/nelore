@@ -785,7 +785,22 @@ export type Database = {
           id?: string
           store_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "delivery_account_stores_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_account_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_accounts: {
         Row: {
