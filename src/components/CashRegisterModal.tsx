@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus, Upload, DollarSign, CreditCard, Building2, Truck } from "lucide-react";
+import { Upload, DollarSign, CreditCard, Building2, Truck, Trash2, Plus, Eye } from "lucide-react";
 
 interface CashRegisterModalProps {
   open: boolean;
@@ -36,6 +36,7 @@ interface CashControl {
   valor_fechamento_pdv: number;
   diferenca: number;
   anexos: any;
+  image_urls?: string[];
 }
 
 interface CardItem {
@@ -92,6 +93,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
   const [deliveryAccounts, setDeliveryAccounts] = useState<DeliveryAccount[]>([]);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
   const [editInfo, setEditInfo] = useState<{edited_at?: string; edited_by?: string} | null>(null);
   
   const [loading, setLoading] = useState(false);
@@ -131,21 +133,23 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
       if (data) {
         setCashControl(data);
-        form.reset({
-          saldo_inicial: Number(data.saldo_inicial) || 0,
-          contagem_dinheiro: Number(data.contagem_dinheiro) || 0,
-          despesas_pagas: Number(data.despesas_pagas) || 0,
-          valor_mantido_caixa: Number(data.valor_mantido_caixa) || 0,
-          valor_fechamento_pdv: Number(data.valor_fechamento_pdv) || 0,
-        });
+      form.reset({
+        saldo_inicial: data.saldo_inicial || 0,
+        contagem_dinheiro: data.contagem_dinheiro || 0,
+        despesas_pagas: data.despesas_pagas || 0,
+        valor_mantido_caixa: data.valor_mantido_caixa || 0,
+        valor_fechamento_pdv: data.valor_fechamento_pdv || 0,
+      });
 
-        // Set edit info if exists
-        if (data.edited_at && data.edited_by) {
-          setEditInfo({
-            edited_at: data.edited_at,
-            edited_by: data.edited_by
-          });
-        }
+      // Carregar anexos existentes
+      if (data.image_urls && data.image_urls.length > 0) {
+        setExistingAttachments(data.image_urls);
+      }
+
+      setEditInfo({
+        edited_at: data.edited_at,
+        edited_by: data.edited_by
+      });
 
         // Fetch items
         await fetchItems(data.id);
@@ -154,6 +158,8 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         setCardItems([]);
         setAccountItems([]);
         setDeliveryItems([]);
+        setExistingAttachments([]);
+        setAttachments([]);
         setEditInfo(null);
       }
     } catch (error) {
@@ -313,11 +319,45 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     setDeliveryItems(prev => prev.filter((_, i) => i !== index));
   };
 
+  const uploadAttachments = async (cashControlId: string): Promise<string[]> => {
+    const uploadedUrls: string[] = [];
+    
+    for (const file of attachments) {
+      const fileName = `cash-control/${cashControlId}/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .upload(fileName, file);
+      
+      if (error) {
+        console.error('Erro ao fazer upload do arquivo:', error);
+        continue;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('account-documents')
+        .getPublicUrl(fileName);
+      
+      uploadedUrls.push(publicUrl);
+    }
+    
+    return uploadedUrls;
+  };
+
   const onSubmit = async (data: any) => {
     try {
       setLoading(true);
 
       let cashControlId = cashControl?.id;
+      let existingUrls: string[] = [];
+      
+      // Se estiver editando, manter URLs existentes
+      if (cashControlId && cashControl?.image_urls) {
+        existingUrls = existingAttachments; // Usar os anexos existentes atuais (podem ter sido removidos)
+      }
+      
+      // Upload de novos anexos
+      const newUrls = await uploadAttachments(cashControlId || 'temp');
+      const allUrls = [...existingUrls, ...newUrls];
 
       if (cashControlId) {
         // Update existing cash control
@@ -335,6 +375,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
             faturamento_total: faturamentoTotal,
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
+            image_urls: allUrls.length > 0 ? allUrls : null,
             edited_at: new Date().toISOString(),
             edited_by: (await supabase.auth.getUser()).data.user?.id,
           })
@@ -359,6 +400,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
             faturamento_total: faturamentoTotal,
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
+            image_urls: newUrls.length > 0 ? newUrls : null,
             created_by: (await supabase.auth.getUser()).data.user?.id,
           })
           .select()
@@ -366,6 +408,15 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
         if (error) throw error;
         cashControlId = newCashControl.id;
+        
+        // Se for criação e tiver anexos, fazer upload com o ID correto
+        if (newUrls.length > 0) {
+          const finalUrls = await uploadAttachments(cashControlId);
+          await supabase
+            .from('cash_control')
+            .update({ image_urls: finalUrls })
+            .eq('id', cashControlId);
+        }
       }
 
       // Save items
@@ -643,33 +694,67 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                 {/* Campo de Anexos */}
                 <div className="space-y-2">
                   <Label>Anexos</Label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      disabled={isReadOnly}
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        setAttachments(prev => [...prev, ...files]);
-                      }}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                      className={`cursor-pointer flex flex-col items-center justify-center text-gray-500 ${isReadOnly ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                      <Upload className="h-8 w-8 mb-2" />
-                      <span>Clique para adicionar anexos (PDF, JPG, PNG)</span>
-                    </label>
-                    
-                    {attachments.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        {attachments.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded">
-                            <span className="text-sm">{file.name}</span>
+                  
+                  {/* Anexos existentes */}
+                  {existingAttachments.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Anexos salvos:</Label>
+                      {existingAttachments.map((url, index) => (
+                        <div key={index} className="flex items-center justify-between bg-blue-50 p-2 rounded border">
+                          <span className="text-sm">Anexo {index + 1}</span>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(url, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             {!isReadOnly && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== index))}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Upload de novos anexos */}
+                  {!isReadOnly && (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setAttachments(prev => [...prev, ...files]);
+                        }}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="cursor-pointer flex flex-col items-center justify-center text-gray-500"
+                      >
+                        <Upload className="h-8 w-8 mb-2" />
+                        <span>Clique para adicionar anexos (PDF, JPG, PNG)</span>
+                      </label>
+                      
+                      {attachments.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <Label className="text-sm text-muted-foreground">Novos anexos:</Label>
+                          {attachments.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-green-50 p-2 rounded border">
+                              <span className="text-sm">{file.name}</span>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -678,12 +763,12 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Informações de Edição */}
