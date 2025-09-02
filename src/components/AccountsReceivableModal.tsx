@@ -627,23 +627,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       return;
     }
 
-    if (!currentAccounts.length) {
-      toast({
-        title: "Erro",
-        description: "Nenhuma conta corrente encontrada. Cadastre uma conta corrente primeiro.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       const totalAmount = getTotalAmount();
-      const defaultAccountId = currentAccounts[0]?.id;
-
-      if (!defaultAccountId) {
-        throw new Error("Nenhuma conta corrente disponível");
-      }
 
       if (isEditing && editingAccount) {
         // Update existing account
@@ -711,7 +697,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             notes,
             status: "pending",
             store_id: items[0]?.store_id,
-            account_id: defaultAccountId,
+            account_id: null, // Será definido quando receber o pagamento
             created_by: user.id,
           })
           .select()
