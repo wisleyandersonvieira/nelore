@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings } from "lucide-react";
+import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings, Wallet, DollarSign } from "lucide-react";
 import { SuppliersModal } from "@/components/SuppliersModal";
 import { CreditorsModal } from "@/components/CreditorsModal";
 import { StoresModal } from "@/components/StoresModal";
 import { GrupoModal } from "@/components/GrupoModal";
 import { SubgrupoModal } from "@/components/SubgrupoModal";
 import { CurrentAccountsModal } from "@/components/CurrentAccountsModal";
+import { CashAccountsModal } from "@/components/CashAccountsModal";
+import { CardAccountsModal } from "@/components/CardAccountsModal";
 import { ParametersModal } from "@/components/ParametersModal";
 
 const Cadastros = () => {
@@ -18,6 +20,8 @@ const Cadastros = () => {
   const [grupoModalOpen, setGrupoModalOpen] = useState(false);
   const [subgrupoModalOpen, setSubgrupoModalOpen] = useState(false);
   const [currentAccountsModalOpen, setCurrentAccountsModalOpen] = useState(false);
+  const [cashAccountsModalOpen, setCashAccountsModalOpen] = useState(false);
+  const [cardAccountsModalOpen, setCardAccountsModalOpen] = useState(false);
   const [parametersModalOpen, setParametersModalOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -69,6 +73,22 @@ const Cadastros = () => {
       icon: CreditCard,
       color: "bg-purple-500", 
       onClick: () => setCurrentAccountsModalOpen(true),
+    },
+    {
+      id: "contas-caixa",
+      title: "Contas Caixa",
+      description: "Cadastro e gestão de contas caixa",
+      icon: Wallet,
+      color: "bg-yellow-500", 
+      onClick: () => setCashAccountsModalOpen(true),
+    },
+    {
+      id: "contas-cartao",
+      title: "Contas Cartão",
+      description: "Cadastro e gestão de contas cartão",
+      icon: DollarSign,
+      color: "bg-red-500", 
+      onClick: () => setCardAccountsModalOpen(true),
     },
     {
       id: "parametros",
@@ -157,6 +177,14 @@ const Cadastros = () => {
       <CurrentAccountsModal 
         open={currentAccountsModalOpen} 
         onOpenChange={setCurrentAccountsModalOpen} 
+      />
+      <CashAccountsModal 
+        open={cashAccountsModalOpen} 
+        onOpenChange={setCashAccountsModalOpen} 
+      />
+      <CardAccountsModal 
+        open={cardAccountsModalOpen} 
+        onOpenChange={setCardAccountsModalOpen} 
       />
       <ParametersModal 
         open={parametersModalOpen} 
