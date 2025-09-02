@@ -15,8 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface CashAccount {
   id: string;
   name: string;
-  bank: string;
-  account_number: string;
   initial_balance: number;
   initial_balance_date: string;
   is_active: boolean;
@@ -37,16 +35,12 @@ interface CashAccountsModalProps {
 }
 interface FormData {
   name: string;
-  bank: string;
-  account_number: string;
   initial_balance: number;
   initial_balance_date: string;
   store_ids: string[];
 }
 const formSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  bank: z.string().min(1, "Banco é obrigatório"),
-  account_number: z.string().min(1, "Número da conta é obrigatório"),
   initial_balance: z.number().min(0, "Saldo inicial deve ser positivo"),
   initial_balance_date: z.string().min(1, "Data do saldo inicial é obrigatória"),
   store_ids: z.array(z.string()).min(1, "Selecione pelo menos uma loja")
@@ -64,8 +58,6 @@ export const CashAccountsModal = ({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      bank: "",
-      account_number: "",
       initial_balance: 0,
       initial_balance_date: new Date().toISOString().split('T')[0],
       store_ids: []
@@ -111,14 +103,29 @@ export const CashAccountsModal = ({
   const onSubmit = async (data: any) => {
     try {
       setLoading(true);
+      
+      // Check for duplicate name in same stores
+      for (const storeId of data.store_ids) {
+        const { data: existingAccount } = await supabase
+          .from('cash_accounts')
+          .select('id, name, cash_account_stores!inner(store_id)')
+          .eq('name', data.name)
+          .eq('cash_account_stores.store_id', storeId)
+          .neq('id', editingAccount?.id || '');
+        
+        if (existingAccount && existingAccount.length > 0) {
+          const store = stores.find(s => s.id === storeId);
+          toast.error(`Já existe uma conta caixa com esse nome na loja ${store?.name || ''}`);
+          return;
+        }
+      }
+
       if (editingAccount) {
         // Update existing account
         const {
           error: updateError
         } = await supabase.from('cash_accounts').update({
           name: data.name,
-          bank: data.bank,
-          account_number: data.account_number,
           initial_balance: data.initial_balance,
           initial_balance_date: data.initial_balance_date
         }).eq('id', editingAccount.id);
@@ -149,8 +156,6 @@ export const CashAccountsModal = ({
           error: insertError
         } = await supabase.from('cash_accounts').insert({
           name: data.name,
-          bank: data.bank,
-          account_number: data.account_number,
           initial_balance: data.initial_balance,
           initial_balance_date: data.initial_balance_date
         }).select().single();
@@ -183,8 +188,6 @@ export const CashAccountsModal = ({
     const storeIds = account.cash_account_stores?.map(s => s.store_id) || [];
     form.reset({
       name: account.name,
-      bank: account.bank,
-      account_number: account.account_number,
       initial_balance: Number(account.initial_balance),
       initial_balance_date: account.initial_balance_date,
       store_ids: storeIds
@@ -263,8 +266,6 @@ export const CashAccountsModal = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    
-                    
                     <TableHead>Saldo Inicial</TableHead>
                     <TableHead>Data Saldo</TableHead>
                     <TableHead>Lojas Vinculadas</TableHead>
@@ -275,8 +276,6 @@ export const CashAccountsModal = ({
                 <TableBody>
                   {accounts.map(account => <TableRow key={account.id}>
                       <TableCell className="font-medium">{account.name}</TableCell>
-                      <TableCell>{account.bank}</TableCell>
-                      <TableCell>{account.account_number}</TableCell>
                       <TableCell>R$ {Number(account.initial_balance).toFixed(2)}</TableCell>
                       <TableCell>
                         {new Date(account.initial_balance_date).toLocaleDateString('pt-BR')}
@@ -321,14 +320,6 @@ export const CashAccountsModal = ({
                         </FormControl>
                         <FormMessage />
                       </FormItem>} />
-
-                  <FormField control={form.control} name="bank" render={({
-                field
-              }) => {}} />
-
-                  <FormField control={form.control} name="account_number" render={({
-                field
-              }) => {}} />
 
                   <FormField control={form.control} name="initial_balance" render={({
                 field
