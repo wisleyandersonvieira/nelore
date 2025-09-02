@@ -144,7 +144,7 @@ const CashControl = () => {
           onSelect={handleDateSelect}
           className={cn(
             "rounded-lg border shadow-lg p-8 pointer-events-auto bg-card",
-            "scale-150 transform"
+            "scale-125 transform"
           )}
           classNames={{
             months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
