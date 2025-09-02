@@ -263,8 +263,8 @@ export const CashAccountsModal = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Banco</TableHead>
-                    <TableHead>Número da Conta</TableHead>
+                    
+                    
                     <TableHead>Saldo Inicial</TableHead>
                     <TableHead>Data Saldo</TableHead>
                     <TableHead>Lojas Vinculadas</TableHead>
