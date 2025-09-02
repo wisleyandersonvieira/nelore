@@ -497,8 +497,8 @@ export type Database = {
       }
       cash_accounts: {
         Row: {
-          account_number: string
-          bank: string
+          account_number: string | null
+          bank: string | null
           created_at: string
           id: string
           initial_balance: number
@@ -509,8 +509,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          account_number: string
-          bank: string
+          account_number?: string | null
+          bank?: string | null
           created_at?: string
           id?: string
           initial_balance?: number
@@ -521,8 +521,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          account_number?: string
-          bank?: string
+          account_number?: string | null
+          bank?: string | null
           created_at?: string
           id?: string
           initial_balance?: number

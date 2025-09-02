@@ -127,7 +127,9 @@ export const CashAccountsModal = ({
         } = await supabase.from('cash_accounts').update({
           name: data.name,
           initial_balance: data.initial_balance,
-          initial_balance_date: data.initial_balance_date
+          initial_balance_date: data.initial_balance_date,
+          bank: null,
+          account_number: null
         }).eq('id', editingAccount.id);
         if (updateError) throw updateError;
 
@@ -157,7 +159,9 @@ export const CashAccountsModal = ({
         } = await supabase.from('cash_accounts').insert({
           name: data.name,
           initial_balance: data.initial_balance,
-          initial_balance_date: data.initial_balance_date
+          initial_balance_date: data.initial_balance_date,
+          bank: null,
+          account_number: null
         }).select().single();
         if (insertError) throw insertError;
 
