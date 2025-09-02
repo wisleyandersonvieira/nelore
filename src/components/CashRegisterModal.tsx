@@ -387,10 +387,24 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         return;
       }
       
-      // Para paths do bucket, gerar signed URL
+      // Para paths do bucket, gerar signed URL com parâmetros específicos para PDFs
+      const signedUrlOptions: any = {
+        expiresIn: 3600
+      };
+      
+      // Para visualização inline, configurar transform para garantir content-disposition correto
+      if (mode === 'inline') {
+        const fileExtension = filePath.split('.').pop()?.toLowerCase();
+        if (fileExtension === 'pdf') {
+          signedUrlOptions.transform = {
+            format: 'origin'
+          };
+        }
+      }
+      
       const { data, error } = await supabase.storage
         .from('account-documents')
-        .createSignedUrl(filePath, 3600); // URL válida por 1 hora
+        .createSignedUrl(filePath, signedUrlOptions.expiresIn, signedUrlOptions.transform ? { transform: signedUrlOptions.transform } : undefined);
       
       if (error) {
         console.error('Erro ao gerar URL do anexo:', error);
@@ -399,7 +413,31 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       }
       
       if (mode === 'inline') {
-        window.open(data.signedUrl, '_blank');
+        // Para PDFs, garantir que abre em nova aba
+        const fileExtension = filePath.split('.').pop()?.toLowerCase();
+        if (fileExtension === 'pdf') {
+          // Criar um iframe temporário para abrir PDFs corretamente
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`
+              <html>
+                <head>
+                  <title>Visualizar PDF</title>
+                  <style>
+                    body { margin: 0; padding: 0; }
+                    iframe { width: 100vw; height: 100vh; border: none; }
+                  </style>
+                </head>
+                <body>
+                  <iframe src="${data.signedUrl}" type="application/pdf"></iframe>
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+          }
+        } else {
+          window.open(data.signedUrl, '_blank');
+        }
       } else {
         const link = document.createElement('a');
         link.href = data.signedUrl;
