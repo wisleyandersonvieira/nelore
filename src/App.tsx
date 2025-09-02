@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import CashControl from "./pages/CashControl";
 import Cadastros from "./pages/Cadastros";
 import Suppliers from "./pages/Suppliers";
 import Stores from "./pages/Stores";
@@ -42,6 +43,7 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/cash-control/:storeId" element={<CashControl />} />
               <Route path="/cadastros" element={<Cadastros />} />
               <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/products" element={<Products />} />
