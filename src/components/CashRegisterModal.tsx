@@ -117,6 +117,12 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     if (open) {
       fetchData();
       fetchAccounts();
+    } else {
+      // Limpar estados quando fechar o modal
+      setAttachments([]);
+      setExistingAttachments([]);
+      setEditInfo(null);
+      form.reset();
     }
   }, [open, dateString, storeId]);
 
@@ -351,16 +357,20 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       let existingUrls: string[] = [];
       
       // Se estiver editando, manter URLs existentes
-      if (cashControlId && cashControl?.image_urls) {
-        existingUrls = existingAttachments; // Usar os anexos existentes atuais (podem ter sido removidos)
+      if (cashControlId && existingAttachments.length > 0) {
+        existingUrls = existingAttachments;
       }
-      
-      // Upload de novos anexos
-      const newUrls = await uploadAttachments(cashControlId || 'temp');
-      const allUrls = [...existingUrls, ...newUrls];
 
       if (cashControlId) {
         // Update existing cash control
+        let finalUrls = existingUrls;
+        
+        // Upload de novos anexos se houver
+        if (attachments.length > 0) {
+          const newUrls = await uploadAttachments(cashControlId);
+          finalUrls = [...existingUrls, ...newUrls];
+        }
+        
         const { error } = await supabase
           .from('cash_control')
           .update({
@@ -375,7 +385,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
             faturamento_total: faturamentoTotal,
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
-            image_urls: allUrls.length > 0 ? allUrls : null,
+            image_urls: finalUrls.length > 0 ? finalUrls : null,
             edited_at: new Date().toISOString(),
             edited_by: (await supabase.auth.getUser()).data.user?.id,
           })
@@ -400,7 +410,6 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
             faturamento_total: faturamentoTotal,
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
-            image_urls: newUrls.length > 0 ? newUrls : null,
             created_by: (await supabase.auth.getUser()).data.user?.id,
           })
           .select()
@@ -409,12 +418,12 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         if (error) throw error;
         cashControlId = newCashControl.id;
         
-        // Se for criação e tiver anexos, fazer upload com o ID correto
-        if (newUrls.length > 0) {
-          const finalUrls = await uploadAttachments(cashControlId);
+        // Upload de anexos após criar o cash control
+        if (attachments.length > 0) {
+          const uploadedUrls = await uploadAttachments(cashControlId);
           await supabase
             .from('cash_control')
-            .update({ image_urls: finalUrls })
+            .update({ image_urls: uploadedUrls })
             .eq('id', cashControlId);
         }
       }
