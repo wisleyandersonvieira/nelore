@@ -242,7 +242,7 @@ export type Database = {
       }
       accounts_receivable: {
         Row: {
-          account_id: string
+          account_id: string | null
           amount: number
           created_at: string
           created_by: string
@@ -261,7 +261,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          account_id: string
+          account_id?: string | null
           amount: number
           created_at?: string
           created_by: string
@@ -280,7 +280,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          account_id?: string
+          account_id?: string | null
           amount?: number
           created_at?: string
           created_by?: string
