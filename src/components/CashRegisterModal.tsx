@@ -325,37 +325,72 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     setDeliveryItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const viewAttachment = async (filePath: string) => {
+  // Função utilitária para upload de arquivo
+  const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      console.log('viewAttachment chamado com filePath:', filePath);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return null;
+      }
+
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = `${user.id}/${fileName}`;
       
+      // Determinar contentType correto
+      let contentType = file.type;
+      if (!contentType && fileExtension) {
+        const typeMap: { [key: string]: string } = {
+          'pdf': 'application/pdf',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg', 
+          'png': 'image/png',
+          'txt': 'text/plain',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        };
+        contentType = typeMap[fileExtension.toLowerCase()] || 'application/octet-stream';
+      }
+
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .upload(filePath, file, { contentType });
+      
+      if (error) {
+        console.error('Erro ao fazer upload do arquivo:', error);
+        toast.error('Erro ao fazer upload do arquivo');
+        return null;
+      }
+
+      return filePath;
+    } catch (error) {
+      console.error('Erro no uploadFile:', error);
+      toast.error('Erro ao fazer upload do arquivo');
+      return null;
+    }
+  };
+
+  // Função utilitária para visualização e download
+  const viewAttachment = async (filePath: string, mode: 'inline' | 'download' = 'inline') => {
+    try {
       // Se já é uma URL completa (anexos antigos), abrir diretamente
       if (filePath.startsWith('http')) {
-        console.log('Abrindo URL direta:', filePath);
-        window.open(filePath, '_blank');
+        if (mode === 'inline') {
+          window.open(filePath, '_blank');
+        } else {
+          const link = document.createElement('a');
+          link.href = filePath;
+          link.download = filePath.split('/').pop() || 'arquivo';
+          link.click();
+        }
         return;
       }
       
-      console.log('Tentando gerar signed URL para:', filePath);
-      console.log('Bucket: account-documents');
-      
-      // Primeiro verificar se o arquivo existe
-      console.log('Verificando se o arquivo existe...');
-      const { data: fileData, error: fileError } = await supabase.storage
-        .from('account-documents')
-        .list('', { 
-          search: filePath.split('/').pop() // buscar pelo nome do arquivo
-        });
-      
-      console.log('Resultado da busca de arquivo:', { fileData, fileError });
-      
-      // Para paths relativos (anexos novos), gerar signed URL
+      // Para paths do bucket, gerar signed URL
       const { data, error } = await supabase.storage
         .from('account-documents')
-        .createSignedUrl(filePath, 60); // URL válida por 60 segundos
-      
-      console.log('Resultado da createSignedUrl:', { data, error });
-      console.log('Error details:', JSON.stringify(error, null, 2));
+        .createSignedUrl(filePath, 3600); // URL válida por 1 hora
       
       if (error) {
         console.error('Erro ao gerar URL do anexo:', error);
@@ -363,11 +398,35 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         return;
       }
       
-      console.log('Abrindo signed URL:', data.signedUrl);
-      window.open(data.signedUrl, '_blank');
+      if (mode === 'inline') {
+        window.open(data.signedUrl, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = data.signedUrl;
+        link.download = filePath.split('/').pop() || 'arquivo';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     } catch (error) {
       console.error('Erro ao visualizar anexo:', error);
       toast.error('Erro ao visualizar anexo');
+    }
+  };
+
+  // Função utilitária para upload e abertura imediata
+  const uploadAndOpen = async (file: File, mode: 'inline' | 'download' = 'inline') => {
+    try {
+      const filePath = await uploadFile(file);
+      if (filePath) {
+        await viewAttachment(filePath, mode);
+        return filePath;
+      }
+      return null;
+    } catch (error) {
+      console.error('Erro no uploadAndOpen:', error);
+      toast.error('Erro ao processar arquivo');
+      return null;
     }
   };
 
@@ -375,19 +434,10 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     const uploadedUrls: string[] = [];
     
     for (const file of attachments) {
-      const fileName = `cash-control/${cashControlId}/${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage
-        .from('account-documents')
-        .upload(fileName, file);
-      
-      if (error) {
-        console.error('Erro ao fazer upload do arquivo:', error);
-        continue;
+      const filePath = await uploadFile(file);
+      if (filePath) {
+        uploadedUrls.push(filePath);
       }
-      
-      // Para bucket privado, usamos o caminho do arquivo direto
-      // A URL será gerada quando necessário com createSignedUrl
-      uploadedUrls.push(fileName);
     }
     
     return uploadedUrls;
