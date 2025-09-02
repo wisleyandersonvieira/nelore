@@ -766,6 +766,69 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_account_stores: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          store_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          store_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          store_id?: string
+        }
+        Relationships: []
+      }
+      delivery_accounts: {
+        Row: {
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          id: string
+          initial_balance: number
+          initial_balance_date: string
+          is_active: boolean
+          is_blocked: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          initial_balance?: number
+          initial_balance_date: string
+          is_active?: boolean
+          is_blocked?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          initial_balance?: number
+          initial_balance_date?: string
+          is_active?: boolean
+          is_blocked?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dre_entries: {
         Row: {
           created_at: string

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings, Wallet, DollarSign } from "lucide-react";
+import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings, Wallet, DollarSign, Truck } from "lucide-react";
 import { SuppliersModal } from "@/components/SuppliersModal";
 import { CreditorsModal } from "@/components/CreditorsModal";
 import { StoresModal } from "@/components/StoresModal";
@@ -11,6 +11,7 @@ import { SubgrupoModal } from "@/components/SubgrupoModal";
 import { CurrentAccountsModal } from "@/components/CurrentAccountsModal";
 import { CashAccountsModal } from "@/components/CashAccountsModal";
 import { CardAccountsModal } from "@/components/CardAccountsModal";
+import { DeliveryModal } from "@/components/DeliveryModal";
 import { ParametersModal } from "@/components/ParametersModal";
 
 const Cadastros = () => {
@@ -22,6 +23,7 @@ const Cadastros = () => {
   const [currentAccountsModalOpen, setCurrentAccountsModalOpen] = useState(false);
   const [cashAccountsModalOpen, setCashAccountsModalOpen] = useState(false);
   const [cardAccountsModalOpen, setCardAccountsModalOpen] = useState(false);
+  const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [parametersModalOpen, setParametersModalOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -89,6 +91,14 @@ const Cadastros = () => {
       icon: DollarSign,
       color: "bg-red-500", 
       onClick: () => setCardAccountsModalOpen(true),
+    },
+    {
+      id: "delivery",
+      title: "Delivery",
+      description: "Cadastro e gestão de contas delivery",
+      icon: Truck,
+      color: "bg-cyan-500", 
+      onClick: () => setDeliveryModalOpen(true),
     },
     {
       id: "parametros",
@@ -185,6 +195,10 @@ const Cadastros = () => {
       <CardAccountsModal 
         open={cardAccountsModalOpen} 
         onOpenChange={setCardAccountsModalOpen} 
+      />
+      <DeliveryModal 
+        open={deliveryModalOpen} 
+        onOpenChange={setDeliveryModalOpen} 
       />
       <ParametersModal 
         open={parametersModalOpen} 
