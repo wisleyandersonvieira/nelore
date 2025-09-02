@@ -1004,13 +1004,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "financial_transactions_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "current_accounts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "financial_transactions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
