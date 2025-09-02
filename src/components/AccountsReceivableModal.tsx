@@ -772,6 +772,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("Usuário não autenticado");
+      }
+
       const finalAmount = paymentAccount.amount + surcharge - discount;
 
       // Update account status
@@ -797,8 +803,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           transaction_date: paymentDate,
           description: `Recebimento - ${paymentAccount.description}`,
           reference_id: paymentAccount.id,
-          reference_type: "account_receivable",
-          created_by: "system",
+          reference_type: "accounts_receivable",
+          created_by: user.id,
         });
 
       if (transactionError) throw transactionError;
