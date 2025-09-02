@@ -339,16 +339,27 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       console.log('Tentando gerar signed URL para:', filePath);
       console.log('Bucket: account-documents');
       
+      // Primeiro verificar se o arquivo existe
+      console.log('Verificando se o arquivo existe...');
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('account-documents')
+        .list('', { 
+          search: filePath.split('/').pop() // buscar pelo nome do arquivo
+        });
+      
+      console.log('Resultado da busca de arquivo:', { fileData, fileError });
+      
       // Para paths relativos (anexos novos), gerar signed URL
       const { data, error } = await supabase.storage
         .from('account-documents')
         .createSignedUrl(filePath, 60); // URL válida por 60 segundos
       
       console.log('Resultado da createSignedUrl:', { data, error });
+      console.log('Error details:', JSON.stringify(error, null, 2));
       
       if (error) {
         console.error('Erro ao gerar URL do anexo:', error);
-        toast.error('Erro ao abrir anexo');
+        toast.error(`Erro ao abrir anexo: ${error.message}`);
         return;
       }
       
