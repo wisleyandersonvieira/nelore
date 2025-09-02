@@ -384,6 +384,156 @@ export type Database = {
           },
         ]
       }
+      card_account_stores: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          store_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          store_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_account_stores_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "card_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_account_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_accounts: {
+        Row: {
+          account_number: string
+          bank: string
+          created_at: string
+          id: string
+          initial_balance: number
+          initial_balance_date: string
+          is_active: boolean
+          is_blocked: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          account_number: string
+          bank: string
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          initial_balance_date: string
+          is_active?: boolean
+          is_blocked?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string
+          bank?: string
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          initial_balance_date?: string
+          is_active?: boolean
+          is_blocked?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cash_account_stores: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          store_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          store_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_account_stores_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "cash_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_account_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_accounts: {
+        Row: {
+          account_number: string
+          bank: string
+          created_at: string
+          id: string
+          initial_balance: number
+          initial_balance_date: string
+          is_active: boolean
+          is_blocked: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          account_number: string
+          bank: string
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          initial_balance_date: string
+          is_active?: boolean
+          is_blocked?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string
+          bank?: string
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          initial_balance_date?: string
+          is_active?: boolean
+          is_blocked?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cash_control: {
         Row: {
           closing_balance: number

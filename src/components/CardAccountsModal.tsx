@@ -23,7 +23,7 @@ interface CardAccount {
   is_active: boolean;
   is_blocked: boolean;
   created_at: string;
-  current_account_stores?: { store_id: string }[];
+  card_account_stores?: { store_id: string }[];
 }
 
 interface Store {
@@ -77,10 +77,10 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
   const fetchAccounts = async () => {
     try {
       const { data, error } = await supabase
-        .from('current_accounts')
+        .from('card_accounts')
         .select(`
           *,
-          current_account_stores (
+          card_account_stores (
             store_id
           )
         `)
@@ -123,7 +123,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
       if (editingAccount) {
         // Update existing account
         const { error: updateError } = await supabase
-          .from('current_accounts')
+          .from('card_accounts')
           .update({
             name: data.name,
             bank: data.bank,
@@ -137,7 +137,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
 
         // Delete existing store associations
         const { error: deleteError } = await supabase
-          .from('current_account_stores')
+          .from('card_account_stores')
           .delete()
           .eq('account_id', editingAccount.id);
 
@@ -151,7 +151,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
           }));
 
           const { error: insertError } = await supabase
-            .from('current_account_stores')
+            .from('card_account_stores')
             .insert(storeAssociations);
 
           if (insertError) throw insertError;
@@ -161,7 +161,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
       } else {
         // Create new account
         const { data: newAccount, error: insertError } = await supabase
-          .from('current_accounts')
+          .from('card_accounts')
           .insert({
             name: data.name,
             bank: data.bank,
@@ -182,7 +182,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
           }));
 
           const { error: associationError } = await supabase
-            .from('current_account_stores')
+            .from('card_account_stores')
             .insert(storeAssociations);
 
           if (associationError) throw associationError;
@@ -203,7 +203,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
 
   const handleEdit = (account: CardAccount) => {
     setEditingAccount(account);
-    const storeIds = account.current_account_stores?.map(s => s.store_id) || [];
+    const storeIds = account.card_account_stores?.map(s => s.store_id) || [];
     
     form.reset({
       name: account.name,
@@ -220,7 +220,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
   const handleToggleBlock = async (account: CardAccount) => {
     try {
       const { error } = await supabase
-        .from('current_accounts')
+        .from('card_accounts')
         .update({ is_blocked: !account.is_blocked })
         .eq('id', account.id);
 
@@ -240,7 +240,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
     try {
       // Delete store associations first
       const { error: deleteAssociationsError } = await supabase
-        .from('current_account_stores')
+        .from('card_account_stores')
         .delete()
         .eq('account_id', account.id);
 
@@ -248,7 +248,7 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
 
       // Delete the account
       const { error } = await supabase
-        .from('current_accounts')
+        .from('card_accounts')
         .delete()
         .eq('id', account.id);
 
@@ -269,9 +269,9 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
   };
 
   const getStoreNames = (account: CardAccount) => {
-    if (!account.current_account_stores) return '';
+    if (!account.card_account_stores) return '';
     
-    const accountStoreIds = account.current_account_stores.map(s => s.store_id);
+    const accountStoreIds = account.card_account_stores.map(s => s.store_id);
     const accountStores = stores.filter(store => accountStoreIds.includes(store.id));
     
     return accountStores.map(store => store.name).join(', ');
