@@ -21,6 +21,7 @@ import {
 import { AccountsPayableModal } from "@/components/AccountsPayableModal";
 import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
 import { CashControlModal } from "@/components/CashControlModal";
+import { FinanceiroModal } from "@/components/FinanceiroModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -28,6 +29,7 @@ const Dashboard = () => {
   const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
   const [accountsReceivableOpen, setAccountsReceivableOpen] = useState(false);
   const [cashControlOpen, setCashControlOpen] = useState(false);
+  const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -79,18 +81,11 @@ const Dashboard = () => {
       color: "bg-blue-500",
     },
     {
-      id: "contas-pagar",
-      title: "Contas a Pagar",
-      description: "Gestão de fornecedores e pagamentos",
+      id: "financeiro",
+      title: "Financeiro",
+      description: "Contas a pagar e receber",
       icon: CreditCard,
-      color: "bg-red-500",
-    },
-    {
-      id: "contas-receber",
-      title: "Contas a Receber",
-      description: "Controle de recebimentos e clientes",
-      icon: TrendingUp,
-      color: "bg-green-500",
+      color: "bg-emerald-500",
     },
     {
       id: "estoque",
@@ -194,10 +189,8 @@ const Dashboard = () => {
                          navigate("/reports");
                        } else if (module.id === "estoque") {
                          navigate("/stock");
-                       } else if (module.id === "contas-pagar") {
-                         setAccountsPayableOpen(true);
-                       } else if (module.id === "contas-receber") {
-                         setAccountsReceivableOpen(true);
+                       } else if (module.id === "financeiro") {
+                         setFinanceiroOpen(true);
                        } else if (module.id === "caixa") {
                          setCashControlOpen(true);
                        }
@@ -255,6 +248,15 @@ const Dashboard = () => {
       </main>
 
       {/* Account Modals */}
+      {financeiroOpen && (
+        <FinanceiroModal
+          open={financeiroOpen}
+          onOpenChange={setFinanceiroOpen}
+          onAccountsPayableOpen={() => setAccountsPayableOpen(true)}
+          onAccountsReceivableOpen={() => setAccountsReceivableOpen(true)}
+        />
+      )}
+
       {accountsPayableOpen && (
         <AccountsPayableModal 
           open={accountsPayableOpen} 
