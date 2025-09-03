@@ -193,37 +193,18 @@ export const StockRegisterModal = ({
   };
 
   const handleSave = async () => {
-    console.log('🚀 Iniciando salvamento do estoque...');
     try {
       setSaving(true);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('❌ Usuário não autenticado');
-        throw new Error('Usuário não autenticado');
-      }
-      console.log('✅ Usuário autenticado:', user.id);
+      if (!user) throw new Error('Usuário não autenticado');
 
       const totalValue = calculateGrandTotal();
-      console.log('💰 Valor total calculado:', totalValue);
-
-      // Verificar se há itens para salvar
-      const hasItems = Object.values(sorveteStock).some(item => item.quantity > 0) ||
-                      Object.values(mercadoriasStock).some(item => item.quantity > 0) ||
-                      Object.values(embalagensStock).some(item => item.quantity > 0);
-
-      if (!hasItems) {
-        console.warn('⚠️ Nenhum item com quantidade maior que 0');
-        toast.error('Adicione pelo menos um item com quantidade antes de salvar o estoque.');
-        return;
-      }
-      console.log('📦 Itens encontrados para salvar');
       
       let currentStockControlId = stockControlId;
 
       // Criar ou atualizar controle de estoque
       if (mode === 'create' || !currentStockControlId) {
-        console.log('📝 Criando novo controle de estoque...');
         const { data: newStockControl, error: stockError } = await supabase
           .from('stock_control')
           .insert({
@@ -236,25 +217,16 @@ export const StockRegisterModal = ({
           .select('id')
           .single();
 
-        if (stockError) {
-          console.error('❌ Erro ao criar controle de estoque:', stockError);
-          throw stockError;
-        }
-        console.log('✅ Controle de estoque criado:', newStockControl.id);
+        if (stockError) throw stockError;
         currentStockControlId = newStockControl.id;
         setStockControlId(currentStockControlId);
       } else {
-        console.log('📝 Atualizando controle de estoque existente...');
         const { error: updateError } = await supabase
           .from('stock_control')
           .update({ total_value: totalValue })
           .eq('id', currentStockControlId);
 
-        if (updateError) {
-          console.error('❌ Erro ao atualizar controle de estoque:', updateError);
-          throw updateError;
-        }
-        console.log('✅ Controle de estoque atualizado');
+        if (updateError) throw updateError;
       }
 
       // Deletar itens existentes se estiver editando
