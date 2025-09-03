@@ -74,22 +74,22 @@ export const CashControlModal = ({ open, onOpenChange }: CashControlModalProps) 
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 overflow-y-auto">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 flex-1 overflow-y-auto">
                 {stores.map((store) => (
                   <Card 
                     key={store.id} 
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    className="cursor-pointer hover:shadow-lg transition-shadow aspect-square flex flex-col"
                     onClick={() => handleStoreSelect(store)}
                   >
-                    <CardHeader className="pb-3">
-                      <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center mb-3">
-                        <Store className="h-6 w-6 text-white" />
+                    <CardHeader className="pb-2 flex-1 flex flex-col items-center justify-center">
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-500 flex items-center justify-center mb-2">
+                        <Store className="h-5 w-5 md:h-6 md:w-6 text-white" />
                       </div>
-                      <CardTitle className="text-lg">{store.name}</CardTitle>
-                      <CardDescription>Código: {store.code}</CardDescription>
+                      <CardTitle className="text-sm md:text-base text-center leading-tight">{store.name}</CardTitle>
+                      <CardDescription className="text-xs text-center">Código: {store.code}</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <Button className="w-full" variant="outline">
+                    <CardContent className="pt-0 pb-3">
+                      <Button className="w-full text-xs" variant="outline" size="sm">
                         Selecionar
                       </Button>
                     </CardContent>

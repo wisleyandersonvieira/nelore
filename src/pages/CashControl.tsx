@@ -185,8 +185,8 @@ const CashControl = () => {
             hasData: "bg-yellow-100 border-2 border-yellow-300"
           }}
           className={cn(
-            "rounded-lg border shadow-lg p-8 pointer-events-auto bg-card",
-            "scale-125 transform"
+            "rounded-lg border shadow-lg p-4 md:p-8 pointer-events-auto bg-card",
+            "scale-75 md:scale-90 transform"
           )}
           classNames={{
             months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
@@ -201,11 +201,11 @@ const CashControl = () => {
             nav_button_next: "absolute right-1",
             table: "w-full border-collapse space-y-2",
             head_row: "flex",
-            head_cell: "text-muted-foreground rounded-md w-14 font-normal text-lg",
-            row: "flex w-full mt-4",
-            cell: "h-14 w-14 text-center text-lg p-0 relative cursor-pointer hover:bg-accent rounded-md transition-colors",
+            head_cell: "text-muted-foreground rounded-md w-10 md:w-14 font-normal text-sm md:text-lg",
+            row: "flex w-full mt-2 md:mt-4",
+            cell: "h-10 w-10 md:h-14 md:w-14 text-center text-sm md:text-lg p-0 relative cursor-pointer hover:bg-accent rounded-md transition-colors",
             day: cn(
-              "h-14 w-14 p-0 font-normal aria-selected:opacity-100 hover:bg-accent rounded-md text-lg transition-colors",
+              "h-10 w-10 md:h-14 md:w-14 p-0 font-normal aria-selected:opacity-100 hover:bg-accent rounded-md text-sm md:text-lg transition-colors",
               "data-[has-data=true]:bg-yellow-100 data-[has-data=true]:border-2 data-[has-data=true]:border-yellow-300"
             ),
             day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
