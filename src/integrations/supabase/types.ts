@@ -1552,6 +1552,7 @@ export type Database = {
           id: string
           parameter_key: string
           product_id: string | null
+          subgroup_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1559,6 +1560,7 @@ export type Database = {
           id?: string
           parameter_key: string
           product_id?: string | null
+          subgroup_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1566,6 +1568,7 @@ export type Database = {
           id?: string
           parameter_key?: string
           product_id?: string | null
+          subgroup_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1574,6 +1577,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_parameters_subgroup_id_fkey"
+            columns: ["subgroup_id"]
+            isOneToOne: false
+            referencedRelation: "account_groups"
             referencedColumns: ["id"]
           },
         ]

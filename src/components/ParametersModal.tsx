@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Settings, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { ProductParameterModal } from "./ProductParameterModal";
+import { SubgroupParameterModal } from "./SubgroupParameterModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ParametersModalProps {
@@ -27,6 +28,7 @@ interface Parameter {
 export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) => {
   const [selectedParameter, setSelectedParameter] = useState<Parameter | null>(null);
   const [productParameterOpen, setProductParameterOpen] = useState(false);
+  const [subgroupParameterOpen, setSubgroupParameterOpen] = useState(false);
   const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string }>>({});
 
   // Parâmetros padrão do sistema
@@ -82,7 +84,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
     if (open) {
       loadConfiguredParameters();
     }
-  }, [open, productParameterOpen]);
+  }, [open, productParameterOpen, subgroupParameterOpen]);
 
   const loadConfiguredParameters = async () => {
     try {
@@ -130,7 +132,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
 
   const handleParameterClick = (parameter: Parameter) => {
     setSelectedParameter(parameter);
-    setProductParameterOpen(true);
+    if (parameter.category === 'product') {
+      setProductParameterOpen(true);
+    } else {
+      setSubgroupParameterOpen(true);
+    }
   };
 
   const getParameterIcon = (type: string) => {
@@ -243,7 +249,19 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       <ProductParameterModal
         open={productParameterOpen}
         onOpenChange={setProductParameterOpen}
-        parameter={selectedParameter}
+        parameter={selectedParameter?.category === 'product' ? selectedParameter : null}
+      />
+
+      <SubgroupParameterModal
+        open={subgroupParameterOpen}
+        onOpenChange={setSubgroupParameterOpen}
+        parameter={selectedParameter?.category === 'subgroup' ? {
+          id: selectedParameter.id,
+          name: selectedParameter.name,
+          description: selectedParameter.description,
+          type: selectedParameter.type as 'sorvete' | 'mercadorias_diversas' | 'embalagens',
+          category: selectedParameter.category
+        } : null}
       />
     </>
   );

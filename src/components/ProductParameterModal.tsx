@@ -16,7 +16,8 @@ interface ProductParameterModalProps {
     id: string;
     name: string;
     description: string;
-    type: 'acrescimo' | 'desconto';
+    type: 'acrescimo' | 'desconto' | 'sorvete' | 'mercadorias_diversas' | 'embalagens';
+    category: 'product' | 'subgroup';
   } | null;
 }
 
