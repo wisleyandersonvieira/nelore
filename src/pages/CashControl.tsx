@@ -8,6 +8,7 @@ import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CashDateModal } from "@/components/CashDateModal";
+import { MonthViewModal } from "@/components/MonthViewModal";
 
 interface Store {
   id: string;
@@ -22,6 +23,7 @@ const CashControl = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [monthViewModalOpen, setMonthViewModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [datesWithData, setDatesWithData] = useState<Set<string>>(new Set());
 
@@ -146,27 +148,12 @@ const CashControl = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handlePreviousMonth}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              
-              <h2 className="text-2xl font-semibold min-w-[250px] text-center">
-                {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-              </h2>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleNextMonth}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setMonthViewModalOpen(true)}
+            >
+              VISUALIZAR MÊS COMPLETO
+            </Button>
           </div>
         </div>
       </header>
@@ -227,6 +214,14 @@ const CashControl = () => {
           open={dateModalOpen}
           onOpenChange={handleDateModalClose}
           date={selectedDate}
+          storeId={storeId}
+        />
+      )}
+
+      {storeId && (
+        <MonthViewModal
+          open={monthViewModalOpen}
+          onOpenChange={setMonthViewModalOpen}
           storeId={storeId}
         />
       )}
