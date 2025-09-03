@@ -16,15 +16,18 @@ interface Parameter {
   id: string;
   name: string;
   description: string;
-  type: 'acrescimo' | 'desconto';
+  type: 'acrescimo' | 'desconto' | 'sorvete' | 'mercadorias_diversas' | 'embalagens';
+  category: 'product' | 'subgroup';
   productId?: string;
   productName?: string;
+  subgroupId?: string;
+  subgroupName?: string;
 }
 
 export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) => {
   const [selectedParameter, setSelectedParameter] = useState<Parameter | null>(null);
   const [productParameterOpen, setProductParameterOpen] = useState(false);
-  const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId: string; productName: string }>>({});
+  const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string }>>({});
 
   // Parâmetros padrão do sistema
   const systemParameters: Parameter[] = [
@@ -33,6 +36,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       name: 'Acréscimos',
       description: 'Configurar produto para acréscimos nas contas',
       type: 'acrescimo',
+      category: 'product',
       productId: configuredParameters['acrescimo']?.productId,
       productName: configuredParameters['acrescimo']?.productName,
     },
@@ -41,8 +45,36 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       name: 'Desconto',
       description: 'Configurar produto para descontos nas contas',
       type: 'desconto',
+      category: 'product',
       productId: configuredParameters['desconto']?.productId,
       productName: configuredParameters['desconto']?.productName,
+    },
+    {
+      id: 'sorvete',
+      name: 'Sorvete',
+      description: 'Configurar subgrupos para controle de estoque de sorvete',
+      type: 'sorvete',
+      category: 'subgroup',
+      subgroupId: configuredParameters['sorvete']?.subgroupId,
+      subgroupName: configuredParameters['sorvete']?.subgroupName,
+    },
+    {
+      id: 'mercadorias_diversas',
+      name: 'Mercadorias Diversas',
+      description: 'Configurar subgrupos para controle de estoque de mercadorias diversas',
+      type: 'mercadorias_diversas',
+      category: 'subgroup',
+      subgroupId: configuredParameters['mercadorias_diversas']?.subgroupId,
+      subgroupName: configuredParameters['mercadorias_diversas']?.subgroupName,
+    },
+    {
+      id: 'embalagens',
+      name: 'Embalagens',
+      description: 'Configurar subgrupos para controle de estoque de embalagens',
+      type: 'embalagens',
+      category: 'subgroup',
+      subgroupId: configuredParameters['embalagens']?.subgroupId,
+      subgroupName: configuredParameters['embalagens']?.subgroupName,
     },
   ];
 
@@ -54,18 +86,39 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
 
   const loadConfiguredParameters = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar parâmetros com produtos
+      const { data: productParams, error: productError } = await supabase
         .from('system_parameters')
         .select('parameter_key, product_id, products!inner(name)')
-        .in('parameter_key', ['acrescimo', 'desconto']);
+        .in('parameter_key', ['acrescimo', 'desconto'])
+        .not('product_id', 'is', null);
 
-      if (error) throw error;
+      if (productError) throw productError;
 
-      const configured: Record<string, { productId: string; productName: string }> = {};
-      data?.forEach((param: any) => {
+      // Buscar parâmetros com subgrupos
+      const { data: subgroupParams, error: subgroupError } = await supabase
+        .from('system_parameters')
+        .select('parameter_key, subgroup_id, account_groups!inner(name)')
+        .in('parameter_key', ['sorvete', 'mercadorias_diversas', 'embalagens'])
+        .not('subgroup_id', 'is', null);
+
+      if (subgroupError) throw subgroupError;
+
+      const configured: Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string }> = {};
+      
+      // Processar parâmetros de produtos
+      productParams?.forEach((param: any) => {
         configured[param.parameter_key] = {
           productId: param.product_id,
           productName: param.products.name
+        };
+      });
+
+      // Processar parâmetros de subgrupos
+      subgroupParams?.forEach((param: any) => {
+        configured[param.parameter_key] = {
+          subgroupId: param.subgroup_id,
+          subgroupName: param.account_groups.name
         };
       });
       
@@ -86,6 +139,12 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return <ArrowUp className="h-5 w-5 text-green-600" />;
       case 'desconto':
         return <ArrowDown className="h-5 w-5 text-red-600" />;
+      case 'sorvete':
+        return <Settings className="h-5 w-5 text-purple-600" />;
+      case 'mercadorias_diversas':
+        return <Settings className="h-5 w-5 text-orange-600" />;
+      case 'embalagens':
+        return <Settings className="h-5 w-5 text-teal-600" />;
       default:
         return <Settings className="h-5 w-5 text-blue-600" />;
     }
@@ -97,6 +156,12 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return 'bg-green-100 hover:bg-green-200';
       case 'desconto':
         return 'bg-red-100 hover:bg-red-200';
+      case 'sorvete':
+        return 'bg-purple-100 hover:bg-purple-200';
+      case 'mercadorias_diversas':
+        return 'bg-orange-100 hover:bg-orange-200';
+      case 'embalagens':
+        return 'bg-teal-100 hover:bg-teal-200';
       default:
         return 'bg-blue-100 hover:bg-blue-200';
     }
@@ -137,7 +202,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                           {parameter.name}
                         </CardTitle>
                         <Badge variant="secondary" className="text-xs">
-                          {parameter.type === 'acrescimo' ? 'ACRÉSCIMO' : 'DESCONTO'}
+                          {parameter.category === 'product' ? 'PRODUTO' : 'SUBGRUPO'}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -152,7 +217,10 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                         </Button>
                         {configuredParam && (
                           <Badge variant="default" className="text-xs">
-                            Produto: {configuredParam.productName}
+                            {parameter.category === 'product' 
+                              ? `Produto: ${configuredParam.productName}`
+                              : `Subgrupo: ${configuredParam.subgroupName}`
+                            }
                           </Badge>
                         )}
                       </div>
