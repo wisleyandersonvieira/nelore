@@ -156,6 +156,57 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
     return deliveryItem?.valor || 0;
   };
 
+  const getRowTotal = (field: string, accountName?: string) => {
+    let total = 0;
+    days.forEach(day => {
+      const dayData = data[day.toString()];
+      if (dayData) {
+        switch (field) {
+          case 'saldo_inicial':
+            total += dayData.saldo_inicial;
+            break;
+          case 'contagem_dinheiro':
+            total += dayData.contagem_dinheiro;
+            break;
+          case 'despesas_pagas':
+            total += dayData.despesas_pagas;
+            break;
+          case 'valor_mantido_caixa':
+            total += dayData.valor_mantido_caixa;
+            break;
+          case 'faturamento_dinheiro':
+            total += dayData.faturamento_dinheiro;
+            break;
+          case 'faturamento_total':
+            total += dayData.faturamento_total;
+            break;
+          case 'valor_fechamento_pdv':
+            total += dayData.valor_fechamento_pdv;
+            break;
+          case 'diferenca':
+            total += dayData.diferenca;
+            break;
+          case 'card':
+            if (accountName) {
+              total += getCardValue(day.toString(), accountName);
+            }
+            break;
+          case 'account':
+            if (accountName) {
+              total += getAccountValue(day.toString(), accountName);
+            }
+            break;
+          case 'delivery':
+            if (accountName) {
+              total += getDeliveryValue(day.toString(), accountName);
+            }
+            break;
+        }
+      }
+    });
+    return total;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -168,7 +219,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
     <div className="h-full max-h-[70vh] overflow-hidden border rounded-lg">
       <div className="h-full overflow-auto">
         <table className="w-full">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="border-b bg-muted/50">
               <th className="sticky left-0 bg-muted/50 p-3 text-left font-medium border-r min-w-[200px]">
                 Descrição
@@ -178,6 +229,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {day}
                 </th>
               ))}
+              <th className="p-3 text-center font-medium min-w-[120px] border-r bg-muted/50">
+                Total
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -187,6 +241,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
               {days.map((day) => (
                 <td key={day} className="p-3 border-r"></td>
               ))}
+              <td className="p-3 border-r bg-blue-50"></td>
             </tr>
             
             <tr className="border-b">
@@ -196,6 +251,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].saldo_inicial) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                {formatCurrency(getRowTotal('saldo_inicial'))}
+              </td>
             </tr>
 
             <tr className="border-b">
@@ -205,6 +263,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].contagem_dinheiro) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                {formatCurrency(getRowTotal('contagem_dinheiro'))}
+              </td>
             </tr>
 
             <tr className="border-b">
@@ -214,6 +275,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].despesas_pagas) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                {formatCurrency(getRowTotal('despesas_pagas'))}
+              </td>
             </tr>
 
             <tr className="border-b">
@@ -223,6 +287,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].valor_mantido_caixa) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                {formatCurrency(getRowTotal('valor_mantido_caixa'))}
+              </td>
             </tr>
 
             <tr className="border-b">
@@ -232,6 +299,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].faturamento_dinheiro) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                {formatCurrency(getRowTotal('faturamento_dinheiro'))}
+              </td>
             </tr>
 
             {/* Seção CARTÃO */}
@@ -240,6 +310,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
               {days.map((day) => (
                 <td key={day} className="p-3 border-r"></td>
               ))}
+              <td className="p-3 border-r bg-green-50"></td>
             </tr>
 
             {Array.from(cardAccounts).map((accountName) => (
@@ -250,6 +321,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                     {getCardValue(day.toString(), accountName) > 0 ? formatCurrency(getCardValue(day.toString(), accountName)) : '-'}
                   </td>
                 ))}
+                <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                  {formatCurrency(getRowTotal('card', accountName))}
+                </td>
               </tr>
             ))}
 
@@ -259,6 +333,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
               {days.map((day) => (
                 <td key={day} className="p-3 border-r"></td>
               ))}
+              <td className="p-3 border-r bg-yellow-50"></td>
             </tr>
 
             {Array.from(currentAccounts).map((accountName) => (
@@ -269,6 +344,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                     {getAccountValue(day.toString(), accountName) > 0 ? formatCurrency(getAccountValue(day.toString(), accountName)) : '-'}
                   </td>
                 ))}
+                <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                  {formatCurrency(getRowTotal('account', accountName))}
+                </td>
               </tr>
             ))}
 
@@ -278,6 +356,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
               {days.map((day) => (
                 <td key={day} className="p-3 border-r"></td>
               ))}
+              <td className="p-3 border-r bg-purple-50"></td>
             </tr>
 
             {Array.from(deliveryAccounts).map((accountName) => (
@@ -288,6 +367,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                     {getDeliveryValue(day.toString(), accountName) > 0 ? formatCurrency(getDeliveryValue(day.toString(), accountName)) : '-'}
                   </td>
                 ))}
+                <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                  {formatCurrency(getRowTotal('delivery', accountName))}
+                </td>
               </tr>
             ))}
 
@@ -299,6 +381,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].faturamento_total) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-orange-100">
+                {formatCurrency(getRowTotal('faturamento_total'))}
+              </td>
             </tr>
 
             <tr className="border-b">
@@ -308,6 +393,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].valor_fechamento_pdv) : '-'}
                 </td>
               ))}
+              <td className="p-3 text-center border-r text-sm font-semibold bg-muted/30">
+                {formatCurrency(getRowTotal('valor_fechamento_pdv'))}
+              </td>
             </tr>
 
             <tr className="border-b">
@@ -317,6 +405,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
                   {data[day.toString()] ? formatCurrency(data[day.toString()].diferenca) : '-'}
                 </td>
               ))}
+              <td className={`p-3 text-center border-r text-sm font-semibold bg-muted/30 ${getRowTotal('diferenca') !== 0 ? 'text-red-600' : ''}`}>
+                {formatCurrency(getRowTotal('diferenca'))}
+              </td>
             </tr>
           </tbody>
         </table>

@@ -15,10 +15,12 @@ interface MonthViewModalProps {
 
 export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalProps) => {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<string>("");
   const [showTable, setShowTable] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
   const months = [
     { value: "0", label: "Janeiro" },
     { value: "1", label: "Fevereiro" },
@@ -35,7 +37,7 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
   ];
 
   const handleViewMonth = () => {
-    if (selectedMonth) {
+    if (selectedMonth && selectedYear) {
       setShowTable(true);
     }
   };
@@ -43,11 +45,12 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
   const handleClose = () => {
     setShowTable(false);
     setSelectedMonth("");
+    setSelectedYear("");
     onOpenChange(false);
   };
 
-  if (showTable && selectedMonth) {
-    const monthDate = new Date(currentYear, parseInt(selectedMonth), 1);
+  if (showTable && selectedMonth && selectedYear) {
+    const monthDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 1);
     return (
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full flex flex-col">
@@ -62,7 +65,7 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
           <div className="flex-1 overflow-hidden">
             <MonthViewTable 
               storeId={storeId} 
-              year={currentYear} 
+              year={parseInt(selectedYear)} 
               month={parseInt(selectedMonth)} 
             />
           </div>
@@ -78,6 +81,21 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
           <DialogTitle>Selecionar Mês</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Ano</label>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o ano" />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <label className="text-sm font-medium">Mês</label>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -95,7 +113,7 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
           </div>
           <Button 
             onClick={handleViewMonth} 
-            disabled={!selectedMonth || loading}
+            disabled={!selectedMonth || !selectedYear || loading}
             className="w-full"
           >
             Visualizar Mês
