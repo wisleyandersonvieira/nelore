@@ -1105,6 +1105,44 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       console.log('📥 Iniciando download do arquivo:', filePath);
       
+      // Detectar se é PDF para forçar download
+      const fileExtension = filePath.split('.').pop()?.toLowerCase();
+      const isPdf = fileExtension === 'pdf';
+      
+      // Se já é uma URL completa (anexos antigos), abrir diretamente
+      if (filePath.startsWith('http')) {
+        // Para downloads, usar fetch + blob para evitar bloqueio
+        try {
+          const response = await fetch(filePath);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName || filePath.split('/').pop() || 'arquivo';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast({
+            title: "Sucesso",
+            description: "Download realizado com sucesso",
+          });
+        } catch (fetchError) {
+          console.error('Erro no fetch:', fetchError);
+          // Fallback para método anterior
+          const link = document.createElement('a');
+          link.href = filePath;
+          link.download = fileName || filePath.split('/').pop() || 'arquivo';
+          link.click();
+        }
+        return;
+      }
+      
+      // Para paths do bucket, gerar signed URL
       const { data, error } = await supabase.storage
         .from('account-documents')
         .createSignedUrl(filePath, 3600); // 1 hour expiry
@@ -1116,20 +1154,42 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       console.log('✅ URL assinada criada:', data.signedUrl);
 
-      // Criar elemento de download em vez de window.open para evitar bloqueio do Chrome
-      const link = document.createElement('a');
-      link.href = data.signedUrl;
-      link.download = fileName; // Força download em vez de abrir
-      link.target = '_blank'; // Fallback para abrir em nova aba se download falhar
-      
-      // Adicionar ao DOM temporariamente e clicar
-      document.body.appendChild(link);
-      link.click();
-      
-      // Remover do DOM
-      document.body.removeChild(link);
-      
-      console.log('✅ Download iniciado com sucesso');
+      // Usar fetch + blob para evitar bloqueio do navegador
+      try {
+        const response = await fetch(data.signedUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName || filePath.split('/').pop() || 'arquivo';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        console.log('✅ Download iniciado com sucesso');
+        toast({
+          title: "Sucesso",
+          description: "Download realizado com sucesso",
+        });
+      } catch (fetchError) {
+        console.error('Erro no fetch do arquivo:', fetchError);
+        // Fallback para método simples
+        const link = document.createElement('a');
+        link.href = data.signedUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({
+          title: "Sucesso",
+          description: "Download iniciado com sucesso",
+        });
+      }
       
     } catch (error) {
       console.error('❌ Erro no download:', error);
