@@ -1451,6 +1451,78 @@ export type Database = {
           },
         ]
       }
+      stock_control: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          month: number
+          notes: string | null
+          store_id: string
+          total_value: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          month: number
+          notes?: string | null
+          store_id: string
+          total_value?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          month?: number
+          notes?: string | null
+          store_id?: string
+          total_value?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      stock_control_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          stock_control_id: string
+          total_cost: number
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          stock_control_id: string
+          total_cost?: number
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          stock_control_id?: string
+          total_cost?: number
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stores: {
         Row: {
           address: string | null

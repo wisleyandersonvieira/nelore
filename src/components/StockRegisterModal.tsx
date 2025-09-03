@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Snowflake, ShoppingCart, Package2 } from "lucide-react";
+import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface StockRegisterModalProps {
   open: boolean;
@@ -44,6 +45,8 @@ export const StockRegisterModal = ({
   mode 
 }: StockRegisterModalProps) => {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [stockControlId, setStockControlId] = useState<string | null>(null);
   const [sorveteProducts, setSorveteProducts] = useState<Product[]>([]);
   const [mercadoriasProducts, setMercadoriasProducts] = useState<Product[]>([]);
   const [embalagensProducts, setEmbalagensProducts] = useState<Product[]>([]);
@@ -59,8 +62,11 @@ export const StockRegisterModal = ({
   useEffect(() => {
     if (open) {
       loadProducts();
+      if (mode !== 'create') {
+        loadExistingStock();
+      }
     }
-  }, [open]);
+  }, [open, mode]);
 
   const loadProducts = async () => {
     try {
@@ -124,8 +130,181 @@ export const StockRegisterModal = ({
 
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
+      toast.error('Erro ao carregar produtos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadExistingStock = async () => {
+    try {
+      // Buscar controle de estoque existente
+      const { data: stockControl, error: stockError } = await supabase
+        .from('stock_control')
+        .select('id, total_value, notes')
+        .eq('store_id', storeId)
+        .eq('month', month)
+        .eq('year', year)
+        .maybeSingle();
+
+      if (stockError) throw stockError;
+
+      if (stockControl) {
+        setStockControlId(stockControl.id);
+
+        // Buscar itens do estoque
+        const { data: stockItems, error: itemsError } = await supabase
+          .from('stock_control_items')
+          .select('product_id, category, quantity, unit_cost, total_cost')
+          .eq('stock_control_id', stockControl.id);
+
+        if (itemsError) throw itemsError;
+
+        // Organizar itens por categoria
+        const sorveteItems: Record<string, StockItem> = {};
+        const mercadoriasItems: Record<string, StockItem> = {};
+        const embalagensItems: Record<string, StockItem> = {};
+
+        stockItems?.forEach((item) => {
+          const stockItem = {
+            productId: item.product_id,
+            quantity: Number(item.quantity),
+            cost: Number(item.unit_cost),
+            total: Number(item.total_cost),
+          };
+
+          if (item.category === 'sorvete') {
+            sorveteItems[item.product_id] = stockItem;
+          } else if (item.category === 'mercadorias') {
+            mercadoriasItems[item.product_id] = stockItem;
+          } else if (item.category === 'embalagens') {
+            embalagensItems[item.product_id] = stockItem;
+          }
+        });
+
+        setSorveteStock(sorveteItems);
+        setMercadoriasStock(mercadoriasItems);
+        setEmbalagensStock(embalagensItems);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estoque existente:', error);
+      toast.error('Erro ao carregar dados do estoque');
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const totalValue = calculateGrandTotal();
+      
+      let currentStockControlId = stockControlId;
+
+      // Criar ou atualizar controle de estoque
+      if (mode === 'create' || !currentStockControlId) {
+        const { data: newStockControl, error: stockError } = await supabase
+          .from('stock_control')
+          .insert({
+            store_id: storeId,
+            month,
+            year,
+            created_by: user.id,
+            total_value: totalValue,
+          })
+          .select('id')
+          .single();
+
+        if (stockError) throw stockError;
+        currentStockControlId = newStockControl.id;
+        setStockControlId(currentStockControlId);
+      } else {
+        const { error: updateError } = await supabase
+          .from('stock_control')
+          .update({ total_value: totalValue })
+          .eq('id', currentStockControlId);
+
+        if (updateError) throw updateError;
+      }
+
+      // Deletar itens existentes se estiver editando
+      if (mode === 'edit' && currentStockControlId) {
+        const { error: deleteError } = await supabase
+          .from('stock_control_items')
+          .delete()
+          .eq('stock_control_id', currentStockControlId);
+
+        if (deleteError) throw deleteError;
+      }
+
+      // Preparar itens para inserção
+      const stockItems: any[] = [];
+
+      // Adicionar itens de sorvete
+      Object.values(sorveteStock).forEach((item) => {
+        if (item.quantity > 0) {
+          stockItems.push({
+            stock_control_id: currentStockControlId,
+            product_id: item.productId,
+            category: 'sorvete',
+            quantity: item.quantity,
+            unit_cost: item.cost,
+            total_cost: item.total,
+          });
+        }
+      });
+
+      // Adicionar itens de mercadorias
+      Object.values(mercadoriasStock).forEach((item) => {
+        if (item.quantity > 0) {
+          stockItems.push({
+            stock_control_id: currentStockControlId,
+            product_id: item.productId,
+            category: 'mercadorias',
+            quantity: item.quantity,
+            unit_cost: item.cost,
+            total_cost: item.total,
+          });
+        }
+      });
+
+      // Adicionar itens de embalagens
+      Object.values(embalagensStock).forEach((item) => {
+        if (item.quantity > 0) {
+          stockItems.push({
+            stock_control_id: currentStockControlId,
+            product_id: item.productId,
+            category: 'embalagens',
+            quantity: item.quantity,
+            unit_cost: item.cost,
+            total_cost: item.total,
+          });
+        }
+      });
+
+      // Inserir itens do estoque
+      if (stockItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('stock_control_items')
+          .insert(stockItems);
+
+        if (itemsError) throw itemsError;
+      }
+
+      toast.success(
+        mode === 'create' 
+          ? 'Estoque cadastrado com sucesso!' 
+          : 'Estoque atualizado com sucesso!'
+      );
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erro ao salvar estoque:', error);
+      toast.error('Erro ao salvar estoque. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -382,8 +561,22 @@ export const StockRegisterModal = ({
             Fechar
           </Button>
           {mode !== 'view' && (
-            <Button>
-              {mode === 'create' ? 'Salvar Estoque' : 'Atualizar Estoque'}
+            <Button 
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving 
+                ? 'Salvando...' 
+                : mode === 'create' 
+                  ? 'Salvar Estoque' 
+                  : 'Atualizar Estoque'
+              }
             </Button>
           )}
         </div>
