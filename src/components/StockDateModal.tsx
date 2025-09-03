@@ -25,11 +25,15 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
   const handleAction = (actionMode: 'view' | 'edit' | 'create') => {
     setMode(actionMode);
     setRegisterModalOpen(true);
-    onOpenChange(false);
+    // Não fecha o modal atual, mantém aberto para que o StockRegisterModal seja renderizado
   };
 
   const handleRegisterModalClose = (open: boolean) => {
     setRegisterModalOpen(open);
+    if (!open) {
+      // Quando o StockRegisterModal fechar, fecha o StockDateModal também
+      onOpenChange(false);
+    }
   };
 
   return (
