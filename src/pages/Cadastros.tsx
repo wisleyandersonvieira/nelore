@@ -13,6 +13,7 @@ import { CashAccountsModal } from "@/components/CashAccountsModal";
 import { CardAccountsModal } from "@/components/CardAccountsModal";
 import { DeliveryModal } from "@/components/DeliveryModal";
 import { ParametersModal } from "@/components/ParametersModal";
+import { ContasModal } from "@/components/ContasModal";
 
 const Cadastros = () => {
   const [suppliersModalOpen, setSuppliersModalOpen] = useState(false);
@@ -25,6 +26,7 @@ const Cadastros = () => {
   const [cardAccountsModalOpen, setCardAccountsModalOpen] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [parametersModalOpen, setParametersModalOpen] = useState(false);
+  const [contasModalOpen, setContasModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const cadastroModules = [
@@ -69,36 +71,12 @@ const Cadastros = () => {
       onClick: () => setSubgrupoModalOpen(true),
     },
     {
-      id: "contas-correntes",
-      title: "Contas Correntes",
-      description: "Cadastro e gestão de contas bancárias",
+      id: "contas",
+      title: "Contas",
+      description: "Contas correntes, caixa, cartão e delivery",
       icon: CreditCard,
-      color: "bg-purple-500", 
-      onClick: () => setCurrentAccountsModalOpen(true),
-    },
-    {
-      id: "contas-caixa",
-      title: "Contas Caixa",
-      description: "Cadastro e gestão de contas caixa",
-      icon: Wallet,
-      color: "bg-yellow-500", 
-      onClick: () => setCashAccountsModalOpen(true),
-    },
-    {
-      id: "contas-cartao",
-      title: "Contas Cartão",
-      description: "Cadastro e gestão de contas cartão",
-      icon: DollarSign,
-      color: "bg-red-500", 
-      onClick: () => setCardAccountsModalOpen(true),
-    },
-    {
-      id: "delivery",
-      title: "Delivery",
-      description: "Cadastro e gestão de contas delivery",
-      icon: Truck,
-      color: "bg-cyan-500", 
-      onClick: () => setDeliveryModalOpen(true),
+      color: "bg-emerald-500", 
+      onClick: () => setContasModalOpen(true),
     },
     {
       id: "parametros",
@@ -164,6 +142,14 @@ const Cadastros = () => {
       </main>
 
       {/* Modals */}
+      <ContasModal
+        open={contasModalOpen}
+        onOpenChange={setContasModalOpen}
+        onCurrentAccountsOpen={() => setCurrentAccountsModalOpen(true)}
+        onCashAccountsOpen={() => setCashAccountsModalOpen(true)}
+        onCardAccountsOpen={() => setCardAccountsModalOpen(true)}
+        onDeliveryOpen={() => setDeliveryModalOpen(true)}
+      />
       <SuppliersModal 
         open={suppliersModalOpen} 
         onOpenChange={setSuppliersModalOpen} 
