@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2 } from "lucide-react";
+import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface StockRegisterModalProps {
   open: boolean;
@@ -46,6 +47,7 @@ export const StockRegisterModal = ({
 }: StockRegisterModalProps) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [stockControlId, setStockControlId] = useState<string | null>(null);
   const [sorveteProducts, setSorveteProducts] = useState<Product[]>([]);
   const [mercadoriasProducts, setMercadoriasProducts] = useState<Product[]>([]);
@@ -308,6 +310,40 @@ export const StockRegisterModal = ({
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+
+      if (!stockControlId) {
+        throw new Error('ID do controle de estoque não encontrado');
+      }
+
+      // Deletar todos os itens do estoque
+      const { error: itemsError } = await supabase
+        .from('stock_control_items')
+        .delete()
+        .eq('stock_control_id', stockControlId);
+
+      if (itemsError) throw itemsError;
+
+      // Deletar o controle de estoque
+      const { error: stockError } = await supabase
+        .from('stock_control')
+        .delete()
+        .eq('id', stockControlId);
+
+      if (stockError) throw stockError;
+
+      toast.success('Estoque excluído com sucesso!');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erro ao excluir estoque:', error);
+      toast.error('Erro ao excluir estoque. Tente novamente.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleStockChange = (
     category: 'sorvete' | 'mercadorias' | 'embalagens',
     productId: string,
@@ -556,29 +592,70 @@ export const StockRegisterModal = ({
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
-          </Button>
-          {mode !== 'view' && (
-            <Button 
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {saving 
-                ? 'Salvando...' 
-                : mode === 'create' 
-                  ? 'Salvar Estoque' 
-                  : 'Atualizar Estoque'
-              }
+        <div className="flex justify-between gap-2 mt-6 pt-4 border-t">
+          <div>
+            {mode === 'edit' && stockControlId && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="destructive" 
+                    className="flex items-center gap-2"
+                    disabled={deleting}
+                  >
+                    {deleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    {deleting ? 'Excluindo...' : 'Excluir Estoque'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja excluir o estoque de {monthNames[month]} {year}? 
+                      Esta ação não pode ser desfeita e todos os dados serão perdidos permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Confirmar Exclusão
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
             </Button>
-          )}
+            {mode !== 'view' && (
+              <Button 
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {saving 
+                  ? 'Salvando...' 
+                  : mode === 'create' 
+                    ? 'Salvar Estoque' 
+                    : 'Atualizar Estoque'
+                }
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
