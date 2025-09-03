@@ -50,7 +50,7 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
     const monthDate = new Date(currentYear, parseInt(selectedMonth), 1);
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Controle de Caixa - {format(monthDate, 'MMMM yyyy', { locale: ptBR })}</span>
@@ -59,11 +59,13 @@ export const MonthViewModal = ({ open, onOpenChange, storeId }: MonthViewModalPr
               </Button>
             </DialogTitle>
           </DialogHeader>
-          <MonthViewTable 
-            storeId={storeId} 
-            year={currentYear} 
-            month={parseInt(selectedMonth)} 
-          />
+          <div className="flex-1 overflow-hidden">
+            <MonthViewTable 
+              storeId={storeId} 
+              year={currentYear} 
+              month={parseInt(selectedMonth)} 
+            />
+          </div>
         </DialogContent>
       </Dialog>
     );
