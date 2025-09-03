@@ -93,6 +93,13 @@ const Dashboard = () => {
       color: "bg-green-500",
     },
     {
+      id: "estoque",
+      title: "Estoque",
+      description: "Controle de estoque por categorias",
+      icon: Package,
+      color: "bg-amber-500",
+    },
+    {
       id: "produtos",
       title: "Produtos",
       description: "Cadastro e gestão de produtos",
@@ -185,6 +192,8 @@ const Dashboard = () => {
                          navigate("/dre");
                        } else if (module.id === "relatorios") {
                          navigate("/reports");
+                       } else if (module.id === "estoque") {
+                         navigate("/stock");
                        } else if (module.id === "contas-pagar") {
                          setAccountsPayableOpen(true);
                        } else if (module.id === "contas-receber") {

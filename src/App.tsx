@@ -16,6 +16,8 @@ import Profiles from "./pages/Profiles";
 import Products from "./pages/Products";
 import DRE from "./pages/DRE";
 import Reports from "./pages/Reports";
+import StockModule from "./pages/StockModule";
+import StockControl from "./pages/StockControl";
 import NotFound from "./pages/NotFound";
 import AccountsPayableModule from "./pages/AccountsPayableModule";
 import AccountsPayableReport from "./pages/AccountsPayableReport";
@@ -52,6 +54,8 @@ function App() {
               <Route path="/profiles" element={<Profiles />} />
               <Route path="/dre" element={<DRE />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/stock" element={<StockModule />} />
+            <Route path="/stock/:storeId" element={<StockControl />} />
             <Route path="/reports/accounts-payable" element={<AccountsPayableModule />} />
             <Route path="/reports/accounts-payable/pending" element={<AccountsPayableReport />} />
             <Route path="/reports/accounts-payable/paid" element={<PaidAccountsReport />} />
