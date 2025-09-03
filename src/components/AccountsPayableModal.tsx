@@ -2848,8 +2848,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     <CardContent className="space-y-4">
                       {/* Upload de novos arquivos */}
                       <div className="space-y-2">
-                        <Label htmlFor="file-upload">Adicionar Documentos</Label>
-                        <div className="flex items-center gap-2">
+                        <Label>Documentos</Label>
+                        
+                        {/* Upload area */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
                           <input
                             id="file-upload"
                             type="file"
@@ -2865,37 +2867,44 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             onChange={handleNFEUpload}
                             className="hidden"
                           />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => document.getElementById('file-upload')?.click()}
-                            className="flex items-center gap-2"
-                          >
-                            <Upload className="h-4 w-4" />
-                            Selecionar Arquivos
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="default"
-                            onClick={() => document.getElementById('nfe-upload')?.click()}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                          >
-                            <FileDown className="h-4 w-4" />
-                            Cadastrar NFE
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            PDF, imagens, documentos (máx. 10MB cada)
-                          </span>
+                          <div className="text-center">
+                            <Upload className="h-8 w-8 mx-auto mb-4 text-gray-400" />
+                            <div className="space-y-2">
+                              <div className="flex justify-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => document.getElementById('file-upload')?.click()}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Upload className="h-4 w-4" />
+                                  Selecionar Arquivos
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="default"
+                                  onClick={() => document.getElementById('nfe-upload')?.click()}
+                                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                                >
+                                  <FileDown className="h-4 w-4" />
+                                  Cadastrar NFE
+                                </Button>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                PDF, imagens, documentos (máx. 10MB cada)
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
                       {/* Lista de anexos existentes */}
                       {existingAttachments.length > 0 && (
                         <div className="space-y-2">
-                          <Label>Arquivos Existentes</Label>
+                          <Label className="text-sm text-muted-foreground">Arquivos salvos:</Label>
                           <div className="space-y-2">
                             {existingAttachments.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 border rounded">
+                              <div key={index} className="flex items-center justify-between bg-blue-50 p-2 rounded border">
                                 <div className="flex items-center gap-2">
                                   <FileText className="h-4 w-4" />
                                   <span className="text-sm">{file.name}</span>
@@ -2933,10 +2942,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       {/* Lista de novos anexos */}
                       {attachments.length > 0 && (
                         <div className="space-y-2">
-                          <Label>Novos Arquivos</Label>
+                          <Label className="text-sm text-muted-foreground">Novos arquivos:</Label>
                           <div className="space-y-2">
                             {attachments.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 border rounded bg-blue-50">
+                              <div key={index} className="flex items-center justify-between bg-green-50 p-2 rounded border">
                                 <div className="flex items-center gap-2">
                                   <FileText className="h-4 w-4" />
                                   <span className="text-sm">{file.name}</span>
