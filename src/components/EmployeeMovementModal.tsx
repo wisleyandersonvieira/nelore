@@ -141,7 +141,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
         .not("payment_date", "is", null)
         .order("payment_date", { ascending: false });
 
-      if (month) {
+      if (month && month !== "all") {
         const [year, monthNum] = month.split("-");
         const startDate = `${year}-${monthNum}-01`;
         const endDate = `${year}-${monthNum}-31`;
@@ -335,7 +335,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                     <SelectValue placeholder="Filtrar por mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os meses</SelectItem>
+                    <SelectItem value="all">Todos os meses</SelectItem>
                     {generateMonthOptions().map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
@@ -357,7 +357,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                       <CardTitle>Movimentações Financeiras</CardTitle>
                       <CardDescription>
                         Contas pagas vinculadas ao funcionário
-                        {selectedMonth && (
+                        {selectedMonth && selectedMonth !== "all" && (
                           <span className="ml-2">
                             - {generateMonthOptions().find(o => o.value === selectedMonth)?.label}
                           </span>
