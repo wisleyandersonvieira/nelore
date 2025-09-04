@@ -284,17 +284,17 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
     }
   };
 
-  const fetchStores = async () => {
-    try {
-      // Simplified approach to avoid complex TypeScript inference
-      setStores([
-        { id: '1', name: 'Loja 1' },
-        { id: '2', name: 'Loja 2' },
-        { id: '3', name: 'Loja 3' }
-      ]);
-    } catch (error) {
-      console.error('Erro ao carregar lojas:', error);
-    }
+  const fetchStores = () => {
+    // Definindo as lojas manualmente temporariamente para evitar problemas de tipo
+    // TODO: Implementar busca real do banco quando os tipos forem corrigidos
+    const mockStores = [
+      { id: 'store_1', name: 'Loja Principal' },
+      { id: 'store_2', name: 'Loja Filial' }
+    ];
+    setStores(mockStores);
+    
+    // Tentativa de buscar lojas reais (comentada devido a problemas de tipo)
+    // loadRealStores();
   };
 
   useEffect(() => {
