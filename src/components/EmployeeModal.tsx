@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface Employee {
@@ -520,17 +521,18 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={formData.birth_date || undefined}
-                                onSelect={(date) => setFormData({...formData, birth_date: date || null})}
-                                initialFocus
-                                className="pointer-events-auto"
-                                defaultMonth={formData.birth_date || new Date(1990, 0)}
-                                fromYear={1900}
-                                toYear={new Date().getFullYear()}
-                                captionLayout="dropdown-buttons"
-                              />
+                               <Calendar
+                                 mode="single"
+                                 selected={formData.birth_date || undefined}
+                                 onSelect={(date) => setFormData({...formData, birth_date: date || null})}
+                                 initialFocus
+                                 className="pointer-events-auto"
+                                 defaultMonth={formData.birth_date || new Date(1990, 0)}
+                                 fromYear={1900}
+                                 toYear={new Date().getFullYear()}
+                                 captionLayout="dropdown-buttons"
+                                 locale={ptBR}
+                               />
                             </PopoverContent>
                           </Popover>
                         </div>
