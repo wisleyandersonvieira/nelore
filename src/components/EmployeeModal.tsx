@@ -60,6 +60,162 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const { toast } = useToast();
 
+  // Função utilitária para upload de arquivo
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Erro",
+          description: "Usuário não autenticado",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      // Determinar contentType correto
+      let contentType = file.type;
+      if (!contentType && fileExtension) {
+        const typeMap: { [key: string]: string } = {
+          'pdf': 'application/pdf',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg', 
+          'png': 'image/png',
+          'txt': 'text/plain',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        };
+        contentType = typeMap[fileExtension.toLowerCase()] || 'application/octet-stream';
+      }
+
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .upload(filePath, file, { contentType });
+      
+      if (error) {
+        console.error('Erro ao fazer upload do arquivo:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao fazer upload do arquivo",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      return filePath;
+    } catch (error) {
+      console.error('Erro no uploadFile:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao fazer upload do arquivo",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
+  // Função utilitária para visualização e download
+  const viewAttachment = async (filePath: string, mode: 'inline' | 'download' = 'inline') => {
+    try {
+      // Detectar se é PDF para forçar download
+      const fileExtension = filePath.split('.').pop()?.toLowerCase();
+      const isPdf = fileExtension === 'pdf';
+      
+      // Se já é uma URL completa (anexos antigos), abrir diretamente
+      if (filePath.startsWith('http')) {
+        if (mode === 'inline' && !isPdf) {
+          window.open(filePath, '_blank');
+        } else {
+          // Para downloads, usar fetch + blob para evitar bloqueio
+          try {
+            const response = await fetch(filePath);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filePath.split('/').pop() || 'arquivo';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast({
+              title: "Sucesso",
+              description: "Download realizado com sucesso"
+            });
+          } catch (fetchError) {
+            console.error('Erro no fetch:', fetchError);
+            // Fallback para método anterior
+            const link = document.createElement('a');
+            link.href = filePath;
+            link.download = filePath.split('/').pop() || 'arquivo';
+            link.click();
+          }
+        }
+        return;
+      }
+      
+      // Para paths do bucket, gerar signed URL
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .createSignedUrl(filePath, 3600);
+      
+      if (error) {
+        console.error('Erro ao gerar URL do anexo:', error);
+        toast({
+          title: "Erro",
+          description: `Erro ao abrir anexo: ${error.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Para PDFs, sempre fazer download. Para outros arquivos, seguir o mode
+      if (isPdf || mode === 'download') {
+        // Usar fetch + blob para evitar bloqueio do navegador
+        try {
+          const response = await fetch(data.signedUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filePath.split('/').pop() || 'arquivo';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast({
+            title: "Sucesso", 
+            description: "Download realizado com sucesso"
+          });
+        } catch (fetchError) {
+          console.error('Erro no fetch do arquivo:', fetchError);
+          toast({
+            title: "Erro",
+            description: "Erro ao fazer download do arquivo",
+            variant: "destructive"
+          });
+        }
+      } else {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Erro ao visualizar anexo:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao visualizar anexo",
+        variant: "destructive"
+      });
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     cpf: '',
@@ -76,7 +232,8 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
     observations: ''
   });
 
-  const [attachments, setAttachments] = useState<any[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
 
   const fetchEmployees = async () => {
     try {
@@ -144,6 +301,18 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
 
       if (!profile?.store_id) throw new Error('Store ID não encontrado');
 
+      // Upload de novos anexos
+      const uploadedPaths: string[] = [];
+      for (const file of attachments) {
+        const filePath = await uploadFile(file);
+        if (filePath) {
+          uploadedPaths.push(filePath);
+        }
+      }
+
+      // Combinar URLs existentes com novos uploads
+      const finalAttachments = [...existingAttachments, ...uploadedPaths];
+
       const employeeData = {
         name: formData.name,
         cpf: formData.cpf,
@@ -158,7 +327,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         base_salary: parseFloat(formData.base_salary),
         bank_account: formData.bank_account || null,
         observations: formData.observations || null,
-        attachments: attachments,
+        attachments: finalAttachments,
         store_id: profile.store_id
       };
 
@@ -218,6 +387,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
       observations: ''
     });
     setAttachments([]);
+    setExistingAttachments([]);
     setEditingEmployee(null);
     setShowForm(false);
   };
@@ -239,7 +409,8 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
       bank_account: employee.bank_account || '',
       observations: employee.observations || ''
     });
-    setAttachments(employee.attachments || []);
+    setExistingAttachments(Array.isArray(employee.attachments) ? employee.attachments : []);
+    setAttachments([]);
     setShowForm(true);
   };
 
@@ -266,52 +437,6 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
           variant: "destructive"
         });
       }
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadingFile(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `employee-documents/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('account-documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('account-documents')
-        .getPublicUrl(filePath);
-
-      const newAttachment = {
-        name: file.name,
-        url: publicUrl,
-        type: file.type,
-        size: file.size,
-        uploadedAt: new Date().toISOString()
-      };
-
-      setAttachments([...attachments, newAttachment]);
-      
-      toast({
-        title: "Sucesso",
-        description: "Arquivo enviado com sucesso"
-      });
-    } catch (error) {
-      console.error('Erro ao fazer upload:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao fazer upload do arquivo",
-        variant: "destructive"
-      });
-    } finally {
-      setUploadingFile(false);
     }
   };
 
@@ -391,7 +516,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                                 )}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {formData.birth_date ? format(formData.birth_date, "PPP") : "Selecionar data"}
+                                {formData.birth_date ? format(formData.birth_date, "dd/MM/yyyy") : "Selecionar data"}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -401,6 +526,10 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                                 onSelect={(date) => setFormData({...formData, birth_date: date || null})}
                                 initialFocus
                                 className="pointer-events-auto"
+                                defaultMonth={formData.birth_date || new Date(1990, 0)}
+                                fromYear={1900}
+                                toYear={new Date().getFullYear()}
+                                captionLayout="dropdown-buttons"
                               />
                             </PopoverContent>
                           </Popover>
@@ -551,46 +680,35 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                   </TabsContent>
 
                   <TabsContent value="anexos" className="space-y-4">
-                    <div>
-                      <Label htmlFor="file-upload" className="cursor-pointer">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                          <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                          <div className="mt-2">
-                            <span className="font-medium">Clique para fazer upload</span>
-                            <p className="text-sm text-gray-500">ou arraste e solte arquivos aqui</p>
-                          </div>
-                        </div>
-                        <Input
-                          id="file-upload"
-                          type="file"
-                          className="hidden"
-                          onChange={handleFileUpload}
-                          disabled={uploadingFile}
-                        />
-                      </Label>
-                    </div>
-
-                    {attachments.length > 0 && (
+                    {/* Anexos existentes */}
+                    {existingAttachments.length > 0 && (
                       <div className="space-y-2">
-                        <h4 className="font-medium">Arquivos Anexados</h4>
-                        {attachments.map((attachment, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 border rounded">
-                            <div className="flex items-center space-x-3">
-                              <Eye className="h-4 w-4" />
-                              <span>{attachment.name}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
+                        <Label className="text-sm text-muted-foreground">Anexos salvos:</Label>
+                        {existingAttachments.map((url, index) => (
+                          <div key={index} className="flex items-center justify-between bg-blue-50 p-2 rounded border">
+                            <span className="text-sm">Anexo {index + 1}</span>
+                            <div className="flex gap-2">
                               <Button
+                                type="button"
+                                variant="ghost"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => window.open(attachment.url, '_blank')}
+                                onClick={() => viewAttachment(url)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => viewAttachment(url, 'download')}
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
                               <Button
+                                type="button"
+                                variant="ghost"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => removeAttachment(index)}
+                                onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== index))}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -599,6 +717,47 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                         ))}
                       </div>
                     )}
+                    
+                    {/* Upload de novos anexos */}
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setAttachments(prev => [...prev, ...files]);
+                        }}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="cursor-pointer flex flex-col items-center justify-center text-gray-500"
+                      >
+                        <Upload className="h-8 w-8 mb-2" />
+                        <span>Clique para adicionar anexos (PDF, JPG, PNG, DOC)</span>
+                      </label>
+                      
+                      {attachments.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <Label className="text-sm text-muted-foreground">Novos anexos:</Label>
+                          {attachments.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-green-50 p-2 rounded border">
+                              <span className="text-sm">{file.name}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeAttachment(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </TabsContent>
                 </Tabs>
               </CardContent>
