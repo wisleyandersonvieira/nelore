@@ -284,17 +284,23 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
     }
   };
 
-  const fetchStores = () => {
-    // Definindo as lojas manualmente temporariamente para evitar problemas de tipo
-    // TODO: Implementar busca real do banco quando os tipos forem corrigidos
-    const mockStores = [
-      { id: 'store_1', name: 'Loja Principal' },
-      { id: 'store_2', name: 'Loja Filial' }
-    ];
-    setStores(mockStores);
-    
-    // Tentativa de buscar lojas reais (comentada devido a problemas de tipo)
-    // loadRealStores();
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, name, code")
+        .order("name");
+
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error) {
+      console.error("Error fetching stores:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar lojas",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
