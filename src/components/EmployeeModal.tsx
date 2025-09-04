@@ -22,22 +22,25 @@ interface Employee {
   id: string;
   name: string;
   cpf: string;
-  birth_date: string | null;
-  gender: string | null;
-  marital_status: string | null;
-  address: string | null;
-  phone: string | null;
-  email: string | null;
-  job_function_id: string | null;
+  birth_date?: string;
+  gender?: string;
+  marital_status?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  job_function_id?: string;
   registration_date: string;
   base_salary: number;
-  bank_account: string | null;
-  observations: string | null;
-  attachments: any[] | null;
+  observations?: string;
+  bank_account?: string;
+  store_id: string;
   is_active: boolean;
-  job_functions?: {
-    name: string;
-  };
+  dismissal_date?: string;
+  attachments?: any[];
+  created_at: string;
+  updated_at: string;
+  job_functions?: { name: string };
+  stores?: { name: string };
 }
 
 interface JobFunction {
@@ -55,6 +58,7 @@ interface EmployeeModalProps {
 const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [jobFunctions, setJobFunctions] = useState<JobFunction[]>([]);
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(false);
@@ -218,19 +222,20 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   };
 
   const [formData, setFormData] = useState({
-    name: '',
-    cpf: '',
-    birth_date: null as Date | null,
-    gender: '',
-    marital_status: '',
-    address: '',
-    phone: '',
-    email: '',
-    job_function_id: '',
-    registration_date: new Date(),
-    base_salary: '',
-    bank_account: '',
-    observations: ''
+    name: "",
+    cpf: "",
+    birth_date: "",
+    gender: "",
+    marital_status: "",
+    address: "",
+    phone: "",
+    email: "",
+    job_function_id: "",
+    registration_date: new Date().toISOString().split('T')[0],
+    base_salary: "",
+    observations: "",
+    bank_account: "",
+    store_id: "",
   });
 
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -279,10 +284,26 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
     }
   };
 
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stores')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar lojas:', error);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchEmployees();
       fetchJobFunctions();
+      fetchStores();
     }
   }, [isOpen]);
 
@@ -317,19 +338,19 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
       const employeeData = {
         name: formData.name,
         cpf: formData.cpf,
-        birth_date: formData.birth_date?.toISOString().split('T')[0] || null,
+        birth_date: formData.birth_date || null,
         gender: formData.gender || null,
         marital_status: formData.marital_status || null,
         address: formData.address || null,
         phone: formData.phone || null,
         email: formData.email || null,
         job_function_id: formData.job_function_id || null,
-        registration_date: formData.registration_date.toISOString().split('T')[0],
-        base_salary: parseFloat(formData.base_salary),
+        registration_date: formData.registration_date,
+        base_salary: parseFloat(formData.base_salary) || 0,
         bank_account: formData.bank_account || null,
         observations: formData.observations || null,
         attachments: finalAttachments,
-        store_id: profile.store_id
+        store_id: formData.store_id
       };
 
       if (editingEmployee) {
