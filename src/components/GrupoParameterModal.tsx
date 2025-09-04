@@ -48,6 +48,7 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
           name,
           parent:account_groups!parent_id(name)
         `)
+        .is('parent_id', null)
         .order('name');
 
       if (error) throw error;
