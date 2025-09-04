@@ -1731,6 +1731,7 @@ export type Database = {
       system_parameters: {
         Row: {
           created_at: string
+          group_id: string | null
           id: string
           parameter_key: string
           product_id: string | null
@@ -1739,6 +1740,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          group_id?: string | null
           id?: string
           parameter_key: string
           product_id?: string | null
@@ -1747,6 +1749,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          group_id?: string | null
           id?: string
           parameter_key?: string
           product_id?: string | null
@@ -1754,6 +1757,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "system_parameters_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "system_parameters_product_id_fkey"
             columns: ["product_id"]

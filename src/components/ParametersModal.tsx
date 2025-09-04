@@ -288,7 +288,13 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       <ProductParameterModal
         open={productParameterOpen}
         onOpenChange={setProductParameterOpen}
-        parameter={selectedParameter?.category === 'product' ? selectedParameter : null}
+        parameter={selectedParameter?.category === 'product' ? {
+          id: selectedParameter.id,
+          name: selectedParameter.name,
+          description: selectedParameter.description,
+          type: selectedParameter.type as 'acrescimo' | 'desconto',
+          category: selectedParameter.category
+        } : null}
       />
 
       <SubgroupParameterModal
