@@ -74,7 +74,11 @@ interface AccountPayable {
   data_competencia?: string;
   notes?: string;
   store_id?: string;
+  supplier_id?: string;
+  employee_id?: string;
+  account_id?: string;
   suppliers?: { name: string };
+  employees?: { name: string };
   stores?: { name: string };
   created_at: string;
   payment_date?: string;
@@ -246,6 +250,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .select(`
           *,
           suppliers(name),
+          employees(name),
           stores(name)
         `)
         .in("status", ["pending", "partial"])
@@ -274,6 +279,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .select(`
           *,
           suppliers(name),
+          employees(name),
           stores(name)
         `)
         .in("status", ["pending", "partial"]);
@@ -342,6 +348,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .select(`
           *,
           suppliers(name),
+          employees(name),
           stores(name)
         `);
 
@@ -539,9 +546,19 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setEditingAccount(account);
     setIsEditing(true);
     setIsRealEdit(true); // Esta é uma edição real de conta existente
-    // Find the actual supplier ID from the suppliers array
-    const supplier = suppliers.find(s => s.name === account.suppliers?.name);
-    setSupplierId(supplier?.id || "");
+    
+    // Verificar se é fornecedor ou funcionário
+    if (account.employee_id) {
+      setIsEmployeeMode(true);
+      const employee = employees.find(e => e.name === account.employees?.name);
+      setEmployeeId(employee?.id || "");
+      setSupplierId("");
+    } else {
+      setIsEmployeeMode(false);
+      const supplier = suppliers.find(s => s.name === account.suppliers?.name);
+      setSupplierId(supplier?.id || "");
+      setEmployeeId("");
+    }
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
     setIssueDate(account.issue_date || "");
@@ -605,9 +622,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setIsEditing(false);
     setIsRealEdit(false);
     
-    // Find the actual supplier ID from the suppliers array
-    const supplier = suppliers.find(s => s.name === account.suppliers?.name);
-    setSupplierId(supplier?.id || "");
+    // Verificar se é fornecedor ou funcionário
+    if (account.employee_id) {
+      setIsEmployeeMode(true);
+      const employee = employees.find(e => e.name === account.employees?.name);
+      setEmployeeId(employee?.id || "");
+      setSupplierId("");
+    } else {
+      setIsEmployeeMode(false);
+      const supplier = suppliers.find(s => s.name === account.suppliers?.name);
+      setSupplierId(supplier?.id || "");
+      setEmployeeId("");
+    }
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
     setIssueDate(account.issue_date || "");
@@ -2736,7 +2762,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         {accountsPayable.map((account) => (
                           <TableRow key={account.id}>
                             <TableCell>{account.description}</TableCell>
-                            <TableCell>{account.suppliers?.name || '-'}</TableCell>
+                            <TableCell>{account.suppliers?.name || account.employees?.name || '-'}</TableCell>
                             <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
                             <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
                             <TableCell>
@@ -3464,7 +3490,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="font-medium">{paymentAccount.description}</p>
                   <p className="text-sm text-muted-foreground">
-                    Fornecedor: {paymentAccount.suppliers?.name || '-'}
+                    Fornecedor: {paymentAccount.suppliers?.name || paymentAccount.employees?.name || '-'}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
@@ -3631,7 +3657,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="font-medium">{reverseAccount.description}</p>
                   <p className="text-sm text-muted-foreground">
-                    Fornecedor: {reverseAccount.suppliers?.name || '-'}
+                    Fornecedor: {reverseAccount.suppliers?.name || reverseAccount.employees?.name || '-'}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Vencimento: {new Date(reverseAccount.due_date).toLocaleDateString('pt-BR')}
