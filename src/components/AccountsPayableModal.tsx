@@ -25,6 +25,12 @@ interface Supplier {
   cnpj_cpf?: string;
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  cpf: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -95,6 +101,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [activeTab, setActiveTab] = useState("view");
   const [accountsPayable, setAccountsPayable] = useState<AccountPayable[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
@@ -155,7 +162,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [nfeItems, setNfeItems] = useState<any[]>([]);
 
   // Form fields
+  const [isEmployeeMode, setIsEmployeeMode] = useState(false);
   const [supplierId, setSupplierId] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
   const [documentType, setDocumentType] = useState("");
   const [documentNumber, setDocumentNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
@@ -183,6 +192,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   useEffect(() => {
     if (open) {
       fetchSuppliers();
+      fetchEmployees();
       fetchProducts();
       fetchStores();
       fetchCurrentAccounts();
@@ -195,7 +205,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       }
     } else {
       // Reset form quando modal for fechado
+      setIsEmployeeMode(false);
       setSupplierId("");
+      setEmployeeId("");
       setDocumentType("");
       setDocumentNumber("");
       setIssueDate("");
@@ -219,6 +231,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setViewOnlyAccount(null);
     }
   }, [open, activeTab]);
+
+  // Recarregar produtos quando o modo funcionário mudar
+  useEffect(() => {
+    if (open) {
+      fetchProducts();
+    }
+  }, [isEmployeeMode]);
 
   const fetchAccountsPayable = async () => {
     try {
@@ -835,13 +854,49 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchEmployees = async () => {
     try {
       const { data, error } = await supabase
-        .from("products")
-        .select("id, name, code")
+        .from("employees")
+        .select("id, name, cpf")
         .eq("is_active", true)
         .order("name");
+
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar funcionários",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      let query = supabase
+        .from("products")
+        .select("id, name, code, groups!inner(id)")
+        .eq("is_active", true);
+
+      // Se estiver no modo funcionário, filtrar por grupo do parâmetro FUNCIONÁRIOS
+      if (isEmployeeMode) {
+        const { data: paramData, error: paramError } = await supabase
+          .from("system_parameters")
+          .select("group_id")
+          .eq("parameter_key", "funcionarios")
+          .single();
+
+        if (paramError) {
+          console.warn("Error fetching FUNCIONÁRIOS parameter:", paramError);
+        } else if (paramData?.group_id) {
+          query = query.eq("groups.id", paramData.group_id);
+        }
+      }
+
+      const { data, error } = await query.order("name");
 
       if (error) throw error;
       setProducts(data || []);
@@ -1677,10 +1732,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     console.log('📎 existingAttachments:', existingAttachments);
     console.log('📎 attachments:', attachments);
     
-    if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
+    // Validar campos baseado no modo (fornecedor ou funcionário)
+    const requiredEntityId = isEmployeeMode ? employeeId : supplierId;
+    const entityType = isEmployeeMode ? "funcionário" : "fornecedor";
+    
+    if (!requiredEntityId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
+        description: `Preencha todos os campos obrigatórios (${entityType})`,
         variant: "destructive",
       });
       return;
@@ -1719,7 +1778,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .from("accounts_payable")
         .insert({
           store_id: userProfile.store_id,
-          supplier_id: supplierId,
+          supplier_id: isEmployeeMode ? null : supplierId,
+          employee_id: isEmployeeMode ? employeeId : null,
           account_id: null, // Será definido quando pagar a conta
           description: `${documentType} ${documentNumber}`,
           document_type: documentType,
@@ -1978,7 +2038,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         const { data: payable, error: payableError } = await supabase
           .from("accounts_payable")
           .insert({
-            supplier_id: supplierId,
+            supplier_id: isEmployeeMode ? null : supplierId,
+            employee_id: isEmployeeMode ? employeeId : null,
             document_type: documentType,
             document_number: documentNumber,
             issue_date: issueDate,
@@ -2809,20 +2870,58 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
                 <TabsContent value="form" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="supplier">Fornecedor *</Label>
-                      <Select value={supplierId} onValueChange={setSupplierId} disabled={isViewOnly}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um fornecedor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name} {supplier.cnpj_cpf && `(${supplier.cnpj_cpf})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="employee-mode"
+                            checked={isEmployeeMode}
+                            onChange={(e) => {
+                              setIsEmployeeMode(e.target.checked);
+                              // Limpar seleções ao trocar de modo
+                              setSupplierId("");
+                              setEmployeeId("");
+                            }}
+                            disabled={isViewOnly}
+                            className="h-4 w-4"
+                          />
+                          <Label htmlFor="employee-mode" className="text-sm font-medium">
+                            Funcionário
+                          </Label>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="supplier">{isEmployeeMode ? "Funcionário *" : "Fornecedor *"}</Label>
+                        {isEmployeeMode ? (
+                          <Select value={employeeId} onValueChange={setEmployeeId} disabled={isViewOnly}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um funcionário" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {employees.map((employee) => (
+                                <SelectItem key={employee.id} value={employee.id}>
+                                  {employee.name} {employee.cpf && `(${employee.cpf})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Select value={supplierId} onValueChange={setSupplierId} disabled={isViewOnly}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um fornecedor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {suppliers.map((supplier) => (
+                                <SelectItem key={supplier.id} value={supplier.id}>
+                                  {supplier.name} {supplier.cnpj_cpf && `(${supplier.cnpj_cpf})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">
