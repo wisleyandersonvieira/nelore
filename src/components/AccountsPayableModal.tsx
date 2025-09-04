@@ -878,7 +878,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     try {
       let query = supabase
         .from("products")
-        .select("id, name, code, groups!inner(id)")
+        .select("id, name, code")
         .eq("is_active", true);
 
       // Se estiver no modo funcionário, filtrar por grupo do parâmetro FUNCIONÁRIOS
@@ -887,12 +887,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .from("system_parameters")
           .select("group_id")
           .eq("parameter_key", "funcionarios")
-          .single();
+          .maybeSingle();
 
         if (paramError) {
           console.warn("Error fetching FUNCIONÁRIOS parameter:", paramError);
         } else if (paramData?.group_id) {
-          query = query.eq("groups.id", paramData.group_id);
+          query = query.eq("group_id", paramData.group_id);
         }
       }
 
