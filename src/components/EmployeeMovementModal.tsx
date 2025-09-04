@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Building2, User, FileText } from "lucide-react";
+import { ArrowLeft, Building2, User, FileText, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -143,9 +143,14 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
       if (month && month !== "all") {
         const [year, monthNum] = month.split("-");
-        const startDate = `${year}-${monthNum}-01`;
-        const endDate = `${year}-${monthNum}-31`;
-        query = query.gte("payment_date", startDate).lte("payment_date", endDate);
+        // Calcular corretamente o primeiro e último dia do mês
+        const startDate = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(monthNum), 0); // Último dia do mês
+        
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const endDateStr = endDate.toISOString().split('T')[0];
+        
+        query = query.gte("payment_date", startDateStr).lte("payment_date", endDateStr);
       }
 
       const { data, error } = await query;
@@ -239,6 +244,56 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     return payableAccounts.reduce((sum, account) => sum + Number(account.amount), 0);
   };
 
+  const exportReport = () => {
+    if (!selectedEmployee || payableAccounts.length === 0) {
+      toast({
+        title: "Atenção",
+        description: "Não há dados para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Criar dados para exportação
+    const exportData = payableAccounts.map(account => ({
+      'Data Pagamento': account.payment_date 
+        ? format(new Date(account.payment_date), "dd/MM/yyyy") 
+        : "-",
+      'Valor': formatCurrency(Number(account.amount)),
+      'Descrição': account.description,
+      'Documento': account.document_type && account.document_number
+        ? `${account.document_type} ${account.document_number}`
+        : "-",
+      'Observações': account.notes || "-"
+    }));
+
+    // Adicionar linha do total
+    exportData.push({
+      'Data Pagamento': '',
+      'Valor': formatCurrency(calculateTotal()),
+      'Descrição': 'TOTAL DO PERÍODO',
+      'Documento': '',
+      'Observações': ''
+    });
+
+    // Usar XLSX para exportar
+    const XLSX = require('xlsx');
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    
+    const periodText = selectedMonth && selectedMonth !== "all" 
+      ? ` - ${generateMonthOptions().find(o => o.value === selectedMonth)?.label}`
+      : "";
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
+    XLSX.writeFile(wb, `Movimentacoes_${selectedEmployee.name.replace(/\s+/g, '_')}${periodText.replace(/\s+/g, '_')}.xlsx`);
+
+    toast({
+      title: "Sucesso",
+      description: "Relatório exportado com sucesso",
+    });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh]">
@@ -330,19 +385,30 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                   <FileText className="w-5 h-5" />
                   Movimentações - {selectedEmployee.name}
                 </h3>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filtrar por mês" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os meses</SelectItem>
-                    {generateMonthOptions().map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Filtrar por mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os meses</SelectItem>
+                      {generateMonthOptions().map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportReport}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar
+                  </Button>
+                </div>
               </div>
 
               <Tabs defaultValue="financeiro" className="w-full">
