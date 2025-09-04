@@ -113,7 +113,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       // Buscar parâmetros com subgrupos
       const { data: subgroupParams, error: subgroupError } = await supabase
         .from('system_parameters')
-        .select('parameter_key, subgroup_id, account_groups!inner(name)')
+        .select('parameter_key, subgroup_id, account_groups!system_parameters_subgroup_id_fkey(name)')
         .in('parameter_key', ['sorvete', 'mercadorias_diversas', 'embalagens'])
         .not('subgroup_id', 'is', null);
 
