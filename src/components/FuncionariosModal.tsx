@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserCog, UserPlus } from "lucide-react";
+import { UserCog, UserPlus, Activity } from "lucide-react";
 import JobFunctionModal from "./JobFunctionModal";
 import EmployeeModal from "./EmployeeModal";
+import EmployeeMovementModal from "./EmployeeMovementModal";
 
 interface FuncionariosModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface FuncionariosModalProps {
 const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
   const [showJobFunctionModal, setShowJobFunctionModal] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [showEmployeeMovementModal, setShowEmployeeMovementModal] = useState(false);
 
   const modules = [
     {
@@ -29,6 +31,13 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
       description: 'Cadastro de funcionários',
       icon: UserPlus,
       color: 'from-green-500 to-green-600'
+    },
+    {
+      id: 'employee-movement',
+      title: 'Movimentação Funcionários',
+      description: 'Consultar movimentações financeiras dos funcionários',
+      icon: Activity,
+      color: 'from-purple-500 to-purple-600'
     }
   ];
 
@@ -37,6 +46,8 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
       setShowJobFunctionModal(true);
     } else if (moduleId === 'employees') {
       setShowEmployeeModal(true);
+    } else if (moduleId === 'employee-movement') {
+      setShowEmployeeMovementModal(true);
     }
   };
 
@@ -49,7 +60,7 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
               Módulo Funcionários
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4">
             {modules.map((module) => {
               const IconComponent = module.icon;
               return (
@@ -94,6 +105,11 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
       <EmployeeModal 
         isOpen={showEmployeeModal} 
         onClose={() => setShowEmployeeModal(false)} 
+      />
+
+      <EmployeeMovementModal 
+        isOpen={showEmployeeMovementModal} 
+        onClose={() => setShowEmployeeMovementModal(false)} 
       />
     </>
   );

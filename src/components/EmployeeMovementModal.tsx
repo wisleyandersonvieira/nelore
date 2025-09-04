@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Building2, Users, Calendar, DollarSign } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Building2, User, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Store {
   id: string;
@@ -21,17 +23,17 @@ interface Employee {
   name: string;
   cpf: string;
   is_active: boolean;
-  job_functions?: { name: string };
 }
 
 interface PayableAccount {
   id: string;
-  description: string;
   amount: number;
   payment_date: string;
-  notes?: string;
-  document_type?: string;
-  document_number?: string;
+  description: string;
+  notes: string;
+  document_type: string;
+  document_number: string;
+  status: string;
 }
 
 interface EmployeeMovementModalProps {
@@ -45,27 +47,40 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [payableAccounts, setPayableAccounts] = useState<PayableAccount[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchStores = async () => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, code")
-        .eq("is_active", true)
+        .select(`
+          id,
+          name,
+          code
+        `)
         .order("name");
 
       if (error) throw error;
-      setStores(data || []);
+      
+      const storesData = data?.map(store => ({
+        id: store.id,
+        name: store.name || '',
+        code: store.code || ''
+      })) || [];
+      
+      setStores(storesData);
     } catch (error) {
-      console.error("Erro ao buscar lojas:", error);
+      console.error("Error fetching stores:", error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar lojas",
-        variant: "destructive"
+        description: "Erro ao buscar lojas",
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -75,50 +90,86 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
       const { data, error } = await supabase
         .from("employees")
         .select(`
-          *,
-          job_functions(name)
+          id,
+          name,
+          cpf,
+          is_active
         `)
         .eq("store_id", storeId)
         .eq("is_active", true)
         .order("name");
 
       if (error) throw error;
-      setEmployees(data || []);
+      
+      const employeesData = data?.map(employee => ({
+        id: employee.id,
+        name: employee.name || '',
+        cpf: employee.cpf || '',
+        is_active: employee.is_active || false
+      })) || [];
+      
+      setEmployees(employeesData);
     } catch (error) {
-      console.error("Erro ao buscar funcionários:", error);
+      console.error("Error fetching employees:", error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar funcionários",
-        variant: "destructive"
+        description: "Erro ao buscar funcionários",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchPayableAccounts = async (employeeId: string, month: string) => {
+  const fetchPayableAccounts = async (employeeId: string, month?: string) => {
     try {
       setIsLoading(true);
-      const startDate = `${month}-01`;
-      const endDate = `${month}-31`;
-
-      const { data, error } = await supabase
+      let query = supabase
         .from("accounts_payable")
-        .select("*")
+        .select(`
+          id,
+          amount,
+          payment_date,
+          description,
+          notes,
+          document_type,
+          document_number,
+          status
+        `)
         .eq("employee_id", employeeId)
         .eq("status", "paid")
-        .gte("payment_date", startDate)
-        .lte("payment_date", endDate)
+        .not("payment_date", "is", null)
         .order("payment_date", { ascending: false });
 
+      if (month) {
+        const [year, monthNum] = month.split("-");
+        const startDate = `${year}-${monthNum}-01`;
+        const endDate = `${year}-${monthNum}-31`;
+        query = query.gte("payment_date", startDate).lte("payment_date", endDate);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
-      setPayableAccounts(data || []);
+      
+      const accountsData = data?.map(account => ({
+        id: account.id,
+        amount: Number(account.amount) || 0,
+        payment_date: account.payment_date || '',
+        description: account.description || '',
+        notes: account.notes || '',
+        document_type: account.document_type || '',
+        document_number: account.document_number || '',
+        status: account.status || ''
+      })) || [];
+      
+      setPayableAccounts(accountsData);
     } catch (error) {
-      console.error("Erro ao buscar contas pagas:", error);
+      console.error("Error fetching payable accounts:", error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar movimentações",
-        variant: "destructive"
+        description: "Erro ao buscar movimentações",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -134,19 +185,19 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   useEffect(() => {
     if (selectedStore) {
       fetchEmployees(selectedStore.id);
+      setSelectedEmployee(null);
+      setPayableAccounts([]);
     }
   }, [selectedStore]);
 
   useEffect(() => {
-    if (selectedEmployee && selectedMonth) {
+    if (selectedEmployee) {
       fetchPayableAccounts(selectedEmployee.id, selectedMonth);
     }
   }, [selectedEmployee, selectedMonth]);
 
   const handleStoreSelect = (store: Store) => {
     setSelectedStore(store);
-    setSelectedEmployee(null);
-    setPayableAccounts([]);
   };
 
   const handleEmployeeSelect = (employee: Employee) => {
@@ -166,107 +217,126 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const generateMonthOptions = () => {
     const options = [];
     const currentDate = new Date();
+    
     for (let i = 0; i < 12; i++) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const value = date.toISOString().slice(0, 7);
-      const label = date.toLocaleDateString('pt-BR', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
+      const value = format(date, "yyyy-MM");
+      const label = format(date, "MMMM yyyy", { locale: ptBR });
       options.push({ value, label });
     }
+    
     return options;
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+  };
+
+  const calculateTotal = () => {
+    return payableAccounts.reduce((sum, account) => sum + Number(account.amount), 0);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-2xl">
-            {selectedEmployee || selectedStore ? (
-              <Button variant="ghost" size="sm" onClick={handleBack}>
+          <div className="flex items-center gap-2">
+            {(selectedStore || selectedEmployee) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="p-1"
+              >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-            ) : null}
-            <Users className="w-6 h-6" />
-            Movimentação de Funcionários
-            {selectedStore && (
-              <span className="text-lg font-normal">- {selectedStore.name}</span>
             )}
-            {selectedEmployee && (
-              <span className="text-lg font-normal">- {selectedEmployee.name}</span>
-            )}
-          </DialogTitle>
+            <DialogTitle className="text-2xl font-bold">
+              Movimentação Funcionários
+            </DialogTitle>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {!selectedStore && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Selecione uma Loja</h3>
+        <ScrollArea className="max-h-[70vh]">
+          {!selectedStore ? (
+            // Store Selection
+            <div className="p-4">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Selecione uma Loja
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {stores.map((store) => (
-                  <Card 
-                    key={store.id} 
-                    className="cursor-pointer hover:shadow-md transition-shadow"
+                  <Card
+                    key={store.id}
+                    className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]"
                     onClick={() => handleStoreSelect(store)}
                   >
                     <CardHeader className="text-center">
-                      <Building2 className="w-8 h-8 mx-auto mb-2 text-primary" />
+                      <div className="mx-auto w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center mb-2">
+                        <Building2 className="w-6 h-6 text-white" />
+                      </div>
                       <CardTitle className="text-lg">{store.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">Código: {store.code}</p>
+                      <CardDescription>Código: {store.code}</CardDescription>
                     </CardHeader>
+                    <CardContent>
+                      <Button className="w-full" variant="outline">
+                        Selecionar
+                      </Button>
+                    </CardContent>
                   </Card>
                 ))}
               </div>
             </div>
-          )}
-
-          {selectedStore && !selectedEmployee && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Funcionários Ativos - {selectedStore.name}</h3>
-              {isLoading ? (
-                <div className="text-center py-8">Carregando funcionários...</div>
-              ) : (
-                <div className="grid gap-4">
-                  {employees.map((employee) => (
-                    <Card 
-                      key={employee.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => handleEmployeeSelect(employee)}
-                    >
-                      <CardContent className="flex items-center justify-between p-4">
+          ) : !selectedEmployee ? (
+            // Employee Selection
+            <div className="p-4">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Funcionários Ativos - {selectedStore.name}
+              </h3>
+              <div className="space-y-2">
+                {employees.map((employee) => (
+                  <Card
+                    key={employee.id}
+                    className="cursor-pointer transition-all duration-200 hover:shadow-md"
+                    onClick={() => handleEmployeeSelect(employee)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-semibold">{employee.name}</h4>
+                          <h4 className="font-medium">{employee.name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            CPF: {employee.cpf} | Função: {employee.job_functions?.name || '-'}
+                            CPF: {employee.cpf}
                           </p>
                         </div>
-                        <Badge variant="default">Ativo</Badge>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {employees.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Nenhum funcionário ativo encontrado nesta loja
-                    </div>
-                  )}
-                </div>
-              )}
+                        <Button variant="outline" size="sm">
+                          Ver Movimentações
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
-          )}
-
-          {selectedEmployee && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">
+          ) : (
+            // Employee Movement Details
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
                   Movimentações - {selectedEmployee.name}
                 </h3>
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-48">
-                    <SelectValue />
+                    <SelectValue placeholder="Filtrar por mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    {generateMonthOptions().map(option => (
+                    <SelectItem value="">Todos os meses</SelectItem>
+                    {generateMonthOptions().map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -280,84 +350,87 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                   <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
                   <TabsTrigger value="obrigacoes">Obrigações</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="financeiro" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <DollarSign className="w-5 h-5" />
-                        Contas Pagas Vinculadas
-                      </CardTitle>
+                      <CardTitle>Movimentações Financeiras</CardTitle>
+                      <CardDescription>
+                        Contas pagas vinculadas ao funcionário
+                        {selectedMonth && (
+                          <span className="ml-2">
+                            - {generateMonthOptions().find(o => o.value === selectedMonth)?.label}
+                          </span>
+                        )}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {isLoading ? (
-                        <div className="text-center py-8">Carregando movimentações...</div>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Data Pagamento</TableHead>
-                              <TableHead>Valor</TableHead>
-                              <TableHead>Item</TableHead>
-                              <TableHead>Documento</TableHead>
-                              <TableHead>Observações</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {payableAccounts.map((account) => (
-                              <TableRow key={account.id}>
-                                <TableCell>
-                                  {new Date(account.payment_date).toLocaleDateString('pt-BR')}
-                                </TableCell>
-                                <TableCell>
-                                  R$ {Number(account.amount).toFixed(2)}
-                                </TableCell>
-                                <TableCell>{account.description}</TableCell>
-                                <TableCell>
-                                  {account.document_type && account.document_number
-                                    ? `${account.document_type} ${account.document_number}`
-                                    : '-'
-                                  }
-                                </TableCell>
-                                <TableCell>{account.notes || '-'}</TableCell>
-                              </TableRow>
-                            ))}
-                            {payableAccounts.length === 0 && (
+                      {payableAccounts.length > 0 ? (
+                        <>
+                          <Table>
+                            <TableHeader>
                               <TableRow>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                  Nenhuma movimentação encontrada para este período
-                                </TableCell>
+                                <TableHead>Data Pagamento</TableHead>
+                                <TableHead>Valor</TableHead>
+                                <TableHead>Descrição</TableHead>
+                                <TableHead>Documento</TableHead>
+                                <TableHead>Observações</TableHead>
                               </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      )}
-                      
-                      {payableAccounts.length > 0 && (
-                        <div className="mt-4 p-4 bg-muted rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Total do período:</span>
-                            <span className="font-bold text-lg">
-                              R$ {payableAccounts.reduce((sum, account) => sum + Number(account.amount), 0).toFixed(2)}
-                            </span>
+                            </TableHeader>
+                            <TableBody>
+                              {payableAccounts.map((account) => (
+                                <TableRow key={account.id}>
+                                  <TableCell>
+                                    {account.payment_date
+                                      ? format(new Date(account.payment_date), "dd/MM/yyyy")
+                                      : "-"}
+                                  </TableCell>
+                                  <TableCell className="font-medium">
+                                    {formatCurrency(Number(account.amount))}
+                                  </TableCell>
+                                  <TableCell>{account.description}</TableCell>
+                                  <TableCell>
+                                    {account.document_type && account.document_number
+                                      ? `${account.document_type} ${account.document_number}`
+                                      : "-"}
+                                  </TableCell>
+                                  <TableCell className="max-w-xs truncate">
+                                    {account.notes || "-"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                          <div className="mt-4 p-4 bg-muted rounded-lg">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">Total do Período:</span>
+                              <span className="text-lg font-bold">
+                                {formatCurrency(calculateTotal())}
+                              </span>
+                            </div>
                           </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>Nenhuma movimentação encontrada para este funcionário no período selecionado.</p>
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 </TabsContent>
-                
+
                 <TabsContent value="obrigacoes" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5" />
-                        Obrigações
-                      </CardTitle>
+                      <CardTitle>Obrigações</CardTitle>
+                      <CardDescription>
+                        Funcionalidade em desenvolvimento
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="text-center py-8 text-muted-foreground">
-                        Funcionalidade em desenvolvimento
+                        <p>Esta funcionalidade será implementada em breve.</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -365,7 +438,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
               </Tabs>
             </div>
           )}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
