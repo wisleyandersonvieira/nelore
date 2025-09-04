@@ -1208,6 +1208,80 @@ export type Database = {
           },
         ]
       }
+      employees: {
+        Row: {
+          address: string | null
+          attachments: Json | null
+          bank_account: string | null
+          base_salary: number
+          birth_date: string | null
+          cpf: string
+          created_at: string
+          email: string | null
+          gender: string | null
+          id: string
+          is_active: boolean
+          job_function_id: string | null
+          marital_status: string | null
+          name: string
+          observations: string | null
+          phone: string | null
+          registration_date: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          attachments?: Json | null
+          bank_account?: string | null
+          base_salary?: number
+          birth_date?: string | null
+          cpf: string
+          created_at?: string
+          email?: string | null
+          gender?: string | null
+          id?: string
+          is_active?: boolean
+          job_function_id?: string | null
+          marital_status?: string | null
+          name: string
+          observations?: string | null
+          phone?: string | null
+          registration_date?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          attachments?: Json | null
+          bank_account?: string | null
+          base_salary?: number
+          birth_date?: string | null
+          cpf?: string
+          created_at?: string
+          email?: string | null
+          gender?: string | null
+          id?: string
+          is_active?: boolean
+          job_function_id?: string | null
+          marital_status?: string | null
+          name?: string
+          observations?: string | null
+          phone?: string | null
+          registration_date?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_job_function_id_fkey"
+            columns: ["job_function_id"]
+            isOneToOne: false
+            referencedRelation: "job_functions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           account_id: string
@@ -1264,6 +1338,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_functions: {
+        Row: {
+          base_salary: number
+          code: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_salary?: number
+          code: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_salary?: number
+          code?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       product_supplier_codes: {
         Row: {
@@ -1797,6 +1907,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_job_function_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
       get_next_product_code: {
         Args: Record<PropertyKey, never>
         Returns: number

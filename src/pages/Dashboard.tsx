@@ -22,6 +22,7 @@ import { AccountsPayableModal } from "@/components/AccountsPayableModal";
 import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
 import { CashControlModal } from "@/components/CashControlModal";
 import { FinanceiroModal } from "@/components/FinanceiroModal";
+import FuncionariosModal from "@/components/FuncionariosModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -30,6 +31,7 @@ const Dashboard = () => {
   const [accountsReceivableOpen, setAccountsReceivableOpen] = useState(false);
   const [cashControlOpen, setCashControlOpen] = useState(false);
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
+  const [funcionariosOpen, setFuncionariosOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -123,6 +125,13 @@ const Dashboard = () => {
       color: "bg-indigo-500",
     },
     {
+      id: "funcionarios",
+      title: "Funcionários",
+      description: "Gestão de funcionários e funções",
+      icon: Users,
+      color: "bg-red-500",
+    },
+    {
       id: "configuracoes",
       title: "Configurações",
       description: "Usuários, permissões e configurações",
@@ -191,7 +200,9 @@ const Dashboard = () => {
                          navigate("/stock");
                        } else if (module.id === "financeiro") {
                          setFinanceiroOpen(true);
-                       } else if (module.id === "caixa") {
+                        } else if (module.id === "funcionarios") {
+                          setFuncionariosOpen(true);
+                        } else if (module.id === "caixa") {
                          setCashControlOpen(true);
                        }
                      }}
@@ -268,6 +279,13 @@ const Dashboard = () => {
         <AccountsReceivableModal 
           open={accountsReceivableOpen} 
           onOpenChange={setAccountsReceivableOpen} 
+        />
+      )}
+
+      {funcionariosOpen && (
+        <FuncionariosModal 
+          isOpen={funcionariosOpen} 
+          onClose={() => setFuncionariosOpen(false)} 
         />
       )}
 
