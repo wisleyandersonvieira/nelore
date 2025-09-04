@@ -1022,7 +1022,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
     if (!product || !store) return;
 
-    const totalPrice = quantity * unitPrice;
+    const totalPrice = Math.round((quantity * unitPrice) * 100) / 100;
 
     const newItem: PayableItem = {
       product_id: selectedProduct,
@@ -3224,7 +3224,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             min="0.01"
                             step="0.01"
                             value={unitPrice}
-                            onChange={(e) => setUnitPrice(Number(e.target.value))}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || value === "0") {
+                                setUnitPrice(0);
+                              } else {
+                                setUnitPrice(parseFloat(value) || 0);
+                              }
+                            }}
                           />
                         </div>
 
@@ -3248,10 +3255,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <div className="text-lg font-semibold">
-                          Total do Item: R$ {(quantity * unitPrice).toFixed(2)}
-                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-lg font-semibold">
+                            Total do Item: R$ {(Math.round((quantity * unitPrice) * 100) / 100).toFixed(2)}
+                          </div>
                         <Button onClick={addItem} disabled={isViewOnly}>
                           <Plus className="h-4 w-4 mr-2" />
                           Adicionar Item

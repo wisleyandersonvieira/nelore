@@ -61,6 +61,7 @@ export type Database = {
           document_number: string | null
           document_type: string | null
           due_date: string
+          employee_id: string | null
           id: string
           issue_date: string | null
           notes: string | null
@@ -82,6 +83,7 @@ export type Database = {
           document_number?: string | null
           document_type?: string | null
           due_date: string
+          employee_id?: string | null
           id?: string
           issue_date?: string | null
           notes?: string | null
@@ -103,6 +105,7 @@ export type Database = {
           document_number?: string | null
           document_type?: string | null
           due_date?: string
+          employee_id?: string | null
           id?: string
           issue_date?: string | null
           notes?: string | null
@@ -126,6 +129,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {
