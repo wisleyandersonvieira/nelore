@@ -1969,7 +1969,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         const { error: updateError } = await supabase
           .from("accounts_payable")
           .update({
-            supplier_id: supplierId,
+            supplier_id: isEmployeeMode ? null : supplierId,
+            employee_id: isEmployeeMode ? employeeId : null,
             document_type: documentType,
             document_number: documentNumber,
             issue_date: issueDate,
