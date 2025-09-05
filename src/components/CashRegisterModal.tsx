@@ -19,6 +19,7 @@ interface CashRegisterModalProps {
   date: Date;
   storeId: string;
   mode?: 'view' | 'edit' | 'create';
+  onBack?: () => void;
 }
 
 interface CashControl {
@@ -95,7 +96,7 @@ const formSchema = z.object({
   valor_fechamento_pdv: z.number().min(0),
 });
 
-export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'create' }: CashRegisterModalProps) => {
+export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'create', onBack }: CashRegisterModalProps) => {
   const [cashControl, setCashControl] = useState<CashControl | null>(null);
   const [cardItems, setCardItems] = useState<CardItem[]>([]);
   const [accountItems, setAccountItems] = useState<AccountItem[]>([]);
@@ -976,8 +977,18 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                 )}
 
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                    {isReadOnly ? 'Fechar' : 'Cancelar'}
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      if (isReadOnly && onBack) {
+                        onBack();
+                      } else {
+                        onOpenChange(false);
+                      }
+                    }}
+                  >
+                    {isReadOnly ? 'Voltar' : 'Cancelar'}
                   </Button>
                   {!isReadOnly && (
                     <Button type="submit" disabled={loading}>

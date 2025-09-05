@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Eye, Edit, Plus, Check, X } from "lucide-react";
 import { CashRegisterModal } from "./CashRegisterModal";
 import { toast } from "@/hooks/use-toast";
@@ -97,6 +98,10 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
     if (!open) {
       // Refresh data when modal closes
       fetchCashControl();
+      // Se estamos voltando do modo view, reabrir este modal
+      if (mode === 'view') {
+        setTimeout(() => onOpenChange(true), 100);
+      }
     }
   };
 
@@ -126,9 +131,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Cadastrar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                cashControl?.approved_status ? 'opacity-50 cursor-not-allowed' : ''
+                cashControl || cashControl?.approved_status ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => !cashControl?.approved_status && handleAction('create')}
+              onClick={() => !cashControl && !cashControl?.approved_status && handleAction('create')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center mx-auto mb-2">
@@ -143,7 +148,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={cashControl?.approved_status}
+                  disabled={cashControl || cashControl?.approved_status}
                 >
                   Cadastrar
                 </Button>
@@ -205,12 +210,13 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             </Card>
 
             {/* Aprovar/Reprovar Caixa */}
-            <Card 
-              className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                !cashControl ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              onClick={() => cashControl && handleApproval(!cashControl.approved_status)}
-            >
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Card 
+                  className={`cursor-pointer hover:shadow-lg transition-shadow ${
+                    !cashControl ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
               <CardHeader className="text-center">
                 <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
                   cashControl?.approved_status ? 'bg-red-500' : 'bg-purple-500'
@@ -241,6 +247,25 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 </Button>
               </CardContent>
             </Card>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Ação</AlertDialogTitle>
+              <AlertDialogDescription>
+                {cashControl?.approved_status 
+                  ? 'Deseja reprovar o caixa do dia? Isso permitirá que ele seja editado novamente.'
+                  : 'Deseja aprovar o caixa do dia? Após a aprovação, o caixa não poderá mais ser editado.'
+                }
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => cashControl && handleApproval(!cashControl.approved_status)}>
+                {cashControl?.approved_status ? 'Reprovar' : 'Aprovar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
           </div>
 
           {cashControl && (
@@ -283,6 +308,10 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
         date={date}
         storeId={storeId}
         mode={mode}
+        onBack={() => {
+          setRegisterModalOpen(false);
+          setTimeout(() => onOpenChange(true), 100);
+        }}
       />
     </>
   );
