@@ -201,6 +201,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
   const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -531,11 +533,29 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const handleSupplierSelect = (supplier: Supplier) => {
     setSupplierId(supplier.id);
     setSupplierSearchTerm(supplier.name);
+    setShowSupplierDropdown(false);
   };
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product.id);
     setProductSearchTerm(product.name);
+    setShowProductDropdown(false);
+  };
+
+  const handleSupplierSearchChange = (value: string) => {
+    setSupplierSearchTerm(value);
+    setShowSupplierDropdown(value.trim().length > 0 && filteredSuppliers.length > 0);
+    if (value.trim().length === 0) {
+      setSupplierId("");
+    }
+  };
+
+  const handleProductSearchChange = (value: string) => {
+    setProductSearchTerm(value);
+    setShowProductDropdown(value.trim().length > 0 && filteredProducts.length > 0);
+    if (value.trim().length === 0) {
+      setSelectedProduct("");
+    }
   };
 
   const openPaymentModal = async (account: AccountPayable) => {
@@ -3040,7 +3060,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             <Input
                               placeholder="Digite o nome do fornecedor..."
                               value={supplierSearchTerm}
-                              onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                              onChange={(e) => handleSupplierSearchChange(e.target.value)}
+                              onFocus={() => setShowSupplierDropdown(supplierSearchTerm.trim().length > 0 && filteredSuppliers.length > 0)}
+                              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
                               disabled={isViewOnly}
                               className="pr-10"
                             />
@@ -3055,13 +3077,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               <Search className="h-4 w-4" />
                             </Button>
                             
-                            {supplierSearchTerm && filteredSuppliers.length > 0 && (
+                            {showSupplierDropdown && filteredSuppliers.length > 0 && (
                               <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
                                 {filteredSuppliers.slice(0, 5).map((supplier) => (
                                   <div
                                     key={supplier.id}
                                     className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                                    onClick={() => handleSupplierSelect(supplier)}
+                                    onMouseDown={() => handleSupplierSelect(supplier)}
                                   >
                                     <div className="font-medium">{supplier.name}</div>
                                     {supplier.cnpj_cpf && (
@@ -3348,7 +3370,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             <Input
                               placeholder="Digite o nome do produto..."
                               value={productSearchTerm}
-                              onChange={(e) => setProductSearchTerm(e.target.value)}
+                              onChange={(e) => handleProductSearchChange(e.target.value)}
+                              onFocus={() => setShowProductDropdown(productSearchTerm.trim().length > 0 && filteredProducts.length > 0)}
+                              onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
                               disabled={isViewOnly}
                               className="pr-10"
                             />
@@ -3363,13 +3387,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               <Search className="h-4 w-4" />
                             </Button>
                             
-                            {productSearchTerm && filteredProducts.length > 0 && (
+                            {showProductDropdown && filteredProducts.length > 0 && (
                               <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
                                 {filteredProducts.slice(0, 5).map((product) => (
                                   <div
                                     key={product.id}
                                     className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                                    onClick={() => handleProductSelect(product)}
+                                    onMouseDown={() => handleProductSelect(product)}
                                   >
                                     <div className="font-medium">
                                       {product.code ? `${product.code} - ` : ""}{product.name}
