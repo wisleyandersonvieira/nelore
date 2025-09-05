@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -295,13 +295,10 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   // Watch form values for automatic calculations
   const watchedValues = form.watch();
   
-  const faturamentoCashItems = cashItems.reduce((sum, item) => sum + (item.valor || 0), 0);
-  
   const faturamentoDinheiro = (watchedValues.contagem_dinheiro || 0) + 
                               (watchedValues.despesas_pagas || 0) + 
                               (watchedValues.valor_mantido_caixa || 0) - 
-                              (watchedValues.saldo_inicial || 0) +
-                              faturamentoCashItems;
+                              (watchedValues.saldo_inicial || 0);
 
   const faturamentoCartao = cardItems.reduce((sum, item) => sum + (item.valor || 0), 0);
   const faturamentoConta = accountItems.reduce((sum, item) => sum + (item.valor || 0), 0);
@@ -768,6 +765,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                   accountDisplayName="cash_name"
                   placeholder="Selecione uma conta de caixa"
                   isReadOnly={isReadOnly}
+                  faturamentoDinheiro={faturamentoDinheiro}
                 />
 
                 <div className="bg-muted p-4 rounded-lg">
@@ -1067,5 +1065,78 @@ const AccountItemsSection = CardItemsSection;
 // Componente para seção de itens de delivery
 const DeliveryItemsSection = CardItemsSection;
 
-// Componente para seção de itens de cash
-const CashItemsSection = CardItemsSection;
+// Componente específico para seção de itens de cash (sem input manual de valor)
+const CashItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, accountDisplayName, placeholder, isReadOnly, faturamentoDinheiro }: any) => {
+  const [selectedAccount, setSelectedAccount] = useState('');
+
+  const handleAccountChange = (accountId: string) => {
+    setSelectedAccount(accountId);
+    
+    // Remove item existente se houver
+    if (items.length > 0) {
+      onRemove(0);
+    }
+    
+    // Adiciona novo item com o valor do faturamento dinheiro
+    if (accountId && faturamentoDinheiro > 0) {
+      onAdd(accountId, faturamentoDinheiro);
+    }
+  };
+
+  // Atualiza o item existente quando o faturamento dinheiro muda
+  React.useEffect(() => {
+    if (selectedAccount && items.length > 0 && faturamentoDinheiro !== items[0].valor) {
+      onRemove(0);
+      if (faturamentoDinheiro > 0) {
+        onAdd(selectedAccount, faturamentoDinheiro);
+      }
+    }
+  }, [faturamentoDinheiro, selectedAccount, items, onAdd, onRemove]);
+
+  return (
+    <div className="space-y-4">
+      {!isReadOnly && (
+        <div className="flex gap-4">
+          <Select value={selectedAccount} onValueChange={handleAccountChange}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account: any) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="w-32 flex items-center justify-center bg-muted rounded text-sm text-muted-foreground">
+            R$ {faturamentoDinheiro.toFixed(2)}
+          </div>
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div className="space-y-2">
+          {items.map((item: any, index: number) => (
+            <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
+              <span>{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
+              {!isReadOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    onRemove(index);
+                    setSelectedAccount('');
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
