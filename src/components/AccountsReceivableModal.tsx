@@ -104,6 +104,21 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [surcharge, setSurcharge] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
 
+  // Function to convert date input to local timezone format
+  const formatDateForDatabase = (dateString: string): string => {
+    if (!dateString) return dateString;
+    
+    // Create date in local timezone
+    const date = new Date(dateString + 'T00:00:00');
+    
+    // Format as YYYY-MM-DD in local timezone
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
   // Reverse payment modal state  
   const [showReverseModal, setShowReverseModal] = useState(false);
   const [reverseAccount, setReverseAccount] = useState<AccountReceivable | null>(null);
@@ -785,7 +800,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .from("accounts_receivable")
         .update({
           status: "paid",
-          payment_date: paymentDate,
+          payment_date: formatDateForDatabase(paymentDate),
           amount: finalAmount,
         })
         .eq("id", paymentAccount.id);
@@ -800,7 +815,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           account_id: selectedAccountId,
           transaction_type: "entrada",
           amount: finalAmount,
-          transaction_date: paymentDate,
+          transaction_date: formatDateForDatabase(paymentDate),
           description: `Recebimento - ${paymentAccount.description}`,
           reference_id: paymentAccount.id,
           reference_type: "accounts_receivable",

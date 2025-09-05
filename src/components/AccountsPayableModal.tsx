@@ -124,6 +124,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [accountInstallments, setAccountInstallments] = useState<any[]>([]);
   const [selectedInstallments, setSelectedInstallments] = useState<string[]>([]);
 
+  // Function to convert date input to local timezone format
+  const formatDateForDatabase = (dateString: string): string => {
+    if (!dateString) return dateString;
+    
+    // Create date in local timezone
+    const date = new Date(dateString + 'T00:00:00');
+    
+    // Format as YYYY-MM-DD in local timezone
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
   // Reverse payment modal state  
   const [showReverseModal, setShowReverseModal] = useState(false);
   const [reverseAccount, setReverseAccount] = useState<AccountPayable | null>(null);
@@ -2526,7 +2541,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           const { error: updateInstallmentError } = await supabase
             .from("accounts_payable_installments")
             .update({
-              payment_date: paymentDate
+              payment_date: formatDateForDatabase(paymentDate)
             })
             .eq("id", installment.id);
 
@@ -2540,7 +2555,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
               account_id: selectedAccountId,
               transaction_type: "saida",
               amount: finalAmount,
-              transaction_date: paymentDate,
+              transaction_date: formatDateForDatabase(paymentDate),
               description: `Pagamento Parcela ${installment.installment_number}: ${paymentAccount.description}${surcharge > 0 ? ` + Acréscimo: R$ ${surcharge.toFixed(2)}` : ''}${discount > 0 ? ` - Desconto: R$ ${discount.toFixed(2)}` : ''}`,
               reference_id: installment.id,
               reference_type: "accounts_payable_installments",
@@ -2566,7 +2581,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .from("accounts_payable")
           .update({
             status: accountStatus,
-            payment_date: accountStatus === "paid" ? paymentDate : null,
+            payment_date: accountStatus === "paid" ? formatDateForDatabase(paymentDate) : null,
           })
           .eq("id", paymentAccount.id);
 
@@ -2621,7 +2636,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .from("accounts_payable")
           .update({
             status: "paid",
-            payment_date: paymentDate,
+            payment_date: formatDateForDatabase(paymentDate),
             amount: finalAmount,
             total_amount: updatedTotalAmount,
           })
@@ -2637,7 +2652,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             account_id: selectedAccountId,
             transaction_type: "saida",
             amount: finalAmount,
-            transaction_date: paymentDate,
+            transaction_date: formatDateForDatabase(paymentDate),
             description: `Pagamento: ${paymentAccount.description}${surcharge > 0 ? ` + Acréscimo: R$ ${surcharge.toFixed(2)}` : ''}${discount > 0 ? ` - Desconto: R$ ${discount.toFixed(2)}` : ''}`,
             reference_id: paymentAccount.id,
             reference_type: "accounts_payable",
