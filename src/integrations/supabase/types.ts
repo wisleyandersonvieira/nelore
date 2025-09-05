@@ -547,6 +547,9 @@ export type Database = {
       cash_control: {
         Row: {
           anexos: Json | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_status: boolean | null
           closing_balance: number
           contagem_dinheiro: number | null
           created_at: string
@@ -575,6 +578,9 @@ export type Database = {
         }
         Insert: {
           anexos?: Json | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_status?: boolean | null
           closing_balance?: number
           contagem_dinheiro?: number | null
           created_at?: string
@@ -603,6 +609,9 @@ export type Database = {
         }
         Update: {
           anexos?: Json | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_status?: boolean | null
           closing_balance?: number
           contagem_dinheiro?: number | null
           created_at?: string

@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Edit, Plus } from "lucide-react";
+import { Eye, Edit, Plus, Check, X } from "lucide-react";
 import { CashRegisterModal } from "./CashRegisterModal";
+import { toast } from "@/hooks/use-toast";
 
 interface CashDateModalProps {
   open: boolean;
@@ -32,7 +33,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
       setLoading(true);
       const { data, error } = await supabase
         .from('cash_control')
-        .select('*')
+        .select('*, approved_status, approved_at, approved_by')
         .eq('store_id', storeId)
         .eq('date', dateString)
         .maybeSingle();
@@ -44,6 +45,43 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
       setCashControl(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproval = async (approve: boolean) => {
+    if (!cashControl) return;
+
+    try {
+      const { error } = await supabase
+        .from('cash_control')
+        .update({
+          approved_status: approve,
+          approved_at: approve ? new Date().toISOString() : null,
+          approved_by: approve ? (await supabase.auth.getUser()).data.user?.id : null,
+        })
+        .eq('id', cashControl.id);
+
+      if (error) throw error;
+
+      toast({
+        title: approve ? "Caixa Aprovado" : "Aprovação Removida",
+        description: approve ? 
+          "O caixa foi aprovado com sucesso!" : 
+          "A aprovação foi removida. O caixa pode ser editado novamente.",
+      });
+
+      // Refresh cash control data
+      await fetchCashControl();
+      
+      // Close modal to refresh calendar
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erro ao alterar aprovação:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao alterar status de aprovação do caixa.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -83,11 +121,13 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 py-4">
             {/* Cadastrar Caixa */}
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => handleAction('create')}
+              className={`cursor-pointer hover:shadow-lg transition-shadow ${
+                cashControl?.approved_status ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              onClick={() => !cashControl?.approved_status && handleAction('create')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center mx-auto mb-2">
@@ -99,7 +139,11 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full" 
+                  variant="outline"
+                  disabled={cashControl?.approved_status}
+                >
                   Cadastrar
                 </Button>
               </CardContent>
@@ -135,9 +179,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Editar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                !cashControl ? 'opacity-50 cursor-not-allowed' : ''
+                !cashControl || cashControl?.approved_status ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => cashControl && handleAction('edit')}
+              onClick={() => cashControl && !cashControl.approved_status && handleAction('edit')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-yellow-500 flex items-center justify-center mx-auto mb-2">
@@ -152,9 +196,47 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={!cashControl}
+                  disabled={!cashControl || cashControl?.approved_status}
                 >
                   Editar
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Aprovar/Reprovar Caixa */}
+            <Card 
+              className={`cursor-pointer hover:shadow-lg transition-shadow ${
+                !cashControl ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              onClick={() => cashControl && handleApproval(!cashControl.approved_status)}
+            >
+              <CardHeader className="text-center">
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
+                  cashControl?.approved_status ? 'bg-red-500' : 'bg-purple-500'
+                }`}>
+                  {cashControl?.approved_status ? (
+                    <X className="h-6 w-6 text-white" />
+                  ) : (
+                    <Check className="h-6 w-6 text-white" />
+                  )}
+                </div>
+                <CardTitle className="text-lg">
+                  {cashControl?.approved_status ? 'Reprovar Caixa' : 'Aprovar Caixa'}
+                </CardTitle>
+                <CardDescription>
+                  {cashControl?.approved_status ? 
+                    'Remover aprovação do caixa' : 
+                    'Aprovar fechamento de caixa'
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  className="w-full" 
+                  variant="outline"
+                  disabled={!cashControl}
+                >
+                  {cashControl?.approved_status ? 'Reprovar' : 'Aprovar'}
                 </Button>
               </CardContent>
             </Card>
@@ -162,7 +244,15 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
 
           {cashControl && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
-              <h4 className="font-semibold mb-2">Informações do Caixa</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Informações do Caixa</h4>
+                {cashControl.approved_status && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="h-4 w-4" />
+                    <span className="font-medium">Aprovado</span>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium">Faturamento Total:</span> R$ {Number(cashControl.faturamento_total || 0).toFixed(2)}
@@ -175,6 +265,11 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 }`}>
                   <span>Diferença:</span> R$ {Number(cashControl.diferenca || 0).toFixed(2)}
                 </div>
+                {cashControl.approved_status && cashControl.approved_at && (
+                  <div className="col-span-2 text-xs text-muted-foreground mt-2">
+                    Aprovado em: {new Date(cashControl.approved_at).toLocaleString('pt-BR')}
+                  </div>
+                )}
               </div>
             </div>
           )}

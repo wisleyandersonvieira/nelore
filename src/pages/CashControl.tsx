@@ -26,6 +26,7 @@ const CashControl = () => {
   const [monthViewModalOpen, setMonthViewModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [datesWithData, setDatesWithData] = useState<Set<string>>(new Set());
+  const [approvedDates, setApprovedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (storeId) {
@@ -61,7 +62,7 @@ const CashControl = () => {
 
       const { data, error } = await supabase
         .from('cash_control')
-        .select('date')
+        .select('date, approved_status')
         .eq('store_id', storeId)
         .gte('date', startOfMonth.toISOString().split('T')[0])
         .lte('date', endOfMonth.toISOString().split('T')[0]);
@@ -69,7 +70,9 @@ const CashControl = () => {
       if (error) throw error;
 
       const dates = new Set(data?.map(item => item.date) || []);
+      const approved = new Set(data?.filter(item => item.approved_status).map(item => item.date) || []);
       setDatesWithData(dates);
+      setApprovedDates(approved);
     } catch (error) {
       console.error('Erro ao carregar datas com dados:', error);
     }
@@ -166,10 +169,12 @@ const CashControl = () => {
           onMonthChange={setCurrentDate}
           onSelect={handleDateSelect}
           modifiers={{
-            hasData: (date) => datesWithData.has(date.toISOString().split('T')[0])
+            hasData: (date) => datesWithData.has(date.toISOString().split('T')[0]),
+            approved: (date) => approvedDates.has(date.toISOString().split('T')[0])
           }}
           modifiersClassNames={{
-            hasData: "bg-yellow-100 border-2 border-yellow-300"
+            hasData: "bg-yellow-100 border-2 border-yellow-300",
+            approved: "bg-green-100 border-2 border-green-400"
           }}
           className={cn(
             "rounded-lg border shadow-lg p-4 md:p-8 pointer-events-auto bg-card",
