@@ -57,7 +57,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     cost_price: ""
   });
   const [formKey, setFormKey] = useState(0); // Key para forçar re-render
-  const [isLoadingProduct, setIsLoadingProduct] = useState(false); // Flag para indicar carregamento de produto
   const { toast } = useToast();
 
   useEffect(() => {
@@ -76,8 +75,6 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   const loadProductData = async (product: any) => {
     console.log("Carregando dados do produto:", product);
     
-    setIsLoadingProduct(true); // Sinalizar que estamos carregando um produto
-    
     // Forçar re-render incrementando a key
     setFormKey(prev => prev + 1);
     
@@ -86,26 +83,26 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       await fetchSubgroups(product.group_id);
     }
     
-    // Definir os dados do formulário após carregar subgrupos
-    const newFormData = {
-      name: product.name || "",
-      description: product.description || "",
-      unit_id: product.unit_id || undefined,
-      group_id: product.group_id || undefined,
-      subgroup_id: product.subgroup_id || undefined,
-      barcode: product.barcode || "",
-      cost_price: product.cost_price?.toString() || ""
-    };
+    // Definir os dados do formulário após um pequeno delay para garantir que os subgrupos foram carregados
+    setTimeout(() => {
+      const newFormData = {
+        name: product.name || "",
+        description: product.description || "",
+        unit_id: product.unit_id || undefined,
+        group_id: product.group_id || undefined,
+        subgroup_id: product.subgroup_id || undefined,
+        barcode: product.barcode || "",
+        cost_price: product.cost_price?.toString() || ""
+      };
+      
+      setFormData(newFormData);
+      console.log("Dados carregados:", newFormData);
+    }, 100);
     
-    setFormData(newFormData);
     setNextCode(product.code);
-    setIsLoadingProduct(false); // Finalizar carregamento
-    
-    console.log("Dados carregados:", newFormData);
   };
 
   const resetForm = async () => {
-    setIsLoadingProduct(false); // Garantir que a flag está resetada
     setFormKey(prev => prev + 1); // Forçar re-render
     setFormData({
       name: "",
@@ -145,12 +142,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       fetchSubgroups(formData.group_id);
     } else {
       setSubgroups([]);
-      // Só limpar subgroup_id se não estivermos carregando dados de um produto
-      if (!isLoadingProduct) {
-        setFormData(prev => ({ ...prev, subgroup_id: undefined }));
-      }
+      setFormData(prev => ({ ...prev, subgroup_id: undefined }));
     }
-  }, [formData.group_id, isLoadingProduct]);
+  }, [formData.group_id]);
 
   const fetchInitialData = async () => {
     try {
