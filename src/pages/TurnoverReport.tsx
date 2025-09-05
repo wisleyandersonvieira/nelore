@@ -12,11 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Importação do cliente Supabase
-import { createClient } from '@supabase/supabase-js';
-const supabaseUrl = "https://qyqohixqddotjgijftcw.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5cW9oaXhxZGRvdGpnaWpmdGN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwNzEzNDQsImV4cCI6MjA2OTY0NzM0NH0.Fjll40SrHy8JiYhU2mNwvVrqwayn0KLCC73DKGRtnCg";
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from "@/integrations/supabase/client";
 
 const TurnoverReport = () => {
   const navigate = useNavigate();
@@ -38,7 +34,6 @@ const TurnoverReport = () => {
         const { data, error } = await supabase
           .from('stores')
           .select('id, name, code')
-          .eq('is_active', true)
           .order('name');
 
         if (error) throw error;
