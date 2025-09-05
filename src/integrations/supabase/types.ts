@@ -739,6 +739,33 @@ export type Database = {
           },
         ]
       }
+      cash_control_cash_items: {
+        Row: {
+          cash_account_id: string
+          cash_control_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cash_account_id: string
+          cash_control_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          cash_account_id?: string
+          cash_control_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       cash_control_delivery_items: {
         Row: {
           cash_control_id: string
