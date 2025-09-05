@@ -23,6 +23,7 @@ interface Product {
   id: string;
   name: string;
   code: string;
+  barcode: string | null;
   cost_price: number | null;
   unit_id: string;
   units_of_measure?: {
@@ -95,7 +96,7 @@ export const StockRegisterModal = ({
         const { data: products, error } = await supabase
           .from('products')
           .select(`
-            id, name, code, cost_price, unit_id,
+            id, name, code, barcode, cost_price, unit_id,
             units_of_measure!inner(symbol)
           `)
           .eq('subgroup_id', sorveteSubgroup)
@@ -109,7 +110,7 @@ export const StockRegisterModal = ({
         const { data: products, error } = await supabase
           .from('products')
           .select(`
-            id, name, code, cost_price, unit_id,
+            id, name, code, barcode, cost_price, unit_id,
             units_of_measure!inner(symbol)
           `)
           .eq('subgroup_id', mercadoriasSubgroup)
@@ -123,7 +124,7 @@ export const StockRegisterModal = ({
         const { data: products, error } = await supabase
           .from('products')
           .select(`
-            id, name, code, cost_price, unit_id,
+            id, name, code, barcode, cost_price, unit_id,
             units_of_measure!inner(symbol)
           `)
           .eq('subgroup_id', embalagensSubgroup)
@@ -398,7 +399,8 @@ export const StockRegisterModal = ({
     const search = searchTerm.toLowerCase().trim();
     return products.filter(product => 
       product.name.toLowerCase().includes(search) || 
-      product.code.toLowerCase().includes(search)
+      product.code.toLowerCase().includes(search) ||
+      (product.barcode && product.barcode.toLowerCase().includes(search))
     );
   };
 
