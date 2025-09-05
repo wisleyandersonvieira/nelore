@@ -3587,13 +3587,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
               <div className="flex justify-end gap-2 pt-4">
                 {isViewOnly ? (
-                  <Button variant="outline" onClick={() => {
-                    setIsViewOnly(false);
-                    setViewOnlyAccount(null);
-                    setActiveTab("view");
-                  }}>
-                    Voltar
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={() => {
+                      setIsViewOnly(false);
+                      setViewOnlyAccount(null);
+                      setActiveTab("view");
+                    }}>
+                      Voltar
+                    </Button>
+                    <Button onClick={handleSave} disabled={loading}>
+                      {loading ? "Salvando..." : "Salvar Anexos"}
+                    </Button>
+                  </>
                   ) : (
                     <>
                       <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -3606,13 +3611,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         </Button>
                        ) : (
                         <>
-                          <Button variant="outline" onClick={openInstallmentsModal} disabled={isViewOnly}>
+                          <Button variant="outline" onClick={openInstallmentsModal}>
                             Parcelas {installments.length > 0 && `(${installments.length})`}
                           </Button>
                           
                           
                           <Button onClick={handleSave} disabled={loading}>
-                            {loading ? "Salvando..." : isViewOnly ? "Salvar Anexos" : "Salvar"}
+                            {loading ? "Salvando..." : "Salvar"}
                           </Button>
                         </>
                       )}
