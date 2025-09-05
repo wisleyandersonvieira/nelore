@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2 } from "lucide-react";
+import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -55,6 +55,9 @@ export const StockRegisterModal = ({
   const [sorveteStock, setSorveteStock] = useState<Record<string, StockItem>>({});
   const [mercadoriasStock, setMercadoriasStock] = useState<Record<string, StockItem>>({});
   const [embalagensStock, setEmbalagensStock] = useState<Record<string, StockItem>>({});
+  const [sorveteSearch, setSorveteSearch] = useState("");
+  const [mercadoriasSearch, setMercadoriasSearch] = useState("");
+  const [embalagensSearch, setEmbalagensSearch] = useState("");
 
   const monthNames = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -389,6 +392,16 @@ export const StockRegisterModal = ({
            calculateCategoryTotal(embalagensStock);
   };
 
+  const filterProducts = (products: Product[], searchTerm: string) => {
+    if (!searchTerm.trim()) return products;
+    
+    const search = searchTerm.toLowerCase().trim();
+    return products.filter(product => 
+      product.name.toLowerCase().includes(search) || 
+      product.code.toLowerCase().includes(search)
+    );
+  };
+
   const renderProductTable = (
     products: Product[], 
     stock: Record<string, StockItem>,
@@ -499,7 +512,18 @@ export const StockRegisterModal = ({
               <h3 className="text-lg font-semibold">Produtos de Sorvete</h3>
               {sorveteProducts.length > 0 ? (
                 <>
-                  {renderProductTable(sorveteProducts, sorveteStock, 'sorvete')}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="Buscar por nome ou código..."
+                        value={sorveteSearch}
+                        onChange={(e) => setSorveteSearch(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  {renderProductTable(filterProducts(sorveteProducts, sorveteSearch), sorveteStock, 'sorvete')}
                   <div className="text-right">
                     <span className="text-lg font-bold">
                       Total Sorvete: R$ {calculateCategoryTotal(sorveteStock).toFixed(2)}
@@ -519,7 +543,18 @@ export const StockRegisterModal = ({
               <h3 className="text-lg font-semibold">Mercadorias Diversas</h3>
               {mercadoriasProducts.length > 0 ? (
                 <>
-                  {renderProductTable(mercadoriasProducts, mercadoriasStock, 'mercadorias')}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="Buscar por nome ou código..."
+                        value={mercadoriasSearch}
+                        onChange={(e) => setMercadoriasSearch(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  {renderProductTable(filterProducts(mercadoriasProducts, mercadoriasSearch), mercadoriasStock, 'mercadorias')}
                   <div className="text-right">
                     <span className="text-lg font-bold">
                       Total Mercadorias: R$ {calculateCategoryTotal(mercadoriasStock).toFixed(2)}
@@ -539,7 +574,18 @@ export const StockRegisterModal = ({
               <h3 className="text-lg font-semibold">Embalagens</h3>
               {embalagensProducts.length > 0 ? (
                 <>
-                  {renderProductTable(embalagensProducts, embalagensStock, 'embalagens')}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="Buscar por nome ou código..."
+                        value={embalagensSearch}
+                        onChange={(e) => setEmbalagensSearch(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  {renderProductTable(filterProducts(embalagensProducts, embalagensSearch), embalagensStock, 'embalagens')}
                   <div className="text-right">
                     <span className="text-lg font-bold">
                       Total Embalagens: R$ {calculateCategoryTotal(embalagensStock).toFixed(2)}
