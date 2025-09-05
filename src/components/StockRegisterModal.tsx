@@ -359,8 +359,20 @@ export const StockRegisterModal = ({
                         category === 'mercadorias' ? mercadoriasStock : 
                         embalagensStock;
 
+    // Buscar o produto para obter o custo padrão
+    const productsList = category === 'sorvete' ? sorveteProducts : 
+                        category === 'mercadorias' ? mercadoriasProducts : 
+                        embalagensProducts;
+    const product = productsList.find(p => p.id === productId);
+    const defaultCost = product?.cost_price || 0;
+
     stockSetter(prev => {
-      const current = prev[productId] || { productId, quantity: 0, cost: 0, total: 0 };
+      const current = prev[productId] || { 
+        productId, 
+        quantity: 0, 
+        cost: defaultCost, 
+        total: 0 
+      };
       const updated = { ...current, [field]: numValue };
       updated.total = updated.quantity * updated.cost;
       return { ...prev, [productId]: updated };
@@ -394,7 +406,18 @@ export const StockRegisterModal = ({
       </TableHeader>
       <TableBody>
         {products.map((product) => {
-          const stockItem = stock[product.id] || { productId: product.id, quantity: 0, cost: product.cost_price || 0, total: 0 };
+          // Inicializar com custo do produto se não existir no estado
+          const stockItem = stock[product.id] || { 
+            productId: product.id, 
+            quantity: 0, 
+            cost: product.cost_price || 0, 
+            total: 0 
+          };
+          
+          // Garantir que o custo seja preservado se já foi inicializado
+          const displayCost = stockItem.cost !== undefined ? stockItem.cost : (product.cost_price || 0);
+          const displayQuantity = stockItem.quantity || 0;
+
           return (
             <TableRow key={product.id}>
               <TableCell className="font-medium">{product.name}</TableCell>
@@ -403,7 +426,7 @@ export const StockRegisterModal = ({
                 <Input
                   type="number"
                   step="0.01"
-                  value={stockItem.cost || ''}
+                  value={displayCost || ''}
                   onChange={(e) => handleStockChange(category, product.id, 'cost', e.target.value)}
                   className="w-20"
                   disabled={mode === 'view'}
@@ -413,14 +436,14 @@ export const StockRegisterModal = ({
                 <Input
                   type="number"
                   step="0.01"
-                  value={stockItem.quantity || ''}
+                  value={displayQuantity || ''}
                   onChange={(e) => handleStockChange(category, product.id, 'quantity', e.target.value)}
                   className="w-20"
                   disabled={mode === 'view'}
                 />
               </TableCell>
               <TableCell className="font-medium">
-                R$ {stockItem.total.toFixed(2)}
+                R$ {(displayQuantity * displayCost).toFixed(2)}
               </TableCell>
             </TableRow>
           );
