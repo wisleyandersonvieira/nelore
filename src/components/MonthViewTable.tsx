@@ -35,6 +35,17 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
   const [currentAccounts, setCurrentAccounts] = useState<Set<string>>(new Set());
   const [deliveryAccounts, setDeliveryAccounts] = useState<Set<string>>(new Set());
 
+  // Function to safely extract day from date string without timezone issues
+  const getDayFromDate = (dateString: string): string => {
+    // Parse date in YYYY-MM-DD format directly without timezone conversion
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      return parseInt(parts[2], 10).toString();
+    }
+    // Fallback for unexpected format
+    return new Date(dateString + 'T00:00:00').getDate().toString();
+  };
+
   const daysInMonth = getDaysInMonth(new Date(year, month));
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -45,8 +56,9 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
   const fetchMonthData = async () => {
     try {
       setLoading(true);
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0);
+      // Format dates properly to avoid timezone issues
+      const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
       // Buscar dados do cash_control
       const { data: cashControlData, error } = await supabase
@@ -58,8 +70,8 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
           cash_control_delivery_items(*, delivery_accounts(name))
         `)
         .eq('store_id', storeId)
-        .gte('date', startDate.toISOString().split('T')[0])
-        .lte('date', endDate.toISOString().split('T')[0]);
+        .gte('date', startDateStr)
+        .lte('date', endDateStr);
 
       if (error) throw error;
 
@@ -69,7 +81,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
       const deliveryAccountsSet = new Set<string>();
 
       cashControlData?.forEach((item) => {
-        const dayKey = new Date(item.date).getDate().toString();
+        const dayKey = getDayFromDate(item.date);
         
         // Organizar itens de cartão
         const cardItems = item.cash_control_card_items?.map((cardItem: any) => ({

@@ -57,15 +57,19 @@ const CashControl = () => {
     if (!storeId) return;
 
     try {
-      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      // Format dates properly to avoid timezone issues
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const startOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const endOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
       const { data, error } = await supabase
         .from('cash_control')
         .select('date, approved_status')
         .eq('store_id', storeId)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+        .gte('date', startOfMonthStr)
+        .lte('date', endOfMonthStr);
 
       if (error) throw error;
 

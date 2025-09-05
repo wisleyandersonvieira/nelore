@@ -20,7 +20,8 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create');
 
-  const dateString = date.toISOString().split('T')[0];
+  // Format date properly to avoid timezone issues
+  const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
   useEffect(() => {
     if (open) {
