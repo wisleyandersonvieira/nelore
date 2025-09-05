@@ -25,6 +25,7 @@ import PaidAccountsReport from "./pages/PaidAccountsReport";
 import AccountsReceivableModule from "./pages/AccountsReceivableModule";
 import AccountsReceivableReport from "./pages/AccountsReceivableReport";
 import ReceivedAccountsReport from "./pages/ReceivedAccountsReport";
+import TurnoverReport from "./pages/TurnoverReport";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,7 @@ function App() {
             <Route path="/reports/accounts-receivable" element={<AccountsReceivableModule />} />
             <Route path="/reports/accounts-receivable/pending" element={<AccountsReceivableReport />} />
             <Route path="/reports/accounts-receivable/received" element={<ReceivedAccountsReport />} />
+            <Route path="/reports/turnover" element={<TurnoverReport />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />

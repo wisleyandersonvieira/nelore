@@ -23,6 +23,14 @@ const Reports = () => {
       color: "bg-green-500",
       onClick: () => navigate("/reports/accounts-receivable"),
     },
+    {
+      id: "turnover-report",
+      title: "Relatório de Faturamento", 
+      description: "Relatório de faturamento por período",
+      icon: FileText,
+      color: "bg-blue-500",
+      onClick: () => navigate("/reports/turnover"),
+    },
   ];
 
   return (
