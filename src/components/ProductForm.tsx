@@ -57,6 +57,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     cost_price: ""
   });
   const [formKey, setFormKey] = useState(0); // Key para forçar re-render
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false); // Flag para indicar carregamento de produto
   const { toast } = useToast();
 
   useEffect(() => {
@@ -75,10 +76,17 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   const loadProductData = async (product: any) => {
     console.log("Carregando dados do produto:", product);
     
+    setIsLoadingProduct(true); // Sinalizar que estamos carregando um produto
+    
     // Forçar re-render incrementando a key
     setFormKey(prev => prev + 1);
     
-    // Definir os dados do formulário
+    // Se tem grupo, buscar subgrupos primeiro
+    if (product.group_id) {
+      await fetchSubgroups(product.group_id);
+    }
+    
+    // Definir os dados do formulário após carregar subgrupos
     const newFormData = {
       name: product.name || "",
       description: product.description || "",
@@ -91,16 +99,13 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     
     setFormData(newFormData);
     setNextCode(product.code);
-    
-    // Se tem grupo, buscar subgrupos
-    if (product.group_id) {
-      await fetchSubgroups(product.group_id);
-    }
+    setIsLoadingProduct(false); // Finalizar carregamento
     
     console.log("Dados carregados:", newFormData);
   };
 
   const resetForm = async () => {
+    setIsLoadingProduct(false); // Garantir que a flag está resetada
     setFormKey(prev => prev + 1); // Forçar re-render
     setFormData({
       name: "",
@@ -140,9 +145,12 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       fetchSubgroups(formData.group_id);
     } else {
       setSubgroups([]);
-      setFormData(prev => ({ ...prev, subgroup_id: undefined }));
+      // Só limpar subgroup_id se não estivermos carregando dados de um produto
+      if (!isLoadingProduct) {
+        setFormData(prev => ({ ...prev, subgroup_id: undefined }));
+      }
     }
-  }, [formData.group_id]);
+  }, [formData.group_id, isLoadingProduct]);
 
   const fetchInitialData = async () => {
     try {
