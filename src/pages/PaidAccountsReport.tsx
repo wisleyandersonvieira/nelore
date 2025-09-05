@@ -15,6 +15,28 @@ import * as XLSX from "xlsx";
 
 const PaidAccountsReport = () => {
   const navigate = useNavigate();
+  
+  // Function to convert date input to local timezone format - prevents timezone issues
+  const formatDateForDatabase = (dateString: string): string => {
+    if (!dateString) return dateString;
+    
+    // If already in YYYY-MM-DD format, return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString;
+    }
+    
+    // Parse the date string and format properly
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return dateString;
+  };
+
   const [filters, setFilters] = useState({
     payment_start: "",
     payment_end: "",
@@ -103,9 +125,10 @@ const PaidAccountsReport = () => {
       if (filters.payment_start || filters.payment_end) {
         accountsData = accountsData.filter((account: any) => {
           if (!account.payment_date) return false;
-          const paymentDate = new Date(account.payment_date);
-          const startDate = filters.payment_start ? new Date(filters.payment_start) : null;
-          const endDate = filters.payment_end ? new Date(filters.payment_end) : null;
+          // Parse dates without timezone conversion to avoid date shifting
+          const paymentDate = account.payment_date; // Keep as string YYYY-MM-DD
+          const startDate = filters.payment_start;
+          const endDate = filters.payment_end;
           
           if (startDate && paymentDate < startDate) return false;
           if (endDate && paymentDate > endDate) return false;
@@ -116,9 +139,10 @@ const PaidAccountsReport = () => {
       if (filters.competencia_start || filters.competencia_end) {
         accountsData = accountsData.filter((account: any) => {
           if (!account.data_competencia) return false;
-          const competenciaDate = new Date(account.data_competencia);
-          const startDate = filters.competencia_start ? new Date(filters.competencia_start) : null;
-          const endDate = filters.competencia_end ? new Date(filters.competencia_end) : null;
+          // Parse dates without timezone conversion to avoid date shifting
+          const competenciaDate = account.data_competencia; // Keep as string YYYY-MM-DD
+          const startDate = filters.competencia_start;
+          const endDate = filters.competencia_end;
           
           if (startDate && competenciaDate < startDate) return false;
           if (endDate && competenciaDate > endDate) return false;
@@ -217,8 +241,8 @@ const PaidAccountsReport = () => {
       account.description,
       account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
-      new Date(account.due_date).toLocaleDateString("pt-BR"),
-      new Date(account.payment_date).toLocaleDateString("pt-BR"),
+      account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+      account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
@@ -269,8 +293,8 @@ const PaidAccountsReport = () => {
       Título: account.description,
       Fornecedor: account.suppliers?.name || "N/A",
       Loja: account.stores?.name || "N/A",
-      Vencimento: new Date(account.due_date).toLocaleDateString("pt-BR"),
-      Pagamento: new Date(account.payment_date).toLocaleDateString("pt-BR"),
+      Vencimento: account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+      Pagamento: account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
       Valor: account.amount || 0,
       Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     }));
@@ -464,9 +488,9 @@ const PaidAccountsReport = () => {
                       <TableCell>{account.description}</TableCell>
                       <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
-                      <TableCell>{new Date(account.due_date).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A"}</TableCell>
                       <TableCell>
-                        {account.payment_date ? new Date(account.payment_date).toLocaleDateString("pt-BR") : "N/A"}
+                        {account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A"}
                       </TableCell>
                       <TableCell>
                         {account.amount?.toLocaleString("pt-BR", {
