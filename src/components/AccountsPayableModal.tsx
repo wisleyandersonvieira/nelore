@@ -602,7 +602,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const handleEditAccount = async (account: AccountPayable) => {
     console.log('🔍 Editando conta:', account);
     
-    // Verificar se a conta tem parcelas pagas (Regra 1)
+    // Verificar se a conta tem parcelas pagas para determinar se é somente anexo ou edição completa
     const { data: installmentsData, error: installmentsError } = await supabase
       .from("accounts_payable_installments")
       .select("payment_date")
@@ -619,13 +619,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       return;
     }
     
-    if (installmentsData && installmentsData.length > 0) {
+    const hasPayments = installmentsData && installmentsData.length > 0;
+    
+    if (hasPayments) {
+      // Se há pagamentos, permitir apenas upload de arquivos
       toast({
-        title: "Edição não permitida",
-        description: "Esta conta possui pagamentos realizados. Para editar, é necessário estornar os pagamentos primeiro.",
-        variant: "destructive",
+        title: "Modo somente anexos",
+        description: "Esta conta possui pagamentos realizados. Apenas upload de arquivos será permitido.",
+        variant: "default",
       });
-      return;
+      setIsViewOnly(true);
+    } else {
+      setIsViewOnly(false);
     }
     
     console.log('📎 Anexos da conta:', account.attachments);
@@ -2000,6 +2005,56 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const handleSave = async () => {
+    // Se está no modo apenas anexos (isViewOnly), permitir salvar apenas anexos
+    if (isViewOnly && editingAccount) {
+      setLoading(true);
+      try {
+        // Upload new attachments if any
+        let newAttachments: Array<{name: string, url: string, size: number}> = [];
+        if (attachments.length > 0) {
+          newAttachments = await uploadAttachments(editingAccount.id);
+        }
+        
+        // Combine existing and new attachments
+        const allAttachments = [...existingAttachments, ...newAttachments];
+
+        // Update only attachments
+        const { error: updateError } = await supabase
+          .from("accounts_payable")
+          .update({
+            attachments: allAttachments,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingAccount.id);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Anexos atualizados",
+          description: "Arquivos foram adicionados com sucesso à conta.",
+        });
+        
+        // Reset form and close
+        setAttachments([]);
+        setExistingAttachments([]);
+        setIsEditing(false);
+        setIsViewOnly(false);
+        setEditingAccount(null);
+        onOpenChange(false);
+        
+      } catch (error) {
+        console.error("Error updating attachments:", error);
+        toast({
+          title: "Erro",
+          description: "Erro ao atualizar anexos",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!noteRecorded) {
       toast({
         title: "Erro",
@@ -2656,6 +2711,19 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   };
 
   const confirmInstallments = async () => {
+    // Validar se a soma das parcelas é igual ao valor total da conta
+    const installmentsTotal = installments.reduce((sum, inst) => sum + inst.amount, 0);
+    const accountTotal = editingAccount?.amount || getTotalAmount();
+    
+    if (Math.abs(installmentsTotal - accountTotal) > 0.01) { // Tolerância para decimais
+      toast({
+        title: "Soma incorreta",
+        description: `A soma das parcelas (R$ ${installmentsTotal.toFixed(2)}) deve ser igual ao valor total da conta (R$ ${accountTotal.toFixed(2)}).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Para contas novas (apenas gravadas, não editadas de verdade), apenas fechar o modal
     // As parcelas serão inseridas no handleSave
     if (!isRealEdit || !editingAccount?.id) {
@@ -3154,6 +3222,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         type="date"
                         value={dataCompetencia}
                         onChange={(e) => setDataCompetencia(e.target.value)}
+                        disabled={isViewOnly}
                       />
                     </div>
                   </div>
@@ -3413,6 +3482,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             step="0.01"
                             value={quantity}
                             onChange={(e) => setQuantity(Number(e.target.value))}
+                            disabled={isViewOnly}
                           />
                         </div>
 
@@ -3431,6 +3501,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 setUnitPrice(parseFloat(value) || 0);
                               }
                             }}
+                            disabled={isViewOnly}
                           />
                         </div>
 
@@ -3438,7 +3509,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <Label>
                             Loja {defaultStore && <span className="text-sm text-muted-foreground">(opcional - loja padrão ativa)</span>}
                           </Label>
-                          <Select value={selectedStore} onValueChange={setSelectedStore} disabled={!!defaultStore}>
+                          <Select value={selectedStore} onValueChange={setSelectedStore} disabled={!!defaultStore || isViewOnly}>
                             <SelectTrigger>
                               <SelectValue placeholder={defaultStore ? 
                                 stores.find(s => s.id === defaultStore)?.name : "Selecione"} />
@@ -3523,30 +3594,30 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   }}>
                     Voltar
                   </Button>
-                ) : (
-                  <>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                      Cancelar
-                    </Button>
-                    
-                    {!noteRecorded ? (
-                      <Button onClick={handleRecordNote} disabled={loading}>
-                        Gravar Nota
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancelar
                       </Button>
-                     ) : (
-                      <>
-                        <Button variant="outline" onClick={openInstallmentsModal}>
-                          Parcelas {installments.length > 0 && `(${installments.length})`}
+                      
+                      {!noteRecorded ? (
+                        <Button onClick={handleRecordNote} disabled={loading}>
+                          Gravar Nota
                         </Button>
-                        
-                        
-                        <Button onClick={handleSave} disabled={loading}>
-                          {loading ? "Salvando..." : "Salvar"}
-                        </Button>
-                      </>
-                    )}
-                  </>
-                )}
+                       ) : (
+                        <>
+                          <Button variant="outline" onClick={openInstallmentsModal} disabled={isViewOnly}>
+                            Parcelas {installments.length > 0 && `(${installments.length})`}
+                          </Button>
+                          
+                          
+                          <Button onClick={handleSave} disabled={loading}>
+                            {loading ? "Salvando..." : isViewOnly ? "Salvar Anexos" : "Salvar"}
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
               </div>
             </div>
           </TabsContent>
