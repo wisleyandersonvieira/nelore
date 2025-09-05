@@ -60,6 +60,13 @@ interface DeliveryItem {
   valor: number;
 }
 
+interface CashItem {
+  id?: string;
+  cash_account_id: string;
+  cash_name?: string;
+  valor: number;
+}
+
 interface CardAccount {
   id: string;
   name: string;
@@ -71,6 +78,11 @@ interface CurrentAccount {
 }
 
 interface DeliveryAccount {
+  id: string;
+  name: string;
+}
+
+interface CashAccount {
   id: string;
   name: string;
 }
@@ -88,10 +100,12 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   const [cardItems, setCardItems] = useState<CardItem[]>([]);
   const [accountItems, setAccountItems] = useState<AccountItem[]>([]);
   const [deliveryItems, setDeliveryItems] = useState<DeliveryItem[]>([]);
+  const [cashItems, setCashItems] = useState<CashItem[]>([]);
   
   const [cardAccounts, setCardAccounts] = useState<CardAccount[]>([]);
   const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
   const [deliveryAccounts, setDeliveryAccounts] = useState<DeliveryAccount[]>([]);
+  const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
   const [editInfo, setEditInfo] = useState<{edited_at?: string; edited_by?: string} | null>(null);
@@ -122,6 +136,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       setAttachments([]);
       setExistingAttachments([]);
       setEditInfo(null);
+      setCashItems([]);
       form.reset();
     }
   }, [open, dateString, storeId]);
@@ -164,6 +179,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         setCardItems([]);
         setAccountItems([]);
         setDeliveryItems([]);
+        setCashItems([]);
         setExistingAttachments([]);
         setAttachments([]);
         setEditInfo(null);
@@ -257,9 +273,20 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         .eq('delivery_account_stores.store_id', storeId)
         .eq('is_active', true);
 
+      // Fetch cash accounts for this store
+      const { data: cashData } = await supabase
+        .from('cash_accounts')
+        .select(`
+          id, name,
+          cash_account_stores!inner (store_id)
+        `)
+        .eq('cash_account_stores.store_id', storeId)
+        .eq('is_active', true);
+
       setCardAccounts(cardData || []);
       setCurrentAccounts(currentData || []);
       setDeliveryAccounts(deliveryData || []);
+      setCashAccounts(cashData || []);
     } catch (error) {
       console.error('Erro ao carregar contas:', error);
     }
@@ -268,10 +295,13 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   // Watch form values for automatic calculations
   const watchedValues = form.watch();
   
+  const faturamentoCashItems = cashItems.reduce((sum, item) => sum + (item.valor || 0), 0);
+  
   const faturamentoDinheiro = (watchedValues.contagem_dinheiro || 0) + 
                               (watchedValues.despesas_pagas || 0) + 
                               (watchedValues.valor_mantido_caixa || 0) - 
-                              (watchedValues.saldo_inicial || 0);
+                              (watchedValues.saldo_inicial || 0) +
+                              faturamentoCashItems;
 
   const faturamentoCartao = cardItems.reduce((sum, item) => sum + (item.valor || 0), 0);
   const faturamentoConta = accountItems.reduce((sum, item) => sum + (item.valor || 0), 0);
@@ -313,6 +343,17 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     }
   };
 
+  const addCashItem = (cashId: string, valor: number) => {
+    const cashAccount = cashAccounts.find(c => c.id === cashId);
+    if (cashAccount && valor > 0) {
+      setCashItems(prev => [...prev, {
+        cash_account_id: cashId,
+        cash_name: cashAccount.name,
+        valor
+      }]);
+    }
+  };
+
   const removeCardItem = (index: number) => {
     setCardItems(prev => prev.filter((_, i) => i !== index));
   };
@@ -323,6 +364,10 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
   const removeDeliveryItem = (index: number) => {
     setDeliveryItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeCashItem = (index: number) => {
+    setCashItems(prev => prev.filter((_, i) => i !== index));
   };
 
   // Função utilitária para upload de arquivo
@@ -714,6 +759,17 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                   />
                 </div>
 
+                <CashItemsSection
+                  items={cashItems}
+                  accounts={cashAccounts}
+                  onAdd={addCashItem}
+                  onRemove={removeCashItem}
+                  accountKeyName="cash_account_id"
+                  accountDisplayName="cash_name"
+                  placeholder="Selecione uma conta de caixa"
+                  isReadOnly={isReadOnly}
+                />
+
                 <div className="bg-muted p-4 rounded-lg">
                   <Label>Faturamento Dinheiro: R$ {faturamentoDinheiro.toFixed(2)}</Label>
                 </div>
@@ -1010,3 +1066,6 @@ const AccountItemsSection = CardItemsSection;
 
 // Componente para seção de itens de delivery
 const DeliveryItemsSection = CardItemsSection;
+
+// Componente para seção de itens de cash
+const CashItemsSection = CardItemsSection;
