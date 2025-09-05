@@ -185,7 +185,10 @@ const TurnoverReport = () => {
           faturamento_cartao,
           faturamento_conta,
           faturamento_delivery,
-          faturamento_total
+          faturamento_total,
+          cash_control_card_items(valor, card_account_id),
+          cash_control_account_items(valor, current_account_id),
+          cash_control_delivery_items(valor, delivery_account_id)
         `)
         .eq('store_id', selectedStore)
         .order('date');
@@ -202,14 +205,55 @@ const TurnoverReport = () => {
 
       if (error) throw error;
 
-      const processedData = (data || []).map(item => ({
-        date: item.date,
-        dinheiro: item.faturamento_dinheiro || 0,
-        cartao: item.faturamento_cartao || 0,
-        contas: item.faturamento_conta || 0,
-        delivery: item.faturamento_delivery || 0,
-        total: item.faturamento_total || 0
-      }));
+      const processedData = (data || []).map(item => {
+        let dinheiro = item.faturamento_dinheiro || 0;
+        let cartao = 0;
+        let contas = 0;
+        let delivery = 0;
+
+        // Se há contas selecionadas, filtrar apenas essas contas
+        if (selectedAccounts.length > 0) {
+          // Filtrar cartão
+          cartao = (item.cash_control_card_items || [])
+            .filter(cardItem => selectedAccounts.includes(cardItem.card_account_id))
+            .reduce((sum, cardItem) => sum + (cardItem.valor || 0), 0);
+
+          // Filtrar contas correntes
+          contas = (item.cash_control_account_items || [])
+            .filter(accountItem => selectedAccounts.includes(accountItem.current_account_id))
+            .reduce((sum, accountItem) => sum + (accountItem.valor || 0), 0);
+
+          // Filtrar delivery
+          delivery = (item.cash_control_delivery_items || [])
+            .filter(deliveryItem => selectedAccounts.includes(deliveryItem.delivery_account_id))
+            .reduce((sum, deliveryItem) => sum + (deliveryItem.valor || 0), 0);
+
+          // Para dinheiro, verificar se alguma conta de caixa foi selecionada
+          const cashAccountSelected = selectedAccounts.some(accountId => 
+            accounts.find(acc => acc.id === accountId && acc.type === 'cash')
+          );
+          
+          if (!cashAccountSelected) {
+            dinheiro = 0;
+          }
+        } else {
+          // Se nenhuma conta selecionada, usar os valores totais
+          cartao = item.faturamento_cartao || 0;
+          contas = item.faturamento_conta || 0;
+          delivery = item.faturamento_delivery || 0;
+        }
+
+        const total = dinheiro + cartao + contas + delivery;
+
+        return {
+          date: item.date,
+          dinheiro,
+          cartao,
+          contas,
+          delivery,
+          total
+        };
+      });
 
       setReportData(processedData);
     } catch (error) {
