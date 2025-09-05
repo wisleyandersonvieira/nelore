@@ -169,12 +169,15 @@ const CashControl = () => {
           onMonthChange={setCurrentDate}
           onSelect={handleDateSelect}
           modifiers={{
-            hasData: (date) => datesWithData.has(date.toISOString().split('T')[0]),
+            hasData: (date) => {
+              const dateString = date.toISOString().split('T')[0];
+              return datesWithData.has(dateString) && !approvedDates.has(dateString);
+            },
             approved: (date) => approvedDates.has(date.toISOString().split('T')[0])
           }}
           modifiersClassNames={{
             hasData: "bg-yellow-100 border-2 border-yellow-300",
-            approved: "bg-green-100 border-2 border-green-400"
+            approved: "bg-green-100 border-2 border-green-300"
           }}
           className={cn(
             "rounded-lg border shadow-lg p-4 md:p-8 pointer-events-auto bg-card",
