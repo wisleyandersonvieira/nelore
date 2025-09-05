@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
+import { SupplierSearchModal } from "./SupplierSearchModal";
+import { ProductSearchModal } from "./ProductSearchModal";
 import * as pdfjsLib from 'pdfjs-dist';
 
 interface AccountsPayableModalProps {
@@ -138,6 +140,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [filterCurrentAccount, setFilterCurrentAccount] = useState("");
   const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [showFilteredData, setShowFilteredData] = useState(false);
 
   // Payment tab filters
@@ -193,6 +196,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [attachments, setAttachments] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url: string, size: number}>>([]);
 
+  // Search modals state
+  const [showSupplierSearch, setShowSupplierSearch] = useState(false);
+  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+
   useEffect(() => {
     if (open) {
       fetchSuppliers();
@@ -201,8 +210,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchStores();
       fetchCurrentAccounts();
       if (activeTab === "view") {
-        // Buscar todas as contas por padrão na aba visualizar
-        fetchFilteredAccountsPayable();
+        // Buscar as 5 últimas contas por padrão na aba visualizar
+        fetchLatestAccounts();
       }
       if (activeTab === "payment") {
         clearPaymentFilters();
@@ -242,6 +251,36 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchProducts();
     }
   }, [isEmployeeMode]);
+
+  const fetchLatestAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("accounts_payable")
+        .select(`
+          *,
+          suppliers(name),
+          employees(name),
+          stores(name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+      }));
+      setAccountsPayable(formattedData);
+      setShowFilteredData(true);
+    } catch (error) {
+      console.error("Error fetching latest accounts:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar últimas contas cadastradas",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchAccountsPayable = async () => {
     try {
@@ -426,6 +465,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (filterDueDateTo) {
         query = query.lte("due_date", filterDueDateTo);
       }
+      
+      // Apply status filter
+      if (filterStatus && filterStatus !== "all") {
+        if (filterStatus === "pending") {
+          query = query.eq("status", "pending");
+        } else if (filterStatus === "paid") {
+          query = query.eq("status", "paid");
+        } else if (filterStatus === "partial") {
+          query = query.eq("status", "partial");
+        }
+      }
 
       query = query.order("created_at", { ascending: false });
 
@@ -464,8 +514,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setFilterCurrentAccount("");
     setFilterDueDateFrom("");
     setFilterDueDateTo("");
-    setAccountsPayable([]);
-    setShowFilteredData(false);
+    setFilterStatus("all");
+    fetchLatestAccounts(); // Voltar para as 5 últimas contas
+  };
+
+  // Filtered supplier list for combobox
+  const filteredSuppliers = suppliers.filter(supplier =>
+    supplier.name.toLowerCase().includes(supplierSearchTerm.toLowerCase())
+  );
+
+  // Filtered product list for combobox
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
+
+  const handleSupplierSelect = (supplier: Supplier) => {
+    setSupplierId(supplier.id);
+    setSupplierSearchTerm(supplier.name);
+  };
+
+  const handleProductSelect = (product: Product) => {
+    setSelectedProduct(product.id);
+    setProductSearchTerm(product.name);
   };
 
   const openPaymentModal = async (account: AccountPayable) => {
@@ -553,11 +623,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const employee = employees.find(e => e.name === account.employees?.name);
       setEmployeeId(employee?.id || "");
       setSupplierId("");
+      setSupplierSearchTerm("");
     } else {
       setIsEmployeeMode(false);
       const supplier = suppliers.find(s => s.name === account.suppliers?.name);
       setSupplierId(supplier?.id || "");
       setEmployeeId("");
+      setSupplierSearchTerm(supplier?.name || "");
     }
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
@@ -628,11 +700,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const employee = employees.find(e => e.name === account.employees?.name);
       setEmployeeId(employee?.id || "");
       setSupplierId("");
+      setSupplierSearchTerm("");
     } else {
       setIsEmployeeMode(false);
       const supplier = suppliers.find(s => s.name === account.suppliers?.name);
       setSupplierId(supplier?.id || "");
       setEmployeeId("");
+      setSupplierSearchTerm(supplier?.name || "");
     }
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
@@ -2646,7 +2720,19 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
               {/* Filtros */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Filtros de Busca</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Filter className="h-5 w-5" />
+                    Filtros de Busca
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {showFilteredData ? 
+                      (filterDateFrom || filterDateTo || filterSupplier !== "" || filterStore !== "" || filterDocumentNumber || filterDueDateFrom || filterDueDateTo || filterStatus !== "all" 
+                        ? `${accountsPayable.length} conta(s) encontrada(s) com os filtros aplicados`
+                        : `Exibindo as 5 contas mais recentes`
+                      )
+                      : "Configure os filtros para buscar contas específicas ou veja as últimas cadastradas"
+                    }
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -2726,6 +2812,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         value={filterDueDateTo}
                         onChange={(e) => setFilterDueDateTo(e.target.value)}
                       />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="filter-status">Status</Label>
+                      <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todos os status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="pending">Pendente</SelectItem>
+                          <SelectItem value="partial">Parcial</SelectItem>
+                          <SelectItem value="paid">Pago</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="flex gap-2 mt-4">
@@ -2935,18 +3036,42 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Select value={supplierId} onValueChange={setSupplierId} disabled={isViewOnly}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um fornecedor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {suppliers.map((supplier) => (
-                                <SelectItem key={supplier.id} value={supplier.id}>
-                                  {supplier.name} {supplier.cnpj_cpf && `(${supplier.cnpj_cpf})`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <Input
+                              placeholder="Digite o nome do fornecedor..."
+                              value={supplierSearchTerm}
+                              onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                              disabled={isViewOnly}
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowSupplierSearch(true)}
+                              disabled={isViewOnly}
+                              className="absolute right-0 top-0 h-full px-3"
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                            
+                            {supplierSearchTerm && filteredSuppliers.length > 0 && (
+                              <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                                {filteredSuppliers.slice(0, 5).map((supplier) => (
+                                  <div
+                                    key={supplier.id}
+                                    className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                                    onClick={() => handleSupplierSelect(supplier)}
+                                  >
+                                    <div className="font-medium">{supplier.name}</div>
+                                    {supplier.cnpj_cpf && (
+                                      <div className="text-sm text-muted-foreground">{supplier.cnpj_cpf}</div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -3219,18 +3344,41 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-2">
                           <Label>Produto</Label>
-                          <Select value={selectedProduct} onValueChange={setSelectedProduct} disabled={isViewOnly}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.id}>
-                                  {product.code ? `${product.code} - ` : ""}{product.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <Input
+                              placeholder="Digite o nome do produto..."
+                              value={productSearchTerm}
+                              onChange={(e) => setProductSearchTerm(e.target.value)}
+                              disabled={isViewOnly}
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowProductSearch(true)}
+                              disabled={isViewOnly}
+                              className="absolute right-0 top-0 h-full px-3"
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                            
+                            {productSearchTerm && filteredProducts.length > 0 && (
+                              <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                                {filteredProducts.slice(0, 5).map((product) => (
+                                  <div
+                                    key={product.id}
+                                    className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                                    onClick={() => handleProductSelect(product)}
+                                  >
+                                    <div className="font-medium">
+                                      {product.code ? `${product.code} - ` : ""}{product.name}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="space-y-2">
@@ -3740,6 +3888,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Supplier Search Modal */}
+        <SupplierSearchModal
+          open={showSupplierSearch}
+          onOpenChange={setShowSupplierSearch}
+          onSelectSupplier={handleSupplierSelect}
+        />
+
+        {/* Product Search Modal */}
+        <ProductSearchModal
+          open={showProductSearch}
+          onOpenChange={setShowProductSearch}
+          onSelectProduct={handleProductSelect}
+          isEmployeeMode={isEmployeeMode}
+        />
       </DialogContent>
     </Dialog>
   );
