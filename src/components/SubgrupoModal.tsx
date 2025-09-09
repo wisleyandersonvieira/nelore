@@ -39,6 +39,8 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
   const [showForm, setShowForm] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'parent' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filterGroup, setFilterGroup] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     parent_id: ""
@@ -243,7 +245,17 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
     }
   };
 
-  const sortedSubgrupos = [...subgrupos].sort((a, b) => {
+  // Filtrar e ordenar subgrupos
+  const filteredSubgrupos = subgrupos.filter((subgrupo) => {
+    const matchesSearch = searchTerm === "" || 
+      subgrupo.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGroup = filterGroup === "" || 
+      subgrupo.parent_id === filterGroup;
+    
+    return matchesSearch && matchesGroup;
+  });
+
+  const sortedSubgrupos = [...filteredSubgrupos].sort((a, b) => {
     if (!sortBy) return 0;
     
     let aValue = '';
@@ -279,24 +291,55 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0">
+        <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle>Cadastro de Subgrupos</DialogTitle>
           <DialogDescription>
             Gerencie os subgrupos de contas financeiras
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-          {/* Botão Novo */}
-          <Button
-            onClick={() => setShowForm(true)}
-            className="self-start"
-            disabled={loading}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Subgrupo
-          </Button>
+        <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
+          {/* Controles superiores */}
+          <div className="flex flex-wrap gap-4 items-center">
+            <Button
+              onClick={() => setShowForm(true)}
+              disabled={loading}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Subgrupo
+            </Button>
+            
+            {/* Filtros */}
+            <div className="flex gap-4 items-center flex-1">
+              <div className="flex-1 max-w-xs">
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="w-48">
+                <Select
+                  value={filterGroup}
+                  onValueChange={setFilterGroup}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Filtrar por grupo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos os grupos</SelectItem>
+                    {grupos.map((grupo) => (
+                      <SelectItem key={grupo.id} value={grupo.id}>
+                        {grupo.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
           {/* Formulário */}
           {showForm && (
@@ -349,17 +392,17 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
           )}
 
           {/* Lista de Subgrupos */}
-          <Card className="flex-1 overflow-hidden">
-            <CardHeader>
-              <CardTitle>Subgrupos Cadastrados</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[300px] overflow-y-auto">
+          <div className="flex-1 border rounded-md overflow-hidden bg-card">
+            <div className="border-b px-4 py-3">
+              <h3 className="font-semibold">Subgrupos Cadastrados ({sortedSubgrupos.length})</h3>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
+                  <TableHeader className="sticky top-0 bg-card border-b shadow-sm z-10">
+                    <TableRow className="hover:bg-transparent">
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
                         onClick={() => handleSort('name')}
                       >
                         <div className="flex items-center">
@@ -368,7 +411,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
                         onClick={() => handleSort('parent')}
                       >
                         <div className="flex items-center">
@@ -376,40 +419,41 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                           {getSortIcon('parent')}
                         </div>
                       </TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableHead className="h-10 py-2">Status</TableHead>
+                      <TableHead className="text-right h-10 py-2">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center">
+                        <TableCell colSpan={4} className="text-center h-20">
                           Carregando...
                         </TableCell>
                       </TableRow>
-                    ) : subgrupos.length === 0 ? (
+                    ) : sortedSubgrupos.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
-                          Nenhum subgrupo encontrado
+                        <TableCell colSpan={4} className="text-center text-muted-foreground h-20">
+                          {searchTerm || filterGroup ? "Nenhum subgrupo encontrado com os filtros aplicados" : "Nenhum subgrupo encontrado"}
                         </TableCell>
                       </TableRow>
                      ) : (
                        sortedSubgrupos.map((subgrupo) => (
-                        <TableRow key={subgrupo.id}>
-                          <TableCell className="font-medium">{subgrupo.name}</TableCell>
-                          <TableCell>{subgrupo.parent?.name || 'N/A'}</TableCell>
-                          <TableCell>
-                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                        <TableRow key={subgrupo.id} className="h-12">
+                          <TableCell className="font-medium py-2">{subgrupo.name}</TableCell>
+                          <TableCell className="py-2">{subgrupo.parent?.name || 'N/A'}</TableCell>
+                          <TableCell className="py-2">
+                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                               Ativo
                             </span>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right py-2">
                             <div className="flex gap-1 justify-end">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEdit(subgrupo)}
                                 title="Editar"
+                                className="h-8 w-8 p-0"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -419,6 +463,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                                 onClick={() => handleToggleStatus(subgrupo)}
                                 title="Bloquear/Desbloquear"
                                 disabled
+                                className="h-8 w-8 p-0"
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>
@@ -427,7 +472,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                                 size="sm"
                                 onClick={() => handleDelete(subgrupo)}
                                 title="Excluir"
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -439,8 +484,8 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
