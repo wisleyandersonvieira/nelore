@@ -18,8 +18,8 @@ interface Parameter {
   id: string;
   name: string;
   description: string;
-  type: 'acrescimo' | 'desconto' | 'sorvete' | 'mercadorias_diversas' | 'embalagens' | 'funcionarios';
-  category: 'product' | 'subgroup' | 'group';
+  type: 'acrescimo' | 'desconto' | 'sorvete' | 'mercadorias_diversas' | 'embalagens' | 'funcionarios' | 'faturamento';
+  category: 'product' | 'subgroup' | 'group' | 'faturamento';
   productId?: string;
   productName?: string;
   subgroupId?: string;
