@@ -292,8 +292,21 @@ export const DREView: React.FC = () => {
       item.parent_id === groupId && item.item_type === 'subgroup'
     );
     
+    // Se não encontrar subgrupos pelo parent_id, vamos verificar se o problema está na estrutura
+    if (subgroups.length === 0) {
+      console.log(`No subgroups found for group ${groupId}. All structure items:`, structureItems);
+      
+      // Procurar o grupo atual para verificar se existe
+      const currentGroup = structureItems.find(item => item.id === groupId);
+      console.log(`Current group:`, currentGroup);
+      
+      // Verificar se há subgrupos que deveriam estar vinculados a este grupo
+      const allSubgroups = structureItems.filter(item => item.item_type === 'subgroup');
+      console.log(`All subgroups:`, allSubgroups);
+    }
+    
     console.log(`Calculating group ${groupId}:`, {
-      subgroups: subgroups.map(s => ({ id: s.id, name: s.name, value: data.values[s.id] || 0 })),
+      subgroups: subgroups.map(s => ({ id: s.id, name: s.name, parent_id: s.parent_id, value: data.values[s.id] || 0 })),
       totalSubgroups: subgroups.length
     });
     
