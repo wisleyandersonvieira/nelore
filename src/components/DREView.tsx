@@ -414,13 +414,26 @@ export const DREView: React.FC = () => {
     return months[month - 1]?.label || month.toString();
   };
 
-  // Agrupar dados por mês
+  // Agrupar dados por mês, mantendo separação por loja
   const groupedData = dreData.reduce((acc, data) => {
     const key = `${data.year}-${data.month}`;
     if (!acc[key]) {
       acc[key] = [];
     }
-    acc[key].push(data);
+    // Verificar se já existe uma entrada para esta loja neste período
+    const existingStoreIndex = acc[key].findIndex(item => item.store_id === data.store_id);
+    if (existingStoreIndex >= 0) {
+      // Somar os valores se já existe entrada para esta loja
+      Object.keys(data.values).forEach(structureItemId => {
+        if (!acc[key][existingStoreIndex].values[structureItemId]) {
+          acc[key][existingStoreIndex].values[structureItemId] = 0;
+        }
+        acc[key][existingStoreIndex].values[structureItemId] += data.values[structureItemId];
+      });
+    } else {
+      // Adicionar nova entrada se não existe para esta loja
+      acc[key].push(data);
+    }
     return acc;
   }, {} as Record<string, DREData[]>);
 
