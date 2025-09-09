@@ -206,6 +206,9 @@ export const DREView: React.FC = () => {
       // Agrupar dados por mês, loja e subgrupo
       const groupedData: Record<string, DREData> = {};
 
+      console.log('Structure items:', structureItems);
+      console.log('Accounts payable data:', accountsPayableData);
+
       accountsPayableData?.forEach((account: any) => {
         const competenciaDate = new Date(account.data_competencia);
         const month = competenciaDate.getMonth() + 1;
@@ -236,17 +239,26 @@ export const DREView: React.FC = () => {
             const subgroupId = item.products.subgroup_id;
             const value = parseFloat(item.total_price) || 0;
 
+            console.log('Processing item:', {
+              productName: item.products.name,
+              subgroupId,
+              value
+            });
+
             // Encontrar o item da estrutura que corresponde a este subgrupo
             const structureItem = structureItems.find(si => 
               si.item_type === 'subgroup' && 
               si.account_group_id === subgroupId
             );
 
+            console.log('Found structure item:', structureItem);
+
             if (structureItem) {
               if (!groupedData[key].values[structureItem.id]) {
                 groupedData[key].values[structureItem.id] = 0;
               }
               groupedData[key].values[structureItem.id] += value;
+              console.log(`Added ${value} to structure item ${structureItem.name}, total now: ${groupedData[key].values[structureItem.id]}`);
             }
           }
         });
@@ -254,6 +266,7 @@ export const DREView: React.FC = () => {
 
       // Converter para array
       const formattedData: DREData[] = Object.values(groupedData);
+      console.log('Final grouped data:', formattedData);
       setDreData(formattedData);
 
       if (formattedData.length === 0) {
@@ -279,10 +292,13 @@ export const DREView: React.FC = () => {
       item.parent_id === groupId && item.item_type === 'subgroup'
     );
     
+    console.log(`Calculating group ${groupId}:`, {
+      subgroups: subgroups.map(s => ({ id: s.id, name: s.name, value: data.values[s.id] || 0 })),
+      totalSubgroups: subgroups.length
+    });
+    
     return subgroups.reduce((total, subgroup) => {
       const value = data.values[subgroup.id] || 0;
-      // Para grupos, simplesmente somamos todos os valores dos subgrupos
-      // A operação de débito/crédito já será considerada na exibição
       return total + value;
     }, 0);
   };
