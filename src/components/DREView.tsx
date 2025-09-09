@@ -28,6 +28,7 @@ interface StructureItem {
   position_order: number;
   parent_id?: string;
   sum_items?: string[];
+  account_group_id?: string;
 }
 
 interface DREData {
@@ -121,7 +122,7 @@ export const DREView: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('dre_structure_items')
-        .select('*')
+        .select('*, account_group_id')
         .eq('structure_id', selectedStructure)
         .order('position_order');
 
@@ -134,7 +135,8 @@ export const DREView: React.FC = () => {
         operation_type: item.operation_type as 'credit' | 'debit',
         position_order: item.position_order,
         parent_id: item.parent_id,
-        sum_items: item.sum_items || []
+        sum_items: item.sum_items || [],
+        account_group_id: item.account_group_id
       }));
       
       setStructureItems(formattedItems);
@@ -175,41 +177,92 @@ export const DREView: React.FC = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('dre_entries')
+      // Buscar contas a pagar com produtos
+      const { data: accountsPayableData, error: apError } = await supabase
+        .from('accounts_payable')
         .select(`
-          month,
-          year,
+          id,
           store_id,
-          stores (name),
-          dre_entry_values (
-            structure_item_id,
-            value
-          )
+          competencia_date,
+          accounts_payable_items (
+            product_id,
+            quantity,
+            unit_price,
+            total_price,
+            products (
+              id,
+              name,
+              subgroup_id
+            )
+          ),
+          stores (name)
         `)
-        .eq('structure_id', selectedStructure)
-        .eq('year', parseInt(selectedYear))
         .in('store_id', selectedStores)
-        .in('month', selectedMonths.map(m => parseInt(m)));
+        .gte('competencia_date', `${selectedYear}-01-01`)
+        .lte('competencia_date', `${selectedYear}-12-31`);
 
-      if (error) throw error;
+      if (apError) throw apError;
 
-      const formattedData: DREData[] = data?.map((entry: any) => {
-        const values: Record<string, number> = {};
-        entry.dre_entry_values?.forEach((value: any) => {
-          values[value.structure_item_id] = parseFloat(value.value) || 0;
+      // Agrupar dados por mês, loja e subgrupo
+      const groupedData: Record<string, DREData> = {};
+
+      accountsPayableData?.forEach((account: any) => {
+        const competenciaDate = new Date(account.competencia_date);
+        const month = competenciaDate.getMonth() + 1;
+        const year = competenciaDate.getFullYear();
+
+        // Verificar se o mês está selecionado
+        if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+          return;
+        }
+
+        const storeId = account.store_id;
+        const storeName = account.stores?.name || 'Loja sem nome';
+        const key = `${storeId}-${month}`;
+
+        // Inicializar se não existir
+        if (!groupedData[key]) {
+          groupedData[key] = {
+            month,
+            year: parseInt(selectedYear),
+            store_id: storeId,
+            store_name: storeName,
+            values: {}
+          };
+        }
+
+        account.accounts_payable_items?.forEach((item: any) => {
+          if (item.products?.subgroup_id) {
+            const subgroupId = item.products.subgroup_id;
+            const value = parseFloat(item.total_price) || 0;
+
+            // Encontrar o item da estrutura que corresponde a este subgrupo
+            const structureItem = structureItems.find(si => 
+              si.item_type === 'subgroup' && 
+              si.account_group_id === subgroupId
+            );
+
+            if (structureItem) {
+              if (!groupedData[key].values[structureItem.id]) {
+                groupedData[key].values[structureItem.id] = 0;
+              }
+              groupedData[key].values[structureItem.id] += value;
+            }
+          }
         });
+      });
 
-        return {
-          month: entry.month,
-          year: entry.year,
-          store_id: entry.store_id,
-          store_name: entry.stores?.name || 'Loja sem nome',
-          values
-        };
-      }) || [];
-
+      // Converter para array
+      const formattedData: DREData[] = Object.values(groupedData);
       setDreData(formattedData);
+
+      if (formattedData.length === 0) {
+        toast({
+          title: "Nenhum dado encontrado",
+          description: "Não foram encontradas contas a pagar para os filtros selecionados",
+          variant: "default",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Erro ao carregar dados DRE",
