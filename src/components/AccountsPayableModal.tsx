@@ -1920,10 +1920,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       const totalAmount = getTotalAmount();
       
+      // Usar a loja do primeiro item se houver itens, senão usar a loja do usuário
+      const storeToUse = items.length > 0 ? items[0].store_id : userProfile.store_id;
+      
       const { data: payable, error: payableError } = await supabase
         .from("accounts_payable")
         .insert({
-          store_id: userProfile.store_id,
+          store_id: storeToUse,
           supplier_id: isEmployeeMode ? null : supplierId,
           employee_id: isEmployeeMode ? employeeId : null,
           account_id: null, // Será definido quando pagar a conta
@@ -2232,6 +2235,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         // Create new account
         const userStore = await supabase.from("profiles").select("store_id").eq("id", user.id).single();
 
+        // Usar a loja do primeiro item se houver itens, senão usar a loja do usuário
+        const storeToUse = items.length > 0 ? items[0].store_id : userStore.data?.store_id;
+
         const { data: payable, error: payableError } = await supabase
           .from("accounts_payable")
           .insert({
@@ -2245,7 +2251,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             amount: totalAmount,
             total_amount: totalAmount,
             notes,
-            store_id: userStore.data?.store_id,
+            store_id: storeToUse,
             created_by: user.id,
             due_date: installments.length > 0 ? installments[0].due_date : dueDate,
             account_id: "11111111-1111-1111-1111-111111111111",
