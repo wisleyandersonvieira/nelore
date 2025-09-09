@@ -10,7 +10,7 @@ import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2, Sear
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 interface StockRegisterModalProps {
@@ -440,7 +440,7 @@ export const StockRegisterModal = ({
     ]);
     
     // Configurar tabela
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [['Produto', 'Unidade', 'Custo Unitário', 'Quantidade', 'Total']],
       body: tableData,
       startY: 50,
