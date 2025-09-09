@@ -552,15 +552,18 @@ export const DREView: React.FC = () => {
           });
         }
 
-        // Para estoque final: buscar o valor total do estoque do mês atual (mesmo valor do resumo do controle de estoque)
+        // Para estoque final: buscar mês anterior (mesmo código do estoque inicial)
         const finalStockItems = stockItems.filter(item => item.item_type === 'final_stock');
         if (finalStockItems.length > 0) {
+          const prevMonth = month === 1 ? 12 : month - 1;
+          const prevYear = month === 1 ? year - 1 : year;
+
           const { data: finalStockData, error: finalError } = await supabase
             .from('stock_control')
             .select('total_value')
             .eq('store_id', store_id)
-            .eq('month', month)
-            .eq('year', year)
+            .eq('month', prevMonth)
+            .eq('year', prevYear)
             .single();
 
           if (finalError && finalError.code !== 'PGRST116') {
