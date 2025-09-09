@@ -3106,29 +3106,29 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </TabsList>
 
                 <TabsContent value="form" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="employee-mode"
-                            checked={isEmployeeMode}
-                            onChange={(e) => {
-                              setIsEmployeeMode(e.target.checked);
-                              // Limpar seleções ao trocar de modo
-                              setSupplierId("");
-                              setEmployeeId("");
-                            }}
-                            disabled={isViewOnly}
-                            className="h-4 w-4"
-                          />
-                          <Label htmlFor="employee-mode" className="text-sm font-medium">
-                            Funcionário
-                          </Label>
-                        </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="employee-mode"
+                          checked={isEmployeeMode}
+                          onChange={(e) => {
+                            setIsEmployeeMode(e.target.checked);
+                            // Limpar seleções ao trocar de modo
+                            setSupplierId("");
+                            setEmployeeId("");
+                          }}
+                          disabled={isViewOnly}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="employee-mode" className="text-sm font-medium">
+                          Funcionário
+                        </Label>
                       </div>
-                      
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="supplier">{isEmployeeMode ? "Funcionário *" : "Fornecedor *"}</Label>
                         {isEmployeeMode ? (
@@ -3185,66 +3185,68 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           </div>
                         )}
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="documentType">Tipo do Documento *</Label>
+                        <Select value={documentType} onValueChange={setDocumentType} disabled={isViewOnly}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {documentTypes.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="documentType">Tipo do Documento *</Label>
-                      <Select value={documentType} onValueChange={setDocumentType} disabled={isViewOnly}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {documentTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="documentNumber">Número do Documento *</Label>
+                        <Input
+                          id="documentNumber"
+                          value={documentNumber}
+                          onChange={(e) => setDocumentNumber(e.target.value)}
+                          placeholder="Ex: 12345"
+                          disabled={isViewOnly}
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="documentNumber">Número do Documento *</Label>
-                      <Input
-                        id="documentNumber"
-                        value={documentNumber}
-                        onChange={(e) => setDocumentNumber(e.target.value)}
-                        placeholder="Ex: 12345"
-                        disabled={isViewOnly}
-                      />
-                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="issueDate">Data de Emissão *</Label>
+                        <Input
+                          id="issueDate"
+                          type="date"
+                          value={issueDate}
+                          onChange={(e) => setIssueDate(e.target.value)}
+                          disabled={isViewOnly}
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="issueDate">Data de Emissão *</Label>
-                      <Input
-                        id="issueDate"
-                        type="date"
-                        value={issueDate}
-                        onChange={(e) => setIssueDate(e.target.value)}
-                        disabled={isViewOnly}
-                      />
-                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="dueDate">Data de Vencimento *</Label>
+                        <Input
+                          id="dueDate"
+                          type="date"
+                          value={dueDate}
+                          onChange={(e) => setDueDate(e.target.value)}
+                          disabled={isViewOnly}
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="dueDate">Data de Vencimento *</Label>
-                      <Input
-                        id="dueDate"
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        disabled={isViewOnly}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="dataCompetencia">Data de Competência *</Label>
-                      <Input
-                        id="dataCompetencia"
-                        type="date"
-                        value={dataCompetencia}
-                        onChange={(e) => setDataCompetencia(e.target.value)}
-                        disabled={isViewOnly}
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="dataCompetencia">Data de Competência *</Label>
+                        <Input
+                          id="dataCompetencia"
+                          type="date"
+                          value={dataCompetencia}
+                          onChange={(e) => setDataCompetencia(e.target.value)}
+                          disabled={isViewOnly}
+                        />
+                      </div>
                     </div>
                   </div>
 
