@@ -7,6 +7,7 @@ import { Settings, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { ProductParameterModal } from "./ProductParameterModal";
 import { SubgroupParameterModal } from "./SubgroupParameterModal";
 import { GrupoParameterModal } from "./GrupoParameterModal";
+import { FaturamentoParameterModal } from "./FaturamentoParameterModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ParametersModalProps {
@@ -33,6 +34,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
   const [productParameterOpen, setProductParameterOpen] = useState(false);
   const [subgroupParameterOpen, setSubgroupParameterOpen] = useState(false);
   const [groupParameterOpen, setGroupParameterOpen] = useState(false);
+  const [faturamentoParameterOpen, setFaturamentoParameterOpen] = useState(false);
   const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string; groupId?: string; groupName?: string }>>({});
 
   // Parâmetros padrão do sistema
@@ -91,13 +93,20 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       groupId: configuredParameters['funcionarios']?.groupId,
       groupName: configuredParameters['funcionarios']?.groupName,
     },
+    {
+      id: 'faturamento',
+      name: 'Faturamento',
+      description: 'Configurar subgrupos para tipos de venda (Dinheiro, Cartão, Contas, Delivery)',
+      type: 'faturamento',
+      category: 'faturamento',
+    },
   ];
 
   useEffect(() => {
     if (open) {
       loadConfiguredParameters();
     }
-  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen]);
+  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen]);
 
   const loadConfiguredParameters = async () => {
     try {
@@ -168,6 +177,8 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       setSubgroupParameterOpen(true);
     } else if (parameter.category === 'group') {
       setGroupParameterOpen(true);
+    } else if (parameter.category === 'faturamento') {
+      setFaturamentoParameterOpen(true);
     }
   };
 
@@ -185,6 +196,8 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return <Settings className="h-5 w-5 text-teal-600" />;
       case 'funcionarios':
         return <Settings className="h-5 w-5 text-indigo-600" />;
+      case 'faturamento':
+        return <Settings className="h-5 w-5 text-emerald-600" />;
       default:
         return <Settings className="h-5 w-5 text-blue-600" />;
     }
@@ -204,6 +217,8 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return 'bg-teal-100 hover:bg-teal-200';
       case 'funcionarios':
         return 'bg-indigo-100 hover:bg-indigo-200';
+      case 'faturamento':
+        return 'bg-emerald-100 hover:bg-emerald-200';
       default:
         return 'bg-blue-100 hover:bg-blue-200';
     }
@@ -243,10 +258,12 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                           {getParameterIcon(parameter.type)}
                           {parameter.name}
                         </CardTitle>
-                        <Badge variant="secondary" className="text-xs">
-                          {parameter.category === 'product' ? 'PRODUTO' : 
-                           parameter.category === 'subgroup' ? 'SUBGRUPO' : 'GRUPO'}
-                        </Badge>
+                         <Badge variant="secondary" className="text-xs">
+                           {parameter.category === 'product' ? 'PRODUTO' : 
+                            parameter.category === 'subgroup' ? 'SUBGRUPO' : 
+                            parameter.category === 'group' ? 'GRUPO' :
+                            parameter.category === 'faturamento' ? 'FATURAMENTO' : 'OUTRO'}
+                         </Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -317,6 +334,18 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
           name: selectedParameter.name,
           description: selectedParameter.description,
           type: selectedParameter.type as 'funcionarios',
+          category: selectedParameter.category
+        } : null}
+      />
+
+      <FaturamentoParameterModal
+        open={faturamentoParameterOpen}
+        onOpenChange={setFaturamentoParameterOpen}
+        parameter={selectedParameter?.category === 'faturamento' ? {
+          id: selectedParameter.id,
+          name: selectedParameter.name,
+          description: selectedParameter.description,
+          type: selectedParameter.type as 'faturamento',
           category: selectedParameter.category
         } : null}
       />
