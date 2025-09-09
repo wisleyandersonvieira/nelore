@@ -1162,6 +1162,7 @@ export type Database = {
         Row: {
           account_group_id: string | null
           created_at: string
+          description: string | null
           id: string
           item_type: string
           name: string
@@ -1174,6 +1175,7 @@ export type Database = {
         Insert: {
           account_group_id?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           item_type: string
           name: string
@@ -1186,6 +1188,7 @@ export type Database = {
         Update: {
           account_group_id?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           item_type?: string
           name?: string
