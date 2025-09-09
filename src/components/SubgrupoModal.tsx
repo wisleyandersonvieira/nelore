@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Edit, Ban, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Grupo {
   id: string;
@@ -396,95 +397,93 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
             <div className="border-b px-4 py-3">
               <h3 className="font-semibold">Subgrupos Cadastrados ({sortedSubgrupos.length})</h3>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="h-full overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card border-b shadow-sm z-10">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
-                        onClick={() => handleSort('name')}
-                      >
-                        <div className="flex items-center">
-                          Nome
-                          {getSortIcon('name')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
-                        onClick={() => handleSort('parent')}
-                      >
-                        <div className="flex items-center">
-                          Grupo
-                          {getSortIcon('parent')}
-                        </div>
-                      </TableHead>
-                      <TableHead className="h-10 py-2">Status</TableHead>
-                      <TableHead className="text-right h-10 py-2">Ações</TableHead>
+            <ScrollArea className="flex-1 h-[calc(100vh-400px)]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card border-b shadow-sm z-10">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                      onClick={() => handleSort('name')}
+                    >
+                      <div className="flex items-center">
+                        Nome
+                        {getSortIcon('name')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                      onClick={() => handleSort('parent')}
+                    >
+                      <div className="flex items-center">
+                        Grupo
+                        {getSortIcon('parent')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="h-10 py-2">Status</TableHead>
+                    <TableHead className="text-right h-10 py-2">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center h-20">
+                        Carregando...
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center h-20">
-                          Carregando...
+                  ) : sortedSubgrupos.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground h-20">
+                        {searchTerm || filterGroup ? "Nenhum subgrupo encontrado com os filtros aplicados" : "Nenhum subgrupo encontrado"}
+                      </TableCell>
+                    </TableRow>
+                   ) : (
+                     sortedSubgrupos.map((subgrupo) => (
+                      <TableRow key={subgrupo.id} className="h-12">
+                        <TableCell className="font-medium py-2">{subgrupo.name}</TableCell>
+                        <TableCell className="py-2">{subgrupo.parent?.name || 'N/A'}</TableCell>
+                        <TableCell className="py-2">
+                          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Ativo
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right py-2">
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(subgrupo)}
+                              title="Editar"
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(subgrupo)}
+                              title="Bloquear/Desbloquear"
+                              disabled
+                              className="h-8 w-8 p-0"
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(subgrupo)}
+                              title="Excluir"
+                              className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ) : sortedSubgrupos.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground h-20">
-                          {searchTerm || filterGroup ? "Nenhum subgrupo encontrado com os filtros aplicados" : "Nenhum subgrupo encontrado"}
-                        </TableCell>
-                      </TableRow>
-                     ) : (
-                       sortedSubgrupos.map((subgrupo) => (
-                        <TableRow key={subgrupo.id} className="h-12">
-                          <TableCell className="font-medium py-2">{subgrupo.name}</TableCell>
-                          <TableCell className="py-2">{subgrupo.parent?.name || 'N/A'}</TableCell>
-                          <TableCell className="py-2">
-                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Ativo
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right py-2">
-                            <div className="flex gap-1 justify-end">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(subgrupo)}
-                                title="Editar"
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleStatus(subgrupo)}
-                                title="Bloquear/Desbloquear"
-                                disabled
-                                className="h-8 w-8 p-0"
-                              >
-                                <Ban className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(subgrupo)}
-                                title="Excluir"
-                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </div>
         </div>
       </DialogContent>
