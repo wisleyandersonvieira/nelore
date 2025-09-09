@@ -991,36 +991,37 @@ export const DREView: React.FC = () => {
                     )}
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {structureItems.map((item) => (
-                    <TableRow key={item.id} className={
-                      item.item_type === 'group' ? 'font-bold' : 
-                      item.item_type === 'sum_line' ? 'bg-muted/70 font-bold' : ''
-                    }>
-                      <TableCell className={
-                        item.item_type === 'group' ? 'font-bold' : 
-                        item.item_type === 'sum_line' ? 'font-bold' : 'font-medium'
-                      }>
-                        {item.item_type === 'sum_line' && item.description 
-                          ? item.description 
-                          : item.name}
-                      </TableCell>
-                      {Object.entries(groupedData).map(([periodKey, periodData]) => 
-                        periodData.map((data, index) => (
-                           <TableCell key={`${periodKey}-${index}`} className={`text-right ${
-                             item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''
-                           } ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
-                             {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
-                             {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
-                             {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
-                             {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && 
-                               formatCurrency(calculateStockTotal(item.id, data))}
-                           </TableCell>
-                        ))
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
+                 <TableBody>
+                   {structureItems.map((item) => (
+                     <TableRow key={item.id} className={`h-8 ${
+                       item.item_type === 'group' ? 'font-bold' : 
+                       item.item_type === 'sum_line' ? 'bg-muted/70 font-bold' : ''
+                     }`}>
+                       <TableCell className={`py-1 ${
+                         item.item_type === 'group' ? 'font-bold' : 
+                         item.item_type === 'sum_line' ? 'font-bold' : 
+                         item.item_type === 'subgroup' ? 'font-medium pl-6' : 'font-medium'
+                       }`}>
+                         {item.item_type === 'sum_line' && item.description 
+                           ? item.description 
+                           : item.name}
+                       </TableCell>
+                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
+                         periodData.map((data, index) => (
+                            <TableCell key={`${periodKey}-${index}`} className={`text-right py-1 ${
+                              item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''
+                            } ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
+                              {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
+                              {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
+                              {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
+                              {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && 
+                                formatCurrency(calculateStockTotal(item.id, data))}
+                            </TableCell>
+                         ))
+                       )}
+                     </TableRow>
+                   ))}
+                 </TableBody>
               </Table>
             </div>
           </CardContent>
