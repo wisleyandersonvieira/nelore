@@ -571,13 +571,19 @@ export const DREView: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {structureItems.map((item) => (
-                    <TableRow key={item.id} className={item.item_type === 'group' ? 'font-bold' : ''}>
-                      <TableCell className={item.item_type === 'group' ? 'font-bold' : 'font-medium'}>
+                    <TableRow key={item.id} className={
+                      item.item_type === 'group' ? 'font-bold' : 
+                      item.item_type === 'sum_line' ? 'bg-muted/50 font-bold' : ''
+                    }>
+                      <TableCell className={
+                        item.item_type === 'group' ? 'font-bold' : 
+                        item.item_type === 'sum_line' ? 'font-bold' : 'font-medium'
+                      }>
                         {item.item_type === 'sum_line' && item.description 
                           ? item.description 
                           : item.name}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={item.item_type === 'sum_line' ? 'font-bold' : ''}>
                         <Badge variant={
                           item.item_type === 'group' ? 'default' : 
                           item.item_type === 'subgroup' ? 'secondary' : 'outline'
@@ -588,7 +594,9 @@ export const DREView: React.FC = () => {
                       </TableCell>
                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
                         periodData.map((data, index) => (
-                          <TableCell key={`${periodKey}-${index}`} className={`text-right ${item.item_type === 'group' ? 'font-bold' : ''} ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
+                          <TableCell key={`${periodKey}-${index}`} className={`text-right ${
+                            item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''
+                          } ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
                             {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
                             {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
                             {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
