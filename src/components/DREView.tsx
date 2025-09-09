@@ -485,7 +485,7 @@ export const DREView: React.FC = () => {
                       </TableCell>
                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
                         periodData.map((data, index) => (
-                          <TableCell key={`${periodKey}-${index}`} className={`text-right ${item.item_type === 'group' ? 'font-bold' : ''}`}>
+                          <TableCell key={`${periodKey}-${index}`} className={`text-right ${item.item_type === 'group' ? 'font-bold' : ''} ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
                             {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
                             {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
                             {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
