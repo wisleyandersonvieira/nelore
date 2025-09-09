@@ -23,6 +23,7 @@ interface StructureItem {
   account_group_id?: string;
   parent_id?: string;
   name: string;
+  description?: string; // Campo para descrição personalizada das linhas de soma
   operation_type: 'credit' | 'debit';
   position_order: number;
   sum_items?: string[];
@@ -76,6 +77,7 @@ export const DREStructure: React.FC = () => {
             account_group_id: item.account_group_id,
             parent_id: item.parent_id,
             name: item.name,
+            description: item.description,
             operation_type: item.operation_type,
             position_order: item.position_order,
             sum_items: item.sum_items || [],
@@ -167,6 +169,7 @@ export const DREStructure: React.FC = () => {
           account_group_id: item.account_group_id,
           parent_id: item.parent_id,
           name: item.name,
+          description: item.description,
           operation_type: item.operation_type,
           position_order: item.position_order,
           sum_items: item.sum_items || []
@@ -251,7 +254,8 @@ export const DREStructure: React.FC = () => {
   const addItem = (type: 'group' | 'subgroup' | 'sum_line') => {
     const newItem: StructureItem = {
       item_type: type,
-      name: "",
+      name: type === 'sum_line' ? 'Linha de Soma' : "",
+      description: type === 'sum_line' ? '' : undefined,
       operation_type: 'credit',
       position_order: currentStructure.items.length + 1,
       sum_items: type === 'sum_line' ? [] : undefined
@@ -380,16 +384,17 @@ export const DREStructure: React.FC = () => {
 
                 {currentStructure.items.length > 0 && (
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Grupo de Conta</TableHead>
-                          <TableHead>Operação</TableHead>
-                          <TableHead>Ordem</TableHead>
-                          <TableHead>Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead>Tipo</TableHead>
+                           <TableHead>Nome</TableHead>
+                           <TableHead>Descrição</TableHead>
+                           <TableHead>Grupo de Conta</TableHead>
+                           <TableHead>Operação</TableHead>
+                           <TableHead>Ordem</TableHead>
+                           <TableHead>Ações</TableHead>
+                         </TableRow>
+                       </TableHeader>
                     <TableBody>
                       {currentStructure.items.map((item, index) => (
                         <TableRow key={index}>
@@ -411,6 +416,17 @@ export const DREStructure: React.FC = () => {
                                 )
                                }
                              </span>
+                           </TableCell>
+                           <TableCell>
+                             {item.item_type === 'sum_line' ? (
+                               <Input
+                                 placeholder="Digite a descrição da linha de soma"
+                                 value={item.description || ''}
+                                 onChange={(e) => updateItem(index, { description: e.target.value })}
+                               />
+                             ) : (
+                               <span className="text-muted-foreground">-</span>
+                             )}
                            </TableCell>
                            <TableCell>
                              {item.item_type !== 'sum_line' && (

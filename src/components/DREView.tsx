@@ -24,6 +24,7 @@ interface StructureItem {
   id: string;
   item_type: 'group' | 'subgroup' | 'sum_line';
   name: string;
+  description?: string;
   operation_type: 'credit' | 'debit';
   position_order: number;
   parent_id?: string;
@@ -122,7 +123,7 @@ export const DREView: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('dre_structure_items')
-        .select('*, account_group_id')
+        .select('*, account_group_id, description')
         .eq('structure_id', selectedStructure)
         .order('position_order');
 
@@ -132,6 +133,7 @@ export const DREView: React.FC = () => {
         id: item.id,
         item_type: item.item_type as 'group' | 'subgroup' | 'sum_line',
         name: item.name,
+        description: item.description,
         operation_type: item.operation_type as 'credit' | 'debit',
         position_order: item.position_order,
         parent_id: item.parent_id,
@@ -508,7 +510,9 @@ export const DREView: React.FC = () => {
                   {structureItems.map((item) => (
                     <TableRow key={item.id} className={item.item_type === 'group' ? 'font-bold' : ''}>
                       <TableCell className={item.item_type === 'group' ? 'font-bold' : 'font-medium'}>
-                        {item.name}
+                        {item.item_type === 'sum_line' && item.description 
+                          ? item.description 
+                          : item.name}
                       </TableCell>
                       <TableCell>
                         <Badge variant={
