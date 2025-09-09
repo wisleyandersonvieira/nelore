@@ -5,7 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Download } from "lucide-react";
+import { Eye, Download, ArrowLeft, FileSpreadsheet } from "lucide-react";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -443,6 +446,165 @@ export const DREView: React.FC = () => {
     return months[month - 1]?.label || month.toString();
   };
 
+  const exportToExcel = () => {
+    try {
+      // Preparar dados para exportação
+      const exportData: any[] = [];
+      
+      // Cabeçalho principal
+      const headerRow1 = ['Descrição'];
+      const headerRow2 = [''];
+      
+      Object.entries(groupedData).forEach(([periodKey, periodData]) => {
+        const [year, month] = periodKey.split('-');
+        const monthName = `${getMonthName(parseInt(month))} ${year}`;
+        
+        periodData.forEach((data) => {
+          headerRow1.push(monthName);
+          headerRow2.push(data.store_name);
+        });
+      });
+      
+      exportData.push(headerRow1);
+      exportData.push(headerRow2);
+      
+      // Dados das linhas
+      structureItems.forEach((item) => {
+        const row = [
+          item.item_type === 'sum_line' && item.description 
+            ? item.description 
+            : item.name
+        ];
+        
+        Object.entries(groupedData).forEach(([_, periodData]) => {
+          periodData.forEach((data) => {
+            let value = 0;
+            if (item.item_type === 'subgroup') {
+              value = data.values[item.id] || 0;
+            } else if (item.item_type === 'group') {
+              value = calculateGroupTotal(item.id, data);
+            } else if (item.item_type === 'sum_line') {
+              value = calculateSumLineTotal(item.id, data);
+            }
+            row.push(value.toString());
+          });
+        });
+        
+        exportData.push(row);
+      });
+      
+      // Criar workbook e worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(wb, ws, "DRE");
+      
+      // Baixar arquivo
+      const fileName = `DRE_${selectedYear}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast({
+        title: "Exportação concluída",
+        description: "Arquivo Excel baixado com sucesso",
+        variant: "default",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro na exportação",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF('landscape');
+      
+      // Título
+      doc.setFontSize(16);
+      doc.text('Demonstrativo de Resultados do Exercício', 20, 20);
+      doc.setFontSize(12);
+      doc.text(`Ano: ${selectedYear}`, 20, 30);
+      
+      // Preparar dados para a tabela
+      const tableHeaders: string[] = ['Descrição'];
+      const tableData: (string | number)[][] = [];
+      
+      // Cabeçalhos das colunas
+      Object.entries(groupedData).forEach(([periodKey, periodData]) => {
+        const [year, month] = periodKey.split('-');
+        const monthName = `${getMonthName(parseInt(month))} ${year}`;
+        
+        periodData.forEach((data) => {
+          tableHeaders.push(`${monthName} - ${data.store_name}`);
+        });
+      });
+      
+      // Linhas de dados
+      structureItems.forEach((item) => {
+        const row: (string | number)[] = [
+          item.item_type === 'sum_line' && item.description 
+            ? item.description 
+            : item.name
+        ];
+        
+        Object.entries(groupedData).forEach(([_, periodData]) => {
+          periodData.forEach((data) => {
+            let value = 0;
+            if (item.item_type === 'subgroup') {
+              value = data.values[item.id] || 0;
+            } else if (item.item_type === 'group') {
+              value = calculateGroupTotal(item.id, data);
+            } else if (item.item_type === 'sum_line') {
+              value = calculateSumLineTotal(item.id, data);
+            }
+            row.push(formatCurrency(value));
+          });
+        });
+        
+        tableData.push(row);
+      });
+      
+      // Adicionar tabela ao PDF
+      (doc as any).autoTable({
+        head: [tableHeaders],
+        body: tableData,
+        startY: 40,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        columnStyles: {
+          0: { cellWidth: 'auto', minCellWidth: 40 },
+        },
+        margin: { top: 40 },
+      });
+      
+      // Salvar PDF
+      const fileName = `DRE_${selectedYear}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast({
+        title: "Exportação concluída",
+        description: "Arquivo PDF baixado com sucesso",
+        variant: "default",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro na exportação",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Agrupar dados por mês, mantendo separação por loja
   const groupedData = dreData.reduce((acc, data) => {
     const key = `${data.year}-${data.month}`;
@@ -560,7 +722,14 @@ export const DREView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-between mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => window.history.back()}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
             <Button onClick={loadDREData} disabled={loading}>
               <Eye className="h-4 w-4 mr-2" />
               {loading ? "Carregando..." : "Visualizar DRE"}
@@ -574,10 +743,16 @@ export const DREView: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>Demonstrativo de Resultados</span>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={exportToExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportToPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </div>
             </CardTitle>
             <CardDescription>
               Comparativo dos resultados por período e loja
@@ -589,7 +764,6 @@ export const DREView: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-64">Descrição</TableHead>
-                    <TableHead>Tipo</TableHead>
                     {Object.entries(groupedData).map(([periodKey, periodData]) => {
                       const [year, month] = periodKey.split('-');
                       return (
@@ -600,7 +774,6 @@ export const DREView: React.FC = () => {
                     })}
                   </TableRow>
                   <TableRow>
-                    <TableHead></TableHead>
                     <TableHead></TableHead>
                     {Object.entries(groupedData).map(([periodKey, periodData]) => 
                       periodData.map((data, index) => (
@@ -624,15 +797,6 @@ export const DREView: React.FC = () => {
                         {item.item_type === 'sum_line' && item.description 
                           ? item.description 
                           : item.name}
-                      </TableCell>
-                      <TableCell className={item.item_type === 'sum_line' ? 'font-bold' : ''}>
-                        <Badge variant={
-                          item.item_type === 'group' ? 'default' : 
-                          item.item_type === 'subgroup' ? 'secondary' : 'outline'
-                        }>
-                          {item.item_type === 'group' ? 'Grupo' : 
-                           item.item_type === 'subgroup' ? 'Subgrupo' : 'Soma'}
-                        </Badge>
                       </TableCell>
                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
                         periodData.map((data, index) => (
