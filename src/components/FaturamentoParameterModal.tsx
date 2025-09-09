@@ -48,15 +48,22 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
 
   const fetchSubgroups = async () => {
     try {
-      const response: any = await supabase
+      // Bypass complex type inference by using a simpler approach
+      const result = await supabase
         .from('account_groups')
-        .select('id, name')
-        .not('parent_id', 'is', null)
-        .eq('is_active', true)
-        .order('name');
+        .select('id, name');
 
-      if (response.data) {
-        const subgroupsData: Subgroup[] = response.data.map((item: any) => ({
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (result.data) {
+        // Filter the data manually to avoid complex query chaining
+        const filteredData = result.data.filter((item: any) => 
+          item.parent_id != null
+        );
+
+        const subgroupsData: Subgroup[] = filteredData.map((item: any) => ({
           id: item.id,
           name: item.name,
           parent_name: 'Subgrupo'
