@@ -179,6 +179,41 @@ export const DREView: React.FC = () => {
 
     setLoading(true);
     try {
+      // Buscar parâmetros de faturamento configurados
+      const { data: faturamentoParams, error: paramsError } = await supabase
+        .from('system_parameters')
+        .select('parameter_key, subgroup_id')
+        .in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery']);
+
+      if (paramsError) throw paramsError;
+
+      // Criar mapeamento de parâmetros para subgrupos
+      const faturamentoMapping: Record<string, string> = {};
+      faturamentoParams?.forEach(param => {
+        if (param.subgroup_id) {
+          faturamentoMapping[param.parameter_key] = param.subgroup_id;
+        }
+      });
+
+      // Buscar dados do controle de caixa
+      const { data: cashControlData, error: ccError } = await supabase
+        .from('cash_control')
+        .select(`
+          id,
+          store_id,
+          date,
+          faturamento_dinheiro,
+          faturamento_cartao,
+          faturamento_conta,
+          faturamento_delivery,
+          stores (name)
+        `)
+        .in('store_id', selectedStores)
+        .gte('date', `${selectedYear}-01-01`)
+        .lte('date', `${selectedYear}-12-31`);
+
+      if (ccError) throw ccError;
+
       // Buscar contas a pagar com produtos
       const { data: accountsPayableData, error: apError } = await supabase
         .from('accounts_payable')
@@ -208,6 +243,60 @@ export const DREView: React.FC = () => {
       // Agrupar dados por mês, loja e subgrupo
       const groupedData: Record<string, DREData> = {};
 
+      // Processar dados do controle de caixa (FATURAMENTO)
+      cashControlData?.forEach((cashControl: any) => {
+        const controlDate = new Date(cashControl.date);
+        const month = controlDate.getMonth() + 1;
+        const year = controlDate.getFullYear();
+
+        // Verificar se o mês está selecionado
+        if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+          return;
+        }
+
+        const storeId = cashControl.store_id;
+        const storeName = cashControl.stores?.name || 'Loja sem nome';
+        const key = `${storeId}-${month}`;
+
+        // Inicializar se não existir
+        if (!groupedData[key]) {
+          groupedData[key] = {
+            month,
+            year: parseInt(selectedYear),
+            store_id: storeId,
+            store_name: storeName,
+            values: {}
+          };
+        }
+
+        // Mapear faturamento do caixa para subgrupos baseado nos parâmetros
+        const faturamentoData = {
+          venda_dinheiro: parseFloat(cashControl.faturamento_dinheiro) || 0,
+          venda_cartao: parseFloat(cashControl.faturamento_cartao) || 0,
+          venda_contas: parseFloat(cashControl.faturamento_conta) || 0,
+          venda_delivery: parseFloat(cashControl.faturamento_delivery) || 0
+        };
+
+        Object.entries(faturamentoData).forEach(([paramKey, value]) => {
+          const subgroupId = faturamentoMapping[paramKey];
+          if (subgroupId && value > 0) {
+            // Encontrar o item da estrutura que corresponde a este subgrupo
+            const structureItem = structureItems.find(si => 
+              si.item_type === 'subgroup' && 
+              si.account_group_id === subgroupId
+            );
+
+            if (structureItem) {
+              if (!groupedData[key].values[structureItem.id]) {
+                groupedData[key].values[structureItem.id] = 0;
+              }
+              groupedData[key].values[structureItem.id] += value;
+            }
+          }
+        });
+      });
+
+      // Processar contas a pagar (dados existentes)
       accountsPayableData?.forEach((account: any) => {
         const competenciaDate = new Date(account.data_competencia);
         const month = competenciaDate.getMonth() + 1;
