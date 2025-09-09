@@ -2,7 +2,10 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Banknote, Construction } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DREStructure } from "@/components/DREStructure";
+import { DREView } from "@/components/DREView";
+import { FileBarChart, Eye, ArrowLeft } from "lucide-react";
 
 const DRECaixa: React.FC = () => {
   const navigate = useNavigate();
@@ -27,20 +30,32 @@ const DRECaixa: React.FC = () => {
       <main className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Banknote className="h-5 w-5" />
-              <span>DRE por Regime de Caixa</span>
-            </CardTitle>
+            <CardTitle>Sistema DRE por Regime de Caixa</CardTitle>
             <CardDescription>
-              Demonstrativo baseado nas entradas e saídas efetivas de caixa
+              Configure estruturas e visualize relatórios baseados no regime de caixa
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Construction className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Em Desenvolvimento</h3>
-            <p className="text-muted-foreground text-center max-w-md">
-              Esta funcionalidade está sendo desenvolvida. Em breve você poderá visualizar o DRE baseado no regime de caixa.
-            </p>
+          <CardContent>
+            <Tabs defaultValue="structure" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="structure" className="flex items-center space-x-2">
+                  <FileBarChart className="h-4 w-4" />
+                  <span>Estrutura DRE</span>
+                </TabsTrigger>
+                <TabsTrigger value="view" className="flex items-center space-x-2">
+                  <Eye className="h-4 w-4" />
+                  <span>Visualizar DRE</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="structure" className="mt-6">
+                <DREStructure />
+              </TabsContent>
+
+              <TabsContent value="view" className="mt-6">
+                <DREView />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </main>
