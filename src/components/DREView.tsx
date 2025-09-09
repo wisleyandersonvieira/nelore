@@ -56,6 +56,9 @@ export const DREView: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Detectar se estamos na página de DRE Caixa ou Competência
+  const isCashRegime = window.location.pathname.includes('/dre-caixa');
 
   const months = [
     { value: "1", label: "Janeiro" },
@@ -218,28 +221,71 @@ export const DREView: React.FC = () => {
       if (ccError) throw ccError;
 
       // Buscar contas a pagar com produtos
-      const { data: accountsPayableData, error: apError } = await supabase
-        .from('accounts_payable')
-        .select(`
-          id,
-          store_id,
-          data_competencia,
-          accounts_payable_items (
-            product_id,
-            quantity,
-            unit_price,
-            total_price,
-            products (
+      let accountsPayableData, apError;
+      
+      if (isCashRegime) {
+        // Para regime de caixa: buscar parcelas pagas
+        const { data, error } = await supabase
+          .from('accounts_payable')
+          .select(`
+            id,
+            store_id,
+            data_competencia,
+            accounts_payable_items (
               id,
-              name,
-              subgroup_id
-            )
-          ),
-          stores (name)
-        `)
-        .in('store_id', selectedStores)
-        .gte('data_competencia', `${selectedYear}-01-01`)
-        .lte('data_competencia', `${selectedYear}-12-31`);
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              products (
+                id,
+                name,
+                subgroup_id
+              )
+            ),
+            accounts_payable_installments (
+              id,
+              installment_number,
+              due_date,
+              amount,
+              payment_date
+            ),
+            stores (name)
+          `)
+          .in('store_id', selectedStores)
+          .gte('data_competencia', `${selectedYear}-01-01`)
+          .lte('data_competencia', `${selectedYear}-12-31`);
+        
+        accountsPayableData = data;
+        apError = error;
+      } else {
+        // Para regime de competência: buscar por data de competência (lógica original)
+        const { data, error } = await supabase
+          .from('accounts_payable')
+          .select(`
+            id,
+            store_id,
+            data_competencia,
+            accounts_payable_items (
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              products (
+                id,
+                name,
+                subgroup_id
+              )
+            ),
+            stores (name)
+          `)
+          .in('store_id', selectedStores)
+          .gte('data_competencia', `${selectedYear}-01-01`)
+          .lte('data_competencia', `${selectedYear}-12-31`);
+        
+        accountsPayableData = data;
+        apError = error;
+      }
 
       // Verificar se existem dados para as lojas selecionadas
       const cashControlByStore = cashControlData?.reduce((acc: Record<string, number>, item: any) => {
@@ -328,51 +374,119 @@ export const DREView: React.FC = () => {
         });
       });
 
-      // Processar contas a pagar (dados existentes)
+      // Processar contas a pagar
       accountsPayableData?.forEach((account: any) => {
-        const competenciaDate = new Date(account.data_competencia);
-        const month = competenciaDate.getMonth() + 1;
-        const year = competenciaDate.getFullYear();
+        if (isCashRegime) {
+          // Para regime de caixa: processar baseado nas parcelas pagas
+          const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => 
+            installment.payment_date !== null
+          ) || [];
 
-        // Verificar se o mês está selecionado
-        if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
-          return;
-        }
+          paidInstallments.forEach((installment: any) => {
+            const paymentDate = new Date(installment.payment_date);
+            const month = paymentDate.getMonth() + 1;
+            const year = paymentDate.getFullYear();
 
-        const storeId = account.store_id;
-        const storeName = account.stores?.name || 'Loja sem nome';
-        const key = `${storeId}-${month}`;
-
-        // Inicializar se não existir
-        if (!groupedData[key]) {
-          groupedData[key] = {
-            month,
-            year: parseInt(selectedYear),
-            store_id: storeId,
-            store_name: storeName,
-            values: {}
-          };
-        }
-
-        account.accounts_payable_items?.forEach((item: any) => {
-          if (item.products?.subgroup_id) {
-            const subgroupId = item.products.subgroup_id;
-            const value = parseFloat(item.total_price) || 0;
-
-            // Encontrar o item da estrutura que corresponde a este subgrupo
-            const structureItem = structureItems.find(si => 
-              si.item_type === 'subgroup' && 
-              si.account_group_id === subgroupId
-            );
-
-            if (structureItem) {
-              if (!groupedData[key].values[structureItem.id]) {
-                groupedData[key].values[structureItem.id] = 0;
-              }
-              groupedData[key].values[structureItem.id] += value;
+            // Verificar se o mês está selecionado
+            if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+              return;
             }
+
+            const storeId = account.store_id;
+            const storeName = account.stores?.name || 'Loja sem nome';
+            const key = `${storeId}-${month}`;
+
+            // Inicializar se não existir
+            if (!groupedData[key]) {
+              groupedData[key] = {
+                month,
+                year: parseInt(selectedYear),
+                store_id: storeId,
+                store_name: storeName,
+                values: {}
+              };
+            }
+
+            // Calcular o valor total das parcelas para fazer a proporção
+            const totalInstallmentsAmount = account.accounts_payable_installments?.reduce((sum: number, inst: any) => 
+              sum + parseFloat(inst.amount), 0) || 0;
+            
+            if (totalInstallmentsAmount === 0) return;
+
+            // Calcular o valor total dos itens da conta
+            const totalItemsAmount = account.accounts_payable_items?.reduce((sum: number, item: any) => 
+              sum + parseFloat(item.total_price), 0) || 0;
+            
+            // Proporção desta parcela em relação ao total
+            const installmentProportion = parseFloat(installment.amount) / totalInstallmentsAmount;
+
+            account.accounts_payable_items?.forEach((item: any) => {
+              if (item.products?.subgroup_id) {
+                const subgroupId = item.products.subgroup_id;
+                // Calcular o valor proporcional baseado na parcela paga
+                const proportionalValue = (parseFloat(item.total_price) || 0) * installmentProportion;
+
+                // Encontrar o item da estrutura que corresponde a este subgrupo
+                const structureItem = structureItems.find(si => 
+                  si.item_type === 'subgroup' && 
+                  si.account_group_id === subgroupId
+                );
+
+                if (structureItem && proportionalValue > 0) {
+                  if (!groupedData[key].values[structureItem.id]) {
+                    groupedData[key].values[structureItem.id] = 0;
+                  }
+                  groupedData[key].values[structureItem.id] += proportionalValue;
+                }
+              }
+            });
+          });
+        } else {
+          // Para regime de competência: usar lógica original
+          const competenciaDate = new Date(account.data_competencia);
+          const month = competenciaDate.getMonth() + 1;
+          const year = competenciaDate.getFullYear();
+
+          // Verificar se o mês está selecionado
+          if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+            return;
           }
-        });
+
+          const storeId = account.store_id;
+          const storeName = account.stores?.name || 'Loja sem nome';
+          const key = `${storeId}-${month}`;
+
+          // Inicializar se não existir
+          if (!groupedData[key]) {
+            groupedData[key] = {
+              month,
+              year: parseInt(selectedYear),
+              store_id: storeId,
+              store_name: storeName,
+              values: {}
+            };
+          }
+
+          account.accounts_payable_items?.forEach((item: any) => {
+            if (item.products?.subgroup_id) {
+              const subgroupId = item.products.subgroup_id;
+              const value = parseFloat(item.total_price) || 0;
+
+              // Encontrar o item da estrutura que corresponde a este subgrupo
+              const structureItem = structureItems.find(si => 
+                si.item_type === 'subgroup' && 
+                si.account_group_id === subgroupId
+              );
+
+              if (structureItem) {
+                if (!groupedData[key].values[structureItem.id]) {
+                  groupedData[key].values[structureItem.id] = 0;
+                }
+                groupedData[key].values[structureItem.id] += value;
+              }
+            }
+          });
+        }
       });
 
       // Converter para array
