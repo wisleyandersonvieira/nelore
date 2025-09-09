@@ -281,7 +281,9 @@ export const DREView: React.FC = () => {
     
     return subgroups.reduce((total, subgroup) => {
       const value = data.values[subgroup.id] || 0;
-      return total + (subgroup.operation_type === 'credit' ? value : -value);
+      // Para grupos, simplesmente somamos todos os valores dos subgrupos
+      // A operação de débito/crédito já será considerada na exibição
+      return total + value;
     }, 0);
   };
 
