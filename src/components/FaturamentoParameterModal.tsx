@@ -269,14 +269,14 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
               <div className="space-y-2">
                 <Label htmlFor="venda-dinheiro">Venda Dinheiro</Label>
                 <Select 
-                  value={config.venda_dinheiro || ""} 
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_dinheiro: value || undefined }))}
+                  value={config.venda_dinheiro || "none"} 
+                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_dinheiro: value === "none" ? undefined : value }))}
                 >
                   <SelectTrigger id="venda-dinheiro">
                     <SelectValue placeholder="Selecione um subgrupo..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum selecionado</SelectItem>
+                    <SelectItem value="none">Nenhum selecionado</SelectItem>
                     {subgroups.map((subgroup) => (
                       <SelectItem key={subgroup.id} value={subgroup.id}>
                         {subgroup.name}
@@ -290,14 +290,14 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
               <div className="space-y-2">
                 <Label htmlFor="venda-cartao">Venda Cartão</Label>
                 <Select 
-                  value={config.venda_cartao || ""} 
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_cartao: value || undefined }))}
+                  value={config.venda_cartao || "none"} 
+                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_cartao: value === "none" ? undefined : value }))}
                 >
                   <SelectTrigger id="venda-cartao">
                     <SelectValue placeholder="Selecione um subgrupo..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum selecionado</SelectItem>
+                    <SelectItem value="none">Nenhum selecionado</SelectItem>
                     {subgroups.map((subgroup) => (
                       <SelectItem key={subgroup.id} value={subgroup.id}>
                         {subgroup.name}
@@ -311,14 +311,14 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
               <div className="space-y-2">
                 <Label htmlFor="venda-contas">Venda Contas</Label>
                 <Select 
-                  value={config.venda_contas || ""} 
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_contas: value || undefined }))}
+                  value={config.venda_contas || "none"} 
+                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_contas: value === "none" ? undefined : value }))}
                 >
                   <SelectTrigger id="venda-contas">
                     <SelectValue placeholder="Selecione um subgrupo..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum selecionado</SelectItem>
+                    <SelectItem value="none">Nenhum selecionado</SelectItem>
                     {subgroups.map((subgroup) => (
                       <SelectItem key={subgroup.id} value={subgroup.id}>
                         {subgroup.name}
@@ -332,14 +332,14 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
               <div className="space-y-2">
                 <Label htmlFor="venda-delivery">Venda Delivery</Label>
                 <Select 
-                  value={config.venda_delivery || ""} 
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_delivery: value || undefined }))}
+                  value={config.venda_delivery || "none"} 
+                  onValueChange={(value) => setConfig(prev => ({ ...prev, venda_delivery: value === "none" ? undefined : value }))}
                 >
                   <SelectTrigger id="venda-delivery">
                     <SelectValue placeholder="Selecione um subgrupo..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum selecionado</SelectItem>
+                    <SelectItem value="none">Nenhum selecionado</SelectItem>
                     {subgroups.map((subgroup) => (
                       <SelectItem key={subgroup.id} value={subgroup.id}>
                         {subgroup.name}
