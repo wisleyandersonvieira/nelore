@@ -288,25 +288,30 @@ export const DREView: React.FC = () => {
   };
 
   const calculateGroupTotal = (groupId: string, data: DREData): number => {
-    const subgroups = structureItems.filter(item => 
-      item.parent_id === groupId && item.item_type === 'subgroup'
+    // Encontrar o grupo atual
+    const currentGroupIndex = structureItems.findIndex(item => item.id === groupId);
+    if (currentGroupIndex === -1) return 0;
+
+    // Encontrar o próximo grupo após este
+    const nextGroupIndex = structureItems.findIndex((item, index) => 
+      index > currentGroupIndex && item.item_type === 'group'
     );
+
+    // Pegar todos os subgrupos entre este grupo e o próximo grupo (ou até o final)
+    const endIndex = nextGroupIndex === -1 ? structureItems.length : nextGroupIndex;
+    const subgroups = structureItems.slice(currentGroupIndex + 1, endIndex)
+      .filter(item => item.item_type === 'subgroup');
     
-    // Se não encontrar subgrupos pelo parent_id, vamos verificar se o problema está na estrutura
-    if (subgroups.length === 0) {
-      console.log(`No subgroups found for group ${groupId}. All structure items:`, structureItems);
-      
-      // Procurar o grupo atual para verificar se existe
-      const currentGroup = structureItems.find(item => item.id === groupId);
-      console.log(`Current group:`, currentGroup);
-      
-      // Verificar se há subgrupos que deveriam estar vinculados a este grupo
-      const allSubgroups = structureItems.filter(item => item.item_type === 'subgroup');
-      console.log(`All subgroups:`, allSubgroups);
-    }
-    
-    console.log(`Calculating group ${groupId}:`, {
-      subgroups: subgroups.map(s => ({ id: s.id, name: s.name, parent_id: s.parent_id, value: data.values[s.id] || 0 })),
+    console.log(`Calculating group ${groupId} (${structureItems[currentGroupIndex]?.name}):`, {
+      currentGroupIndex,
+      nextGroupIndex,
+      endIndex,
+      subgroups: subgroups.map(s => ({ 
+        id: s.id, 
+        name: s.name, 
+        position_order: s.position_order,
+        value: data.values[s.id] || 0 
+      })),
       totalSubgroups: subgroups.length
     });
     
