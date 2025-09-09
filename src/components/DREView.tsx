@@ -379,8 +379,13 @@ export const DREView: React.FC = () => {
         if (isCashRegime) {
           // Para regime de caixa: processar baseado nas parcelas pagas
           const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => 
-            installment.payment_date !== null
+            installment.payment_date !== null && installment.payment_date !== undefined
           ) || [];
+
+          // Se não houver parcelas pagas, não processar esta conta
+          if (paidInstallments.length === 0) {
+            return;
+          }
 
           paidInstallments.forEach((installment: any) => {
             const paymentDate = new Date(installment.payment_date);
@@ -407,18 +412,14 @@ export const DREView: React.FC = () => {
               };
             }
 
-            // Calcular o valor total das parcelas para fazer a proporção
-            const totalInstallmentsAmount = account.accounts_payable_installments?.reduce((sum: number, inst: any) => 
+            // Calcular o valor total das parcelas PAGAS para fazer a proporção
+            const totalPaidInstallmentsAmount = paidInstallments.reduce((sum: number, inst: any) => 
               sum + parseFloat(inst.amount), 0) || 0;
             
-            if (totalInstallmentsAmount === 0) return;
+            if (totalPaidInstallmentsAmount === 0) return;
 
-            // Calcular o valor total dos itens da conta
-            const totalItemsAmount = account.accounts_payable_items?.reduce((sum: number, item: any) => 
-              sum + parseFloat(item.total_price), 0) || 0;
-            
-            // Proporção desta parcela em relação ao total
-            const installmentProportion = parseFloat(installment.amount) / totalInstallmentsAmount;
+            // Proporção desta parcela em relação ao total de parcelas PAGAS
+            const installmentProportion = parseFloat(installment.amount) / totalPaidInstallmentsAmount;
 
             account.accounts_payable_items?.forEach((item: any) => {
               if (item.products?.subgroup_id) {
