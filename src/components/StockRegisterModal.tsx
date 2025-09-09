@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2, Search } from "lucide-react";
+import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2, Search, FileDown, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface StockRegisterModalProps {
   open: boolean;
@@ -393,6 +396,139 @@ export const StockRegisterModal = ({
            calculateCategoryTotal(embalagensStock);
   };
 
+  const exportToPDF = (
+    categoryName: string,
+    products: Product[],
+    stock: Record<string, StockItem>,
+    searchTerm: string
+  ) => {
+    const filteredProducts = filterProducts(products, searchTerm);
+    const categoryTotal = calculateCategoryTotal(stock);
+    
+    const doc = new jsPDF();
+    
+    // Título
+    doc.setFontSize(16);
+    doc.text(`Relatório de Estoque - ${categoryName}`, 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Mês: ${monthNames[month]} ${year}`, 20, 30);
+    doc.text(`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, 20, 40);
+    
+    // Preparar dados da tabela
+    const tableData = filteredProducts.map(product => {
+      const stockItem = stock[product.id];
+      const quantity = stockItem?.quantity || 0;
+      const cost = stockItem?.cost || product.cost_price || 0;
+      const total = quantity * cost;
+      
+      return [
+        product.name,
+        product.units_of_measure?.symbol || '-',
+        `R$ ${cost.toFixed(2)}`,
+        quantity.toString(),
+        `R$ ${total.toFixed(2)}`
+      ];
+    });
+    
+    // Adicionar linha de total
+    tableData.push([
+      'TOTAL',
+      '',
+      '',
+      '',
+      `R$ ${categoryTotal.toFixed(2)}`
+    ]);
+    
+    // Configurar tabela
+    (doc as any).autoTable({
+      head: [['Produto', 'Unidade', 'Custo Unitário', 'Quantidade', 'Total']],
+      body: tableData,
+      startY: 50,
+      styles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 30 }
+      },
+      didParseCell: function(data: any) {
+        if (data.row.index === tableData.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+      }
+    });
+    
+    // Salvar PDF
+    doc.save(`estoque_${categoryName.toLowerCase()}_${monthNames[month]}_${year}.pdf`);
+  };
+
+  const exportToExcel = (
+    categoryName: string,
+    products: Product[],
+    stock: Record<string, StockItem>,
+    searchTerm: string
+  ) => {
+    const filteredProducts = filterProducts(products, searchTerm);
+    const categoryTotal = calculateCategoryTotal(stock);
+    
+    // Preparar dados
+    const data = filteredProducts.map(product => {
+      const stockItem = stock[product.id];
+      const quantity = stockItem?.quantity || 0;
+      const cost = stockItem?.cost || product.cost_price || 0;
+      const total = quantity * cost;
+      
+      return {
+        'Produto': product.name,
+        'Código': product.code,
+        'Unidade': product.units_of_measure?.symbol || '-',
+        'Custo Unitário': cost,
+        'Quantidade': quantity,
+        'Total': total
+      };
+    });
+    
+    // Adicionar linha de total
+    data.push({
+      'Produto': 'TOTAL',
+      'Código': '',
+      'Unidade': '',
+      'Custo Unitário': 0,
+      'Quantidade': 0,
+      'Total': categoryTotal
+    });
+    
+    // Criar planilha
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    
+    // Adicionar informações no cabeçalho
+    XLSX.utils.sheet_add_aoa(ws, [
+      [`Relatório de Estoque - ${categoryName}`],
+      [`Mês: ${monthNames[month]} ${year}`],
+      [`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`],
+      []
+    ], { origin: 'A1' });
+    
+    // Ajustar a posição dos dados
+    const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    const newWs = XLSX.utils.aoa_to_sheet([
+      [`Relatório de Estoque - ${categoryName}`],
+      [`Mês: ${monthNames[month]} ${year}`],
+      [`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`],
+      [],
+      ['Produto', 'Código', 'Unidade', 'Custo Unitário', 'Quantidade', 'Total'],
+      ...data.map(row => Object.values(row))
+    ]);
+    
+    XLSX.utils.book_append_sheet(wb, newWs, categoryName);
+    
+    // Salvar arquivo
+    XLSX.writeFile(wb, `estoque_${categoryName.toLowerCase()}_${monthNames[month]}_${year}.xlsx`);
+  };
+
   const filterProducts = (products: Product[], searchTerm: string) => {
     if (!searchTerm.trim()) return products;
     
@@ -524,6 +660,28 @@ export const StockRegisterModal = ({
                         className="pl-10"
                       />
                     </div>
+                    {mode === 'view' && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToPDF('Sorvete', sorveteProducts, sorveteStock, sorveteSearch)}
+                          className="flex items-center gap-2"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToExcel('Sorvete', sorveteProducts, sorveteStock, sorveteSearch)}
+                          className="flex items-center gap-2"
+                        >
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Excel
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   {renderProductTable(filterProducts(sorveteProducts, sorveteSearch), sorveteStock, 'sorvete')}
                   <div className="text-right">
@@ -555,6 +713,28 @@ export const StockRegisterModal = ({
                         className="pl-10"
                       />
                     </div>
+                    {mode === 'view' && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToPDF('Mercadorias', mercadoriasProducts, mercadoriasStock, mercadoriasSearch)}
+                          className="flex items-center gap-2"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToExcel('Mercadorias', mercadoriasProducts, mercadoriasStock, mercadoriasSearch)}
+                          className="flex items-center gap-2"
+                        >
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Excel
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   {renderProductTable(filterProducts(mercadoriasProducts, mercadoriasSearch), mercadoriasStock, 'mercadorias')}
                   <div className="text-right">
@@ -586,6 +766,28 @@ export const StockRegisterModal = ({
                         className="pl-10"
                       />
                     </div>
+                    {mode === 'view' && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToPDF('Embalagens', embalagensProducts, embalagensStock, embalagensSearch)}
+                          className="flex items-center gap-2"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToExcel('Embalagens', embalagensProducts, embalagensStock, embalagensSearch)}
+                          className="flex items-center gap-2"
+                        >
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Excel
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   {renderProductTable(filterProducts(embalagensProducts, embalagensSearch), embalagensStock, 'embalagens')}
                   <div className="text-right">
