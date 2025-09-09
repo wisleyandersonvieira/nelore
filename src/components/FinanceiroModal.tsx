@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, TrendingUp } from "lucide-react";
+import { CreditCard, TrendingUp, ArrowLeftRight } from "lucide-react";
 
 interface FinanceiroModalProps {
   open: boolean;
@@ -45,7 +45,7 @@ export const FinanceiroModal = ({
       id: "transferencias",
       title: "Transferências",
       description: "Transferências entre contas",
-      icon: TrendingUp,
+      icon: ArrowLeftRight,
       color: "bg-blue-500",
       onClick: () => {
         onOpenChange(false);

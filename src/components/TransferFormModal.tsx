@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -200,6 +200,14 @@ export function TransferFormModal({
           <DialogTitle>
             {readonly ? 'Visualizar' : transfer ? 'Editar' : 'Cadastrar'} Transferência
           </DialogTitle>
+          <DialogDescription>
+            {readonly 
+              ? 'Visualize os detalhes da transferência' 
+              : transfer 
+                ? 'Edite os dados da transferência' 
+                : 'Preencha os dados para cadastrar uma nova transferência'
+            }
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
