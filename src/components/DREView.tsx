@@ -183,7 +183,7 @@ export const DREView: React.FC = () => {
         .select(`
           id,
           store_id,
-          competencia_date,
+          data_competencia,
           accounts_payable_items (
             product_id,
             quantity,
@@ -198,8 +198,8 @@ export const DREView: React.FC = () => {
           stores (name)
         `)
         .in('store_id', selectedStores)
-        .gte('competencia_date', `${selectedYear}-01-01`)
-        .lte('competencia_date', `${selectedYear}-12-31`);
+        .gte('data_competencia', `${selectedYear}-01-01`)
+        .lte('data_competencia', `${selectedYear}-12-31`);
 
       if (apError) throw apError;
 
@@ -207,7 +207,7 @@ export const DREView: React.FC = () => {
       const groupedData: Record<string, DREData> = {};
 
       accountsPayableData?.forEach((account: any) => {
-        const competenciaDate = new Date(account.competencia_date);
+        const competenciaDate = new Date(account.data_competencia);
         const month = competenciaDate.getMonth() + 1;
         const year = competenciaDate.getFullYear();
 
