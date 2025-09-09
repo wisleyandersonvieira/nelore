@@ -249,7 +249,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
   const filteredSubgrupos = subgrupos.filter((subgrupo) => {
     const matchesSearch = searchTerm === "" || 
       subgrupo.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGroup = filterGroup === "" || 
+    const matchesGroup = filterGroup === "" || filterGroup === "all" || 
       subgrupo.parent_id === filterGroup;
     
     return matchesSearch && matchesGroup;
@@ -329,7 +329,7 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                     <SelectValue placeholder="Filtrar por grupo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os grupos</SelectItem>
+                    <SelectItem value="all">Todos os grupos</SelectItem>
                     {grupos.map((grupo) => (
                       <SelectItem key={grupo.id} value={grupo.id}>
                         {grupo.name}
