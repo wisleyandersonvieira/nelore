@@ -573,7 +573,7 @@ export const DREView: React.FC = () => {
                   {structureItems.map((item) => (
                     <TableRow key={item.id} className={
                       item.item_type === 'group' ? 'font-bold' : 
-                      item.item_type === 'sum_line' ? 'bg-muted/50 font-bold' : ''
+                      item.item_type === 'sum_line' ? 'bg-muted/70 font-bold' : ''
                     }>
                       <TableCell className={
                         item.item_type === 'group' ? 'font-bold' : 
