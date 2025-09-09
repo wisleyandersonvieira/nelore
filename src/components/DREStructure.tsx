@@ -19,7 +19,7 @@ interface AccountGroup {
 
 interface StructureItem {
   id?: string;
-  item_type: 'group' | 'subgroup' | 'sum_line';
+  item_type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock';
   account_group_id?: string;
   parent_id?: string;
   name: string;
@@ -251,14 +251,28 @@ export const DREStructure: React.FC = () => {
     }
   };
 
-  const addItem = (type: 'group' | 'subgroup' | 'sum_line') => {
+  const addItem = (type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock') => {
+    let name = "";
+    let description = undefined;
+    
+    if (type === 'sum_line') {
+      name = 'Linha de Soma';
+      description = '';
+    } else if (type === 'initial_stock') {
+      name = 'Estoque Inicial';
+      description = 'Estoque Inicial';
+    } else if (type === 'final_stock') {
+      name = 'Estoque Final';
+      description = 'Estoque Final';
+    }
+
     const newItem: StructureItem = {
       item_type: type,
-      name: type === 'sum_line' ? 'Linha de Soma' : "",
-      description: type === 'sum_line' ? '' : undefined,
+      name: name,
+      description: description,
       operation_type: 'credit',
       position_order: currentStructure.items.length + 1,
-      sum_items: type === 'sum_line' ? [] : undefined
+      sum_items: ['sum_line', 'initial_stock', 'final_stock'].includes(type) ? [] : undefined
     };
 
     setCurrentStructure({
@@ -379,6 +393,14 @@ export const DREStructure: React.FC = () => {
                       <Plus className="h-4 w-4 mr-1" />
                       Linha Soma
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => addItem('initial_stock')}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Estoque Inicial
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => addItem('final_stock')}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Estoque Final
+                    </Button>
                   </div>
                 </div>
 
@@ -399,37 +421,50 @@ export const DREStructure: React.FC = () => {
                       {currentStructure.items.map((item, index) => (
                         <TableRow key={index}>
                           <TableCell>
-                            <Badge variant={
-                              item.item_type === 'group' ? 'default' : 
-                              item.item_type === 'subgroup' ? 'secondary' : 'outline'
-                            }>
-                              {item.item_type === 'group' ? 'Grupo' : 
-                               item.item_type === 'subgroup' ? 'Subgrupo' : 'Soma'}
-                            </Badge>
+                             <Badge variant={
+                               item.item_type === 'group' ? 'default' : 
+                               item.item_type === 'subgroup' ? 'secondary' : 'outline'
+                             }>
+                               {item.item_type === 'group' ? 'Grupo' : 
+                                item.item_type === 'subgroup' ? 'Subgrupo' : 
+                                item.item_type === 'sum_line' ? 'Soma' :
+                                item.item_type === 'initial_stock' ? 'Estoque Inicial' :
+                                item.item_type === 'final_stock' ? 'Estoque Final' : 'Outro'}
+                             </Badge>
                           </TableCell>
                            <TableCell>
-                             <span className="font-medium">
-                               {item.name || 
-                                (item.item_type === 'sum_line' 
-                                  ? 'Linha de Soma' 
-                                  : 'Selecione um ' + (item.item_type === 'group' ? 'grupo' : 'subgrupo')
-                                )
-                               }
-                             </span>
+                              <span className="font-medium">
+                                {item.name || 
+                                 (item.item_type === 'sum_line' 
+                                   ? 'Linha de Soma' 
+                                   : item.item_type === 'initial_stock'
+                                   ? 'Estoque Inicial'
+                                   : item.item_type === 'final_stock'
+                                   ? 'Estoque Final'
+                                   : 'Selecione um ' + (item.item_type === 'group' ? 'grupo' : 'subgrupo')
+                                 )
+                                }
+                              </span>
                            </TableCell>
                            <TableCell>
-                             {item.item_type === 'sum_line' ? (
-                               <Input
-                                 placeholder="Digite a descrição da linha de soma"
-                                 value={item.description || ''}
-                                 onChange={(e) => updateItem(index, { description: e.target.value })}
-                               />
-                             ) : (
-                               <span className="text-muted-foreground">-</span>
-                             )}
-                           </TableCell>
+                               {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) ? (
+                                 <Input
+                                   placeholder={
+                                     item.item_type === 'sum_line' 
+                                       ? "Digite a descrição da linha de soma"
+                                       : item.item_type === 'initial_stock'
+                                       ? "Digite a descrição do estoque inicial"
+                                       : "Digite a descrição do estoque final"
+                                   }
+                                   value={item.description || ''}
+                                   onChange={(e) => updateItem(index, { description: e.target.value })}
+                                 />
+                               ) : (
+                                 <span className="text-muted-foreground">-</span>
+                               )}
+                            </TableCell>
                            <TableCell>
-                             {item.item_type !== 'sum_line' && (
+                             {!['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && (
                                <Select
                                  value={item.account_group_id || ''}
                                  onValueChange={(value) => updateItem(index, { account_group_id: value })}
@@ -455,9 +490,9 @@ export const DREStructure: React.FC = () => {
                                  </SelectContent>
                                </Select>
                              )}
-                             {item.item_type === 'sum_line' && (
-                               <span className="text-muted-foreground">-</span>
-                             )}
+                              {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                            </TableCell>
                           <TableCell>
                             <Select
