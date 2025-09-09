@@ -618,11 +618,11 @@ export const DREView: React.FC = () => {
     const currentSumLineIndex = structureItems.findIndex(item => item.id === sumLineId);
     if (currentSumLineIndex === -1) return 0;
     
-    // Sum all subgroups that are above this sum line
+    // Sum all subgroups and stock items that are above this sum line
     const itemsAbove = structureItems.slice(0, currentSumLineIndex);
     
     return itemsAbove.reduce((total, item) => {
-      if (item.item_type === 'subgroup') {
+      if (item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
         const value = data.values[item.id] || 0;
         return total + (item.operation_type === 'credit' ? value : -value);
       }
