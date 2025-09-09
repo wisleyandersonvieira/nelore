@@ -528,7 +528,7 @@ export const DREView: React.FC = () => {
       for (const [key, dreData] of Object.entries(groupedData)) {
         const { store_id, month, year } = dreData;
 
-        // Para estoque inicial: buscar mês anterior
+        // Para estoque inicial: buscar mês anterior  
         const initialStockItems = stockItems.filter(item => item.item_type === 'initial_stock');
         if (initialStockItems.length > 0) {
           const prevMonth = month === 1 ? 12 : month - 1;
@@ -552,7 +552,7 @@ export const DREView: React.FC = () => {
           });
         }
 
-        // Para estoque final: buscar mês atual
+        // Para estoque final: buscar o valor total do estoque do mês atual (mesmo valor do resumo do controle de estoque)
         const finalStockItems = stockItems.filter(item => item.item_type === 'final_stock');
         if (finalStockItems.length > 0) {
           const { data: finalStockData, error: finalError } = await supabase
