@@ -57,8 +57,8 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
   const { toast } = useToast();
 
   // Filtros
-  const [selectedStore, setSelectedStore] = useState<string>("");
-  const [selectedAccount, setSelectedAccount] = useState<string>("");
+  const [selectedStore, setSelectedStore] = useState<string>("ALL_STORES");
+  const [selectedAccount, setSelectedAccount] = useState<string>("ALL_ACCOUNTS");
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
 
@@ -144,7 +144,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
       .select('*')
       .order('transfer_date', { ascending: false });
 
-    if (selectedStore) {
+    if (selectedStore && selectedStore !== "ALL_STORES") {
       query = query.eq('store_id', selectedStore);
     }
 
@@ -186,7 +186,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
 
     // Filtrar por conta se selecionada
     let filteredTransfers = enrichedTransfers;
-    if (selectedAccount) {
+    if (selectedAccount && selectedAccount !== "ALL_ACCOUNTS") {
       filteredTransfers = enrichedTransfers.filter(transfer => 
         transfer.source_account_id === selectedAccount || transfer.destination_account_id === selectedAccount
       );
@@ -276,7 +276,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                     <SelectValue placeholder="Todas as lojas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as lojas</SelectItem>
+                    <SelectItem value="ALL_STORES">Todas as lojas</SelectItem>
                     {stores.map((store) => (
                       <SelectItem key={store.id} value={store.id}>
                         {store.name}
@@ -293,7 +293,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                     <SelectValue placeholder="Todas as contas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as contas</SelectItem>
+                    <SelectItem value="ALL_ACCOUNTS">Todas as contas</SelectItem>
                     {accounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name} ({getAccountTypeLabel(account.type)})
