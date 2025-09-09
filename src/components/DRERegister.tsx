@@ -23,12 +23,14 @@ interface DREStructure {
 
 interface StructureItem {
   id: string;
-  item_type: 'group' | 'subgroup' | 'sum_line';
+  item_type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock';
   name: string;
+  description?: string;
   operation_type: 'credit' | 'debit';
   position_order: number;
   parent_id?: string;
   sum_items?: string[];
+  account_group_id?: string;
 }
 
 interface EntryValue {
@@ -130,12 +132,14 @@ export const DRERegister: React.FC = () => {
       
       const formattedItems = (data || []).map((item: any) => ({
         id: item.id,
-        item_type: item.item_type as 'group' | 'subgroup' | 'sum_line',
+        item_type: item.item_type as 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock',
         name: item.name,
         operation_type: item.operation_type as 'credit' | 'debit',
         position_order: item.position_order,
         parent_id: item.parent_id,
-        sum_items: item.sum_items || []
+        sum_items: item.sum_items || [],
+        description: item.description,
+        account_group_id: item.account_group_id
       }));
       
       setStructureItems(formattedItems);
@@ -192,6 +196,75 @@ export const DRERegister: React.FC = () => {
     }
   };
 
+  const loadStockData = async () => {
+    if (!selectedStore || !selectedMonth || !selectedYear) return;
+
+    try {
+      // Buscar itens de estoque na estrutura
+      const stockItems = structureItems.filter(item => 
+        item.item_type === 'initial_stock' || item.item_type === 'final_stock'
+      );
+
+      if (stockItems.length === 0) return;
+
+      const month = parseInt(selectedMonth);
+      const year = parseInt(selectedYear);
+
+      // Para estoque inicial: buscar mês anterior
+      const initialStockItems = stockItems.filter(item => item.item_type === 'initial_stock');
+      if (initialStockItems.length > 0) {
+        const prevMonth = month === 1 ? 12 : month - 1;
+        const prevYear = month === 1 ? year - 1 : year;
+
+        const { data: initialStockData } = await supabase
+          .from('stock_control')
+          .select('total_value')
+          .eq('store_id', selectedStore)
+          .eq('month', prevMonth)
+          .eq('year', prevYear)
+          .single();
+
+        const initialStockValue = initialStockData?.total_value || 0;
+        initialStockItems.forEach(item => {
+          setEntryValues(prev => ({
+            ...prev,
+            [item.id]: {
+              structure_item_id: item.id,
+              value: parseFloat(initialStockValue.toString()),
+              comment: `Estoque inicial de ${prevMonth}/${prevYear} (automático)`
+            }
+          }));
+        });
+      }
+
+      // Para estoque final: buscar mês atual
+      const finalStockItems = stockItems.filter(item => item.item_type === 'final_stock');
+      if (finalStockItems.length > 0) {
+        const { data: finalStockData } = await supabase
+          .from('stock_control')
+          .select('total_value')
+          .eq('store_id', selectedStore)
+          .eq('month', month)
+          .eq('year', year)
+          .single();
+
+        const finalStockValue = finalStockData?.total_value || 0;
+        finalStockItems.forEach(item => {
+          setEntryValues(prev => ({
+            ...prev,
+            [item.id]: {
+              structure_item_id: item.id,
+              value: parseFloat(finalStockValue.toString()),
+              comment: `Estoque final de ${month}/${year} (automático)`
+            }
+          }));
+        });
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar dados de estoque:', error);
+    }
+  };
+
   const updateEntryValue = (itemId: string, field: 'value' | 'comment', newValue: string) => {
     setEntryValues(prev => ({
       ...prev,
@@ -202,6 +275,14 @@ export const DRERegister: React.FC = () => {
         comment: prev[itemId]?.comment || ""
       }
     }));
+  };
+
+  const calculateStockTotal = (itemId: string): number => {
+    const item = structureItems.find(s => s.id === itemId);
+    if (!item || (item.item_type !== 'initial_stock' && item.item_type !== 'final_stock')) return 0;
+    
+    const entryValue = entryValues[itemId];
+    return entryValue ? entryValue.value : 0;
   };
 
   const calculateGroupTotal = (groupId: string): number => {
@@ -487,6 +568,11 @@ export const DRERegister: React.FC = () => {
                       {item.item_type === 'subgroup' && (
                         <span className="text-muted-foreground">
                           {formatCurrency(entryValues[item.id]?.value || 0)}
+                        </span>
+                      )}
+                      {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && (
+                        <span className="font-medium text-blue-600">
+                          {formatCurrency(calculateStockTotal(item.id))}
                         </span>
                       )}
                     </TableCell>

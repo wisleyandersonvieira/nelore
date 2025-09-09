@@ -25,7 +25,7 @@ interface DREStructure {
 
 interface StructureItem {
   id: string;
-  item_type: 'group' | 'subgroup' | 'sum_line';
+  item_type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock';
   name: string;
   description?: string;
   operation_type: 'credit' | 'debit';
@@ -137,7 +137,7 @@ export const DREView: React.FC = () => {
       
       const formattedItems = (data || []).map((item: any) => ({
         id: item.id,
-        item_type: item.item_type as 'group' | 'subgroup' | 'sum_line',
+        item_type: item.item_type as 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock',
         name: item.name,
         description: item.description,
         operation_type: item.operation_type as 'credit' | 'debit',
@@ -490,6 +490,9 @@ export const DREView: React.FC = () => {
         }
       });
 
+      // Buscar dados de estoque para itens de estoque inicial e final
+      await loadStockData(groupedData);
+
       // Converter para array
       const formattedData: DREData[] = Object.values(groupedData);
       setDreData(formattedData);
@@ -509,6 +512,74 @@ export const DREView: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStockData = async (groupedData: Record<string, DREData>) => {
+    try {
+      // Verificar se há itens de estoque na estrutura
+      const stockItems = structureItems.filter(item => 
+        item.item_type === 'initial_stock' || item.item_type === 'final_stock'
+      );
+
+      if (stockItems.length === 0) return;
+
+      // Para cada combinação de loja/mês nos dados agrupados
+      for (const [key, dreData] of Object.entries(groupedData)) {
+        const { store_id, month, year } = dreData;
+
+        // Para estoque inicial: buscar mês anterior
+        const initialStockItems = stockItems.filter(item => item.item_type === 'initial_stock');
+        if (initialStockItems.length > 0) {
+          const prevMonth = month === 1 ? 12 : month - 1;
+          const prevYear = month === 1 ? year - 1 : year;
+
+          const { data: initialStockData, error: initialError } = await supabase
+            .from('stock_control')
+            .select('total_value')
+            .eq('store_id', store_id)
+            .eq('month', prevMonth)
+            .eq('year', prevYear)
+            .single();
+
+          if (initialError && initialError.code !== 'PGRST116') {
+            console.error('Erro ao buscar estoque inicial:', initialError);
+          }
+
+          const initialStockValue = initialStockData?.total_value || 0;
+          initialStockItems.forEach(item => {
+            groupedData[key].values[item.id] = parseFloat(initialStockValue.toString());
+          });
+        }
+
+        // Para estoque final: buscar mês atual
+        const finalStockItems = stockItems.filter(item => item.item_type === 'final_stock');
+        if (finalStockItems.length > 0) {
+          const { data: finalStockData, error: finalError } = await supabase
+            .from('stock_control')
+            .select('total_value')
+            .eq('store_id', store_id)
+            .eq('month', month)
+            .eq('year', year)
+            .single();
+
+          if (finalError && finalError.code !== 'PGRST116') {
+            console.error('Erro ao buscar estoque final:', finalError);
+          }
+
+          const finalStockValue = finalStockData?.total_value || 0;
+          finalStockItems.forEach(item => {
+            groupedData[key].values[item.id] = parseFloat(finalStockValue.toString());
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar dados de estoque:', error);
+      toast({
+        title: "Erro ao carregar dados de estoque",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -548,6 +619,11 @@ export const DREView: React.FC = () => {
       }
       return total;
     }, 0);
+  };
+
+  const calculateStockTotal = (stockId: string, data: DREData): number => {
+    // Para itens de estoque, retornar o valor direto
+    return data.values[stockId] || 0;
   };
 
   const formatCurrency = (value: number) => {
@@ -674,6 +750,8 @@ export const DREView: React.FC = () => {
               value = calculateGroupTotal(item.id, data);
             } else if (item.item_type === 'sum_line') {
               value = calculateSumLineTotal(item.id, data);
+            } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
+              value = calculateStockTotal(item.id, data);
             }
             row.push(formatCurrency(value));
           });
@@ -915,13 +993,15 @@ export const DREView: React.FC = () => {
                       </TableCell>
                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
                         periodData.map((data, index) => (
-                          <TableCell key={`${periodKey}-${index}`} className={`text-right ${
-                            item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''
-                          } ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
-                            {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
-                            {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
-                            {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
-                          </TableCell>
+                           <TableCell key={`${periodKey}-${index}`} className={`text-right ${
+                             item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''
+                           } ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
+                             {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
+                             {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
+                             {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
+                             {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && 
+                               formatCurrency(calculateStockTotal(item.id, data))}
+                           </TableCell>
                         ))
                       )}
                     </TableRow>
