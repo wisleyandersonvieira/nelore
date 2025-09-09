@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Eye, Download, ArrowLeft, FileSpreadsheet } from "lucide-react";
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -568,7 +568,7 @@ export const DREView: React.FC = () => {
       });
       
       // Adicionar tabela ao PDF
-      (doc as any).autoTable({
+      autoTable(doc, {
         head: [tableHeaders],
         body: tableData,
         startY: 40,
