@@ -602,14 +602,19 @@ export const DREView: React.FC = () => {
       index > currentGroupIndex && item.item_type === 'group'
     );
 
-    // Pegar todos os subgrupos entre este grupo e o próximo grupo (ou até o final)
+    // Pegar todos os itens entre este grupo e o próximo grupo (ou até o final)
     const endIndex = nextGroupIndex === -1 ? structureItems.length : nextGroupIndex;
-    const subgroups = structureItems.slice(currentGroupIndex + 1, endIndex)
-      .filter(item => item.item_type === 'subgroup');
+    const itemsInGroup = structureItems.slice(currentGroupIndex + 1, endIndex)
+      .filter(item => item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock');
     
-    return subgroups.reduce((total, subgroup) => {
-      const value = data.values[subgroup.id] || 0;
-      return total + value;
+    return itemsInGroup.reduce((total, item) => {
+      let value = 0;
+      if (item.item_type === 'subgroup') {
+        value = data.values[item.id] || 0;
+      } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
+        value = calculateStockTotal(item.id, data);
+      }
+      return total + (item.operation_type === 'credit' ? value : -value);
     }, 0);
   };
 
