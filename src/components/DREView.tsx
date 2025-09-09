@@ -212,6 +212,8 @@ export const DREView: React.FC = () => {
         .gte('date', `${selectedYear}-01-01`)
         .lte('date', `${selectedYear}-12-31`);
 
+      console.log('Cash Control Data:', cashControlData);
+
       if (ccError) throw ccError;
 
       // Buscar contas a pagar com produtos
@@ -238,25 +240,35 @@ export const DREView: React.FC = () => {
         .gte('data_competencia', `${selectedYear}-01-01`)
         .lte('data_competencia', `${selectedYear}-12-31`);
 
+      console.log('Accounts Payable Data:', accountsPayableData);
+      console.log('Selected Stores:', selectedStores);
+
       if (apError) throw apError;
 
       // Agrupar dados por mês, loja e subgrupo
       const groupedData: Record<string, DREData> = {};
 
+      console.log('Iniciando processamento dos dados...');
+
       // Processar dados do controle de caixa (FATURAMENTO)
       cashControlData?.forEach((cashControl: any) => {
+        console.log('Processando controle de caixa:', cashControl);
+        
         const controlDate = new Date(cashControl.date);
         const month = controlDate.getMonth() + 1;
         const year = controlDate.getFullYear();
 
         // Verificar se o mês está selecionado
         if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+          console.log('Mês/ano não selecionado:', month, year);
           return;
         }
 
         const storeId = cashControl.store_id;
         const storeName = cashControl.stores?.name || 'Loja sem nome';
         const key = `${storeId}-${month}`;
+        
+        console.log('Processando loja:', storeId, storeName, 'key:', key);
 
         // Inicializar se não existir
         if (!groupedData[key]) {
@@ -291,6 +303,7 @@ export const DREView: React.FC = () => {
                 groupedData[key].values[structureItem.id] = 0;
               }
               groupedData[key].values[structureItem.id] += value;
+              console.log('Adicionado valor:', value, 'para estrutura:', structureItem.name, 'loja:', storeName);
             }
           }
         });
@@ -298,18 +311,23 @@ export const DREView: React.FC = () => {
 
       // Processar contas a pagar (dados existentes)
       accountsPayableData?.forEach((account: any) => {
+        console.log('Processando conta a pagar:', account);
+        
         const competenciaDate = new Date(account.data_competencia);
         const month = competenciaDate.getMonth() + 1;
         const year = competenciaDate.getFullYear();
 
         // Verificar se o mês está selecionado
         if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+          console.log('Mês/ano não selecionado para conta:', month, year);
           return;
         }
 
         const storeId = account.store_id;
         const storeName = account.stores?.name || 'Loja sem nome';
         const key = `${storeId}-${month}`;
+        
+        console.log('Processando conta na loja:', storeId, storeName, 'key:', key);
 
         // Inicializar se não existir
         if (!groupedData[key]) {
@@ -338,10 +356,13 @@ export const DREView: React.FC = () => {
                 groupedData[key].values[structureItem.id] = 0;
               }
               groupedData[key].values[structureItem.id] += value;
+              console.log('Adicionado valor conta a pagar:', value, 'para estrutura:', structureItem.name, 'loja:', storeName);
             }
           }
         });
       });
+
+      console.log('Dados agrupados final:', groupedData);
 
       // Converter para array
       const formattedData: DREData[] = Object.values(groupedData);
