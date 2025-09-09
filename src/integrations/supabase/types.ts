@@ -1832,6 +1832,51 @@ export type Database = {
           },
         ]
       }
+      transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          description: string | null
+          destination_account_id: string
+          destination_account_type: string
+          id: string
+          source_account_id: string
+          source_account_type: string
+          store_id: string
+          transfer_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          destination_account_id: string
+          destination_account_type: string
+          id?: string
+          source_account_id: string
+          source_account_type: string
+          store_id: string
+          transfer_date: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          destination_account_id?: string
+          destination_account_type?: string
+          id?: string
+          source_account_id?: string
+          source_account_type?: string
+          store_id?: string
+          transfer_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       units_of_measure: {
         Row: {
           created_at: string

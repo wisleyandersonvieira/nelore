@@ -22,6 +22,7 @@ import { AccountsPayableModal } from "@/components/AccountsPayableModal";
 import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
 import { CashControlModal } from "@/components/CashControlModal";
 import { FinanceiroModal } from "@/components/FinanceiroModal";
+import { TransfersModal } from "@/components/TransfersModal";
 import FuncionariosModal from "@/components/FuncionariosModal";
 
 const Dashboard = () => {
@@ -32,6 +33,7 @@ const Dashboard = () => {
   const [cashControlOpen, setCashControlOpen] = useState(false);
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [funcionariosOpen, setFuncionariosOpen] = useState(false);
+  const [transfersOpen, setTransfersOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -265,6 +267,7 @@ const Dashboard = () => {
           onOpenChange={setFinanceiroOpen}
           onAccountsPayableOpen={() => setAccountsPayableOpen(true)}
           onAccountsReceivableOpen={() => setAccountsReceivableOpen(true)}
+          onTransfersOpen={() => setTransfersOpen(true)}
         />
       )}
 
@@ -279,6 +282,13 @@ const Dashboard = () => {
         <AccountsReceivableModal 
           open={accountsReceivableOpen} 
           onOpenChange={setAccountsReceivableOpen} 
+        />
+      )}
+
+      {transfersOpen && (
+        <TransfersModal
+          open={transfersOpen}
+          onOpenChange={setTransfersOpen}
         />
       )}
 

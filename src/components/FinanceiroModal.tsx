@@ -8,13 +8,15 @@ interface FinanceiroModalProps {
   onOpenChange: (open: boolean) => void;
   onAccountsPayableOpen: () => void;
   onAccountsReceivableOpen: () => void;
+  onTransfersOpen: () => void;
 }
 
 export const FinanceiroModal = ({ 
   open, 
   onOpenChange, 
   onAccountsPayableOpen, 
-  onAccountsReceivableOpen 
+  onAccountsReceivableOpen,
+  onTransfersOpen
 }: FinanceiroModalProps) => {
   const modules = [
     {
@@ -38,6 +40,17 @@ export const FinanceiroModal = ({
         onOpenChange(false);
         onAccountsReceivableOpen();
       }
+    },
+    {
+      id: "transferencias",
+      title: "Transferências",
+      description: "Transferências entre contas",
+      icon: TrendingUp,
+      color: "bg-blue-500",
+      onClick: () => {
+        onOpenChange(false);
+        onTransfersOpen();
+      }
     }
   ];
 
@@ -51,7 +64,7 @@ export const FinanceiroModal = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {modules.map((module) => {
             const IconComponent = module.icon;
             return (
