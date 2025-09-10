@@ -301,24 +301,21 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               .from('accounts_payable_installments')
               .select(`
                 amount,
-                account_payable_id
+                accounts_payable!inner (
+                  id,
+                  store_id,
+                  account_id
+                )
               `)
               .not('payment_date', 'is', null)
+              .eq('accounts_payable.store_id', selectedStore)
+              .eq('accounts_payable.account_id', selectedAccount)
               .gte('payment_date', format(inicialDate, 'yyyy-MM-dd'))
               .lte('payment_date', format(dayBefore, 'yyyy-MM-dd'));
 
             if (payableInstallmentsAnteriores) {
               for (const installment of payableInstallmentsAnteriores) {
-                const { data: accountPayable } = await supabase
-                  .from('accounts_payable')
-                  .select('store_id')
-                  .eq('id', installment.account_payable_id)
-                  .eq('store_id', selectedStore)
-                  .maybeSingle();
-
-                if (accountPayable) {
-                  saldoDiaAnterior -= installment.amount; // Saída
-                }
+                saldoDiaAnterior -= installment.amount; // Saída
               }
             }
           }
@@ -421,35 +418,34 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             installment_number,
             amount,
             payment_date,
-            account_payable_id
+            accounts_payable!inner (
+              id,
+              store_id,
+              account_id,
+              supplier_id,
+              document_number,
+              suppliers (name)
+            )
           `)
           .not('payment_date', 'is', null)
+          .eq('accounts_payable.store_id', selectedStore)
+          .eq('accounts_payable.account_id', selectedAccount)
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
           .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
 
         if (payableInstallments && payableInstallments.length > 0) {
           for (const installment of payableInstallments) {
-            // Buscar dados da conta a pagar
-            const { data: accountPayable } = await supabase
-              .from('accounts_payable')
-              .select(`
-                store_id,
-                supplier_id,
-                document_number,
-                suppliers (name)
-              `)
-              .eq('id', installment.account_payable_id)
-              .maybeSingle();
-
-            // Só processar se a conta pertence à loja selecionada
-            if (accountPayable && accountPayable.store_id === selectedStore) {
+            const accountPayable = installment.accounts_payable;
+            
+            // Só processar se a conta foi paga pela conta selecionada
+            if (accountPayable) {
               // Buscar total de parcelas para esta conta a pagar
               const { count: totalInstallments } = await supabase
                 .from('accounts_payable_installments')
                 .select('*', { count: 'exact', head: true })
-                .eq('account_payable_id', installment.account_payable_id);
+                .eq('account_payable_id', accountPayable.id);
 
-              const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
+              const documentNumber = accountPayable.document_number || accountPayable.id.toString().slice(-6);
               
               // Se tem mais de 1 parcela, mostrar número da parcela
               let installmentText = '';
@@ -480,9 +476,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             total_amount,
             payment_date,
             store_id,
+            account_id,
             suppliers (name)
           `)
           .eq('store_id', selectedStore)
+          .eq('account_id', selectedAccount)
           .not('payment_date', 'is', null)
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
           .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
