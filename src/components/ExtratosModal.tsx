@@ -50,6 +50,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
   const [endDate, setEndDate] = useState<Date>();
   const [extratoItems, setExtratoItems] = useState<ExtratoItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saldoAnterior, setSaldoAnterior] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -216,13 +217,133 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       const account = accounts.find(acc => acc.id === selectedAccount);
       if (!account) return;
 
+      // Buscar dados da conta para obter saldo inicial
+      let initialBalance = 0;
+      let initialBalanceDate = null;
+
+      if (account.type === 'current') {
+        const { data: accountData } = await supabase
+          .from('current_accounts')
+          .select('initial_balance, initial_balance_date')
+          .eq('id', selectedAccount)
+          .maybeSingle();
+        if (accountData) {
+          initialBalance = accountData.initial_balance;
+          initialBalanceDate = accountData.initial_balance_date;
+        }
+      } else if (account.type === 'cash') {
+        const { data: accountData } = await supabase
+          .from('cash_accounts')
+          .select('initial_balance, initial_balance_date')
+          .eq('id', selectedAccount)
+          .maybeSingle();
+        if (accountData) {
+          initialBalance = accountData.initial_balance;
+          initialBalanceDate = accountData.initial_balance_date;
+        }
+      } else if (account.type === 'card') {
+        const { data: accountData } = await supabase
+          .from('card_accounts')
+          .select('initial_balance, initial_balance_date')
+          .eq('id', selectedAccount)
+          .maybeSingle();
+        if (accountData) {
+          initialBalance = accountData.initial_balance;
+          initialBalanceDate = accountData.initial_balance_date;
+        }
+      } else if (account.type === 'delivery') {
+        const { data: accountData } = await supabase
+          .from('delivery_accounts')
+          .select('initial_balance, initial_balance_date')
+          .eq('id', selectedAccount)
+          .maybeSingle();
+        if (accountData) {
+          initialBalance = accountData.initial_balance;
+          initialBalanceDate = accountData.initial_balance_date;
+        }
+      }
+
       const items: ExtratoItem[] = [];
 
-      // 1. Buscar saldo inicial (dia anterior)
+      // 1. Calcular saldo anterior (dia anterior ao período)
       const dayBefore = subDays(startDate, 1);
-      let saldoAnterior = 0;
+      let saldoDiaAnterior = initialBalance;
 
-      // TODO: Implementar cálculo do saldo anterior baseado em todas as movimentações até o dia anterior
+      // Buscar todas as movimentações desde a data do saldo inicial até o dia anterior
+      if (initialBalanceDate) {
+        const inicialDate = new Date(initialBalanceDate);
+        
+        // Se o dia anterior for depois da data inicial da conta, calcular movimentações
+        if (dayBefore > inicialDate) {
+          // Buscar transferências desde a data inicial até o dia anterior
+          const { data: transfersAnteriores } = await supabase
+            .from('transfers')
+            .select('*')
+            .gte('transfer_date', format(inicialDate, 'yyyy-MM-dd'))
+            .lte('transfer_date', format(dayBefore, 'yyyy-MM-dd'))
+            .or(`source_account_id.eq.${selectedAccount},destination_account_id.eq.${selectedAccount}`)
+            .order('transfer_date');
+
+          if (transfersAnteriores) {
+            for (const transfer of transfersAnteriores) {
+              const isSource = transfer.source_account_id === selectedAccount;
+              if (isSource) {
+                saldoDiaAnterior -= transfer.amount; // Saída
+              } else {
+                saldoDiaAnterior += transfer.amount; // Entrada
+              }
+            }
+          }
+
+          // Buscar contas a pagar pagas até o dia anterior
+          if (account.type === 'current' || account.type === 'cash') {
+            const { data: payableInstallmentsAnteriores } = await supabase
+              .from('accounts_payable_installments')
+              .select(`
+                amount,
+                account_payable_id
+              `)
+              .not('payment_date', 'is', null)
+              .gte('payment_date', format(inicialDate, 'yyyy-MM-dd'))
+              .lte('payment_date', format(dayBefore, 'yyyy-MM-dd'));
+
+            if (payableInstallmentsAnteriores) {
+              for (const installment of payableInstallmentsAnteriores) {
+                const { data: accountPayable } = await supabase
+                  .from('accounts_payable')
+                  .select('store_id')
+                  .eq('id', installment.account_payable_id)
+                  .eq('store_id', selectedStore)
+                  .maybeSingle();
+
+                if (accountPayable) {
+                  saldoDiaAnterior -= installment.amount; // Saída
+                }
+              }
+            }
+          }
+
+          // Buscar fechamentos de caixa até o dia anterior
+          if (account.type === 'cash') {
+            const { data: cashControlsAnteriores } = await supabase
+              .from('cash_control')
+              .select('faturamento_dinheiro')
+              .eq('store_id', selectedStore)
+              .gte('date', format(inicialDate, 'yyyy-MM-dd'))
+              .lte('date', format(dayBefore, 'yyyy-MM-dd'));
+
+            if (cashControlsAnteriores) {
+              for (const cashControl of cashControlsAnteriores) {
+                if (cashControl.faturamento_dinheiro > 0) {
+                  saldoDiaAnterior += cashControl.faturamento_dinheiro; // Entrada
+                }
+              }
+            }
+          }
+        }
+      }
+
+      setSaldoAnterior(saldoDiaAnterior);
 
       // 2. Buscar transferências - busca onde a conta participa, independente da loja
       const { data: transfers } = await supabase
@@ -385,7 +506,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       items.sort((a, b) => a.date.getTime() - b.date.getTime());
 
       // Calcular saldos
-      let saldoAtual = saldoAnterior;
+      let saldoAtual = saldoDiaAnterior;
       const itemsWithSaldo = items.map(item => {
         saldoAtual += item.entrada - item.saida;
         return {
@@ -523,12 +644,18 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         {/* Tabela de Extrato */}
         {extratoItems.length > 0 && (
           <div className="border rounded-lg">
-            <div className="p-4 border-b bg-muted/50">
-              <h3 className="text-lg font-semibold">Extrato da Conta</h3>
-              <p className="text-sm text-muted-foreground">
-                {accounts.find(acc => acc.id === selectedAccount)?.name} - 
-                {startDate && endDate && ` ${format(startDate, "dd/MM/yyyy", { locale: ptBR })} a ${format(endDate, "dd/MM/yyyy", { locale: ptBR })}`}
-              </p>
+            <div className="p-4 border-b bg-muted/50 flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-semibold">Extrato da Conta</h3>
+                <p className="text-sm text-muted-foreground">
+                  {accounts.find(acc => acc.id === selectedAccount)?.name} - 
+                  {startDate && endDate && ` ${format(startDate, "dd/MM/yyyy", { locale: ptBR })} a ${format(endDate, "dd/MM/yyyy", { locale: ptBR })}`}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Saldo Anterior</p>
+                <p className="text-lg font-semibold">{formatCurrency(saldoAnterior)}</p>
+              </div>
             </div>
             
             <Table>
@@ -561,6 +688,21 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                     </TableCell>
                   </TableRow>
                 ))}
+                {/* Linha de Totais */}
+                <TableRow className="border-t-2 bg-muted/30">
+                  <TableCell colSpan={4} className="font-semibold text-center">
+                    TOTAIS
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-green-600">
+                    {formatCurrency(extratoItems.reduce((total, item) => total + item.entrada, 0))}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-red-600">
+                    {formatCurrency(extratoItems.reduce((total, item) => total + item.saida, 0))}
+                  </TableCell>
+                  <TableCell className="text-right font-bold">
+                    {extratoItems.length > 0 ? formatCurrency(extratoItems[extratoItems.length - 1].saldo) : formatCurrency(saldoAnterior)}
+                  </TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </div>
