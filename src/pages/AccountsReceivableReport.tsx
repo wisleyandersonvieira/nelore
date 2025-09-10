@@ -73,11 +73,9 @@ const AccountsReceivableReport = () => {
 
       if (error) throw error;
 
-      // Filter for unpaid accounts only
+      // Include all accounts, not just unpaid ones
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        if (account.status === 'paid') return;
-        
         // For now, assume single payment (no installments implemented in receivables)
         accountsData.push({
           ...account,
@@ -135,6 +133,7 @@ const AccountsReceivableReport = () => {
       }
 
       setAccounts(accountsData);
+      console.log('Loaded accounts:', accountsData.length, 'accounts with statuses:', accountsData.map(a => ({ id: a.id, status: a.status })));
       toast({
         title: "Pesquisa realizada",
         description: `${accountsData.length} conta(s) encontrada(s)`,
@@ -366,7 +365,7 @@ const AccountsReceivableReport = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-primary">Contas a Receber</h1>
-            <p className="text-sm text-muted-foreground">Relatório de contas ainda não recebidas</p>
+            <p className="text-sm text-muted-foreground">Relatório de contas a receber</p>
           </div>
         </div>
       </header>
@@ -548,34 +547,39 @@ const AccountsReceivableReport = () => {
                        <TableCell>
                          {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
                        </TableCell>
-                       <TableCell>
-                         <div className="flex space-x-1">
-                           {account.status === 'paid' && (
-                             <Button
-                               size="sm"
-                               variant="outline"
-                               onClick={() => handleReversePayment(account)}
-                               disabled={loading}
-                               title="Estornar recebimento"
-                             >
-                               <RefreshCw className="h-4 w-4" />
-                             </Button>
-                           )}
-                           
-                           {account.status === 'pending' && (
-                             <Button
-                               size="sm"
-                               variant="outline"
-                               onClick={() => handleDeleteAccount(account.id, account.status)}
-                               disabled={loading}
-                               title="Excluir conta"
-                               className="text-red-600 hover:text-red-700"
-                             >
-                               <Trash2 className="h-4 w-4" />
-                             </Button>
-                           )}
-                         </div>
-                       </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            {account.status === 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReversePayment(account)}
+                                disabled={loading}
+                                title="Estornar recebimento"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            {account.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteAccount(account.id, account.status)}
+                                disabled={loading}
+                                title="Excluir conta"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            {/* Show status for debugging */}
+                            <span className="text-xs text-muted-foreground ml-2">
+                              Status: {account.status || 'undefined'}
+                            </span>
+                          </div>
+                        </TableCell>
                     </TableRow>
                   ))}
                    {/* Total Row */}
