@@ -225,7 +225,9 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       // TODO: Implementar cálculo do saldo anterior baseado em todas as movimentações até o dia anterior
 
       // 2. Buscar transferências
-      const { data: transfers } = await supabase
+      console.log('Buscando transferências para conta:', selectedAccount, 'loja:', selectedStore);
+      
+      const { data: transfers, error: transfersError } = await supabase
         .from('transfers')
         .select('*')
         .eq('store_id', selectedStore)
@@ -234,10 +236,16 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         .or(`source_account_id.eq.${selectedAccount},destination_account_id.eq.${selectedAccount}`)
         .order('transfer_date');
 
+      console.log('Transferências encontradas:', transfers);
+      console.log('Erro na busca de transferências:', transfersError);
+
       // Processar transferências
       if (transfers) {
+        console.log('Processando', transfers.length, 'transferências');
         for (const transfer of transfers) {
           const isSource = transfer.source_account_id === selectedAccount;
+          console.log('Transfer ID:', transfer.id, 'isSource:', isSource, 'conta origem:', transfer.source_account_id, 'conta destino:', transfer.destination_account_id);
+          
           const otherAccountId = isSource ? transfer.destination_account_id : transfer.source_account_id;
           const otherAccountType = isSource ? transfer.destination_account_type : transfer.source_account_type;
           
@@ -275,7 +283,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             if (otherAccount) otherAccountName = otherAccount.name;
           }
 
-          items.push({
+          const extratoItem = {
             date: new Date(transfer.transfer_date + 'T00:00:00'),
             description: `TRANSF. ${isSource ? 'PARA' : 'DE'} ${otherAccountName}`,
             number: '',
@@ -283,8 +291,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             entrada: isSource ? 0 : transfer.amount,
             saida: isSource ? transfer.amount : 0,
             saldo: 0, // Será calculado depois
-            type: 'transfer'
-          });
+            type: 'transfer' as const
+          };
+          
+          console.log('Adicionando item ao extrato:', extratoItem);
+          items.push(extratoItem);
         }
       }
 
