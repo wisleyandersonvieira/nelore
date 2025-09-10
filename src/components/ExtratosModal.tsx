@@ -298,24 +298,18 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
           // Buscar contas a pagar pagas até o dia anterior
           if (account.type === 'current' || account.type === 'cash') {
             const { data: payableInstallmentsAnteriores } = await supabase
-              .from('accounts_payable_installments')
-              .select(`
-                amount,
-                accounts_payable!inner (
-                  id,
-                  store_id,
-                  account_id
-                )
-              `)
-              .not('payment_date', 'is', null)
-              .eq('accounts_payable.store_id', selectedStore)
-              .eq('accounts_payable.account_id', selectedAccount)
-              .gte('payment_date', format(inicialDate, 'yyyy-MM-dd'))
-              .lte('payment_date', format(dayBefore, 'yyyy-MM-dd'));
+              .from('financial_transactions')
+              .select('amount')
+              .eq('store_id', selectedStore)
+              .eq('account_id', selectedAccount)
+              .eq('reference_type', 'accounts_payable')
+              .eq('transaction_type', 'saida')
+              .gte('transaction_date', format(inicialDate, 'yyyy-MM-dd'))
+              .lte('transaction_date', format(dayBefore, 'yyyy-MM-dd'));
 
             if (payableInstallmentsAnteriores) {
-              for (const installment of payableInstallmentsAnteriores) {
-                saldoDiaAnterior -= installment.amount; // Saída
+              for (const transaction of payableInstallmentsAnteriores) {
+                saldoDiaAnterior -= transaction.amount; // Saída
               }
             }
           }
@@ -408,94 +402,33 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         }
       }
 
-      // 3. Buscar contas a pagar (saídas)
+      // 3. Buscar contas a pagar (saídas) usando financial_transactions
       if (account.type === 'current' || account.type === 'cash') {
-        // 3.1 Buscar contas parceladas (accounts_payable_installments)
-          const { data: payableInstallments } = await supabase
-            .from('accounts_payable_installments')
-            .select(`
-            id,
-            installment_number,
-            amount,
-            payment_date,
-            accounts_payable!inner (
-              id,
-              store_id,
-              account_id,
-              supplier_id,
-              document_number,
-              suppliers (name)
-            )
-          `)
-          .not('payment_date', 'is', null)
-          .eq('accounts_payable.store_id', selectedStore)
-          .eq('accounts_payable.account_id', selectedAccount)
-          .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
-          .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
-
-        if (payableInstallments && payableInstallments.length > 0) {
-          for (const installment of payableInstallments) {
-            const accountPayable = installment.accounts_payable;
-            
-            // Só processar se a conta foi paga pela conta selecionada
-            if (accountPayable) {
-              // Buscar total de parcelas para esta conta a pagar
-              const { count: totalInstallments } = await supabase
-                .from('accounts_payable_installments')
-                .select('*', { count: 'exact', head: true })
-                .eq('account_payable_id', accountPayable.id);
-
-              const documentNumber = accountPayable.document_number || accountPayable.id.toString().slice(-6);
-              
-              // Se tem mais de 1 parcela, mostrar número da parcela
-              let installmentText = '';
-              if (totalInstallments && totalInstallments > 1) {
-                installmentText = `${installment.installment_number}/${totalInstallments}`;
-              }
-              
-              items.push({
-                date: parseISO(installment.payment_date + 'T12:00:00'),
-                description: accountPayable.suppliers?.name || 'Fornecedor',
-                number: documentNumber,
-                installment: installmentText,
-                entrada: 0,
-                saida: installment.amount,
-                saldo: 0,
-                type: 'payable' as const
-              });
-            }
-          }
-        }
-
-        // 3.2 Buscar contas SEM parcelamento (accounts_payable diretamente)
-        const { data: directPayables } = await supabase
-          .from('accounts_payable')
+        const { data: payableTransactions } = await supabase
+          .from('financial_transactions')
           .select(`
             id,
-            document_number,
-            total_amount,
-            payment_date,
-            store_id,
-            account_id,
-            suppliers (name)
+            amount,
+            transaction_date,
+            description,
+            reference_id
           `)
           .eq('store_id', selectedStore)
           .eq('account_id', selectedAccount)
-          .not('payment_date', 'is', null)
-          .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
-          .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
+          .eq('reference_type', 'accounts_payable')
+          .eq('transaction_type', 'saida')
+          .gte('transaction_date', format(startDate, 'yyyy-MM-dd'))
+          .lte('transaction_date', format(endDate, 'yyyy-MM-dd'));
 
-        if (directPayables && directPayables.length > 0) {
-          for (const payable of directPayables) {
-            const documentNumber = payable.document_number || payable.id.toString().slice(-6);
-            
+        if (payableTransactions && payableTransactions.length > 0) {
+          for (const transaction of payableTransactions) {
             items.push({
-              date: parseISO(payable.payment_date + 'T12:00:00'),
-              description: payable.suppliers?.name || 'Fornecedor',
-              number: documentNumber,
-              installment: '', // Sem parcelamento
+              date: parseISO(transaction.transaction_date + 'T12:00:00'),
+              description: transaction.description || 'Pagamento de Conta',
+              number: '',
+              installment: '',
               entrada: 0,
-              saida: payable.total_amount,
+              saida: transaction.amount,
               saldo: 0,
               type: 'payable' as const
             });
