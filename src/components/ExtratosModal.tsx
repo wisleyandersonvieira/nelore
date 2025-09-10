@@ -22,6 +22,7 @@ interface Account {
   name: string;
   type: 'current' | 'cash' | 'card' | 'delivery';
   store_name?: string;
+  store_id?: string;
 }
 
 interface ExtratoItem {
@@ -57,6 +58,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       fetchAccounts();
     }
   }, [open]);
+
+  // Limpar conta selecionada quando trocar de loja
+  useEffect(() => {
+    setSelectedAccount("");
+  }, [selectedStore]);
 
   const fetchStores = async () => {
     const { data, error } = await supabase
@@ -128,30 +134,42 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       const [currentResult, cashResult, cardResult, deliveryResult] = await Promise.all(accountPromises);
 
       const allAccounts = [
-        ...(currentResult.data || []).map(acc => ({ 
-          id: acc.id, 
-          name: acc.name, 
-          type: 'current' as const,
-          store_name: acc.current_account_stores?.[0]?.stores?.name || ''
-        })),
-        ...(cashResult.data || []).map(acc => ({ 
-          id: acc.id, 
-          name: acc.name, 
-          type: 'cash' as const,
-          store_name: acc.cash_account_stores?.[0]?.stores?.name || ''
-        })),
-        ...(cardResult.data || []).map(acc => ({ 
-          id: acc.id, 
-          name: acc.name, 
-          type: 'card' as const,
-          store_name: acc.card_account_stores?.[0]?.stores?.name || ''
-        })),
-        ...(deliveryResult.data || []).map(acc => ({ 
-          id: acc.id, 
-          name: acc.name, 
-          type: 'delivery' as const,
-          store_name: acc.delivery_account_stores?.[0]?.stores?.name || ''
-        }))
+        ...(currentResult.data || []).flatMap(acc => 
+          acc.current_account_stores?.map(store_rel => ({
+            id: acc.id, 
+            name: acc.name, 
+            type: 'current' as const,
+            store_name: store_rel.stores?.name || '',
+            store_id: store_rel.store_id
+          })) || []
+        ),
+        ...(cashResult.data || []).flatMap(acc => 
+          acc.cash_account_stores?.map(store_rel => ({
+            id: acc.id, 
+            name: acc.name, 
+            type: 'cash' as const,
+            store_name: store_rel.stores?.name || '',
+            store_id: store_rel.store_id
+          })) || []
+        ),
+        ...(cardResult.data || []).flatMap(acc => 
+          acc.card_account_stores?.map(store_rel => ({
+            id: acc.id, 
+            name: acc.name, 
+            type: 'card' as const,
+            store_name: store_rel.stores?.name || '',
+            store_id: store_rel.store_id
+          })) || []
+        ),
+        ...(deliveryResult.data || []).flatMap(acc => 
+          acc.delivery_account_stores?.map(store_rel => ({
+            id: acc.id, 
+            name: acc.name, 
+            type: 'delivery' as const,
+            store_name: store_rel.stores?.name || '',
+            store_id: store_rel.store_id
+          })) || []
+        )
       ];
 
       setAccounts(allAccounts);
@@ -172,11 +190,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
   // Filtrar contas por loja selecionada
   const filteredAccounts = selectedStore 
-    ? accounts.filter(acc => {
-        // Para contas, precisamos verificar qual loja está associada
-        // Por enquanto, vamos mostrar todas as contas e depois filtrar por loja no backend
-        return true;
-      })
+    ? accounts.filter(acc => acc.store_id === selectedStore)
     : accounts;
 
   const formatCurrency = (value: number) => {
