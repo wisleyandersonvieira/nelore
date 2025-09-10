@@ -221,6 +221,15 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         `)
         .eq('cash_control_id', cashControlId);
 
+      // Fetch cash items
+      const { data: cashData } = await supabase
+        .from('cash_control_cash_items')
+        .select(`
+          *,
+          cash_accounts (name)
+        `)
+        .eq('cash_control_id', cashControlId);
+
       setCardItems(cardData?.map(item => ({
         ...item,
         card_name: (item as any).card_accounts?.name,
@@ -236,6 +245,12 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       setDeliveryItems(deliveryData?.map(item => ({
         ...item,
         delivery_name: (item as any).delivery_accounts?.name,
+        valor: Number(item.valor)
+      })) || []);
+
+      setCashItems(cashData?.map(item => ({
+        ...item,
+        cash_name: (item as any).cash_accounts?.name,
         valor: Number(item.valor)
       })) || []);
     } catch (error) {
@@ -621,6 +636,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
     await supabase.from('cash_control_card_items').delete().eq('cash_control_id', cashControlId);
     await supabase.from('cash_control_account_items').delete().eq('cash_control_id', cashControlId);
     await supabase.from('cash_control_delivery_items').delete().eq('cash_control_id', cashControlId);
+    await supabase.from('cash_control_cash_items').delete().eq('cash_control_id', cashControlId);
 
     // Insert card items
     if (cardItems.length > 0) {
@@ -650,6 +666,17 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         deliveryItems.map(item => ({
           cash_control_id: cashControlId,
           delivery_account_id: item.delivery_account_id,
+          valor: item.valor,
+        }))
+      );
+    }
+
+    // Insert cash items
+    if (cashItems.length > 0) {
+      await supabase.from('cash_control_cash_items').insert(
+        cashItems.map(item => ({
+          cash_control_id: cashControlId,
+          cash_account_id: item.cash_account_id,
           valor: item.valor,
         }))
       );
