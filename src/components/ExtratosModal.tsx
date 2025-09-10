@@ -316,6 +316,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
           // Buscar fechamentos de caixa até o dia anterior para conta caixa específica
           if (account.type === 'cash') {
+            // 1. Buscar itens específicos da conta caixa
             const { data: cashItemsAnteriores } = await supabase
               .from('cash_control_cash_items')
               .select(`
@@ -338,6 +339,25 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
                 if (cashControl) {
                   saldoDiaAnterior += item.valor; // Entrada
+                }
+              }
+            }
+
+            // 2. Buscar faturamento dinheiro geral do controle de caixa (quando não há itens específicos)
+            const { data: cashControlsAnteriores } = await supabase
+              .from('cash_control')
+              .select('id, date, faturamento_dinheiro')
+              .eq('store_id', selectedStore)
+              .gte('date', format(inicialDate, 'yyyy-MM-dd'))
+              .lte('date', format(dayBefore, 'yyyy-MM-dd'));
+
+            if (cashControlsAnteriores) {
+              for (const cashControl of cashControlsAnteriores) {
+                // Verificar se já não existe um item específico para este controle de caixa
+                const hasSpecificItem = cashItemsAnteriores?.some(item => item.cash_control_id === cashControl.id);
+                
+                if (!hasSpecificItem && cashControl.faturamento_dinheiro > 0) {
+                  saldoDiaAnterior += cashControl.faturamento_dinheiro; // Entrada
                 }
               }
             }
@@ -519,6 +539,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
       // 5. Buscar fechamentos de caixa para conta caixa específica
       if (account.type === 'cash') {
+        // 1. Buscar itens específicos da conta caixa
         const { data: cashItems } = await supabase
           .from('cash_control_cash_items')
           .select(`
@@ -546,6 +567,34 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 number: '',
                 installment: '',
                 entrada: item.valor,
+                saida: 0,
+                saldo: 0,
+                type: 'cash_control'
+              });
+            }
+          }
+        }
+
+        // 2. Buscar faturamento dinheiro geral do controle de caixa (quando não há itens específicos)
+        const { data: cashControls } = await supabase
+          .from('cash_control')
+          .select('id, date, faturamento_dinheiro')
+          .eq('store_id', selectedStore)
+          .gte('date', format(startDate, 'yyyy-MM-dd'))
+          .lte('date', format(endDate, 'yyyy-MM-dd'));
+
+        if (cashControls) {
+          for (const cashControl of cashControls) {
+            // Verificar se já não existe um item específico para este controle de caixa
+            const hasSpecificItem = cashItems?.some(item => item.cash_control_id === cashControl.id);
+            
+            if (!hasSpecificItem && cashControl.faturamento_dinheiro > 0) {
+              items.push({
+                date: parseISO(cashControl.date + 'T12:00:00'),
+                description: 'Faturamento: Dinheiro - Controle de Caixa',
+                number: '',
+                installment: '',
+                entrada: cashControl.faturamento_dinheiro,
                 saida: 0,
                 saldo: 0,
                 type: 'cash_control'
