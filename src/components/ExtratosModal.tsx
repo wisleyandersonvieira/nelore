@@ -404,7 +404,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
       // 3. Buscar contas a pagar (saídas)
       if (account.type === 'current' || account.type === 'cash') {
-        // 3.1. Buscar pagamentos integrais usando financial_transactions
+        // 3.1. Buscar pagamentos usando financial_transactions (tanto integrais quanto parcelas)
         const { data: payableTransactions } = await supabase
           .from('financial_transactions')
           .select(`
@@ -412,11 +412,12 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             amount,
             transaction_date,
             description,
-            reference_id
+            reference_id,
+            reference_type
           `)
           .eq('store_id', selectedStore)
           .eq('account_id', selectedAccount)
-          .eq('reference_type', 'accounts_payable')
+          .in('reference_type', ['accounts_payable', 'accounts_payable_installments'])
           .eq('transaction_type', 'saida')
           .gte('transaction_date', format(startDate, 'yyyy-MM-dd'))
           .lte('transaction_date', format(endDate, 'yyyy-MM-dd'));
@@ -430,42 +431,6 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               installment: '',
               entrada: 0,
               saida: transaction.amount,
-              saldo: 0,
-              type: 'payable' as const
-            });
-          }
-        }
-
-        // 3.2. Buscar parcelas pagas das contas a pagar
-        const { data: paidInstallments } = await supabase
-          .from('accounts_payable_installments')
-          .select(`
-            payment_date,
-            amount,
-            installment_number,
-            account_payable_id,
-            accounts_payable!inner (
-              description,
-              document_number,
-              store_id,
-              account_id
-            )
-          `)
-          .not('payment_date', 'is', null)
-          .eq('accounts_payable.store_id', selectedStore)
-          .eq('accounts_payable.account_id', selectedAccount)
-          .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
-          .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
-
-        if (paidInstallments && paidInstallments.length > 0) {
-          for (const installment of paidInstallments) {
-            items.push({
-              date: parseISO(installment.payment_date + 'T12:00:00'),
-              description: `PARCELA ${installment.installment_number} - ${installment.accounts_payable?.description || 'Conta a Pagar'}`,
-              number: installment.accounts_payable?.document_number || '',
-              installment: `${installment.installment_number}`,
-              entrada: 0,
-              saida: installment.amount,
               saldo: 0,
               type: 'payable' as const
             });
