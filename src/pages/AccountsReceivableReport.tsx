@@ -133,7 +133,6 @@ const AccountsReceivableReport = () => {
       }
 
       setAccounts(accountsData);
-      console.log('Loaded accounts:', accountsData.length, 'accounts with statuses:', accountsData.map(a => ({ id: a.id, status: a.status })));
       toast({
         title: "Pesquisa realizada",
         description: `${accountsData.length} conta(s) encontrada(s)`,
@@ -573,11 +572,6 @@ const AccountsReceivableReport = () => {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
-                            
-                            {/* Show status for debugging */}
-                            <span className="text-xs text-muted-foreground ml-2">
-                              Status: {account.status || 'undefined'}
-                            </span>
                           </div>
                         </TableCell>
                     </TableRow>

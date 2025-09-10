@@ -316,7 +316,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           stores(name)
         `);
 
-      // Apply filters only if they have values
+      // Apply filters only if they have values (removed status filter to show all accounts)
       if (filterDateFrom || filterDateTo) {
         if (filterDateFrom && filterDateTo) {
           query = query.gte("payment_date", filterDateFrom).lte("payment_date", filterDateTo);
@@ -438,6 +438,95 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setViewOnlyAccount(account);
     setIsViewOnly(true);
     setActiveTab("create");
+  };
+
+  const handleReversePayment = (account: AccountReceivable) => {
+    setReverseAccount(account);
+    setShowReverseModal(true);
+  };
+
+  const performReversePayment = async (accountId: string) => {
+    setLoading(true);
+    try {
+      // Update the account status back to pending and clear payment_date
+      const { error } = await supabase
+        .from("accounts_receivable")
+        .update({ 
+          status: 'pending',
+          payment_date: null 
+        })
+        .eq("id", accountId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Recebimento estornado com sucesso",
+      });
+
+      fetchFilteredAccountsReceivable(); // Refresh data
+      setShowReverseModal(false);
+      setReverseAccount(null);
+    } catch (error) {
+      console.error("Error reversing payment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao estornar recebimento",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (accountId: string, status: string) => {
+    if (status === 'paid' || status === 'partial') {
+      toast({
+        title: "Ação não permitida",
+        description: "Não é possível excluir uma conta paga ou parcialmente paga. Estorne o recebimento primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("Tem certeza que deseja excluir esta conta a receber?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Delete items first (foreign key constraint)
+      const { error: itemsError } = await supabase
+        .from("accounts_receivable_items")
+        .delete()
+        .eq("account_receivable_id", accountId);
+
+      if (itemsError) throw itemsError;
+
+      // Delete the account
+      const { error: accountError } = await supabase
+        .from("accounts_receivable")
+        .delete()
+        .eq("id", accountId);
+
+      if (accountError) throw accountError;
+
+      toast({
+        title: "Sucesso",
+        description: "Conta a receber excluída com sucesso",
+      });
+
+      fetchFilteredAccountsReceivable(); // Refresh data
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir conta a receber",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchCreditors = async () => {
@@ -1008,24 +1097,49 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               {account.status === "paid" ? "Recebido" : "Pendente"}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleViewAccount(account)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditAccount(account)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                           <TableCell>
+                             <div className="flex gap-2">
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleViewAccount(account)}
+                               >
+                                 <Eye className="h-4 w-4" />
+                               </Button>
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleEditAccount(account)}
+                               >
+                                 <Edit className="h-4 w-4" />
+                               </Button>
+                               
+                               {account.status === 'paid' && (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => handleReversePayment(account)}
+                                   disabled={loading}
+                                   title="Estornar recebimento"
+                                 >
+                                   <RefreshCw className="h-4 w-4" />
+                                 </Button>
+                               )}
+                               
+                               {account.status === 'pending' && (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => handleDeleteAccount(account.id, account.status)}
+                                   disabled={loading}
+                                   title="Excluir conta"
+                                   className="text-red-600 hover:text-red-700"
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </Button>
+                               )}
+                             </div>
+                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1600,6 +1714,55 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           </Dialog>
         )}
       </DialogContent>
+
+      {/* Modal de Estorno */}
+      <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Estornar Recebimento</DialogTitle>
+          </DialogHeader>
+          
+          {reverseAccount && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-medium">{reverseAccount.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  Credor: {reverseAccount.creditors?.name || '-'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Loja: {reverseAccount.stores?.name || '-'}
+                </p>
+                <p className="text-lg font-semibold text-primary">
+                  Valor: {reverseAccount.amount?.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL"
+                  })}
+                </p>
+              </div>
+
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-medium">Atenção!</p>
+                <p className="text-yellow-700 text-sm mt-1">
+                  Ao confirmar o estorno, esta conta voltará para o status "pendente" e poderá ser recebida novamente.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowReverseModal(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={() => performReversePayment(reverseAccount.id)} 
+                  disabled={loading}
+                  variant="destructive"
+                >
+                  {loading ? "Processando..." : "Confirmar Estorno"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
