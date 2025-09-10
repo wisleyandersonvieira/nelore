@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, TrendingUp, ArrowLeftRight } from "lucide-react";
+import { CreditCard, TrendingUp, ArrowLeftRight, Shield } from "lucide-react";
 
 interface FinanceiroModalProps {
   open: boolean;
@@ -9,6 +9,7 @@ interface FinanceiroModalProps {
   onAccountsPayableOpen: () => void;
   onAccountsReceivableOpen: () => void;
   onTransfersOpen: () => void;
+  onPeriodControlOpen: () => void;
 }
 
 export const FinanceiroModal = ({ 
@@ -16,7 +17,8 @@ export const FinanceiroModal = ({
   onOpenChange, 
   onAccountsPayableOpen, 
   onAccountsReceivableOpen,
-  onTransfersOpen
+  onTransfersOpen,
+  onPeriodControlOpen
 }: FinanceiroModalProps) => {
   const modules = [
     {
@@ -51,6 +53,17 @@ export const FinanceiroModal = ({
         onOpenChange(false);
         onTransfersOpen();
       }
+    },
+    {
+      id: "periodo-controle",
+      title: "Controle de Períodos",
+      description: "Bloquear meses para novos cadastros",
+      icon: Shield,
+      color: "bg-purple-500",
+      onClick: () => {
+        onOpenChange(false);
+        onPeriodControlOpen();
+      }
     }
   ];
 
@@ -64,7 +77,7 @@ export const FinanceiroModal = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
           {modules.map((module) => {
             const IconComponent = module.icon;
             return (

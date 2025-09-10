@@ -1427,6 +1427,42 @@ export type Database = {
         }
         Relationships: []
       }
+      period_blocks: {
+        Row: {
+          block_type: Database["public"]["Enums"]["block_type"]
+          blocked_modules: string[]
+          created_at: string
+          created_by: string
+          id: string
+          month: number
+          store_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          block_type: Database["public"]["Enums"]["block_type"]
+          blocked_modules?: string[]
+          created_at?: string
+          created_by: string
+          id?: string
+          month: number
+          store_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          block_type?: Database["public"]["Enums"]["block_type"]
+          blocked_modules?: string[]
+          created_at?: string
+          created_by?: string
+          id?: string
+          month?: number
+          store_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       product_supplier_codes: {
         Row: {
           created_at: string
@@ -2040,6 +2076,7 @@ export type Database = {
     }
     Enums: {
       account_type: "receita" | "despesa" | "ativo" | "passivo"
+      block_type: "competencia" | "pagamento"
       permission_type: "read" | "write" | "admin"
       transaction_type: "entrada" | "saida"
       user_role: "admin" | "manager" | "operator" | "viewer"
@@ -2171,6 +2208,7 @@ export const Constants = {
   public: {
     Enums: {
       account_type: ["receita", "despesa", "ativo", "passivo"],
+      block_type: ["competencia", "pagamento"],
       permission_type: ["read", "write", "admin"],
       transaction_type: ["entrada", "saida"],
       user_role: ["admin", "manager", "operator", "viewer"],

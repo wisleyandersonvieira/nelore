@@ -24,6 +24,7 @@ import { CashControlModal } from "@/components/CashControlModal";
 import { FinanceiroModal } from "@/components/FinanceiroModal";
 import { TransfersModal } from "@/components/TransfersModal";
 import FuncionariosModal from "@/components/FuncionariosModal";
+import { PeriodControlModal } from "@/components/PeriodControlModal";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -34,6 +35,7 @@ const Dashboard = () => {
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [funcionariosOpen, setFuncionariosOpen] = useState(false);
   const [transfersOpen, setTransfersOpen] = useState(false);
+  const [periodControlOpen, setPeriodControlOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -268,6 +270,7 @@ const Dashboard = () => {
           onAccountsPayableOpen={() => setAccountsPayableOpen(true)}
           onAccountsReceivableOpen={() => setAccountsReceivableOpen(true)}
           onTransfersOpen={() => setTransfersOpen(true)}
+          onPeriodControlOpen={() => setPeriodControlOpen(true)}
         />
       )}
 
@@ -303,6 +306,13 @@ const Dashboard = () => {
         <CashControlModal 
           open={cashControlOpen} 
           onOpenChange={setCashControlOpen} 
+        />
+      )}
+
+      {periodControlOpen && (
+        <PeriodControlModal
+          open={periodControlOpen}
+          onOpenChange={setPeriodControlOpen}
         />
       )}
     </div>
