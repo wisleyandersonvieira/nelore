@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,7 +21,6 @@ const formSchema = z.object({
   transfer_date: z.date({
     required_error: "Data é obrigatória",
   }),
-  store_id: z.string().min(1, "Loja é obrigatória"),
   source_account_id: z.string().min(1, "Conta origem é obrigatória"),
   source_account_type: z.enum(['current', 'cash', 'card', 'delivery']),
   destination_account_id: z.string().min(1, "Conta destino é obrigatória"),
@@ -61,6 +61,7 @@ interface Account {
   id: string;
   name: string;
   type: 'current' | 'cash' | 'card' | 'delivery';
+  store_name?: string;
 }
 
 interface TransferFormModalProps {
@@ -87,7 +88,6 @@ export function TransferFormModal({
     resolver: zodResolver(formSchema),
     defaultValues: {
       transfer_date: new Date(),
-      store_id: "",
       source_account_id: "",
       source_account_type: "current",
       destination_account_id: "",
@@ -102,7 +102,6 @@ export function TransferFormModal({
     if (transfer && open) {
       form.reset({
         transfer_date: new Date(transfer.transfer_date),
-        store_id: transfer.store_id,
         source_account_id: transfer.source_account_id,
         source_account_type: transfer.source_account_type,
         destination_account_id: transfer.destination_account_id,
@@ -113,7 +112,6 @@ export function TransferFormModal({
     } else if (!transfer && open) {
       form.reset({
         transfer_date: new Date(),
-        store_id: "",
         source_account_id: "",
         source_account_type: "current",
         destination_account_id: "",
@@ -129,8 +127,25 @@ export function TransferFormModal({
 
     setLoading(true);
 
+    // Obter store_id do usuário atual
+    const { data: userData, error: userError } = await supabase
+      .from('profiles')
+      .select('store_id')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    if (userError || !userData?.store_id) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível identificar a loja do usuário",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     const transferData = {
-      store_id: data.store_id,
+      store_id: userData.store_id,
       transfer_date: format(data.transfer_date, 'yyyy-MM-dd'),
       source_account_id: data.source_account_id,
       source_account_type: data.source_account_type,
@@ -230,7 +245,7 @@ export function TransferFormModal({
                           )}
                         >
                           {field.value ? (
-                            format(field.value, "PPP")
+                            format(field.value, "PPP", { locale: ptBR })
                           ) : (
                             <span>Selecione uma data</span>
                           )}
@@ -254,30 +269,6 @@ export function TransferFormModal({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="store_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Loja</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={readonly}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma loja" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {stores.map((store) => (
-                        <SelectItem key={store.id} value={store.id}>
-                          {store.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -319,7 +310,7 @@ export function TransferFormModal({
                       <SelectContent>
                         {getAccountsByType(watchSourceAccountType).map((account) => (
                           <SelectItem key={account.id} value={account.id}>
-                            {account.name}
+                            {account.name}{account.store_name ? ` (${account.store_name})` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -370,7 +361,7 @@ export function TransferFormModal({
                       <SelectContent>
                         {getAccountsByType(watchDestinationAccountType).map((account) => (
                           <SelectItem key={account.id} value={account.id}>
-                            {account.name}
+                            {account.name}{account.store_name ? ` (${account.store_name})` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>

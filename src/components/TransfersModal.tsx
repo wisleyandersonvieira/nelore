@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Edit, Trash2, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { TransferFormModal } from "./TransferFormModal";
@@ -39,6 +40,7 @@ interface Account {
   id: string;
   name: string;
   type: 'current' | 'cash' | 'card' | 'delivery';
+  store_name?: string;
 }
 
 interface TransfersModalProps {
@@ -95,46 +97,87 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
   };
 
   const fetchAccounts = async () => {
-    const accountsData: Account[] = [];
+    try {
+      const accountPromises = [
+        // Buscar current accounts com lojas
+        supabase
+          .from('current_accounts')
+          .select(`
+            id, name,
+            current_account_stores!inner (
+              store_id,
+              stores!inner (name)
+            )
+          `)
+          .eq('is_active', true),
+        // Buscar cash accounts com lojas
+        supabase
+          .from('cash_accounts')
+          .select(`
+            id, name,
+            cash_account_stores!inner (
+              store_id,
+              stores!inner (name)
+            )
+          `)
+          .eq('is_active', true),
+        // Buscar card accounts com lojas
+        supabase
+          .from('card_accounts')
+          .select(`
+            id, name,
+            card_account_stores!inner (
+              store_id,
+              stores!inner (name)
+            )
+          `)
+          .eq('is_active', true),
+        // Buscar delivery accounts com lojas
+        supabase
+          .from('delivery_accounts')
+          .select(`
+            id, name,
+            delivery_account_stores!inner (
+              store_id,
+              stores!inner (name)
+            )
+          `)
+          .eq('is_active', true)
+      ];
 
-    // Buscar contas correntes
-    const { data: currentAccounts } = await supabase
-      .from('current_accounts')
-      .select('id, name')
-      .eq('is_active', true);
+      const [currentResult, cashResult, cardResult, deliveryResult] = await Promise.all(accountPromises);
 
-    // Buscar contas caixa
-    const { data: cashAccounts } = await supabase
-      .from('cash_accounts')
-      .select('id, name')
-      .eq('is_active', true);
+      const allAccounts = [
+        ...(currentResult.data || []).map(acc => ({ 
+          id: acc.id, 
+          name: acc.name, 
+          type: 'current' as const,
+          store_name: acc.current_account_stores?.[0]?.stores?.name || ''
+        })),
+        ...(cashResult.data || []).map(acc => ({ 
+          id: acc.id, 
+          name: acc.name, 
+          type: 'cash' as const,
+          store_name: acc.cash_account_stores?.[0]?.stores?.name || ''
+        })),
+        ...(cardResult.data || []).map(acc => ({ 
+          id: acc.id, 
+          name: acc.name, 
+          type: 'card' as const,
+          store_name: acc.card_account_stores?.[0]?.stores?.name || ''
+        })),
+        ...(deliveryResult.data || []).map(acc => ({ 
+          id: acc.id, 
+          name: acc.name, 
+          type: 'delivery' as const,
+          store_name: acc.delivery_account_stores?.[0]?.stores?.name || ''
+        }))
+      ];
 
-    // Buscar contas cartão
-    const { data: cardAccounts } = await supabase
-      .from('card_accounts')
-      .select('id, name')
-      .eq('is_active', true);
-
-    // Buscar contas delivery
-    const { data: deliveryAccounts } = await supabase
-      .from('delivery_accounts')
-      .select('id, name')
-      .eq('is_active', true);
-
-    if (currentAccounts) {
-      accountsData.push(...currentAccounts.map(acc => ({ ...acc, type: 'current' as const })));
+      setAccounts(allAccounts);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
     }
-    if (cashAccounts) {
-      accountsData.push(...cashAccounts.map(acc => ({ ...acc, type: 'cash' as const })));
-    }
-    if (cardAccounts) {
-      accountsData.push(...cardAccounts.map(acc => ({ ...acc, type: 'card' as const })));
-    }
-    if (deliveryAccounts) {
-      accountsData.push(...deliveryAccounts.map(acc => ({ ...acc, type: 'delivery' as const })));
-    }
-
-    setAccounts(accountsData);
   };
 
   const fetchTransfers = async () => {
@@ -296,7 +339,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                     <SelectItem value="ALL_ACCOUNTS">Todas as contas</SelectItem>
                     {accounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
-                        {account.name} ({getAccountTypeLabel(account.type)})
+                        {account.name} ({getAccountTypeLabel(account.type)}){account.store_name ? ` - ${account.store_name}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -315,7 +358,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "PPP") : "Selecionar data"}
+                      {startDate ? format(startDate, "PPP", { locale: ptBR }) : "Selecionar data"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -342,7 +385,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, "PPP") : "Selecionar data"}
+                      {endDate ? format(endDate, "PPP", { locale: ptBR }) : "Selecionar data"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -396,7 +439,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                 ) : (
                   transfers.map((transfer) => (
                     <TableRow key={transfer.id}>
-                      <TableCell>{format(new Date(transfer.transfer_date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>{format(new Date(transfer.transfer_date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">{transfer.source_account_name}</div>
