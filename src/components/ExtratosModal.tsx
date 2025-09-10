@@ -277,7 +277,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
           items.push({
             date: new Date(transfer.transfer_date + 'T00:00:00'),
-            description: `TRANSF. ${isSource ? otherAccountName : otherAccountName}`,
+            description: `TRANSF. ${isSource ? 'PARA' : 'DE'} ${otherAccountName}`,
             number: '',
             installment: '',
             entrada: isSource ? 0 : transfer.amount,
