@@ -31,6 +31,14 @@ const Reports = () => {
       color: "bg-blue-500",
       onClick: () => navigate("/reports/turnover"),
     },
+    {
+      id: "extratos",
+      title: "Extratos de Contas", 
+      description: "Extratos detalhados das movimentações das contas",
+      icon: FileText,
+      color: "bg-purple-500",
+      onClick: () => navigate("/reports/extratos"),
+    },
   ];
 
   return (
