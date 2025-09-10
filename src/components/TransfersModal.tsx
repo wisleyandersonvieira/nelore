@@ -439,7 +439,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                 ) : (
                   transfers.map((transfer) => (
                     <TableRow key={transfer.id}>
-                      <TableCell>{format(new Date(transfer.transfer_date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                      <TableCell>{format(new Date(transfer.transfer_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">{transfer.source_account_name}</div>

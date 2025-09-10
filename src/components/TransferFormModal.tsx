@@ -101,7 +101,7 @@ export function TransferFormModal({
   useEffect(() => {
     if (transfer && open) {
       form.reset({
-        transfer_date: new Date(transfer.transfer_date),
+        transfer_date: new Date(transfer.transfer_date + 'T12:00:00'),
         source_account_id: transfer.source_account_id,
         source_account_type: transfer.source_account_type,
         destination_account_id: transfer.destination_account_id,
@@ -146,7 +146,7 @@ export function TransferFormModal({
 
     const transferData = {
       store_id: userData.store_id,
-      transfer_date: format(new Date(data.transfer_date.getTime() - data.transfer_date.getTimezoneOffset() * 60000), 'yyyy-MM-dd'),
+      transfer_date: format(data.transfer_date, 'yyyy-MM-dd'),
       source_account_id: data.source_account_id,
       source_account_type: data.source_account_type,
       destination_account_id: data.destination_account_id,
