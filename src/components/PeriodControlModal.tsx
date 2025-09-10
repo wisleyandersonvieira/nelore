@@ -333,12 +333,12 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                 </div>
                 <div className="flex items-center gap-2">
                   <Label className="text-sm font-medium">Filtrar por mês:</Label>
-                  <Select value={filterMonth?.toString() || ""} onValueChange={(value) => setFilterMonth(value ? parseInt(value) : null)}>
+                  <Select value={filterMonth?.toString() || "all"} onValueChange={(value) => setFilterMonth(value === "all" ? null : parseInt(value))}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Todos os meses" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos os meses</SelectItem>
+                      <SelectItem value="all">Todos os meses</SelectItem>
                       {MONTHS.map((month) => (
                         <SelectItem key={month.value} value={month.value.toString()}>
                           {month.label}
