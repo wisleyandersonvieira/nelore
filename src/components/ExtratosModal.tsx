@@ -303,11 +303,13 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 amount,
                 accounts_payable!inner (
                   id,
-                  store_id
+                  store_id,
+                  account_id
                 )
               `)
               .not('payment_date', 'is', null)
               .eq('accounts_payable.store_id', selectedStore)
+              .eq('accounts_payable.account_id', selectedAccount)
               .gte('payment_date', format(inicialDate, 'yyyy-MM-dd'))
               .lte('payment_date', format(dayBefore, 'yyyy-MM-dd'));
 
@@ -409,9 +411,9 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       // 3. Buscar contas a pagar (saídas)
       if (account.type === 'current' || account.type === 'cash') {
         // 3.1 Buscar contas parceladas (accounts_payable_installments)
-        const { data: payableInstallments } = await supabase
-          .from('accounts_payable_installments')
-          .select(`
+          const { data: payableInstallments } = await supabase
+            .from('accounts_payable_installments')
+            .select(`
             id,
             installment_number,
             amount,
@@ -419,6 +421,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             accounts_payable!inner (
               id,
               store_id,
+              account_id,
               supplier_id,
               document_number,
               suppliers (name)
@@ -426,6 +429,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
           `)
           .not('payment_date', 'is', null)
           .eq('accounts_payable.store_id', selectedStore)
+          .eq('accounts_payable.account_id', selectedAccount)
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
           .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
 
@@ -472,9 +476,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             total_amount,
             payment_date,
             store_id,
+            account_id,
             suppliers (name)
           `)
           .eq('store_id', selectedStore)
+          .eq('account_id', selectedAccount)
           .not('payment_date', 'is', null)
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
           .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
