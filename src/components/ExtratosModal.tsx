@@ -614,12 +614,12 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         }
       } else if (account.type === 'current') {
         const { data: cashItems } = await supabase
-          .from('cash_control_cash_items')
+          .from('cash_control_account_items')
           .select(`
             valor,
             cash_control_id
           `)
-          .eq('cash_account_id', selectedAccount);
+          .eq('current_account_id', selectedAccount);
 
         if (cashItems) {
           for (const item of cashItems) {
