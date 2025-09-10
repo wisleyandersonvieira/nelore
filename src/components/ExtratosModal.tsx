@@ -413,78 +413,51 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
       // 3. Buscar contas a pagar (saídas)
       if (account.type === 'current' || account.type === 'cash') {
-        console.log('Buscando contas a pagar pagas entre', format(startDate, 'yyyy-MM-dd'), 'e', format(endDate, 'yyyy-MM-dd'));
-        
-        const { data: payableInstallments, error: payableError } = await supabase
+        const { data: payableInstallments } = await supabase
           .from('accounts_payable_installments')
           .select(`
             id,
             installment_number,
             amount,
             payment_date,
-            account_payable_id
+            account_payable_id,
+            accounts_payable!inner (
+              store_id,
+              supplier_id,
+              document_number,
+              suppliers (name)
+            )
           `)
           .not('payment_date', 'is', null)
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
-          .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
-
-        console.log('Parcelas pagas encontradas:', payableInstallments);
-        console.log('Erro na busca:', payableError);
+          .lte('payment_date', format(endDate, 'yyyy-MM-dd'))
+          .eq('accounts_payable.store_id', selectedStore);
 
         if (payableInstallments && payableInstallments.length > 0) {
-          // Buscar dados das contas a pagar relacionadas
           for (const installment of payableInstallments) {
-            console.log('Processando parcela:', installment);
+            // Buscar total de parcelas para esta conta a pagar
+            const { count: totalInstallments } = await supabase
+              .from('accounts_payable_installments')
+              .select('*', { count: 'exact', head: true })
+              .eq('account_payable_id', installment.account_payable_id);
+
+            const accountPayable = installment.accounts_payable;
+            const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
+            const installmentText = totalInstallments && totalInstallments > 1 
+              ? `${installment.installment_number}/${totalInstallments}` 
+              : '';
             
-            const { data: accountPayable, error: accountError } = await supabase
-              .from('accounts_payable')
-              .select(`
-                store_id,
-                supplier_id,
-                document_number,
-                suppliers (name)
-              `)
-              .eq('id', installment.account_payable_id)
-              .maybeSingle();
-
-            console.log('Conta a pagar encontrada:', accountPayable);
-            console.log('Loja selecionada:', selectedStore);
-            console.log('Erro na busca da conta:', accountError);
-
-            // Verificar se a conta pertence à loja selecionada
-            if (accountPayable && accountPayable.store_id === selectedStore) {
-              // Buscar total de parcelas para esta conta a pagar
-              const { count: totalInstallments } = await supabase
-                .from('accounts_payable_installments')
-                .select('*', { count: 'exact', head: true })
-                .eq('account_payable_id', installment.account_payable_id);
-
-              console.log('Total de parcelas:', totalInstallments);
-
-              const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
-              const installmentText = totalInstallments && totalInstallments > 1 
-                ? `${installment.installment_number}/${totalInstallments}` 
-                : '';
-              
-              const item = {
-                date: new Date(installment.payment_date),
-                description: accountPayable.suppliers?.name || 'Fornecedor',
-                number: documentNumber,
-                installment: installmentText,
-                entrada: 0,
-                saida: installment.amount,
-                saldo: 0,
-                type: 'payable' as const
-              };
-              
-              console.log('Adicionando item de conta a pagar:', item);
-              items.push(item);
-            } else {
-              console.log('Conta a pagar não pertence à loja selecionada ou não foi encontrada');
-            }
+            items.push({
+              date: new Date(installment.payment_date),
+              description: accountPayable.suppliers?.name || 'Fornecedor',
+              number: documentNumber,
+              installment: installmentText,
+              entrada: 0,
+              saida: installment.amount,
+              saldo: 0,
+              type: 'payable' as const
+            });
           }
-        } else {
-          console.log('Nenhuma parcela paga encontrada no período');
         }
       }
 
