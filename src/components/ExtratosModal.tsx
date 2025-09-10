@@ -413,13 +413,8 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
       // 3. Buscar contas a pagar (saídas)
       if (account.type === 'current' || account.type === 'cash') {
-        console.log('=== DEBUG CONTAS A PAGAR ===');
-        console.log('Período:', format(startDate, 'yyyy-MM-dd'), 'a', format(endDate, 'yyyy-MM-dd'));
-        console.log('Loja selecionada:', selectedStore);
-        console.log('Conta selecionada:', selectedAccount);
-        
-        // Buscar TODAS as parcelas pagas no período (sem filtro de loja primeiro)
-        const { data: allPayableInstallments } = await supabase
+        // 3.1 Buscar contas parceladas (accounts_payable_installments)
+        const { data: payableInstallments } = await supabase
           .from('accounts_payable_installments')
           .select(`
             id,
@@ -432,13 +427,8 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
           .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
 
-        console.log('TODAS as parcelas pagas encontradas no período:', allPayableInstallments);
-
-        if (allPayableInstallments && allPayableInstallments.length > 0) {
-          for (const installment of allPayableInstallments) {
-            console.log('--- Processando parcela ---');
-            console.log('Parcela:', installment);
-            
+        if (payableInstallments && payableInstallments.length > 0) {
+          for (const installment of payableInstallments) {
             // Buscar dados da conta a pagar
             const { data: accountPayable } = await supabase
               .from('accounts_payable')
@@ -451,11 +441,6 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               .eq('id', installment.account_payable_id)
               .maybeSingle();
 
-            console.log('Conta a pagar encontrada:', accountPayable);
-            console.log('Store ID da conta:', accountPayable?.store_id);
-            console.log('Store ID selecionado:', selectedStore);
-            console.log('Contas são da mesma loja?', accountPayable?.store_id === selectedStore);
-
             // Só processar se a conta pertence à loja selecionada
             if (accountPayable && accountPayable.store_id === selectedStore) {
               // Buscar total de parcelas para esta conta a pagar
@@ -463,8 +448,6 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 .from('accounts_payable_installments')
                 .select('*', { count: 'exact', head: true })
                 .eq('account_payable_id', installment.account_payable_id);
-
-              console.log('Total de parcelas desta conta:', totalInstallments);
 
               const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
               
@@ -474,7 +457,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 installmentText = `${installment.installment_number}/${totalInstallments}`;
               }
               
-              const item = {
+              items.push({
                 date: new Date(installment.payment_date),
                 description: accountPayable.suppliers?.name || 'Fornecedor',
                 number: documentNumber,
@@ -483,19 +466,43 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 saida: installment.amount,
                 saldo: 0,
                 type: 'payable' as const
-              };
-              
-              console.log('ADICIONANDO item ao extrato:', item);
-              items.push(item);
-            } else {
-              console.log('Parcela NÃO ADICIONADA - não pertence à loja selecionada ou conta não encontrada');
+              });
             }
           }
-        } else {
-          console.log('Nenhuma parcela paga encontrada no período');
         }
-        
-        console.log('=== FIM DEBUG CONTAS A PAGAR ===');
+
+        // 3.2 Buscar contas SEM parcelamento (accounts_payable diretamente)
+        const { data: directPayables } = await supabase
+          .from('accounts_payable')
+          .select(`
+            id,
+            document_number,
+            total_amount,
+            payment_date,
+            store_id,
+            suppliers (name)
+          `)
+          .eq('store_id', selectedStore)
+          .not('payment_date', 'is', null)
+          .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
+          .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
+
+        if (directPayables && directPayables.length > 0) {
+          for (const payable of directPayables) {
+            const documentNumber = payable.document_number || payable.id.toString().slice(-6);
+            
+            items.push({
+              date: new Date(payable.payment_date),
+              description: payable.suppliers?.name || 'Fornecedor',
+              number: documentNumber,
+              installment: '', // Sem parcelamento
+              entrada: 0,
+              saida: payable.total_amount,
+              saldo: 0,
+              type: 'payable' as const
+            });
+          }
+        }
       }
 
       // 4. Buscar contas a receber (entradas) - DESABILITADO - Tabela não existe
