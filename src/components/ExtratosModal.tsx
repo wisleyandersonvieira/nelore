@@ -513,25 +513,35 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       }
       */
 
-      // 5. Buscar fechamentos de caixa (apenas para contas específicas)
+      // 5. Buscar fechamentos de caixa para contas específicas
       if (account.type === 'cash') {
-        const { data: cashControls } = await supabase
-          .from('cash_control')
-          .select('*')
-          .eq('store_id', selectedStore)
-          .gte('date', format(startDate, 'yyyy-MM-dd'))
-          .lte('date', format(endDate, 'yyyy-MM-dd'));
+        const { data: cashItems } = await supabase
+          .from('cash_control_cash_items')
+          .select(`
+            valor,
+            cash_control_id
+          `)
+          .eq('cash_account_id', selectedAccount);
 
-        if (cashControls) {
-          for (const cashControl of cashControls) {
-            // Faturamento Dinheiro
-            if (cashControl.faturamento_dinheiro > 0) {
+        if (cashItems) {
+          for (const item of cashItems) {
+            // Buscar detalhes do cash_control
+            const { data: cashControl } = await supabase
+              .from('cash_control')
+              .select('date, store_id')
+              .eq('id', item.cash_control_id)
+              .eq('store_id', selectedStore)
+              .gte('date', format(startDate, 'yyyy-MM-dd'))
+              .lte('date', format(endDate, 'yyyy-MM-dd'))
+              .maybeSingle();
+
+            if (cashControl) {
               items.push({
                 date: parseISO(cashControl.date + 'T12:00:00'),
-                description: 'Faturamento: Dinheiro',
+                description: 'Faturamento: Dinheiro - Fechamento de Caixa',
                 number: '',
                 installment: '',
-                entrada: cashControl.faturamento_dinheiro,
+                entrada: item.valor,
                 saida: 0,
                 saldo: 0,
                 type: 'cash_control'
