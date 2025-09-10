@@ -420,43 +420,53 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             installment_number,
             amount,
             payment_date,
-            account_payable_id,
-            accounts_payable!inner (
-              store_id,
-              supplier_id,
-              document_number,
-              suppliers (name)
-            )
+            account_payable_id
           `)
           .not('payment_date', 'is', null)
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
-          .lte('payment_date', format(endDate, 'yyyy-MM-dd'))
-          .eq('accounts_payable.store_id', selectedStore);
+          .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
 
         if (payableInstallments && payableInstallments.length > 0) {
           for (const installment of payableInstallments) {
-            // Buscar total de parcelas para esta conta a pagar
-            const { count: totalInstallments } = await supabase
-              .from('accounts_payable_installments')
-              .select('*', { count: 'exact', head: true })
-              .eq('account_payable_id', installment.account_payable_id);
+            // Buscar dados da conta a pagar
+            const { data: accountPayable } = await supabase
+              .from('accounts_payable')
+              .select(`
+                store_id,
+                supplier_id,
+                document_number,
+                suppliers (name)
+              `)
+              .eq('id', installment.account_payable_id)
+              .maybeSingle();
 
-            const accountPayable = installment.accounts_payable;
-            const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
-            const installmentText = totalInstallments && totalInstallments > 1 
-              ? `${installment.installment_number}/${totalInstallments}` 
-              : '';
-            
-            items.push({
-              date: new Date(installment.payment_date),
-              description: accountPayable.suppliers?.name || 'Fornecedor',
-              number: documentNumber,
-              installment: installmentText,
-              entrada: 0,
-              saida: installment.amount,
-              saldo: 0,
-              type: 'payable' as const
-            });
+            // Só processar se a conta pertence à loja selecionada
+            if (accountPayable && accountPayable.store_id === selectedStore) {
+              // Buscar total de parcelas para esta conta a pagar
+              const { count: totalInstallments } = await supabase
+                .from('accounts_payable_installments')
+                .select('*', { count: 'exact', head: true })
+                .eq('account_payable_id', installment.account_payable_id);
+
+              const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
+              
+              // Se tem mais de 1 parcela, mostrar número da parcela
+              let installmentText = '';
+              if (totalInstallments && totalInstallments > 1) {
+                installmentText = `${installment.installment_number}/${totalInstallments}`;
+              }
+              
+              items.push({
+                date: new Date(installment.payment_date),
+                description: accountPayable.suppliers?.name || 'Fornecedor',
+                number: documentNumber,
+                installment: installmentText,
+                entrada: 0,
+                saida: installment.amount,
+                saldo: 0,
+                type: 'payable' as const
+              });
+            }
           }
         }
       }
