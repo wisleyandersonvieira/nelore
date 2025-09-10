@@ -437,7 +437,10 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                   account_payable_id,
                   accounts_payable!inner (
                     document_number,
-                    description
+                    description,
+                    suppliers (
+                      name
+                    )
                   )
                 `)
                 .eq('id', transaction.reference_id)
@@ -445,7 +448,8 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
               if (installmentData) {
                 documentNumber = installmentData.accounts_payable?.document_number || '';
-                description = installmentData.accounts_payable?.description || 'Conta a Pagar';
+                const supplierName = installmentData.accounts_payable?.suppliers?.name || 'Fornecedor não informado';
+                description = supplierName;
                 
                 // Buscar total de parcelas para mostrar "1/3" formato
                 const { data: totalInstallments } = await supabase
@@ -462,13 +466,20 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               // Se for pagamento integral, buscar informações da conta
               const { data: payableData } = await supabase
                 .from('accounts_payable')
-                .select('document_number, description')
+                .select(`
+                  document_number, 
+                  description,
+                  suppliers (
+                    name
+                  )
+                `)
                 .eq('id', transaction.reference_id)
                 .maybeSingle();
 
               if (payableData) {
                 documentNumber = payableData.document_number || '';
-                description = payableData.description || 'Conta a Pagar';
+                const supplierName = payableData.suppliers?.name || 'Fornecedor não informado';
+                description = supplierName;
                 installmentInfo = 'Integral';
               }
             }
