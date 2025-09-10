@@ -311,18 +311,28 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               .select(`
                 store_id,
                 supplier_id,
+                document_number,
                 suppliers (name)
               `)
               .eq('id', installment.account_payable_id)
               .eq('store_id', selectedStore)
               .maybeSingle();
 
+            // Buscar total de parcelas para esta conta a pagar
+            const { count: totalInstallments } = await supabase
+              .from('accounts_payable_installments')
+              .select('*', { count: 'exact', head: true })
+              .eq('account_payable_id', installment.account_payable_id);
+
             if (accountPayable) {
+              const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
+              const installmentText = totalInstallments ? `${installment.installment_number}/${totalInstallments}` : `${installment.installment_number}`;
+              
               items.push({
                 date: new Date(installment.payment_date),
                 description: accountPayable.suppliers?.name || 'Fornecedor',
-                number: installment.account_payable_id.toString().slice(-6),
-                installment: `${installment.installment_number}`,
+                number: documentNumber,
+                installment: installmentText,
                 entrada: 0,
                 saida: installment.amount,
                 saldo: 0,
