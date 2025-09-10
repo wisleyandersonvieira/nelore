@@ -144,6 +144,10 @@ export function TransferFormModal({
       return;
     }
 
+    // Debug: verificar como a data está sendo processada
+    console.log('Data selecionada no formulário:', data.transfer_date);
+    console.log('Data formatada para salvar:', format(data.transfer_date, 'yyyy-MM-dd'));
+    
     const transferData = {
       store_id: userData.store_id,
       transfer_date: format(data.transfer_date, 'yyyy-MM-dd'),
