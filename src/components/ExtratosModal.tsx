@@ -424,11 +424,60 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
         if (payableTransactions && payableTransactions.length > 0) {
           for (const transaction of payableTransactions) {
+            let documentNumber = '';
+            let installmentInfo = '';
+            let description = transaction.description || 'Pagamento de Conta';
+
+            // Se for uma parcela, buscar informações detalhadas
+            if (transaction.reference_type === 'accounts_payable_installments') {
+              const { data: installmentData } = await supabase
+                .from('accounts_payable_installments')
+                .select(`
+                  installment_number,
+                  account_payable_id,
+                  accounts_payable!inner (
+                    document_number,
+                    description
+                  )
+                `)
+                .eq('id', transaction.reference_id)
+                .maybeSingle();
+
+              if (installmentData) {
+                documentNumber = installmentData.accounts_payable?.document_number || '';
+                description = installmentData.accounts_payable?.description || 'Conta a Pagar';
+                
+                // Buscar total de parcelas para mostrar "1/3" formato
+                const { data: totalInstallments } = await supabase
+                  .from('accounts_payable_installments')
+                  .select('installment_number')
+                  .eq('account_payable_id', installmentData.account_payable_id)
+                  .order('installment_number', { ascending: false })
+                  .limit(1);
+
+                const maxInstallment = totalInstallments?.[0]?.installment_number || 1;
+                installmentInfo = `${installmentData.installment_number}/${maxInstallment}`;
+              }
+            } else if (transaction.reference_type === 'accounts_payable') {
+              // Se for pagamento integral, buscar informações da conta
+              const { data: payableData } = await supabase
+                .from('accounts_payable')
+                .select('document_number, description')
+                .eq('id', transaction.reference_id)
+                .maybeSingle();
+
+              if (payableData) {
+                documentNumber = payableData.document_number || '';
+                description = payableData.description || 'Conta a Pagar';
+                installmentInfo = 'Integral';
+              }
+            }
+
             items.push({
               date: parseISO(transaction.transaction_date + 'T12:00:00'),
-              description: transaction.description || 'Pagamento de Conta',
-              number: '',
-              installment: '',
+              description: description,
+              number: documentNumber,
+              installment: installmentInfo,
               entrada: 0,
               saida: transaction.amount,
               saldo: 0,
