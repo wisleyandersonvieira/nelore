@@ -414,8 +414,8 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         }
       }
 
-      // 3. Buscar contas a pagar (saídas)
-      if (account.type === 'current' || account.type === 'cash') {
+      // 3. Buscar contas a pagar (saídas) - Para todas as contas que podem fazer pagamentos
+      if (account.type === 'current' || account.type === 'cash' || account.type === 'card') {
         // 3.1. Buscar pagamentos usando financial_transactions (tanto integrais quanto parcelas)
         const { data: payableTransactions } = await supabase
           .from('financial_transactions')
