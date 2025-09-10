@@ -436,16 +436,19 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
         if (payableTransactions && payableTransactions.length > 0) {
           for (const transaction of payableTransactions) {
+            // Verificar se a transação ainda é válida (não foi estornada)
+            let isValidTransaction = false;
             let documentNumber = '';
             let installmentInfo = '';
             let description = transaction.description || 'Pagamento de Conta';
 
-            // Se for uma parcela, buscar informações detalhadas
+            // Se for uma parcela, verificar se ainda está paga
             if (transaction.reference_type === 'accounts_payable_installments') {
               const { data: installmentData } = await supabase
                 .from('accounts_payable_installments')
                 .select(`
                   installment_number,
+                  payment_date,
                   account_payable_id,
                   accounts_payable!inner (
                     document_number,
@@ -458,7 +461,9 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 .eq('id', transaction.reference_id)
                 .maybeSingle();
 
-              if (installmentData) {
+              // Só incluir se a parcela ainda tem payment_date (não foi estornada)
+              if (installmentData && installmentData.payment_date !== null) {
+                isValidTransaction = true;
                 documentNumber = installmentData.accounts_payable?.document_number || '';
                 const supplierName = installmentData.accounts_payable?.suppliers?.name || 'Fornecedor não informado';
                 description = supplierName;
@@ -475,12 +480,14 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 installmentInfo = `${installmentData.installment_number}/${maxInstallment}`;
               }
             } else if (transaction.reference_type === 'accounts_payable') {
-              // Se for pagamento integral, buscar informações da conta
+              // Se for pagamento integral, verificar se ainda está pago
               const { data: payableData } = await supabase
                 .from('accounts_payable')
                 .select(`
                   document_number, 
                   description,
+                  payment_date,
+                  status,
                   suppliers (
                     name
                   )
@@ -488,7 +495,9 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 .eq('id', transaction.reference_id)
                 .maybeSingle();
 
-              if (payableData) {
+              // Só incluir se a conta ainda está paga
+              if (payableData && payableData.payment_date !== null && payableData.status !== 'pending') {
+                isValidTransaction = true;
                 documentNumber = payableData.document_number || '';
                 const supplierName = payableData.suppliers?.name || 'Fornecedor não informado';
                 description = supplierName;
@@ -496,16 +505,19 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               }
             }
 
-            items.push({
-              date: parseISO(transaction.transaction_date + 'T12:00:00'),
-              description: description,
-              number: documentNumber,
-              installment: installmentInfo,
-              entrada: 0,
-              saida: transaction.amount,
-              saldo: 0,
-              type: 'payable' as const
-            });
+            // Só adicionar ao extrato se a transação ainda for válida
+            if (isValidTransaction) {
+              items.push({
+                date: parseISO(transaction.transaction_date + 'T12:00:00'),
+                description: description,
+                number: documentNumber,
+                installment: installmentInfo,
+                entrada: 0,
+                saida: transaction.amount,
+                saldo: 0,
+                type: 'payable' as const
+              });
+            }
           }
         }
       }
