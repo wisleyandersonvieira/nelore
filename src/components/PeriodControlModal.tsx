@@ -60,6 +60,9 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   
+  // Filter state
+  const [filterMonth, setFilterMonth] = useState<number | null>(null);
+  
   // Form state
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
@@ -208,6 +211,10 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
     );
   };
 
+  const filteredPeriodBlocks = filterMonth 
+    ? periodBlocks.filter(block => block.month === filterMonth)
+    : periodBlocks;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -319,21 +326,42 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
           {/* Lista de períodos bloqueados */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Períodos Bloqueados
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Períodos Bloqueados
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Filtrar por mês:</Label>
+                  <Select value={filterMonth?.toString() || ""} onValueChange={(value) => setFilterMonth(value ? parseInt(value) : null)}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Todos os meses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todos os meses</SelectItem>
+                      {MONTHS.map((month) => (
+                        <SelectItem key={month.value} value={month.value.toString()}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="text-center py-4">Carregando...</div>
-              ) : periodBlocks.length === 0 ? (
+              ) : filteredPeriodBlocks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Nenhum período bloqueado encontrado.
+                  {filterMonth ? 
+                    `Nenhum período bloqueado encontrado para ${MONTHS.find(m => m.value === filterMonth)?.label}.` :
+                    "Nenhum período bloqueado encontrado."
+                  }
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {periodBlocks.map((block) => (
+                  {filteredPeriodBlocks.map((block) => (
                     <div key={block.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
