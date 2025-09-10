@@ -59,18 +59,18 @@ function App() {
               <Route path="/dre" element={<DRE />} />
               <Route path="/dre/competencia" element={<DRECompetencia />} />
               <Route path="/dre/caixa" element={<DRECaixa />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/stock" element={<StockModule />} />
-            <Route path="/stock/:storeId" element={<StockControl />} />
-            <Route path="/reports/accounts-payable" element={<AccountsPayableModule />} />
-            <Route path="/reports/accounts-payable/pending" element={<AccountsPayableReport />} />
-            <Route path="/reports/accounts-payable/paid" element={<PaidAccountsReport />} />
-            <Route path="/reports/accounts-receivable" element={<AccountsReceivableModule />} />
-            <Route path="/reports/accounts-receivable/pending" element={<AccountsReceivableReport />} />
-            <Route path="/reports/accounts-receivable/received" element={<ReceivedAccountsReport />} />
-            <Route path="/reports/turnover" element={<TurnoverReport />} />
-      <Route path="/reports/extratos" element={<Extratos />} />
-      <Route path="*" element={<NotFound />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/stock" element={<StockModule />} />
+              <Route path="/stock/:storeId" element={<StockControl />} />
+              <Route path="/reports/accounts-payable" element={<AccountsPayableModule />} />
+              <Route path="/reports/accounts-payable/pending" element={<AccountsPayableReport />} />
+              <Route path="/reports/accounts-payable/paid" element={<PaidAccountsReport />} />
+              <Route path="/reports/accounts-receivable" element={<AccountsReceivableModule />} />
+              <Route path="/reports/accounts-receivable/pending" element={<AccountsReceivableReport />} />
+              <Route path="/reports/accounts-receivable/received" element={<ReceivedAccountsReport />} />
+              <Route path="/reports/turnover" element={<TurnoverReport />} />
+              <Route path="/reports/extratos" element={<Extratos />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
             <Sonner />
