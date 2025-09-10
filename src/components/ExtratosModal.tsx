@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, FileText } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format, subDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -397,7 +397,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
           }
 
           const extratoItem = {
-            date: new Date(transfer.transfer_date + 'T00:00:00'),
+            date: parseISO(transfer.transfer_date + 'T12:00:00'),
             description: `TRANSF. ${isSource ? 'PARA' : 'DE'} ${otherAccountName}`,
             number: '',
             installment: '',
@@ -458,7 +458,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               }
               
               items.push({
-                date: new Date(installment.payment_date),
+                date: parseISO(installment.payment_date + 'T12:00:00'),
                 description: accountPayable.suppliers?.name || 'Fornecedor',
                 number: documentNumber,
                 installment: installmentText,
@@ -492,7 +492,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             const documentNumber = payable.document_number || payable.id.toString().slice(-6);
             
             items.push({
-              date: new Date(payable.payment_date),
+              date: parseISO(payable.payment_date + 'T12:00:00'),
               description: payable.suppliers?.name || 'Fornecedor',
               number: documentNumber,
               installment: '', // Sem parcelamento
@@ -527,7 +527,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             // Faturamento Dinheiro
             if (cashControl.faturamento_dinheiro > 0) {
               items.push({
-                date: new Date(cashControl.date),
+                date: parseISO(cashControl.date + 'T12:00:00'),
                 description: 'Faturamento: Dinheiro',
                 number: '',
                 installment: '',
@@ -565,7 +565,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
             if (cashControl) {
               items.push({
-                date: new Date(cashControl.date),
+                date: parseISO(cashControl.date + 'T12:00:00'),
                 description: 'Faturamento: Cartão - Fechamento de Caixa',
                 number: '',
                 installment: '',
@@ -600,7 +600,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
             if (cashControl) {
               items.push({
-                date: new Date(cashControl.date),
+                date: parseISO(cashControl.date + 'T12:00:00'),
                 description: 'Faturamento: Delivery - Fechamento de Caixa',
                 number: '',
                 installment: '',
@@ -635,7 +635,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
             if (cashControl) {
               items.push({
-                date: new Date(cashControl.date),
+                date: parseISO(cashControl.date + 'T12:00:00'),
                 description: 'Faturamento: Conta - Fechamento de Caixa',
                 number: '',
                 installment: '',
