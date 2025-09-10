@@ -224,27 +224,19 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
       // TODO: Implementar cálculo do saldo anterior baseado em todas as movimentações até o dia anterior
 
-      // 2. Buscar transferências
-      console.log('Buscando transferências para conta:', selectedAccount, 'loja:', selectedStore);
-      
-      const { data: transfers, error: transfersError } = await supabase
+      // 2. Buscar transferências - busca onde a conta participa, independente da loja
+      const { data: transfers } = await supabase
         .from('transfers')
         .select('*')
-        .eq('store_id', selectedStore)
         .gte('transfer_date', format(startDate, 'yyyy-MM-dd'))
         .lte('transfer_date', format(endDate, 'yyyy-MM-dd'))
         .or(`source_account_id.eq.${selectedAccount},destination_account_id.eq.${selectedAccount}`)
         .order('transfer_date');
 
-      console.log('Transferências encontradas:', transfers);
-      console.log('Erro na busca de transferências:', transfersError);
-
       // Processar transferências
       if (transfers) {
-        console.log('Processando', transfers.length, 'transferências');
         for (const transfer of transfers) {
           const isSource = transfer.source_account_id === selectedAccount;
-          console.log('Transfer ID:', transfer.id, 'isSource:', isSource, 'conta origem:', transfer.source_account_id, 'conta destino:', transfer.destination_account_id);
           
           const otherAccountId = isSource ? transfer.destination_account_id : transfer.source_account_id;
           const otherAccountType = isSource ? transfer.destination_account_type : transfer.source_account_type;
@@ -294,7 +286,6 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
             type: 'transfer' as const
           };
           
-          console.log('Adicionando item ao extrato:', extratoItem);
           items.push(extratoItem);
         }
       }
