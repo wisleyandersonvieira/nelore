@@ -413,7 +413,9 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
       // 3. Buscar contas a pagar (saídas)
       if (account.type === 'current' || account.type === 'cash') {
-        const { data: payableInstallments } = await supabase
+        console.log('Buscando contas a pagar pagas entre', format(startDate, 'yyyy-MM-dd'), 'e', format(endDate, 'yyyy-MM-dd'));
+        
+        const { data: payableInstallments, error: payableError } = await supabase
           .from('accounts_payable_installments')
           .select(`
             id,
@@ -426,10 +428,15 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
           .gte('payment_date', format(startDate, 'yyyy-MM-dd'))
           .lte('payment_date', format(endDate, 'yyyy-MM-dd'));
 
-        if (payableInstallments) {
+        console.log('Parcelas pagas encontradas:', payableInstallments);
+        console.log('Erro na busca:', payableError);
+
+        if (payableInstallments && payableInstallments.length > 0) {
           // Buscar dados das contas a pagar relacionadas
           for (const installment of payableInstallments) {
-            const { data: accountPayable } = await supabase
+            console.log('Processando parcela:', installment);
+            
+            const { data: accountPayable, error: accountError } = await supabase
               .from('accounts_payable')
               .select(`
                 store_id,
@@ -438,20 +445,28 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 suppliers (name)
               `)
               .eq('id', installment.account_payable_id)
-              .eq('store_id', selectedStore)
               .maybeSingle();
 
-            // Buscar total de parcelas para esta conta a pagar
-            const { count: totalInstallments } = await supabase
-              .from('accounts_payable_installments')
-              .select('*', { count: 'exact', head: true })
-              .eq('account_payable_id', installment.account_payable_id);
+            console.log('Conta a pagar encontrada:', accountPayable);
+            console.log('Loja selecionada:', selectedStore);
+            console.log('Erro na busca da conta:', accountError);
 
-            if (accountPayable) {
+            // Verificar se a conta pertence à loja selecionada
+            if (accountPayable && accountPayable.store_id === selectedStore) {
+              // Buscar total de parcelas para esta conta a pagar
+              const { count: totalInstallments } = await supabase
+                .from('accounts_payable_installments')
+                .select('*', { count: 'exact', head: true })
+                .eq('account_payable_id', installment.account_payable_id);
+
+              console.log('Total de parcelas:', totalInstallments);
+
               const documentNumber = accountPayable.document_number || installment.account_payable_id.toString().slice(-6);
-              const installmentText = totalInstallments ? `${installment.installment_number}/${totalInstallments}` : `${installment.installment_number}`;
+              const installmentText = totalInstallments && totalInstallments > 1 
+                ? `${installment.installment_number}/${totalInstallments}` 
+                : '';
               
-              items.push({
+              const item = {
                 date: new Date(installment.payment_date),
                 description: accountPayable.suppliers?.name || 'Fornecedor',
                 number: documentNumber,
@@ -459,10 +474,17 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 entrada: 0,
                 saida: installment.amount,
                 saldo: 0,
-                type: 'payable'
-              });
+                type: 'payable' as const
+              };
+              
+              console.log('Adicionando item de conta a pagar:', item);
+              items.push(item);
+            } else {
+              console.log('Conta a pagar não pertence à loja selecionada ou não foi encontrada');
             }
           }
+        } else {
+          console.log('Nenhuma parcela paga encontrada no período');
         }
       }
 
