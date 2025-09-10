@@ -541,6 +541,114 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         }
       }
 
+      // 6. Buscar faturamentos do fechamento de caixa para contas específicas
+      if (account.type === 'card') {
+        const { data: cardItems } = await supabase
+          .from('cash_control_card_items')
+          .select(`
+            valor,
+            cash_control_id
+          `)
+          .eq('card_account_id', selectedAccount);
+
+        if (cardItems) {
+          for (const item of cardItems) {
+            // Buscar detalhes do cash_control
+            const { data: cashControl } = await supabase
+              .from('cash_control')
+              .select('date, store_id')
+              .eq('id', item.cash_control_id)
+              .eq('store_id', selectedStore)
+              .gte('date', format(startDate, 'yyyy-MM-dd'))
+              .lte('date', format(endDate, 'yyyy-MM-dd'))
+              .maybeSingle();
+
+            if (cashControl) {
+              items.push({
+                date: new Date(cashControl.date),
+                description: 'Faturamento: Cartão - Fechamento de Caixa',
+                number: '',
+                installment: '',
+                entrada: item.valor,
+                saida: 0,
+                saldo: 0,
+                type: 'cash_control'
+              });
+            }
+          }
+        }
+      } else if (account.type === 'delivery') {
+        const { data: deliveryItems } = await supabase
+          .from('cash_control_delivery_items')
+          .select(`
+            valor,
+            cash_control_id
+          `)
+          .eq('delivery_account_id', selectedAccount);
+
+        if (deliveryItems) {
+          for (const item of deliveryItems) {
+            // Buscar detalhes do cash_control
+            const { data: cashControl } = await supabase
+              .from('cash_control')
+              .select('date, store_id')
+              .eq('id', item.cash_control_id)
+              .eq('store_id', selectedStore)
+              .gte('date', format(startDate, 'yyyy-MM-dd'))
+              .lte('date', format(endDate, 'yyyy-MM-dd'))
+              .maybeSingle();
+
+            if (cashControl) {
+              items.push({
+                date: new Date(cashControl.date),
+                description: 'Faturamento: Delivery - Fechamento de Caixa',
+                number: '',
+                installment: '',
+                entrada: item.valor,
+                saida: 0,
+                saldo: 0,
+                type: 'cash_control'
+              });
+            }
+          }
+        }
+      } else if (account.type === 'current') {
+        const { data: cashItems } = await supabase
+          .from('cash_control_cash_items')
+          .select(`
+            valor,
+            cash_control_id
+          `)
+          .eq('cash_account_id', selectedAccount);
+
+        if (cashItems) {
+          for (const item of cashItems) {
+            // Buscar detalhes do cash_control
+            const { data: cashControl } = await supabase
+              .from('cash_control')
+              .select('date, store_id')
+              .eq('id', item.cash_control_id)
+              .eq('store_id', selectedStore)
+              .gte('date', format(startDate, 'yyyy-MM-dd'))
+              .lte('date', format(endDate, 'yyyy-MM-dd'))
+              .maybeSingle();
+
+            if (cashControl) {
+              items.push({
+                date: new Date(cashControl.date),
+                description: 'Faturamento: Conta - Fechamento de Caixa',
+                number: '',
+                installment: '',
+                entrada: item.valor,
+                saida: 0,
+                saldo: 0,
+                type: 'cash_control'
+              });
+            }
+          }
+        }
+      }
+
       // Ordenar por data
       items.sort((a, b) => a.date.getTime() - b.date.getTime());
 
