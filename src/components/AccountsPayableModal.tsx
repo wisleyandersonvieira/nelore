@@ -50,7 +50,7 @@ interface CurrentAccount {
   name: string;
   bank: string;
   account_number: string;
-  account_type: string; // 'current', 'cash', 'card'
+  account_type: string; // 'current', 'cash', 'card', 'delivery'
 }
 
 interface PayableItem {
@@ -1132,6 +1132,27 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           accounts.push({
             ...account,
             account_type: 'card'
+          });
+        });
+      }
+
+      // Buscar contas delivery
+      const { data: deliveryAccountsData, error: deliveryAccountsError } = await supabase
+        .from("delivery_accounts")
+        .select("id, name, contact_person, phone, email")
+        .eq("is_active", true)
+        .order("name");
+
+      if (deliveryAccountsError) throw deliveryAccountsError;
+      
+      if (deliveryAccountsData) {
+        deliveryAccountsData.forEach(account => {
+          accounts.push({
+            id: account.id,
+            name: account.name,
+            bank: account.contact_person || 'N/A',
+            account_number: account.phone || 'N/A',
+            account_type: 'delivery'
           });
         });
       }
@@ -2433,6 +2454,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           .eq("account_id", selectedAccountId);
         accountStores = result.data;
         storesError = result.error;
+      } else if (selectedAccount.account_type === 'delivery') {
+        const result = await supabase
+          .from("delivery_account_stores")
+          .select("store_id")
+          .eq("account_id", selectedAccountId);
+        accountStores = result.data;
+        storesError = result.error;
       }
 
       if (storesError) throw storesError;
@@ -2445,7 +2473,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       if (unauthorizedStores.length > 0) {
         const accountTypeName = selectedAccount.account_type === 'current' ? 'conta corrente' : 
-                               selectedAccount.account_type === 'cash' ? 'conta caixa' : 'conta cartão';
+                               selectedAccount.account_type === 'cash' ? 'conta caixa' : 
+                               selectedAccount.account_type === 'card' ? 'conta cartão' :
+                               selectedAccount.account_type === 'delivery' ? 'conta delivery' : 'conta';
         toast({
           title: "Conta não autorizada",
           description: `A ${accountTypeName} selecionada não está vinculada a todas as lojas dos itens desta conta a pagar.`,
@@ -3850,7 +3880,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     <SelectContent>
                       {currentAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
-                          {account.name} - {account.account_type === 'current' ? 'Conta Corrente' : account.account_type === 'cash' ? 'Conta Caixa' : 'Conta Cartão'} 
+                          {account.name} - {
+                            account.account_type === 'current' ? 'Conta Corrente' : 
+                            account.account_type === 'cash' ? 'Conta Caixa' : 
+                            account.account_type === 'card' ? 'Conta Cartão' : 
+                            account.account_type === 'delivery' ? 'Conta Delivery' : 
+                            'Conta'
+                          }
                           {account.account_type === 'current' && ` - ${account.bank} (${account.account_number})`}
                         </SelectItem>
                       ))}
