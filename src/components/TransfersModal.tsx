@@ -13,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { TransferFormModal } from "./TransferFormModal";
+import { validateCashControlPeriod } from "@/utils/periodValidation";
 
 interface Transfer {
   id: string;
@@ -239,8 +240,30 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
     setLoading(false);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, transferDate: string) => {
     if (!confirm("Tem certeza que deseja excluir esta transferência?")) return;
+
+    // Verificar se o período está bloqueado para pagamento
+    console.log('🔍 Verificando bloqueio de período para exclusão de transferência:', {
+      transferDate,
+      year: new Date(transferDate + 'T12:00:00').getUTCFullYear(),
+      month: new Date(transferDate + 'T12:00:00').getUTCMonth() + 1
+    });
+
+    const paymentValidation = await validateCashControlPeriod.pagamento(transferDate);
+    
+    console.log('📊 Validação de período para exclusão de transferência:', {
+      paymentValidation
+    });
+
+    if (paymentValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: paymentValidation.message || "O período está bloqueado para operações de transferência",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { error } = await supabase
       .from('transfers')
@@ -487,7 +510,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(transfer.id)}
+                            onClick={() => handleDelete(transfer.id, transfer.transfer_date)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

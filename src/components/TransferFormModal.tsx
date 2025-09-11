@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { validateCashControlPeriod } from "@/utils/periodValidation";
 
 const formSchema = z.object({
   transfer_date: z.date({
@@ -126,6 +127,29 @@ export function TransferFormModal({
     if (readonly) return;
 
     setLoading(true);
+
+    // Verificar se o período está bloqueado para pagamento
+    console.log('🔍 Verificando bloqueio de período para transferência:', {
+      transferDate: format(data.transfer_date, 'yyyy-MM-dd'),
+      year: data.transfer_date.getUTCFullYear(),
+      month: data.transfer_date.getUTCMonth() + 1
+    });
+
+    const paymentValidation = await validateCashControlPeriod.pagamento(format(data.transfer_date, 'yyyy-MM-dd'));
+    
+    console.log('📊 Validação de período para transferência:', {
+      paymentValidation
+    });
+
+    if (paymentValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: paymentValidation.message || "O período está bloqueado para operações de transferência",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
 
     // Obter store_id do usuário atual
     const { data: userData, error: userError } = await supabase
