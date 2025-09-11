@@ -151,6 +151,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [reverseAccount, setReverseAccount] = useState<AccountPayable | null>(null);
   const [reverseInstallments, setReverseInstallments] = useState<any[]>([]);
   const [selectedReverseInstallments, setSelectedReverseInstallments] = useState<string[]>([]);
+  const [paymentAccountInfo, setPaymentAccountInfo] = useState<CurrentAccount | null>(null);
   const { toast } = useToast();
 
   // Filter fields
@@ -811,6 +812,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const handleReversePayment = async (account: AccountPayable) => {
     setReverseAccount(account);
     setSelectedReverseInstallments([]);
+    setPaymentAccountInfo(null);
 
     // Check if account has installments
     try {
@@ -825,17 +827,36 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const paidInstallments = (installmentsData || []).filter(inst => inst.payment_date !== null);
       setReverseInstallments(paidInstallments);
 
-      if (paidInstallments.length === 0) {
-        // No installments or no paid installments, use original reverse logic
-        await performReversePayment(account.id);
-      } else {
-        // Has paid installments, show modal
-        setShowReverseModal(true);
+      // Fetch payment account information from financial transactions
+      let referenceId = account.id;
+      let referenceType = "accounts_payable";
+
+      // If there are paid installments, use the first one to get the payment account
+      if (paidInstallments.length > 0) {
+        referenceId = paidInstallments[0].id;
+        referenceType = "accounts_payable_installments";
       }
+
+      const { data: transactionData, error: transactionError } = await supabase
+        .from("financial_transactions")
+        .select("account_id")
+        .eq("reference_id", referenceId)
+        .eq("reference_type", referenceType)
+        .limit(1)
+        .single();
+
+      if (!transactionError && transactionData) {
+        const paymentAccount = currentAccounts.find(acc => acc.id === transactionData.account_id);
+        setPaymentAccountInfo(paymentAccount || null);
+      }
+
+      // Always show modal (both for accounts with and without installments)
+      setShowReverseModal(true);
     } catch (error) {
       console.error("Error fetching installments for reverse:", error);
-      // Fallback to original logic
-      await performReversePayment(account.id);
+      // Still show modal even if there's an error
+      setReverseInstallments([]);
+      setShowReverseModal(true);
     }
   };
 
@@ -4013,6 +4034,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   <p className="text-lg font-semibold text-primary">
                     Valor Original: R$ {Number(reverseAccount.amount).toFixed(2)}
                   </p>
+                  {paymentAccountInfo && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      <span className="font-medium">Conta de Pagamento:</span> {paymentAccountInfo.name} - {
+                        paymentAccountInfo.account_type === 'current' ? 'Conta Corrente' : 
+                        paymentAccountInfo.account_type === 'cash' ? 'Conta Caixa' : 
+                        paymentAccountInfo.account_type === 'card' ? 'Conta Cartão' : 
+                        paymentAccountInfo.account_type === 'delivery' ? 'Conta Delivery' : 
+                        'Conta'
+                      }
+                      {paymentAccountInfo.account_type === 'current' && ` - ${paymentAccountInfo.bank} (${paymentAccountInfo.account_number})`}
+                    </p>
+                  )}
                 </div>
 
                 {/* Paid Installments Section */}
@@ -4077,8 +4110,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Cancelar
                   </Button>
                   <Button 
-                    onClick={() => performReversePayment(reverseAccount.id, selectedReverseInstallments)} 
-                    disabled={loading || selectedReverseInstallments.length === 0}
+                    onClick={() => performReversePayment(reverseAccount.id, reverseInstallments.length > 0 ? selectedReverseInstallments : undefined)} 
+                    disabled={loading || (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0)}
                     variant="destructive"
                   >
                     {loading ? "Processando..." : "Confirmar Estorno"}
