@@ -34,9 +34,9 @@ export const isPeriodBlocked = async (
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      // Se é Date, usar getFullYear e getMonth + 1
-      year = dateInput.getFullYear();
-      month = dateInput.getMonth() + 1;
+      // Se é Date, usar getUTCFullYear e getUTCMonth + 1 para evitar problemas de fuso horário
+      year = dateInput.getUTCFullYear();
+      month = dateInput.getUTCMonth() + 1;
     }
 
     console.log('📅 Data processada:', { year, month });
@@ -109,8 +109,8 @@ export const validateAccountsPayablePeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = competenceDate.getFullYear();
-      month = competenceDate.getMonth() + 1;
+      year = competenceDate.getUTCFullYear();
+      month = competenceDate.getUTCMonth() + 1;
     }
     
     return {
@@ -136,8 +136,8 @@ export const validateAccountsPayablePeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = paymentDate.getFullYear();
-      month = paymentDate.getMonth() + 1;
+      year = paymentDate.getUTCFullYear();
+      month = paymentDate.getUTCMonth() + 1;
     }
     
     return {
@@ -168,8 +168,8 @@ export const validateAccountsReceivablePeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = competenceDate.getFullYear();
-      month = competenceDate.getMonth() + 1;
+      year = competenceDate.getUTCFullYear();
+      month = competenceDate.getUTCMonth() + 1;
     }
     
     return {
@@ -195,8 +195,8 @@ export const validateAccountsReceivablePeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = paymentDate.getFullYear();
-      month = paymentDate.getMonth() + 1;
+      year = paymentDate.getUTCFullYear();
+      month = paymentDate.getUTCMonth() + 1;
     }
     
     return {
@@ -227,8 +227,8 @@ export const validateCashControlPeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = competenceDate.getFullYear();
-      month = competenceDate.getMonth() + 1;
+      year = competenceDate.getUTCFullYear();
+      month = competenceDate.getUTCMonth() + 1;
     }
     
     return {
@@ -254,8 +254,8 @@ export const validateCashControlPeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = paymentDate.getFullYear();
-      month = paymentDate.getMonth() + 1;
+      year = paymentDate.getUTCFullYear();
+      month = paymentDate.getUTCMonth() + 1;
     }
     
     return {
@@ -288,8 +288,8 @@ export const validateStockControlPeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = competenceDate.getFullYear();
-      month = competenceDate.getMonth() + 1;
+      year = competenceDate.getUTCFullYear();
+      month = competenceDate.getUTCMonth() + 1;
     }
     
     return {
@@ -317,8 +317,8 @@ export const validateStockControlPeriod = {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
     } else {
-      year = paymentDate.getFullYear();
-      month = paymentDate.getMonth() + 1;
+      year = paymentDate.getUTCFullYear();
+      month = paymentDate.getUTCMonth() + 1;
     }
     
     return {
