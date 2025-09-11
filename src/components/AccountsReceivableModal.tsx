@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { validateAccountsReceivablePeriod } from "@/utils/periodValidation";
 
 interface AccountsReceivableModalProps {
   open: boolean;
@@ -167,6 +168,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [documentNumber, setDocumentNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dataCompetencia, setDataCompetencia] = useState("");
   const [notes, setNotes] = useState("");
 
   // Parcelas
@@ -201,6 +203,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setDocumentNumber("");
       setIssueDate("");
       setDueDate("");
+      setDataCompetencia("");
       setNotes("");
       setItems([]);
       setDefaultStore("");
@@ -395,6 +398,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setDocumentNumber(account.document_number || "");
     setIssueDate(account.issue_date || "");
     setDueDate(account.due_date || "");
+    setDataCompetencia((account as any).data_competencia || "");
     setNotes(account.notes || "");
     
     // Load items
@@ -629,10 +633,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   };
 
   const handleRecordNote = () => {
-    if (!creditorId || !issueDate || !dueDate) {
+    if (!creditorId || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatórios (Credor, Data Emissão, Data Vencimento)",
+        description: "Preencha todos os campos obrigatórios (Credor, Data Emissão, Data Vencimento, Data Competência)",
         variant: "destructive",
       });
       return;
@@ -728,10 +732,21 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   };
 
   const handleSave = async () => {
-    if (!creditorId || items.length === 0 || !issueDate || !dueDate) {
+    if (!creditorId || items.length === 0 || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatórios e adicione pelo menos um item",
+        description: "Preencha todos os campos obrigatórios (incluindo data de competência) e adicione pelo menos um item",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar se o período de competência não está bloqueado
+    const competenceValidation = await validateAccountsReceivablePeriod.competencia(dataCompetencia);
+    if (competenceValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: competenceValidation.message,
         variant: "destructive",
       });
       return;
@@ -752,6 +767,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             document_number: documentNumber,
             issue_date: issueDate,
             due_date: dueDate,
+            data_competencia: dataCompetencia,
             amount: totalAmount,
             notes,
             status: "pending",
@@ -803,6 +819,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             document_number: documentNumber,
             issue_date: issueDate,
             due_date: dueDate,
+            data_competencia: dataCompetencia,
             amount: totalAmount,
             notes,
             status: "pending",
@@ -843,6 +860,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setDocumentNumber("");
       setIssueDate("");
       setDueDate("");
+      setDataCompetencia("");
       setNotes("");
       setItems([]);
       setNoteRecorded(false);
@@ -875,6 +893,17 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar se o período de recebimento não está bloqueado
+    const paymentValidation = await validateAccountsReceivablePeriod.pagamento(paymentDate);
+    if (paymentValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: paymentValidation.message,
         variant: "destructive",
       });
       return;
@@ -1217,6 +1246,16 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
+                  disabled={isViewOnly}
+                />
+              </div>
+
+              <div>
+                <Label>Data Competência *</Label>
+                <Input
+                  type="date"
+                  value={dataCompetencia}
+                  onChange={(e) => setDataCompetencia(e.target.value)}
                   disabled={isViewOnly}
                 />
               </div>

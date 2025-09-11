@@ -257,6 +257,7 @@ export type Database = {
           created_at: string
           created_by: string
           creditor_id: string | null
+          data_competencia: string | null
           description: string
           document_number: string | null
           document_type: string | null
@@ -276,6 +277,7 @@ export type Database = {
           created_at?: string
           created_by: string
           creditor_id?: string | null
+          data_competencia?: string | null
           description: string
           document_number?: string | null
           document_type?: string | null
@@ -295,6 +297,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           creditor_id?: string | null
+          data_competencia?: string | null
           description?: string
           document_number?: string | null
           document_type?: string | null
