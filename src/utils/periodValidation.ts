@@ -131,3 +131,62 @@ export const validateAccountsPayablePeriod = {
     };
   }
 };
+
+/**
+ * Verifica bloqueios para o módulo de contas a receber
+ */
+export const validateAccountsReceivablePeriod = {
+  /**
+   * Valida se a competência não está bloqueada para cadastro
+   */
+  competencia: async (competenceDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
+    const blocked = await isPeriodBlocked(competenceDate, 'competencia', 'contas_receber');
+    
+    // Extrair ano e mês para mensagem
+    let year: number;
+    let month: number;
+    
+    if (typeof competenceDate === 'string') {
+      const parts = competenceDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      year = competenceDate.getFullYear();
+      month = competenceDate.getMonth() + 1;
+    }
+    
+    return {
+      blocked,
+      message: blocked 
+        ? `O período ${month}/${year} está bloqueado para cadastro de competência em Contas a Receber.`
+        : undefined
+    };
+  },
+
+  /**
+   * Valida se o recebimento não está bloqueado
+   */
+  pagamento: async (paymentDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
+    const blocked = await isPeriodBlocked(paymentDate, 'pagamento', 'contas_receber');
+    
+    // Extrair ano e mês para mensagem
+    let year: number;
+    let month: number;
+    
+    if (typeof paymentDate === 'string') {
+      const parts = paymentDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      year = paymentDate.getFullYear();
+      month = paymentDate.getMonth() + 1;
+    }
+    
+    return {
+      blocked,
+      message: blocked 
+        ? `O período ${month}/${year} está bloqueado para recebimentos em Contas a Receber.`
+        : undefined
+    };
+  }
+};
