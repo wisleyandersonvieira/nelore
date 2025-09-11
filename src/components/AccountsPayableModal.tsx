@@ -1923,7 +1923,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
 
     // Validar se o período de competência não está bloqueado
-    const competenceValidation = await validateAccountsPayablePeriod.competencia(new Date(dataCompetencia));
+    const competenceValidation = await validateAccountsPayablePeriod.competencia(dataCompetencia);
     if (competenceValidation.blocked) {
       toast({
         title: "Período Bloqueado",
@@ -2128,6 +2128,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (!user) throw new Error("Usuário não autenticado");
 
       const totalAmount = getTotalAmount();
+      
+      // Validar se o período de competência não está bloqueado (tanto para edição quanto criação)
+      const competenceValidation = await validateAccountsPayablePeriod.competencia(dataCompetencia);
+      if (competenceValidation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: competenceValidation.message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
       
       // Upload new attachments if any
       let newAttachments: Array<{name: string, url: string, size: number}> = [];
@@ -2399,7 +2411,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
 
     // Validar se o período de pagamento não está bloqueado
-    const paymentValidation = await validateAccountsPayablePeriod.pagamento(new Date(paymentDate));
+    const paymentValidation = await validateAccountsPayablePeriod.pagamento(paymentDate);
     if (paymentValidation.blocked) {
       toast({
         title: "Período Bloqueado",

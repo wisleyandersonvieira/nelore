@@ -11,19 +11,31 @@ interface PeriodBlock {
 
 /**
  * Verifica se um período está bloqueado para um módulo específico
- * @param date Data a ser verificada
+ * @param dateInput Data a ser verificada (Date ou string no formato YYYY-MM-DD)
  * @param blockType Tipo de bloqueio ('competencia' ou 'pagamento')
  * @param moduleId ID do módulo (ex: 'contas_pagar')
  * @returns Promise<boolean> true se estiver bloqueado, false caso contrário
  */
 export const isPeriodBlocked = async (
-  date: Date,
+  dateInput: Date | string,
   blockType: 'competencia' | 'pagamento',
   moduleId: string
 ): Promise<boolean> => {
   try {
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1; // getMonth() retorna 0-11, precisamos 1-12
+    // Tratar corretamente datas para evitar problemas de fuso horário
+    let year: number;
+    let month: number;
+    
+    if (typeof dateInput === 'string') {
+      // Se é string no formato YYYY-MM-DD, extrair ano e mês diretamente
+      const parts = dateInput.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      // Se é Date, usar getFullYear e getMonth + 1
+      year = dateInput.getFullYear();
+      month = dateInput.getMonth() + 1;
+    }
 
     // Buscar store_id do usuário
     const { data: profile } = await supabase
@@ -68,12 +80,26 @@ export const validateAccountsPayablePeriod = {
   /**
    * Valida se a competência não está bloqueada para cadastro
    */
-  competencia: async (competenceDate: Date): Promise<{ blocked: boolean; message?: string }> => {
+  competencia: async (competenceDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
     const blocked = await isPeriodBlocked(competenceDate, 'competencia', 'contas_pagar');
+    
+    // Extrair ano e mês para mensagem
+    let year: number;
+    let month: number;
+    
+    if (typeof competenceDate === 'string') {
+      const parts = competenceDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      year = competenceDate.getFullYear();
+      month = competenceDate.getMonth() + 1;
+    }
+    
     return {
       blocked,
       message: blocked 
-        ? `O período ${competenceDate.getMonth() + 1}/${competenceDate.getFullYear()} está bloqueado para cadastro de competência em Contas a Pagar.`
+        ? `O período ${month}/${year} está bloqueado para cadastro de competência em Contas a Pagar.`
         : undefined
     };
   },
@@ -81,12 +107,26 @@ export const validateAccountsPayablePeriod = {
   /**
    * Valida se o pagamento não está bloqueado
    */
-  pagamento: async (paymentDate: Date): Promise<{ blocked: boolean; message?: string }> => {
+  pagamento: async (paymentDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
     const blocked = await isPeriodBlocked(paymentDate, 'pagamento', 'contas_pagar');
+    
+    // Extrair ano e mês para mensagem
+    let year: number;
+    let month: number;
+    
+    if (typeof paymentDate === 'string') {
+      const parts = paymentDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      year = paymentDate.getFullYear();
+      month = paymentDate.getMonth() + 1;
+    }
+    
     return {
       blocked,
       message: blocked 
-        ? `O período ${paymentDate.getMonth() + 1}/${paymentDate.getFullYear()} está bloqueado para pagamentos em Contas a Pagar.`
+        ? `O período ${month}/${year} está bloqueado para pagamentos em Contas a Pagar.`
         : undefined
     };
   }
