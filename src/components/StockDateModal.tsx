@@ -38,11 +38,17 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
   const checkPeriodBlock = async () => {
     try {
       const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      console.log('🔍 Verificando bloqueio de período para estoque:', { periodDate, year, month });
+      
       const competenceValidation = await validateStockControlPeriod.competencia(periodDate);
       const paymentValidation = await validateStockControlPeriod.pagamento(periodDate);
       
+      console.log('📊 Validações de período:', { competenceValidation, paymentValidation });
+      
       const isBlocked = competenceValidation.blocked || paymentValidation.blocked;
       setPeriodBlocked(isBlocked);
+      
+      console.log('🚫 Período bloqueado?', isBlocked);
       
       if (isBlocked) {
         const message = competenceValidation.message || paymentValidation.message;

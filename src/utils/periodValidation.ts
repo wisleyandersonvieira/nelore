@@ -22,6 +22,8 @@ export const isPeriodBlocked = async (
   moduleId: string
 ): Promise<boolean> => {
   try {
+    console.log('🔍 isPeriodBlocked chamada:', { dateInput, blockType, moduleId });
+    
     // Tratar corretamente datas para evitar problemas de fuso horário
     let year: number;
     let month: number;
@@ -37,6 +39,8 @@ export const isPeriodBlocked = async (
       month = dateInput.getMonth() + 1;
     }
 
+    console.log('📅 Data processada:', { year, month });
+
     // Buscar store_id do usuário
     const { data: profile } = await supabase
       .from("profiles")
@@ -44,7 +48,10 @@ export const isPeriodBlocked = async (
       .eq("id", (await supabase.auth.getUser()).data.user?.id)
       .single();
 
+    console.log('👤 Profile do usuário:', profile);
+
     if (!profile?.store_id) {
+      console.log('❌ Usuário sem store_id, não bloqueia');
       return false; // Se não tem store_id, não bloqueia
     }
 
@@ -57,15 +64,25 @@ export const isPeriodBlocked = async (
       .eq("month", month)
       .eq("block_type", blockType);
 
+    console.log('🔒 Bloqueios encontrados:', { blocks, error });
+
     if (error) {
       console.error("Erro ao verificar bloqueio de período:", error);
       return false; // Em caso de erro, não bloqueia
     }
 
     // Verificar se algum bloqueio inclui o módulo especificado
-    return blocks?.some((block: PeriodBlock) => 
-      block.blocked_modules.includes(moduleId)
-    ) || false;
+    const isBlocked = blocks?.some((block: PeriodBlock) => {
+      console.log('🔍 Verificando block:', { 
+        blockId: block.id, 
+        blockedModules: block.blocked_modules, 
+        includesModule: block.blocked_modules.includes(moduleId) 
+      });
+      return block.blocked_modules.includes(moduleId);
+    }) || false;
+
+    console.log('🚫 Resultado final isPeriodBlocked:', isBlocked);
+    return isBlocked;
 
   } catch (error) {
     console.error("Erro ao verificar bloqueio de período:", error);
@@ -258,7 +275,9 @@ export const validateStockControlPeriod = {
    * Valida se a competência não está bloqueada para cadastro
    */
   competencia: async (competenceDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
+    console.log('🔍 validateStockControlPeriod.competencia chamada:', { competenceDate });
     const blocked = await isPeriodBlocked(competenceDate, 'competencia', 'estoque');
+    console.log('📊 Resultado isPeriodBlocked (competencia, estoque):', { blocked });
     
     // Extrair ano e mês para mensagem
     let year: number;
@@ -285,7 +304,9 @@ export const validateStockControlPeriod = {
    * Valida se o período não está bloqueado para operações
    */
   pagamento: async (paymentDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
+    console.log('🔍 validateStockControlPeriod.pagamento chamada:', { paymentDate });
     const blocked = await isPeriodBlocked(paymentDate, 'pagamento', 'estoque');
+    console.log('📊 Resultado isPeriodBlocked (pagamento, estoque):', { blocked });
     
     // Extrair ano e mês para mensagem
     let year: number;

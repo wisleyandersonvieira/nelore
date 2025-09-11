@@ -208,14 +208,21 @@ export const StockRegisterModal = ({
 
       // Verificar se o período está bloqueado
       const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      console.log('💾 Tentando salvar estoque - verificando período:', { periodDate, year, month, mode });
+      
       const competenceValidation = await validateStockControlPeriod.competencia(periodDate);
       const paymentValidation = await validateStockControlPeriod.pagamento(periodDate);
       
+      console.log('📊 Validações de salvamento:', { competenceValidation, paymentValidation });
+      
       if (competenceValidation.blocked || paymentValidation.blocked) {
         const message = competenceValidation.message || paymentValidation.message;
+        console.log('🚫 Período bloqueado! Cancelando salvamento:', message);
         toast.error(message || 'Período bloqueado para operações de estoque.');
         return;
       }
+      
+      console.log('✅ Período liberado, continuando com salvamento...');
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
@@ -335,14 +342,21 @@ export const StockRegisterModal = ({
 
       // Verificar se o período está bloqueado
       const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      console.log('🗑️ Tentando excluir estoque - verificando período:', { periodDate, year, month });
+      
       const competenceValidation = await validateStockControlPeriod.competencia(periodDate);
       const paymentValidation = await validateStockControlPeriod.pagamento(periodDate);
       
+      console.log('📊 Validações de exclusão:', { competenceValidation, paymentValidation });
+      
       if (competenceValidation.blocked || paymentValidation.blocked) {
         const message = competenceValidation.message || paymentValidation.message;
+        console.log('🚫 Período bloqueado! Cancelando exclusão:', message);
         toast.error(message || 'Período bloqueado para operações de estoque.');
         return;
       }
+      
+      console.log('✅ Período liberado, continuando com exclusão...');
 
       if (!stockControlId) {
         throw new Error('ID do controle de estoque não encontrado');
