@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
 import { SupplierSearchModal } from "./SupplierSearchModal";
 import { ProductSearchModal } from "./ProductSearchModal";
+import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 import * as pdfjsLib from 'pdfjs-dist';
 
 interface AccountsPayableModalProps {
@@ -1921,6 +1922,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       return;
     }
 
+    // Validar se o período de competência não está bloqueado
+    const competenceValidation = await validateAccountsPayablePeriod.competencia(new Date(dataCompetencia));
+    if (competenceValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: competenceValidation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -2381,6 +2393,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       toast({
         title: "Erro",
         description: "Selecione pelo menos uma parcela para pagar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar se o período de pagamento não está bloqueado
+    const paymentValidation = await validateAccountsPayablePeriod.pagamento(new Date(paymentDate));
+    if (paymentValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: paymentValidation.message,
         variant: "destructive",
       });
       return;
