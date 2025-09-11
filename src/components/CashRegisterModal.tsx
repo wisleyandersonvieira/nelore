@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, DollarSign, CreditCard, Building2, Truck, Trash2, Plus, Eye } from "lucide-react";
+import { validateCashControlPeriod } from "@/utils/periodValidation";
 
 interface CashRegisterModalProps {
   open: boolean;
@@ -542,6 +543,16 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   const onSubmit = async (data: any) => {
     try {
       setLoading(true);
+
+      // Verificar se o período está bloqueado para operações de caixa
+      if (mode !== 'view') {
+        const validation = await validateCashControlPeriod.pagamento(dateString);
+        if (validation.blocked) {
+          toast.error(validation.message || 'Período bloqueado para Controle de Caixa');
+          setLoading(false);
+          return;
+        }
+      }
 
       let cashControlId = cashControl?.id;
       let existingUrls: string[] = [];

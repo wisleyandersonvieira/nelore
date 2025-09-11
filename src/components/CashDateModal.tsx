@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Eye, Edit, Plus, Check, X } from "lucide-react";
 import { CashRegisterModal } from "./CashRegisterModal";
 import { toast } from "@/hooks/use-toast";
+import { validateCashControlPeriod } from "@/utils/periodValidation";
 
 interface CashDateModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
   const [loading, setLoading] = useState(true);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create');
+  const [periodBlocked, setPeriodBlocked] = useState(false);
 
   // Format date properly to avoid timezone issues
   const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -27,8 +29,18 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
   useEffect(() => {
     if (open) {
       fetchCashControl();
+      checkPeriodBlocking();
     }
   }, [open, dateString, storeId]);
+
+  const checkPeriodBlocking = async () => {
+    try {
+      const validation = await validateCashControlPeriod.pagamento(dateString);
+      setPeriodBlocked(validation.blocked);
+    } catch (error) {
+      console.error('Erro ao verificar bloqueio de período:', error);
+    }
+  };
 
   const fetchCashControl = async () => {
     try {
@@ -52,6 +64,19 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
 
   const handleApproval = async (approve: boolean) => {
     if (!cashControl) return;
+
+    // Verificar se o período está bloqueado
+    if (periodBlocked) {
+      const validation = await validateCashControlPeriod.pagamento(dateString);
+      if (validation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     try {
       const { error } = await supabase
@@ -87,7 +112,20 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
     }
   };
 
-  const handleAction = (actionMode: 'view' | 'edit' | 'create') => {
+  const handleAction = async (actionMode: 'view' | 'edit' | 'create') => {
+    // Se não for visualização, verificar se o período está bloqueado
+    if (actionMode !== 'view' && periodBlocked) {
+      const validation = await validateCashControlPeriod.pagamento(dateString);
+      if (validation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setMode(actionMode);
     setRegisterModalOpen(true);
     onOpenChange(false);
@@ -131,9 +169,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Cadastrar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                cashControl || cashControl?.approved_status ? 'opacity-50 cursor-not-allowed' : ''
+                cashControl || cashControl?.approved_status || periodBlocked ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => !cashControl && !cashControl?.approved_status && handleAction('create')}
+              onClick={() => !cashControl && !cashControl?.approved_status && !periodBlocked && handleAction('create')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center mx-auto mb-2">
@@ -148,7 +186,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={cashControl || cashControl?.approved_status}
+                  disabled={cashControl || cashControl?.approved_status || periodBlocked}
                 >
                   Cadastrar
                 </Button>
@@ -185,9 +223,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Editar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                !cashControl || cashControl?.approved_status ? 'opacity-50 cursor-not-allowed' : ''
+                !cashControl || cashControl?.approved_status || periodBlocked ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => cashControl && !cashControl.approved_status && handleAction('edit')}
+              onClick={() => cashControl && !cashControl.approved_status && !periodBlocked && handleAction('edit')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-yellow-500 flex items-center justify-center mx-auto mb-2">
@@ -202,7 +240,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={!cashControl || cashControl?.approved_status}
+                  disabled={!cashControl || cashControl?.approved_status || periodBlocked}
                 >
                   Editar
                 </Button>
@@ -214,7 +252,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
               <AlertDialogTrigger asChild>
                 <Card 
                   className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                    !cashControl ? 'opacity-50 cursor-not-allowed' : ''
+                    !cashControl || periodBlocked ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
               <CardHeader className="text-center">
@@ -241,7 +279,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={!cashControl}
+                  disabled={!cashControl || periodBlocked}
                 >
                   {cashControl?.approved_status ? 'Reprovar' : 'Aprovar'}
                 </Button>
