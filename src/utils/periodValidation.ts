@@ -249,3 +249,62 @@ export const validateCashControlPeriod = {
     };
   }
 };
+
+/**
+ * Verifica bloqueios para o módulo de controle de estoque
+ */
+export const validateStockControlPeriod = {
+  /**
+   * Valida se a competência não está bloqueada para cadastro
+   */
+  competencia: async (competenceDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
+    const blocked = await isPeriodBlocked(competenceDate, 'competencia', 'estoque');
+    
+    // Extrair ano e mês para mensagem
+    let year: number;
+    let month: number;
+    
+    if (typeof competenceDate === 'string') {
+      const parts = competenceDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      year = competenceDate.getFullYear();
+      month = competenceDate.getMonth() + 1;
+    }
+    
+    return {
+      blocked,
+      message: blocked 
+        ? `O período ${month}/${year} está bloqueado para cadastro de competência em Controle de Estoque.`
+        : undefined
+    };
+  },
+
+  /**
+   * Valida se o período não está bloqueado para operações
+   */
+  pagamento: async (paymentDate: Date | string): Promise<{ blocked: boolean; message?: string }> => {
+    const blocked = await isPeriodBlocked(paymentDate, 'pagamento', 'estoque');
+    
+    // Extrair ano e mês para mensagem
+    let year: number;
+    let month: number;
+    
+    if (typeof paymentDate === 'string') {
+      const parts = paymentDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    } else {
+      year = paymentDate.getFullYear();
+      month = paymentDate.getMonth() + 1;
+    }
+    
+    return {
+      blocked,
+      message: blocked 
+        ? `O período ${month}/${year} está bloqueado para operações em Controle de Estoque.`
+        : undefined
+    };
+  }
+};

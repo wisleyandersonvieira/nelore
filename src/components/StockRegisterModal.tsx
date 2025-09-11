@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Package, Snowflake, ShoppingCart, Package2, Save, Loader2, Trash2, Search, FileDown, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { validateStockControlPeriod } from "@/utils/periodValidation";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -205,6 +206,17 @@ export const StockRegisterModal = ({
     try {
       setSaving(true);
 
+      // Verificar se o período está bloqueado
+      const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      const competenceValidation = await validateStockControlPeriod.competencia(periodDate);
+      const paymentValidation = await validateStockControlPeriod.pagamento(periodDate);
+      
+      if (competenceValidation.blocked || paymentValidation.blocked) {
+        const message = competenceValidation.message || paymentValidation.message;
+        toast.error(message || 'Período bloqueado para operações de estoque.');
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
@@ -320,6 +332,17 @@ export const StockRegisterModal = ({
   const handleDelete = async () => {
     try {
       setDeleting(true);
+
+      // Verificar se o período está bloqueado
+      const periodDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      const competenceValidation = await validateStockControlPeriod.competencia(periodDate);
+      const paymentValidation = await validateStockControlPeriod.pagamento(periodDate);
+      
+      if (competenceValidation.blocked || paymentValidation.blocked) {
+        const message = competenceValidation.message || paymentValidation.message;
+        toast.error(message || 'Período bloqueado para operações de estoque.');
+        return;
+      }
 
       if (!stockControlId) {
         throw new Error('ID do controle de estoque não encontrado');
