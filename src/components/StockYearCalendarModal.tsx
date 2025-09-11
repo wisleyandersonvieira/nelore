@@ -20,18 +20,18 @@ export const StockYearCalendarModal = ({ open, onOpenChange, storeId }: StockYea
   const [loading, setLoading] = useState(false);
 
   const months = [
-    { value: 0, label: "Janeiro", short: "Jan" },
-    { value: 1, label: "Fevereiro", short: "Fev" },
-    { value: 2, label: "Março", short: "Mar" },
-    { value: 3, label: "Abril", short: "Abr" },
-    { value: 4, label: "Maio", short: "Mai" },
-    { value: 5, label: "Junho", short: "Jun" },
-    { value: 6, label: "Julho", short: "Jul" },
-    { value: 7, label: "Agosto", short: "Ago" },
-    { value: 8, label: "Setembro", short: "Set" },
-    { value: 9, label: "Outubro", short: "Out" },
-    { value: 10, label: "Novembro", short: "Nov" },
-    { value: 11, label: "Dezembro", short: "Dez" },
+    { value: 1, label: "Janeiro", short: "Jan" },
+    { value: 2, label: "Fevereiro", short: "Fev" },
+    { value: 3, label: "Março", short: "Mar" },
+    { value: 4, label: "Abril", short: "Abr" },
+    { value: 5, label: "Maio", short: "Mai" },
+    { value: 6, label: "Junho", short: "Jun" },
+    { value: 7, label: "Julho", short: "Jul" },
+    { value: 8, label: "Agosto", short: "Ago" },
+    { value: 9, label: "Setembro", short: "Set" },
+    { value: 10, label: "Outubro", short: "Out" },
+    { value: 11, label: "Novembro", short: "Nov" },
+    { value: 12, label: "Dezembro", short: "Dez" },
   ];
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export const StockYearCalendarModal = ({ open, onOpenChange, storeId }: StockYea
             <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
               {months.map((month) => {
                 const isCurrentMonth = 
-                  month.value === new Date().getMonth() && 
+                  month.value === new Date().getMonth() + 1 && 
                   currentYear === new Date().getFullYear();
                 
                 const hasStock = monthsWithStock.has(month.value);
@@ -144,7 +144,7 @@ export const StockYearCalendarModal = ({ open, onOpenChange, storeId }: StockYea
                         <div className={`text-lg font-semibold ${
                           hasStock ? 'text-green-600' : 'text-primary'
                         }`}>
-                          {month.value + 1}
+                          {month.value}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {month.label}

@@ -111,7 +111,7 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Controle de Estoque - {monthNames[month]} {year}
+              Controle de Estoque - {monthNames[month - 1]} {year}
             </DialogTitle>
           </DialogHeader>
 
@@ -225,10 +225,10 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
           <div className="mt-4 p-4 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground">
               {periodBlocked 
-                ? `O período ${monthNames[month]} ${year} está bloqueado para operações de estoque. Apenas visualização é permitida.`
+                ? `O período ${monthNames[month - 1]} ${year} está bloqueado para operações de estoque. Apenas visualização é permitida.`
                 : hasStock 
-                  ? `Estoque já cadastrado para ${monthNames[month]} ${year}. Você pode visualizar ou editar os dados existentes.`
-                  : `Selecione "Cadastrar Estoque" para criar um novo registro para ${monthNames[month]} ${year}.`
+                  ? `Estoque já cadastrado para ${monthNames[month - 1]} ${year}. Você pode visualizar ou editar os dados existentes.`
+                  : `Selecione "Cadastrar Estoque" para criar um novo registro para ${monthNames[month - 1]} ${year}.`
               }
             </p>
           </div>
