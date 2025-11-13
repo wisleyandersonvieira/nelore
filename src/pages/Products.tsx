@@ -15,7 +15,7 @@ export default function Products() {
   const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto py-6 space-y-6 relative">
+    <div className="container mx-auto py-6 space-y-6 relative pb-24">
       <div className="flex items-center gap-3">
         <Package className="h-8 w-8 text-primary" />
         <div>
