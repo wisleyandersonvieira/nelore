@@ -61,7 +61,8 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
   const [showForm, setShowForm] = useState(false);
   
   // Filter state
-  const [filterMonth, setFilterMonth] = useState<number | null>(null);
+  const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
+  const [filterMonths, setFilterMonths] = useState<number[]>([]);
   
   // Form state
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -211,9 +212,19 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
     );
   };
 
-  const filteredPeriodBlocks = filterMonth 
-    ? periodBlocks.filter(block => block.month === filterMonth)
-    : periodBlocks;
+  const handleFilterMonthToggle = (month: number) => {
+    setFilterMonths(prev => 
+      prev.includes(month) 
+        ? prev.filter(m => m !== month)
+        : [...prev, month]
+    );
+  };
+
+  const filteredPeriodBlocks = periodBlocks.filter(block => {
+    const yearMatch = block.year === filterYear;
+    const monthMatch = filterMonths.length === 0 || filterMonths.includes(block.month);
+    return yearMatch && monthMatch;
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -326,38 +337,57 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
           {/* Lista de períodos bloqueados */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Períodos Bloqueados
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Filtrar por mês:</Label>
-                  <Select value={filterMonth?.toString() || "all"} onValueChange={(value) => setFilterMonth(value === "all" ? null : parseInt(value))}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Todos os meses" />
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Períodos Bloqueados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Filtros */}
+              <div className="space-y-3 pb-4 border-b">
+                <div className="flex items-center gap-4">
+                  <Label className="text-sm font-medium">Ano:</Label>
+                  <Select value={filterYear.toString()} onValueChange={(value) => setFilterYear(parseInt(value))}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os meses</SelectItem>
-                      {MONTHS.map((month) => (
-                        <SelectItem key={month.value} value={month.value.toString()}>
-                          {month.label}
+                      {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+                <div>
+                  <Label className="text-sm font-medium">Meses:</Label>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {MONTHS.map((month) => (
+                      <div key={month.value} className="flex items-center space-x-1">
+                        <Checkbox
+                          id={`filter-month-${month.value}`}
+                          checked={filterMonths.includes(month.value)}
+                          onCheckedChange={() => handleFilterMonthToggle(month.value)}
+                        />
+                        <Label htmlFor={`filter-month-${month.value}`} className="text-sm cursor-pointer">
+                          {month.label.substring(0, 3)}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {filterMonths.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">Nenhum mês selecionado = todos os meses</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Lista */}
               {loading ? (
                 <div className="text-center py-4">Carregando...</div>
               ) : filteredPeriodBlocks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {filterMonth ? 
-                    `Nenhum período bloqueado encontrado para ${MONTHS.find(m => m.value === filterMonth)?.label}.` :
-                    "Nenhum período bloqueado encontrado."
-                  }
+                  Nenhum período bloqueado encontrado para os filtros selecionados.
                 </div>
               ) : (
                 <div className="space-y-2">
