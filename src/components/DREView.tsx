@@ -234,8 +234,9 @@ export const DREView: React.FC = () => {
       let accountsPayableData, apError;
       
       if (isCashRegime) {
-        // Para regime de caixa: buscar apenas parcelas pagas no ano selecionado
-        // Primeiro buscar as parcelas pagas
+        // Para regime de caixa: buscar contas pagas (com ou sem parcelas)
+        
+        // 1. Buscar parcelas pagas no ano selecionado
         const { data: paidInstallments, error: installmentsError } = await supabase
           .from('accounts_payable_installments')
           .select('account_payable_id, payment_date, amount, installment_number')
@@ -245,16 +246,33 @@ export const DREView: React.FC = () => {
 
         if (installmentsError) throw installmentsError;
 
-        // Extrair IDs únicos das contas a pagar que têm parcelas pagas
-        const accountPayableIds = [...new Set(paidInstallments?.map(inst => inst.account_payable_id) || [])];
+        // 2. Buscar contas pagas à vista (status = paid e payment_date no ano)
+        const { data: paidAccounts, error: paidAccountsError } = await supabase
+          .from('accounts_payable')
+          .select('id, payment_date')
+          .eq('status', 'paid')
+          .not('payment_date', 'is', null)
+          .gte('payment_date', `${selectedYear}-01-01`)
+          .lte('payment_date', `${selectedYear}-12-31`)
+          .in('store_id', selectedStores);
+
+        if (paidAccountsError) throw paidAccountsError;
+
+        // Combinar IDs de contas com parcelas pagas e contas pagas à vista
+        const accountPayableIdsFromInstallments = [...new Set(paidInstallments?.map(inst => inst.account_payable_id) || [])];
+        const accountPayableIdsFromDirectPayment = paidAccounts?.map(acc => acc.id) || [];
+        const accountPayableIds = [...new Set([...accountPayableIdsFromInstallments, ...accountPayableIdsFromDirectPayment])];
 
         if (accountPayableIds.length > 0) {
-          // Buscar as contas a pagar com seus itens e todas as parcelas
+          // Buscar as contas a pagar com seus itens, valor total e parcelas
           const { data, error } = await supabase
             .from('accounts_payable')
             .select(`
               id,
               store_id,
+              total_amount,
+              status,
+              payment_date,
               data_competencia,
               accounts_payable_items (
                 id,
@@ -403,13 +421,74 @@ export const DREView: React.FC = () => {
       // Processar contas a pagar
       accountsPayableData?.forEach((account: any) => {
         if (isCashRegime) {
-          // Para regime de caixa: processar baseado nas parcelas pagas
+          // Para regime de caixa: processar baseado nas parcelas pagas OU pagamento à vista
+          
+          // Verificar se é pagamento à vista (sem parcelas)
+          const hasInstallments = account.accounts_payable_installments && account.accounts_payable_installments.length > 0;
+          
+          if (!hasInstallments && account.status === 'paid' && account.payment_date) {
+            // Conta paga à vista - processar o valor total
+            const { month, year } = getMonthAndYearFromDate(account.payment_date);
+
+            // Verificar se o mês está selecionado
+            if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+              return;
+            }
+
+            const storeId = account.store_id;
+            const storeName = account.stores?.name || 'Loja sem nome';
+            const key = `${storeId}-${month}`;
+
+            // Inicializar se não existir
+            if (!groupedData[key]) {
+              groupedData[key] = {
+                month,
+                year: parseInt(selectedYear),
+                store_id: storeId,
+                store_name: storeName,
+                values: {}
+              };
+            }
+
+            // Para pagamento à vista, lançar o valor total de cada item
+            account.accounts_payable_items?.forEach((item: any) => {
+              if (item.products?.subgroup_id) {
+                const subgroupId = item.products.subgroup_id;
+                const value = parseFloat(item.total_price) || 0;
+
+                // Encontrar o item da estrutura que corresponde a este subgrupo
+                const structureItem = structureItems.find(si => 
+                  si.item_type === 'subgroup' && 
+                  si.account_group_id === subgroupId
+                );
+
+                if (structureItem && value > 0) {
+                  if (!groupedData[key].values[structureItem.id]) {
+                    groupedData[key].values[structureItem.id] = 0;
+                  }
+                  groupedData[key].values[structureItem.id] += value;
+                }
+              }
+            });
+            
+            return; // Já processou, não precisa processar parcelas
+          }
+
+          // Processar parcelas pagas
           const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => 
             installment.payment_date !== null && installment.payment_date !== undefined
           ) || [];
 
           // Se não houver parcelas pagas, não processar esta conta
           if (paidInstallments.length === 0) {
+            return;
+          }
+
+          // Valor total da conta a pagar
+          const totalAccountAmount = parseFloat(account.total_amount) || 0;
+          
+          if (totalAccountAmount === 0) {
+            console.warn('Conta a pagar sem valor total:', account.id);
             return;
           }
 
@@ -436,14 +515,8 @@ export const DREView: React.FC = () => {
               };
             }
 
-            // Calcular o valor total das parcelas PAGAS para fazer a proporção
-            const totalPaidInstallmentsAmount = paidInstallments.reduce((sum: number, inst: any) => 
-              sum + parseFloat(inst.amount), 0) || 0;
-            
-            if (totalPaidInstallmentsAmount === 0) return;
-
-            // Proporção desta parcela em relação ao total de parcelas PAGAS
-            const installmentProportion = parseFloat(installment.amount) / totalPaidInstallmentsAmount;
+            // Proporção desta parcela em relação ao valor total da conta
+            const installmentProportion = parseFloat(installment.amount) / totalAccountAmount;
 
             account.accounts_payable_items?.forEach((item: any) => {
               if (item.products?.subgroup_id) {
