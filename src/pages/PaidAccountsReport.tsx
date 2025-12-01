@@ -79,12 +79,13 @@ const PaidAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch paid accounts with suppliers, stores and installments
+      // Fetch paid accounts with suppliers, employees, stores and installments
       const { data: allAccounts, error } = await supabase
         .from("accounts_payable")
         .select(`
           *,
           suppliers(id, name),
+          employees(id, name),
           stores(id, name),
           accounts_payable_installments(*)
         `) as { data: any[] | null; error: any };
@@ -236,10 +237,18 @@ const PaidAccountsReport = () => {
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
     
+    // Helper to get supplier or employee name
+    const getSupplierOrEmployeeName = (account: any) => {
+      if (account.employee_id && account.employees?.name) {
+        return account.employees.name;
+      }
+      return account.suppliers?.name || "N/A";
+    };
+
     // Table data
     const tableData = accounts.map(account => [
       account.description,
-      account.suppliers?.name || "N/A",
+      getSupplierOrEmployeeName(account),
       account.stores?.name || "N/A",
       account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
       account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
@@ -289,9 +298,17 @@ const PaidAccountsReport = () => {
   };
 
   const exportToExcel = () => {
+    // Helper to get supplier or employee name
+    const getSupplierOrEmployeeName = (account: any) => {
+      if (account.employee_id && account.employees?.name) {
+        return account.employees.name;
+      }
+      return account.suppliers?.name || "N/A";
+    };
+
     const excelData = accounts.map(account => ({
       Título: account.description,
-      Fornecedor: account.suppliers?.name || "N/A",
+      Fornecedor: getSupplierOrEmployeeName(account),
       Loja: account.stores?.name || "N/A",
       Vencimento: account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
       Pagamento: account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
@@ -486,7 +503,7 @@ const PaidAccountsReport = () => {
                   {accounts.map((account, index) => (
                     <TableRow key={`${account.id}-${account.installment_id || index}`}>
                       <TableCell>{account.description}</TableCell>
-                      <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
+                      <TableCell>{account.employee_id && account.employees?.name ? account.employees.name : (account.suppliers?.name || "N/A")}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A"}</TableCell>
                       <TableCell>
