@@ -3063,9 +3063,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       <TableBody>
                         {accountsPayable.map((account) => (
                           <TableRow key={account.id}>
-                            <TableCell>{account.description}</TableCell>
-                            <TableCell>{account.suppliers?.name || account.employees?.name || '-'}</TableCell>
-                            <TableCell>{new Date(account.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                            <TableCell>{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</TableCell>
                             <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
