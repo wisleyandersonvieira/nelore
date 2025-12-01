@@ -43,7 +43,11 @@ interface DREData {
   values: Record<string, number>;
 }
 
-export const DREView: React.FC = () => {
+interface DREViewProps {
+  regime?: 'cash' | 'competence';
+}
+
+export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [structures, setStructures] = useState<DREStructure[]>([]);
   const [structureItems, setStructureItems] = useState<StructureItem[]>([]);
@@ -58,7 +62,7 @@ export const DREView: React.FC = () => {
   const { toast } = useToast();
   
   // Detectar se estamos na página de DRE Caixa ou Competência
-  const isCashRegime = window.location.pathname.includes('/dre-caixa');
+  const isCashRegime = regime === 'cash';
 
   // Função para extrair mês e ano de uma data string sem problemas de timezone
   const getMonthAndYearFromDate = (dateString: string): { month: number; year: number } => {
