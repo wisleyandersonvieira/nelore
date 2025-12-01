@@ -453,6 +453,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                   accounts_payable!inner (
                     document_number,
                     description,
+                    employee_id,
                     suppliers (
                       name
                     )
@@ -465,8 +466,21 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               if (installmentData && installmentData.payment_date !== null) {
                 isValidTransaction = true;
                 documentNumber = installmentData.accounts_payable?.document_number || '';
-                const supplierName = installmentData.accounts_payable?.suppliers?.name || 'Fornecedor não informado';
-                description = supplierName;
+                
+                // Verificar se é funcionário ou fornecedor
+                const employeeId = installmentData.accounts_payable?.employee_id;
+                if (employeeId) {
+                  // Buscar nome do funcionário
+                  const { data: employeeData } = await supabase
+                    .from('employees')
+                    .select('name')
+                    .eq('id', employeeId)
+                    .maybeSingle();
+                  description = employeeData?.name || 'Funcionário não informado';
+                } else {
+                  const supplierName = installmentData.accounts_payable?.suppliers?.name || 'Fornecedor não informado';
+                  description = supplierName;
+                }
                 
                 // Buscar total de parcelas para mostrar "1/3" formato
                 const { data: totalInstallments } = await supabase
@@ -488,6 +502,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                   description,
                   payment_date,
                   status,
+                  employee_id,
                   suppliers (
                     name
                   )
@@ -499,8 +514,20 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               if (payableData && payableData.payment_date !== null && payableData.status !== 'pending') {
                 isValidTransaction = true;
                 documentNumber = payableData.document_number || '';
-                const supplierName = payableData.suppliers?.name || 'Fornecedor não informado';
-                description = supplierName;
+                
+                // Verificar se é funcionário ou fornecedor
+                if (payableData.employee_id) {
+                  // Buscar nome do funcionário
+                  const { data: employeeData } = await supabase
+                    .from('employees')
+                    .select('name')
+                    .eq('id', payableData.employee_id)
+                    .maybeSingle();
+                  description = employeeData?.name || 'Funcionário não informado';
+                } else {
+                  const supplierName = payableData.suppliers?.name || 'Fornecedor não informado';
+                  description = supplierName;
+                }
                 installmentInfo = 'Integral';
               }
             }
