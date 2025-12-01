@@ -201,8 +201,8 @@ const ReceivedAccountsReport = () => {
       account.description,
       account.creditors?.name || "N/A",
       account.stores?.name || "N/A",
-      new Date(account.due_date).toLocaleDateString("pt-BR"),
-      new Date(account.payment_date).toLocaleDateString("pt-BR"),
+      new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+      new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
@@ -253,8 +253,8 @@ const ReceivedAccountsReport = () => {
       Título: account.description,
       Credor: account.creditors?.name || "N/A",
       Loja: account.stores?.name || "N/A",
-      Vencimento: new Date(account.due_date).toLocaleDateString("pt-BR"),
-      Recebimento: new Date(account.payment_date).toLocaleDateString("pt-BR"),
+      Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+      Recebimento: new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       Valor: account.amount || 0,
       Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     }));
@@ -448,8 +448,8 @@ const ReceivedAccountsReport = () => {
                       <TableCell>{account.description}</TableCell>
                       <TableCell>{account.creditors?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
-                      <TableCell>{new Date(account.due_date).toLocaleDateString("pt-BR")}</TableCell>
-                      <TableCell>{new Date(account.payment_date).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
                         {account.amount?.toLocaleString("pt-BR", {
                           style: "currency",

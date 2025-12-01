@@ -1115,7 +1115,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
-                            {new Date(account.due_date).toLocaleDateString("pt-BR")}
+                            {new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}
                           </TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded text-xs ${
@@ -1555,7 +1555,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
-                            {new Date(account.due_date).toLocaleDateString("pt-BR")}
+                            {new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}
                           </TableCell>
                           <TableCell>
                             <Button
