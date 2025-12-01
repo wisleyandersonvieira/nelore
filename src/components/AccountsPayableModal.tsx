@@ -3097,15 +3097,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <Eye className="h-4 w-4" />
                                 </Button>
                                 
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditAccount(account)}
-                                  disabled={loading}
-                                  title="Editar conta"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
+                                {account.status !== 'paid' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleEditAccount(account)}
+                                    disabled={loading}
+                                    title="Editar conta"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 
                                 {account.status === 'paid' && (
                                   <Button
