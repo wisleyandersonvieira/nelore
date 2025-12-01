@@ -6,7 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Building2, User, FileText, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowLeft, Building2, User, FileText, Download, Calendar, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -41,13 +43,29 @@ interface EmployeeMovementModalProps {
   onClose: () => void;
 }
 
+const MONTHS = [
+  { value: 1, label: "Janeiro" },
+  { value: 2, label: "Fevereiro" },
+  { value: 3, label: "Março" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Maio" },
+  { value: 6, label: "Junho" },
+  { value: 7, label: "Julho" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Setembro" },
+  { value: 10, label: "Outubro" },
+  { value: 11, label: "Novembro" },
+  { value: 12, label: "Dezembro" },
+];
+
 const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [payableAccounts, setPayableAccounts] = useState<PayableAccount[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -121,54 +139,103 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     }
   };
 
-  const fetchPayableAccounts = async (employeeId: string, month?: string) => {
+  const fetchPayableAccounts = async (employeeId: string, year: number, months: number[]) => {
     try {
       setIsLoading(true);
-      let query = supabase
-        .from("accounts_payable")
-        .select(`
-          id,
-          amount,
-          payment_date,
-          description,
-          notes,
-          document_type,
-          document_number,
-          status
-        `)
-        .eq("employee_id", employeeId)
-        .eq("status", "paid")
-        .not("payment_date", "is", null)
-        .order("payment_date", { ascending: false });
+      
+      // Se não há meses selecionados, busca todos do ano
+      if (months.length === 0) {
+        const startDate = `${year}-01-01`;
+        const endDate = `${year}-12-31`;
+        
+        const { data, error } = await supabase
+          .from("accounts_payable")
+          .select(`
+            id,
+            amount,
+            payment_date,
+            description,
+            notes,
+            document_type,
+            document_number,
+            status
+          `)
+          .eq("employee_id", employeeId)
+          .eq("status", "paid")
+          .not("payment_date", "is", null)
+          .gte("payment_date", startDate)
+          .lte("payment_date", endDate)
+          .order("payment_date", { ascending: false });
 
-      if (month && month !== "all") {
-        const [year, monthNum] = month.split("-");
-        // Calcular corretamente o primeiro e último dia do mês
-        const startDate = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-        const endDate = new Date(parseInt(year), parseInt(monthNum), 0); // Último dia do mês
+        if (error) throw error;
+        
+        const accountsData = data?.map(account => ({
+          id: account.id,
+          amount: Number(account.amount) || 0,
+          payment_date: account.payment_date || '',
+          description: account.description || '',
+          notes: account.notes || '',
+          document_type: account.document_type || '',
+          document_number: account.document_number || '',
+          status: account.status || ''
+        })) || [];
+        
+        setPayableAccounts(accountsData);
+        return;
+      }
+
+      // Buscar contas para cada mês selecionado
+      const allAccounts: PayableAccount[] = [];
+      
+      for (const month of months) {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
         
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = endDate.toISOString().split('T')[0];
         
-        query = query.gte("payment_date", startDateStr).lte("payment_date", endDateStr);
+        const { data, error } = await supabase
+          .from("accounts_payable")
+          .select(`
+            id,
+            amount,
+            payment_date,
+            description,
+            notes,
+            document_type,
+            document_number,
+            status
+          `)
+          .eq("employee_id", employeeId)
+          .eq("status", "paid")
+          .not("payment_date", "is", null)
+          .gte("payment_date", startDateStr)
+          .lte("payment_date", endDateStr);
+
+        if (error) throw error;
+        
+        if (data) {
+          data.forEach(account => {
+            allAccounts.push({
+              id: account.id,
+              amount: Number(account.amount) || 0,
+              payment_date: account.payment_date || '',
+              description: account.description || '',
+              notes: account.notes || '',
+              document_type: account.document_type || '',
+              document_number: account.document_number || '',
+              status: account.status || ''
+            });
+          });
+        }
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
+      // Ordenar por data de pagamento
+      allAccounts.sort((a, b) => 
+        new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+      );
       
-      const accountsData = data?.map(account => ({
-        id: account.id,
-        amount: Number(account.amount) || 0,
-        payment_date: account.payment_date || '',
-        description: account.description || '',
-        notes: account.notes || '',
-        document_type: account.document_type || '',
-        document_number: account.document_number || '',
-        status: account.status || ''
-      })) || [];
-      
-      setPayableAccounts(accountsData);
+      setPayableAccounts(allAccounts);
     } catch (error) {
       console.error("Error fetching payable accounts:", error);
       toast({
@@ -197,9 +264,9 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
   useEffect(() => {
     if (selectedEmployee) {
-      fetchPayableAccounts(selectedEmployee.id, selectedMonth);
+      fetchPayableAccounts(selectedEmployee.id, selectedYear, selectedMonths);
     }
-  }, [selectedEmployee, selectedMonth]);
+  }, [selectedEmployee, selectedYear, selectedMonths]);
 
   const handleStoreSelect = (store: Store) => {
     setSelectedStore(store);
@@ -213,24 +280,38 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     if (selectedEmployee) {
       setSelectedEmployee(null);
       setPayableAccounts([]);
+      setSelectedMonths([]);
     } else if (selectedStore) {
       setSelectedStore(null);
       setEmployees([]);
     }
   };
 
-  const generateMonthOptions = () => {
-    const options = [];
-    const currentDate = new Date();
-    
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const value = format(date, "yyyy-MM");
-      const label = format(date, "MMMM yyyy", { locale: ptBR });
-      options.push({ value, label });
+  const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+  };
+
+  const handleMonthToggle = (month: number) => {
+    setSelectedMonths(prev => 
+      prev.includes(month) 
+        ? prev.filter(m => m !== month)
+        : [...prev, month].sort((a, b) => a - b)
+    );
+  };
+
+  const getSelectedMonthsLabel = () => {
+    if (selectedMonths.length === 0) return "Todos os meses";
+    if (selectedMonths.length === 12) return "Todos os meses";
+    return selectedMonths.map(m => MONTHS.find(month => month.value === m)?.label).join(", ");
+  };
+
+  const getFilterDescription = () => {
+    if (selectedMonths.length === 0) {
+      return `Ano ${selectedYear}`;
     }
-    
-    return options;
+    const monthNames = selectedMonths.map(m => MONTHS.find(month => month.value === m)?.label).join(", ");
+    return `${monthNames} de ${selectedYear}`;
   };
 
   const formatCurrency = (value: number) => {
@@ -281,9 +362,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     
-    const periodText = selectedMonth && selectedMonth !== "all" 
-      ? ` - ${generateMonthOptions().find(o => o.value === selectedMonth)?.label}`
-      : "";
+    const periodText = ` - ${getFilterDescription()}`;
     
     XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
     XLSX.writeFile(wb, `Movimentacoes_${selectedEmployee.name.replace(/\s+/g, '_')}${periodText.replace(/\s+/g, '_')}.xlsx`);
@@ -385,20 +464,65 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                   <FileText className="w-5 h-5" />
                   Movimentações - {selectedEmployee.name}
                 </h3>
-                <div className="flex items-center gap-2">
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filtrar por mês" />
+                <div className="flex items-center gap-3">
+                  {/* Year Selector */}
+                  <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue placeholder="Ano" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os meses</SelectItem>
-                      {generateMonthOptions().map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {generateYearOptions().map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {/* Month Multi-Select Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-52 justify-between">
+                        <span className="truncate text-sm">
+                          {getSelectedMonthsLabel()}
+                        </span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-3 bg-background border" align="end">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Meses</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 text-xs"
+                            onClick={() => setSelectedMonths([])}
+                          >
+                            Limpar
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {MONTHS.map((month) => (
+                            <div key={month.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`month-${month.value}`}
+                                checked={selectedMonths.includes(month.value)}
+                                onCheckedChange={() => handleMonthToggle(month.value)}
+                              />
+                              <label
+                                htmlFor={`month-${month.value}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                {month.label.slice(0, 3)}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -422,12 +546,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                     <CardHeader>
                       <CardTitle>Movimentações Financeiras</CardTitle>
                       <CardDescription>
-                        Contas pagas vinculadas ao funcionário
-                        {selectedMonth && selectedMonth !== "all" && (
-                          <span className="ml-2">
-                            - {generateMonthOptions().find(o => o.value === selectedMonth)?.label}
-                          </span>
-                        )}
+                        Contas pagas vinculadas ao funcionário - {getFilterDescription()}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
