@@ -2977,9 +2977,30 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
   };
 
+  const handleDialogChange = (isOpen: boolean) => {
+    // Se está tentando fechar o modal (isOpen = false)
+    if (!isOpen) {
+      // Se está em modo de edição ou visualização, volta para a aba "view"
+      if (isEditing || isViewOnly) {
+        // Limpar estados de edição/visualização
+        setIsEditing(false);
+        setIsViewOnly(false);
+        setIsRealEdit(false);
+        setEditingAccount(null);
+        setViewOnlyAccount(null);
+        setExistingAttachments([]);
+        setAttachments([]);
+        setItems([]);
+        setActiveTab("view");
+        return; // Não fecha o modal, apenas volta para a aba view
+      }
+    }
+    // Caso contrário, comportamento padrão (fechar/abrir modal)
+    onOpenChange(isOpen);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Contas a Pagar</DialogTitle>
