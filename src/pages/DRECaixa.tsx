@@ -53,7 +53,7 @@ const DRECaixa: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="view" className="mt-6">
-                <DREView />
+                <DREView regime="cash" />
               </TabsContent>
             </Tabs>
           </CardContent>

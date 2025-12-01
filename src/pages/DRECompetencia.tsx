@@ -53,7 +53,7 @@ const DRECompetencia: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="view" className="mt-6">
-                <DREView />
+                <DREView regime="competence" />
               </TabsContent>
             </Tabs>
           </CardContent>
