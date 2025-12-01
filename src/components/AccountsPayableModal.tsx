@@ -866,6 +866,29 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (installmentIds && installmentIds.length > 0) {
         // Reverse specific installments
         for (const installmentId of installmentIds) {
+          // Buscar a data de pagamento da parcela antes de estornar
+          const { data: installmentData, error: fetchError } = await supabase
+            .from("accounts_payable_installments")
+            .select("payment_date")
+            .eq("id", installmentId)
+            .single();
+
+          if (fetchError) throw fetchError;
+
+          // Verificar se o período de pagamento está bloqueado
+          if (installmentData?.payment_date) {
+            const validation = await validateAccountsPayablePeriod.pagamento(installmentData.payment_date);
+            if (validation.blocked) {
+              toast({
+                title: "Período Bloqueado",
+                description: validation.message || "O período de pagamento desta parcela está bloqueado. Não é possível estornar.",
+                variant: "destructive",
+              });
+              setLoading(false);
+              return;
+            }
+          }
+
           // Update installment payment_date to null
           const { error: updateInstallmentError } = await supabase
             .from("accounts_payable_installments")
@@ -912,6 +935,29 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         });
       } else {
         // Original reverse logic for accounts without installments
+        // Buscar a data de pagamento da conta antes de estornar
+        const { data: accountData, error: fetchAccountError } = await supabase
+          .from("accounts_payable")
+          .select("payment_date")
+          .eq("id", accountId)
+          .single();
+
+        if (fetchAccountError) throw fetchAccountError;
+
+        // Verificar se o período de pagamento está bloqueado
+        if (accountData?.payment_date) {
+          const validation = await validateAccountsPayablePeriod.pagamento(accountData.payment_date);
+          if (validation.blocked) {
+            toast({
+              title: "Período Bloqueado",
+              description: validation.message || "O período de pagamento desta conta está bloqueado. Não é possível estornar.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+        }
+
         const { error: updateError } = await supabase
           .from("accounts_payable")
           .update({
