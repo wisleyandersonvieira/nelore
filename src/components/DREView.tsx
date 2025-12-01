@@ -234,40 +234,58 @@ export const DREView: React.FC = () => {
       let accountsPayableData, apError;
       
       if (isCashRegime) {
-        // Para regime de caixa: buscar parcelas pagas
-        const { data, error } = await supabase
-          .from('accounts_payable')
-          .select(`
-            id,
-            store_id,
-            data_competencia,
-            accounts_payable_items (
+        // Para regime de caixa: buscar apenas parcelas pagas no ano selecionado
+        // Primeiro buscar as parcelas pagas
+        const { data: paidInstallments, error: installmentsError } = await supabase
+          .from('accounts_payable_installments')
+          .select('account_payable_id, payment_date, amount, installment_number')
+          .not('payment_date', 'is', null)
+          .gte('payment_date', `${selectedYear}-01-01`)
+          .lte('payment_date', `${selectedYear}-12-31`);
+
+        if (installmentsError) throw installmentsError;
+
+        // Extrair IDs únicos das contas a pagar que têm parcelas pagas
+        const accountPayableIds = [...new Set(paidInstallments?.map(inst => inst.account_payable_id) || [])];
+
+        if (accountPayableIds.length > 0) {
+          // Buscar as contas a pagar com seus itens e todas as parcelas
+          const { data, error } = await supabase
+            .from('accounts_payable')
+            .select(`
               id,
-              product_id,
-              quantity,
-              unit_price,
-              total_price,
-              products (
+              store_id,
+              data_competencia,
+              accounts_payable_items (
                 id,
-                name,
-                subgroup_id
-              )
-            ),
-            accounts_payable_installments (
-              id,
-              installment_number,
-              due_date,
-              amount,
-              payment_date
-            ),
-            stores (name)
-          `)
-          .in('store_id', selectedStores)
-          .gte('data_competencia', `${selectedYear}-01-01`)
-          .lte('data_competencia', `${selectedYear}-12-31`);
-        
-        accountsPayableData = data;
-        apError = error;
+                product_id,
+                quantity,
+                unit_price,
+                total_price,
+                products (
+                  id,
+                  name,
+                  subgroup_id
+                )
+              ),
+              accounts_payable_installments (
+                id,
+                installment_number,
+                due_date,
+                amount,
+                payment_date
+              ),
+              stores (name)
+            `)
+            .in('id', accountPayableIds)
+            .in('store_id', selectedStores);
+
+          accountsPayableData = data;
+          apError = error;
+        } else {
+          accountsPayableData = [];
+          apError = null;
+        }
       } else {
         // Para regime de competência: buscar por data de competência (lógica original)
         const { data, error } = await supabase
