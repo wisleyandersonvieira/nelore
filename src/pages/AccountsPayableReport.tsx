@@ -102,12 +102,10 @@ const AccountsPayableReport = () => {
       if (filters.due_start || filters.due_end) {
         accountsData = accountsData.filter((account: any) => {
           if (!account.due_date) return false;
-          const dueDate = new Date(account.due_date);
-          const startDate = filters.due_start ? new Date(filters.due_start) : null;
-          const endDate = filters.due_end ? new Date(filters.due_end) : null;
+          const dueDate = account.due_date; // String no formato YYYY-MM-DD
           
-          if (startDate && dueDate < startDate) return false;
-          if (endDate && dueDate > endDate) return false;
+          if (filters.due_start && dueDate < filters.due_start) return false;
+          if (filters.due_end && dueDate > filters.due_end) return false;
           return true;
         });
       }
@@ -115,12 +113,10 @@ const AccountsPayableReport = () => {
       if (filters.competencia_start || filters.competencia_end) {
         accountsData = accountsData.filter((account: any) => {
           if (!account.data_competencia) return false;
-          const competenciaDate = new Date(account.data_competencia);
-          const startDate = filters.competencia_start ? new Date(filters.competencia_start) : null;
-          const endDate = filters.competencia_end ? new Date(filters.competencia_end) : null;
+          const competenciaDate = account.data_competencia; // String no formato YYYY-MM-DD
           
-          if (startDate && competenciaDate < startDate) return false;
-          if (endDate && competenciaDate > endDate) return false;
+          if (filters.competencia_start && competenciaDate < filters.competencia_start) return false;
+          if (filters.competencia_end && competenciaDate > filters.competencia_end) return false;
           return true;
         });
       }
