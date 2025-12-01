@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Download, FileSpreadsheet, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -231,8 +231,8 @@ const AccountsReceivableReports = () => {
       account.creditors?.name || "N/A",
       account.stores?.name || "N/A",
       `R$ ${account.amount.toFixed(2)}`,
-      format(new Date(account.due_date), "dd/MM/yyyy"),
-      account.payment_date ? format(new Date(account.payment_date), "dd/MM/yyyy") : "N/A",
+      format(parseISO(account.due_date), "dd/MM/yyyy"),
+      account.payment_date ? format(parseISO(account.payment_date), "dd/MM/yyyy") : "N/A",
       account.status === "paid" ? "Recebido" : "Pendente",
       account.document_number || "N/A",
     ]);
@@ -253,13 +253,13 @@ const AccountsReceivableReports = () => {
         Credor: account.creditors?.name || "N/A",
         Loja: account.stores?.name || "N/A",
         Valor: account.amount,
-        Vencimento: format(new Date(account.due_date), "dd/MM/yyyy"),
-        Recebimento: account.payment_date ? format(new Date(account.payment_date), "dd/MM/yyyy") : "N/A",
+        Vencimento: format(parseISO(account.due_date), "dd/MM/yyyy"),
+        Recebimento: account.payment_date ? format(parseISO(account.payment_date), "dd/MM/yyyy") : "N/A",
         Status: account.status === "paid" ? "Recebido" : "Pendente",
         Documento: account.document_number || "N/A",
-        "Data Cadastro": format(new Date(account.created_at), "dd/MM/yyyy"),
+        "Data Cadastro": format(parseISO(account.created_at), "dd/MM/yyyy"),
         "Data Competência": account.issue_date
-          ? format(new Date(account.issue_date), "dd/MM/yyyy")
+          ? format(parseISO(account.issue_date), "dd/MM/yyyy")
           : "N/A",
       }))
     );
@@ -290,10 +290,10 @@ const AccountsReceivableReports = () => {
             <TableCell>{account.creditors?.name || "N/A"}</TableCell>
             <TableCell>{account.stores?.name || "N/A"}</TableCell>
             <TableCell>R$ {account.amount.toFixed(2)}</TableCell>
-            <TableCell>{format(new Date(account.due_date), "dd/MM/yyyy")}</TableCell>
+            <TableCell>{format(parseISO(account.due_date), "dd/MM/yyyy")}</TableCell>
             {showPaymentDate && (
               <TableCell>
-                {account.payment_date ? format(new Date(account.payment_date), "dd/MM/yyyy") : "N/A"}
+                {account.payment_date ? format(parseISO(account.payment_date), "dd/MM/yyyy") : "N/A"}
               </TableCell>
             )}
             <TableCell>

@@ -2057,18 +2057,12 @@ export type Database = {
         Args: { store_uuid: string }
         Returns: number
       }
-      get_next_product_code: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      get_next_product_code: { Args: never; Returns: number }
       get_user_role: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
-      get_user_store_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_user_store_id: { Args: never; Returns: string }
       user_has_permission: {
         Args: {
           module_name: string

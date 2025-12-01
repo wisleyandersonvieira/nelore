@@ -60,6 +60,16 @@ export const DREView: React.FC = () => {
   // Detectar se estamos na página de DRE Caixa ou Competência
   const isCashRegime = window.location.pathname.includes('/dre-caixa');
 
+  // Função para extrair mês e ano de uma data string sem problemas de timezone
+  const getMonthAndYearFromDate = (dateString: string): { month: number; year: number } => {
+    // Extrair ano, mês e dia da string no formato YYYY-MM-DD
+    const [yearStr, monthStr] = dateString.split('-');
+    return {
+      month: parseInt(monthStr, 10),
+      year: parseInt(yearStr, 10)
+    };
+  };
+
   const months = [
     { value: "1", label: "Janeiro" },
     { value: "2", label: "Fevereiro" },
@@ -323,9 +333,7 @@ export const DREView: React.FC = () => {
 
       // Processar dados do controle de caixa (FATURAMENTO)
       cashControlData?.forEach((cashControl: any) => {
-        const controlDate = new Date(cashControl.date);
-        const month = controlDate.getMonth() + 1;
-        const year = controlDate.getFullYear();
+        const { month, year } = getMonthAndYearFromDate(cashControl.date);
 
         // Verificar se o mês está selecionado
         if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
@@ -388,9 +396,7 @@ export const DREView: React.FC = () => {
           }
 
           paidInstallments.forEach((installment: any) => {
-            const paymentDate = new Date(installment.payment_date);
-            const month = paymentDate.getMonth() + 1;
-            const year = paymentDate.getFullYear();
+            const { month, year } = getMonthAndYearFromDate(installment.payment_date);
 
             // Verificar se o mês está selecionado
             if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
@@ -444,9 +450,7 @@ export const DREView: React.FC = () => {
           });
         } else {
           // Para regime de competência: usar lógica original
-          const competenciaDate = new Date(account.data_competencia);
-          const month = competenciaDate.getMonth() + 1;
-          const year = competenciaDate.getFullYear();
+          const { month, year } = getMonthAndYearFromDate(account.data_competencia);
 
           // Verificar se o mês está selecionado
           if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
