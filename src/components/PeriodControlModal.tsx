@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Trash2, Plus, Calendar, Shield } from "lucide-react";
+import { Trash2, Plus, Calendar, Shield, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 
 interface PeriodControlModalProps {
@@ -216,8 +217,19 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
     setFilterMonths(prev => 
       prev.includes(month) 
         ? prev.filter(m => m !== month)
-        : [...prev, month]
+        : [...prev, month].sort((a, b) => a - b)
     );
+  };
+
+  const getSelectedMonthsLabel = () => {
+    if (filterMonths.length === 0) return "Todos os meses";
+    if (filterMonths.length === 12) return "Todos os meses";
+    return filterMonths.map(m => MONTHS.find(month => month.value === m)?.label).join(", ");
+  };
+
+  const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
   };
 
   const filteredPeriodBlocks = periodBlocks.filter(block => {
@@ -344,42 +356,59 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Filtros */}
-              <div className="space-y-3 pb-4 border-b">
-                <div className="flex items-center gap-4">
-                  <Label className="text-sm font-medium">Ano:</Label>
-                  <Select value={filterYear.toString()} onValueChange={(value) => setFilterYear(parseInt(value))}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Meses:</Label>
-                  <div className="flex flex-wrap gap-3 mt-2">
-                    {MONTHS.map((month) => (
-                      <div key={month.value} className="flex items-center space-x-1">
-                        <Checkbox
-                          id={`filter-month-${month.value}`}
-                          checked={filterMonths.includes(month.value)}
-                          onCheckedChange={() => handleFilterMonthToggle(month.value)}
-                        />
-                        <Label htmlFor={`filter-month-${month.value}`} className="text-sm cursor-pointer">
-                          {month.label.substring(0, 3)}
-                        </Label>
-                      </div>
+              <div className="flex items-center gap-3 pb-4 border-b">
+                {/* Year Selector */}
+                <Select value={filterYear.toString()} onValueChange={(val) => setFilterYear(parseInt(val))}>
+                  <SelectTrigger className="w-28">
+                    <SelectValue placeholder="Ano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generateYearOptions().map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
                     ))}
-                  </div>
-                  {filterMonths.length === 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">Nenhum mês selecionado = todos os meses</p>
-                  )}
-                </div>
+                  </SelectContent>
+                </Select>
+
+                {/* Month Multi-Select Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-52 justify-between">
+                      <span className="truncate text-sm">
+                        {getSelectedMonthsLabel()}
+                      </span>
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-52 p-3 bg-background border" align="start">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Meses</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-xs"
+                          onClick={() => setFilterMonths([])}
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                      {MONTHS.map((month) => (
+                        <div key={month.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`filter-month-${month.value}`}
+                            checked={filterMonths.includes(month.value)}
+                            onCheckedChange={() => handleFilterMonthToggle(month.value)}
+                          />
+                          <Label htmlFor={`filter-month-${month.value}`} className="text-sm cursor-pointer">
+                            {month.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Lista */}
