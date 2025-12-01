@@ -264,7 +264,7 @@ export const DREView: React.FC = () => {
         const accountPayableIds = [...new Set([...accountPayableIdsFromInstallments, ...accountPayableIdsFromDirectPayment])];
 
         if (accountPayableIds.length > 0) {
-          // Buscar as contas a pagar com seus itens, valor total e parcelas
+          // Buscar as contas a pagar com seus itens, valor total e parcelas (somente contas quitadas)
           const { data, error } = await supabase
             .from('accounts_payable')
             .select(`
@@ -296,7 +296,8 @@ export const DREView: React.FC = () => {
               stores (name)
             `)
             .in('id', accountPayableIds)
-            .in('store_id', selectedStores);
+            .in('store_id', selectedStores)
+            .eq('status', 'paid');
 
           accountsPayableData = data;
           apError = error;
