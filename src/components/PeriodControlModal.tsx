@@ -360,43 +360,29 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                   }
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {filteredPeriodBlocks.map((block) => (
-                    <div key={block.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline">
-                            {getMonthName(block.month)}/{block.year}
-                          </Badge>
-                          <Badge variant={block.block_type === 'competencia' ? 'default' : 'secondary'}>
-                            {getBlockTypeLabel(block.block_type)}
-                          </Badge>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteBlock(block.id)}
-                          disabled={loading}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Liberar
-                        </Button>
+                    <div key={block.id} className="border rounded-lg p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline">
+                          {getMonthName(block.month)}/{block.year}
+                        </Badge>
+                        <Badge variant={block.block_type === 'competencia' ? 'default' : 'secondary'}>
+                          {getBlockTypeLabel(block.block_type)}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Criado em: {format(new Date(block.created_at), 'dd/MM/yyyy HH:mm')}
+                        </span>
                       </div>
-                      
-                      <div>
-                        <Label className="text-sm font-medium">Módulos Bloqueados:</Label>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {getModuleLabels(block.blocked_modules).map((label, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {label}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Criado em: {format(new Date(block.created_at), 'dd/MM/yyyy HH:mm')}
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteBlock(block.id)}
+                        disabled={loading}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Liberar
+                      </Button>
                     </div>
                   ))}
                 </div>
