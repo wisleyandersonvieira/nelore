@@ -628,15 +628,15 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       for (const [key, dreData] of Object.entries(groupedData)) {
         const { store_id, month, year } = dreData;
 
-        // Para estoque inicial: buscar 2 meses antes do mês selecionado
+        // Para estoque inicial: buscar mês anterior ao selecionado
         const initialStockItems = stockItems.filter(item => item.item_type === 'initial_stock');
         if (initialStockItems.length > 0) {
-          let initialMonth = month - 2;
+          let initialMonth = month - 1;
           let initialYear = year;
           
           // Ajustar ano se necessário
           if (initialMonth <= 0) {
-            initialMonth += 12;
+            initialMonth = 12;
             initialYear -= 1;
           }
 
@@ -658,18 +658,15 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           });
         }
 
-        // Para estoque final: buscar mês anterior (mesmo código do estoque inicial)
+        // Para estoque final: buscar o mês atual selecionado
         const finalStockItems = stockItems.filter(item => item.item_type === 'final_stock');
         if (finalStockItems.length > 0) {
-          const prevMonth = month === 1 ? 12 : month - 1;
-          const prevYear = month === 1 ? year - 1 : year;
-
           const { data: finalStockData, error: finalError } = await supabase
             .from('stock_control')
             .select('total_value')
             .eq('store_id', store_id)
-            .eq('month', prevMonth)
-            .eq('year', prevYear)
+            .eq('month', month)
+            .eq('year', year)
             .single();
 
           if (finalError && finalError.code !== 'PGRST116') {
