@@ -1008,6 +1008,35 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       return;
     }
 
+    // Buscar a data de competência da conta antes de excluir
+    const { data: accountData, error: fetchError } = await supabase
+      .from("accounts_payable")
+      .select("data_competencia")
+      .eq("id", accountId)
+      .single();
+
+    if (fetchError) {
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar dados da conta",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se o período de competência está bloqueado
+    if (accountData?.data_competencia) {
+      const validation = await validateAccountsPayablePeriod.competencia(accountData.data_competencia);
+      if (validation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: validation.message || "O período de competência desta conta está bloqueado. Não é possível excluir.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!confirm("Tem certeza que deseja excluir esta conta a pagar?")) {
       return;
     }
