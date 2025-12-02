@@ -7,10 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Lock, Unlock, Plus } from "lucide-react";
+import { Pencil, Trash2, Lock, Unlock, Plus, Search } from "lucide-react";
 
 interface CurrentAccount {
   id: string;
@@ -50,6 +51,8 @@ export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModa
   const [editingAccount, setEditingAccount] = useState<CurrentAccount | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchName, setSearchName] = useState("");
+  const [filterStoreId, setFilterStoreId] = useState<string>("all");
   const { toast } = useToast();
 
   const form = useForm<FormData>({
@@ -282,6 +285,14 @@ export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModa
       .join(', ');
   };
 
+  // Filtered accounts
+  const filteredAccounts = accounts.filter(account => {
+    const nameMatch = account.name.toLowerCase().includes(searchName.toLowerCase());
+    const storeMatch = filterStoreId === "all" || 
+      account.current_account_stores.some(cas => cas.store_id === filterStoreId);
+    return nameMatch && storeMatch;
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -292,10 +303,43 @@ export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModa
         <div className="space-y-6">
           {!showForm ? (
             <div className="space-y-4">
-              <Button onClick={() => setShowForm(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Conta Corrente
-              </Button>
+              <div className="flex flex-wrap gap-4 items-end">
+                <Button onClick={() => setShowForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Conta Corrente
+                </Button>
+
+                <div className="flex-1 min-w-[200px]">
+                  <Label htmlFor="searchName" className="text-sm mb-1 block">Filtrar por Nome</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="searchName"
+                      placeholder="Buscar por nome..."
+                      value={searchName}
+                      onChange={(e) => setSearchName(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+
+                <div className="min-w-[200px]">
+                  <Label htmlFor="filterStore" className="text-sm mb-1 block">Filtrar por Loja</Label>
+                  <Select value={filterStoreId} onValueChange={setFilterStoreId}>
+                    <SelectTrigger id="filterStore">
+                      <SelectValue placeholder="Todas as lojas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as lojas</SelectItem>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.name} ({store.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
               <Table>
                 <TableHeader>
@@ -311,7 +355,13 @@ export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModa
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account) => (
+                  {filteredAccounts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        Nenhuma conta corrente encontrada
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredAccounts.map((account) => (
                     <TableRow key={account.id}>
                       <TableCell>{account.name}</TableCell>
                       <TableCell>{account.bank}</TableCell>
