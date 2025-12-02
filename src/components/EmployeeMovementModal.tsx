@@ -12,6 +12,7 @@ import { ArrowLeft, Building2, User, FileText, Download, Calendar, ChevronDown }
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import EmployeeObligationsTab from "./EmployeeObligationsTab";
 import { ptBR } from "date-fns/locale";
 
 interface Store {
@@ -606,19 +607,11 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                 </TabsContent>
 
                 <TabsContent value="obrigacoes" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Obrigações</CardTitle>
-                      <CardDescription>
-                        Funcionalidade em desenvolvimento
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>Esta funcionalidade será implementada em breve.</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <EmployeeObligationsTab
+                    employeeId={selectedEmployee.id}
+                    employeeName={selectedEmployee.name}
+                    storeId={selectedStore.id}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
