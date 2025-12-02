@@ -830,27 +830,39 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       doc.setFontSize(12);
       doc.text(`Ano: ${selectedYear}`, 20, 30);
       
-      // Preparar dados para a tabela
-      const tableHeaders: string[] = ['Descrição'];
-      const tableData: (string | number)[][] = [];
+      // Preparar dados para a tabela com metadados de estilo
+      const tableHeaders: string[][] = [['Descrição'], ['']];
+      const tableData: { content: string; styles?: any }[][] = [];
+      const rowMetadata: { itemType: string; isNegative: boolean[] }[] = [];
       
-      // Cabeçalhos das colunas
+      // Cabeçalhos das colunas (duas linhas: período e loja)
       Object.entries(groupedData).forEach(([periodKey, periodData]) => {
         const [year, month] = periodKey.split('-');
         const monthName = `${getMonthName(parseInt(month))} ${year}`;
         
         periodData.forEach((data) => {
-          tableHeaders.push(`${monthName} - ${data.store_name}`);
+          tableHeaders[0].push(monthName);
+          tableHeaders[1].push(data.store_name);
         });
       });
       
-      // Linhas de dados
+      // Linhas de dados com metadados para estilização
       structureItems.forEach((item) => {
-        const row: (string | number)[] = [
-          item.item_type === 'sum_line' && item.description 
-            ? item.description 
-            : item.name
-        ];
+        const row: { content: string; styles?: any }[] = [];
+        const rowNegatives: boolean[] = [];
+        
+        // Nome/descrição com indentação para subgrupos e itens de estoque
+        let displayName = item.item_type === 'sum_line' && item.description 
+          ? item.description 
+          : item.name;
+        
+        // Adicionar espaçamento visual para subgrupos e itens de estoque
+        const isSubItem = item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock';
+        if (isSubItem) {
+          displayName = '    ' + displayName; // Indentação para subgrupos
+        }
+        
+        row.push({ content: displayName });
         
         Object.entries(groupedData).forEach(([_, periodData]) => {
           periodData.forEach((data) => {
@@ -864,31 +876,66 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
               value = calculateStockTotal(item.id, data);
             }
-            row.push(formatCurrency(value));
+            
+            // Aplicar sinal negativo conforme operation_type
+            let displayValue = value;
+            if (item.operation_type === 'debit' && value !== 0) {
+              displayValue = -Math.abs(value);
+            }
+            
+            const isNegative = displayValue < 0;
+            rowNegatives.push(isNegative);
+            
+            row.push({ content: formatCurrency(displayValue) });
           });
         });
         
         tableData.push(row);
+        rowMetadata.push({ itemType: item.item_type, isNegative: rowNegatives });
       });
       
       // Adicionar tabela ao PDF
       autoTable(doc, {
-        head: [tableHeaders],
-        body: tableData,
+        head: tableHeaders,
+        body: tableData.map(row => row.map(cell => cell.content)),
         startY: 40,
         styles: {
           fontSize: 8,
-          cellPadding: 2,
+          cellPadding: 3,
         },
         headStyles: {
           fillColor: [41, 128, 185],
           textColor: 255,
           fontStyle: 'bold',
+          halign: 'center',
         },
         columnStyles: {
-          0: { cellWidth: 'auto', minCellWidth: 40 },
+          0: { cellWidth: 'auto', minCellWidth: 50, halign: 'left' },
         },
         margin: { top: 40 },
+        didParseCell: function(data: any) {
+          // Aplicar estilos personalizados nas células
+          if (data.section === 'body') {
+            const rowIndex = data.row.index;
+            const colIndex = data.column.index;
+            const metadata = rowMetadata[rowIndex];
+            
+            if (metadata) {
+              // Negrito para grupos e linhas de soma
+              if (metadata.itemType === 'group' || metadata.itemType === 'sum_line') {
+                data.cell.styles.fontStyle = 'bold';
+              }
+              
+              // Cor vermelha para valores negativos (colunas de valores, não a descrição)
+              if (colIndex > 0) {
+                const negativeIndex = colIndex - 1;
+                if (metadata.isNegative[negativeIndex]) {
+                  data.cell.styles.textColor = [220, 53, 69]; // Vermelho
+                }
+              }
+            }
+          }
+        },
       });
       
       // Salvar PDF
