@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserCog, UserPlus, Activity } from "lucide-react";
+import { UserCog, UserPlus, Activity, ClipboardList } from "lucide-react";
 import JobFunctionModal from "./JobFunctionModal";
 import EmployeeModal from "./EmployeeModal";
 import EmployeeMovementModal from "./EmployeeMovementModal";
+import ObligationsModal from "./ObligationsModal";
 
 interface FuncionariosModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
   const [showJobFunctionModal, setShowJobFunctionModal] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showEmployeeMovementModal, setShowEmployeeMovementModal] = useState(false);
+  const [showObligationsModal, setShowObligationsModal] = useState(false);
 
   const modules = [
     {
@@ -38,6 +40,13 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
       description: 'Consultar movimentações financeiras dos funcionários',
       icon: Activity,
       color: 'from-purple-500 to-purple-600'
+    },
+    {
+      id: 'obligations',
+      title: 'Cadastro de Obrigações',
+      description: 'Cadastrar obrigações para vincular às funções',
+      icon: ClipboardList,
+      color: 'from-orange-500 to-orange-600'
     }
   ];
 
@@ -48,6 +57,8 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
       setShowEmployeeModal(true);
     } else if (moduleId === 'employee-movement') {
       setShowEmployeeMovementModal(true);
+    } else if (moduleId === 'obligations') {
+      setShowObligationsModal(true);
     }
   };
 
@@ -110,6 +121,11 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
       <EmployeeMovementModal 
         isOpen={showEmployeeMovementModal} 
         onClose={() => setShowEmployeeMovementModal(false)} 
+      />
+
+      <ObligationsModal 
+        isOpen={showObligationsModal} 
+        onClose={() => setShowObligationsModal(false)} 
       />
     </>
   );
