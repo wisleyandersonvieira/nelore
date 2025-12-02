@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, ArrowLeft, Lock, Unlock } from "lucide-react";
+import { Pencil, Trash2, Plus, ArrowLeft, Lock, Unlock, Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CardAccount {
@@ -61,6 +61,8 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
   const [editingAccount, setEditingAccount] = useState<CardAccount | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchName, setSearchName] = useState("");
+  const [filterStoreId, setFilterStoreId] = useState<string>("all");
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -277,6 +279,14 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
     return accountStores.map(store => store.name).join(', ');
   };
 
+  // Filtered accounts
+  const filteredAccounts = accounts.filter(account => {
+    const nameMatch = account.name.toLowerCase().includes(searchName.toLowerCase());
+    const storeMatch = filterStoreId === "all" || 
+      account.card_account_stores?.some(cas => cas.store_id === filterStoreId);
+    return nameMatch && storeMatch;
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -298,12 +308,42 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
 
         {!showForm ? (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Contas Cartão Cadastradas</h3>
+            <div className="flex flex-wrap gap-4 items-end">
               <Button onClick={() => setShowForm(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Conta Cartão
               </Button>
+
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="searchNameCard" className="text-sm mb-1 block">Filtrar por Nome</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="searchNameCard"
+                    placeholder="Buscar por nome..."
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-[200px]">
+                <Label htmlFor="filterStoreCard" className="text-sm mb-1 block">Filtrar por Loja</Label>
+                <Select value={filterStoreId} onValueChange={setFilterStoreId}>
+                  <SelectTrigger id="filterStoreCard">
+                    <SelectValue placeholder="Todas as lojas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as lojas</SelectItem>
+                    {stores.map((store) => (
+                      <SelectItem key={store.id} value={store.id}>
+                        {store.name} ({store.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="rounded-md border">
@@ -321,7 +361,13 @@ export const CardAccountsModal = ({ open, onOpenChange }: CardAccountsModalProps
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account) => (
+                  {filteredAccounts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        Nenhuma conta cartão encontrada
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredAccounts.map((account) => (
                     <TableRow key={account.id}>
                       <TableCell className="font-medium">{account.name}</TableCell>
                       <TableCell>{account.bank}</TableCell>
