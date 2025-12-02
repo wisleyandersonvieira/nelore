@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Edit, Trash2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -304,8 +305,9 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ScrollArea className="h-[400px] pr-4">
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cnpj_cpf">CNPJ</Label>
                        <Input
@@ -403,7 +405,8 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
                       </Button>
                     )}
                   </div>
-                </form>
+                  </form>
+                </ScrollArea>
               </CardContent>
             </Card>
           </TabsContent>
