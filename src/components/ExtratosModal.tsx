@@ -462,8 +462,10 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 .eq('id', transaction.reference_id)
                 .maybeSingle();
 
-              // Só incluir se a parcela ainda tem payment_date (não foi estornada)
-              if (installmentData && installmentData.payment_date !== null) {
+              // Só incluir se a parcela ainda tem payment_date E a data de pagamento corresponde à data da transação
+              // Isso evita mostrar transações de pagamentos que foram estornados e pagos novamente
+              if (installmentData && installmentData.payment_date !== null && 
+                  installmentData.payment_date === transaction.transaction_date) {
                 isValidTransaction = true;
                 documentNumber = installmentData.accounts_payable?.document_number || '';
                 
@@ -494,7 +496,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 installmentInfo = `${installmentData.installment_number}/${maxInstallment}`;
               }
             } else if (transaction.reference_type === 'accounts_payable') {
-              // Se for pagamento integral, verificar se ainda está pago
+              // Se for pagamento integral, verificar se ainda está pago E se a data de pagamento atual corresponde à transação
               const { data: payableData } = await supabase
                 .from('accounts_payable')
                 .select(`
@@ -510,8 +512,10 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 .eq('id', transaction.reference_id)
                 .maybeSingle();
 
-              // Só incluir se a conta ainda está paga
-              if (payableData && payableData.payment_date !== null && payableData.status !== 'pending') {
+              // Só incluir se a conta ainda está paga E a data de pagamento corresponde à data da transação
+              // Isso evita mostrar transações de pagamentos que foram estornados e pagos novamente
+              if (payableData && payableData.payment_date !== null && payableData.status !== 'pending' &&
+                  payableData.payment_date === transaction.transaction_date) {
                 isValidTransaction = true;
                 documentNumber = payableData.document_number || '';
                 
