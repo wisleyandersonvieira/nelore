@@ -1260,6 +1260,63 @@ export type Database = {
           },
         ]
       }
+      employee_obligation_completions: {
+        Row: {
+          attachment_url: string | null
+          completed_at: string
+          completed_by: string
+          created_at: string
+          employee_id: string
+          id: string
+          notes: string | null
+          obligation_id: string
+          reference_month: number | null
+          reference_year: number | null
+          updated_at: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          completed_at?: string
+          completed_by: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+          obligation_id: string
+          reference_month?: number | null
+          reference_year?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attachment_url?: string | null
+          completed_at?: string
+          completed_by?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          obligation_id?: string
+          reference_month?: number | null
+          reference_year?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_obligation_completions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_obligation_completions_obligation_id_fkey"
+            columns: ["obligation_id"]
+            isOneToOne: false
+            referencedRelation: "employee_obligations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_obligations: {
         Row: {
           attachments: Json | null
