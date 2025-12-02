@@ -289,15 +289,15 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Fornecedores</DialogTitle>
           <DialogDescription>
             Cadastro e gestão de fornecedores
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="h-[calc(90vh-120px)] pr-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="register">Cadastro</TabsTrigger>
