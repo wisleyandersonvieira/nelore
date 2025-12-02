@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, ArrowLeft, Lock, Unlock } from "lucide-react";
+import { Pencil, Trash2, Plus, ArrowLeft, Lock, Unlock, Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 interface CashAccount {
   id: string;
@@ -54,6 +54,8 @@ export const CashAccountsModal = ({
   const [editingAccount, setEditingAccount] = useState<CashAccount | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchName, setSearchName] = useState("");
+  const [filterStoreId, setFilterStoreId] = useState<string>("all");
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -245,6 +247,15 @@ export const CashAccountsModal = ({
     const accountStores = stores.filter(store => accountStoreIds.includes(store.id));
     return accountStores.map(store => store.name).join(', ');
   };
+
+  // Filtered accounts
+  const filteredAccounts = accounts.filter(account => {
+    const nameMatch = account.name.toLowerCase().includes(searchName.toLowerCase());
+    const storeMatch = filterStoreId === "all" || 
+      account.cash_account_stores?.some(cas => cas.store_id === filterStoreId);
+    return nameMatch && storeMatch;
+  });
+
   return <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -257,12 +268,42 @@ export const CashAccountsModal = ({
         </DialogHeader>
 
         {!showForm ? <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Contas Caixa Cadastradas</h3>
+            <div className="flex flex-wrap gap-4 items-end">
               <Button onClick={() => setShowForm(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Conta Caixa
               </Button>
+
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="searchNameCash" className="text-sm mb-1 block">Filtrar por Nome</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="searchNameCash"
+                    placeholder="Buscar por nome..."
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-[200px]">
+                <Label htmlFor="filterStoreCash" className="text-sm mb-1 block">Filtrar por Loja</Label>
+                <Select value={filterStoreId} onValueChange={setFilterStoreId}>
+                  <SelectTrigger id="filterStoreCash">
+                    <SelectValue placeholder="Todas as lojas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as lojas</SelectItem>
+                    {stores.map((store) => (
+                      <SelectItem key={store.id} value={store.id}>
+                        {store.name} ({store.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="rounded-md border">
@@ -278,7 +319,13 @@ export const CashAccountsModal = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map(account => <TableRow key={account.id}>
+                  {filteredAccounts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        Nenhuma conta caixa encontrada
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredAccounts.map(account => <TableRow key={account.id}>
                       <TableCell className="font-medium">{account.name}</TableCell>
                       <TableCell>R$ {Number(account.initial_balance).toFixed(2)}</TableCell>
                       <TableCell>
