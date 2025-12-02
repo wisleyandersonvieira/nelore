@@ -1260,6 +1260,42 @@ export type Database = {
           },
         ]
       }
+      employee_obligations: {
+        Row: {
+          attachments: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          recurrence_months: number | null
+          recurrence_type: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          recurrence_months?: number | null
+          recurrence_type?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          recurrence_months?: number | null
+          recurrence_type?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           address: string | null
