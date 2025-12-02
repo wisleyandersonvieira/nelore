@@ -289,7 +289,7 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Fornecedores</DialogTitle>
           <DialogDescription>
@@ -297,7 +297,8 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <ScrollArea className="flex-1 pr-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="register">Cadastro</TabsTrigger>
             <TabsTrigger value="list">Exibir Cadastros</TabsTrigger>
@@ -549,6 +550,7 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
             </Card>
           </TabsContent>
         </Tabs>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
