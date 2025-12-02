@@ -1430,6 +1430,42 @@ export type Database = {
           },
         ]
       }
+      job_function_obligations: {
+        Row: {
+          created_at: string
+          id: string
+          job_function_id: string
+          obligation_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_function_id: string
+          obligation_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_function_id?: string
+          obligation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_function_obligations_job_function_id_fkey"
+            columns: ["job_function_id"]
+            isOneToOne: false
+            referencedRelation: "job_functions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_function_obligations_obligation_id_fkey"
+            columns: ["obligation_id"]
+            isOneToOne: false
+            referencedRelation: "employee_obligations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_functions: {
         Row: {
           base_salary: number

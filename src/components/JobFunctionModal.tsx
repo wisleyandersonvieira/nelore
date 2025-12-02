@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash2, UserCog } from "lucide-react";
+import { Plus, Edit, Trash2, UserCog, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import JobFunctionObligationsModal from "./JobFunctionObligationsModal";
 
 interface JobFunction {
   id: string;
@@ -31,6 +32,8 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
   const [showForm, setShowForm] = useState(false);
   const [editingFunction, setEditingFunction] = useState<JobFunction | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showObligationsModal, setShowObligationsModal] = useState(false);
+  const [selectedFunctionForObligations, setSelectedFunctionForObligations] = useState<JobFunction | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -290,13 +293,26 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
                             size="sm"
                             variant="outline"
                             onClick={() => handleEdit(jobFunction)}
+                            title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => {
+                              setSelectedFunctionForObligations(jobFunction);
+                              setShowObligationsModal(true);
+                            }}
+                            title="Vincular Obrigações"
+                          >
+                            <ClipboardList className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleDelete(jobFunction.id)}
+                            title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -316,6 +332,18 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
             </CardContent>
           </Card>
         </div>
+
+        {selectedFunctionForObligations && (
+          <JobFunctionObligationsModal
+            isOpen={showObligationsModal}
+            onClose={() => {
+              setShowObligationsModal(false);
+              setSelectedFunctionForObligations(null);
+            }}
+            jobFunctionId={selectedFunctionForObligations.id}
+            jobFunctionName={selectedFunctionForObligations.name}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
