@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Edit, Trash2, Search } from "lucide-react";
+import { Edit, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Supplier {
@@ -39,7 +39,10 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [activeTab, setActiveTab] = useState("register");
   const [userStoreId, setUserStoreId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
+  
+  const ITEMS_PER_PAGE = 10;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -274,6 +277,16 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
     (supplier.cnpj_cpf && supplier.cnpj_cpf.includes(searchTerm))
   );
 
+  // Pagination
+  const totalPages = Math.ceil(filteredSuppliers.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedSuppliers = filteredSuppliers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
@@ -433,7 +446,7 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
                   </div>
                 </div>
 
-                <div className="rounded-md border max-h-96 overflow-y-auto">
+                <ScrollArea className="h-[400px] rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -452,14 +465,14 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
                             Carregando...
                           </TableCell>
                         </TableRow>
-                      ) : filteredSuppliers.length === 0 ? (
+                      ) : paginatedSuppliers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center">
                             Nenhum fornecedor encontrado
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredSuppliers.map((supplier) => (
+                        paginatedSuppliers.map((supplier) => (
                           <TableRow key={supplier.id}>
                             <TableCell className="font-medium">
                               {supplier.name}
@@ -501,7 +514,37 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
                       )}
                     </TableBody>
                   </Table>
-                </div>
+                </ScrollArea>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <span className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages} ({filteredSuppliers.length} fornecedores)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm font-medium">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
