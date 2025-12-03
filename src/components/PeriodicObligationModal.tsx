@@ -128,10 +128,23 @@ const PeriodicObligationModal = ({
 
       const { data, error } = await supabase.storage
         .from("obligation-attachments")
-        .createSignedUrl(path, 60); // 60 seconds expiry
+        .download(path);
 
       if (error) throw error;
-      window.open(data.signedUrl, '_blank');
+
+      // Create blob URL and open/download
+      const blob = new Blob([data], { type: data.type });
+      const url = URL.createObjectURL(blob);
+      
+      // For PDFs and other files, trigger download
+      const fileName = path.split('/').pop() || 'arquivo';
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error viewing attachment:", error);
       toast({
