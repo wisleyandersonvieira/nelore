@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Loader2, Check, FileText, Paperclip, Eye, ChevronRight } from "lucide-react";
+import { Loader2, FileText, Paperclip, Eye, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import PeriodicObligationModal from "./PeriodicObligationModal";
+import ObligationAttachmentsModal from "./ObligationAttachmentsModal";
 
 interface Obligation {
   id: string;
@@ -34,19 +35,46 @@ interface EmployeeObligationsTabProps {
   storeId: string;
 }
 
+interface SelectedAttachment {
+  completionId: string;
+  obligationName: string;
+}
+
 const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeObligationsTabProps) => {
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [completions, setCompletions] = useState<ObligationCompletion[]>([]);
+  const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [jobFunctionName, setJobFunctionName] = useState<string>("");
   const [selectedPeriodicObligation, setSelectedPeriodicObligation] = useState<Obligation | null>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<SelectedAttachment | null>(null);
   const { toast } = useToast();
+
+  const fetchAttachmentCounts = async (completionIds: string[]) => {
+    if (completionIds.length === 0) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("employee_obligation_attachments")
+        .select("completion_id")
+        .in("completion_id", completionIds);
+
+      if (error) throw error;
+
+      const counts: Record<string, number> = {};
+      data?.forEach(item => {
+        counts[item.completion_id] = (counts[item.completion_id] || 0) + 1;
+      });
+      setAttachmentCounts(counts);
+    } catch (error) {
+      console.error("Error fetching attachment counts:", error);
+    }
+  };
 
   const fetchObligations = async () => {
     setLoading(true);
     try {
-      // First, get the employee's job function
       const { data: employeeData, error: employeeError } = await supabase
         .from("employees")
         .select("job_function_id, job_functions(id, name)")
@@ -61,11 +89,9 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
         return;
       }
 
-      // Type assertion for job_functions
       const jobFunction = employeeData.job_functions as { id: string; name: string } | null;
       setJobFunctionName(jobFunction?.name || "");
 
-      // Get obligations linked to this job function
       const { data: linkedObligations, error: linkedError } = await supabase
         .from("job_function_obligations")
         .select("obligation_id")
@@ -80,7 +106,6 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
       const obligationIds = linkedObligations.map(l => l.obligation_id);
 
-      // Fetch the actual obligation details
       const { data: obligationsData, error: obligationsError } = await supabase
         .from("employee_obligations")
         .select("id, name, recurrence_type, recurrence_months")
@@ -92,7 +117,6 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
       setObligations(obligationsData || []);
 
-      // Fetch completions for this employee
       const { data: completionsData, error: completionsError } = await supabase
         .from("employee_obligation_completions")
         .select("*")
@@ -101,6 +125,13 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
       if (completionsError) throw completionsError;
 
       setCompletions(completionsData || []);
+
+      // Fetch attachment counts for unique obligations
+      const uniqueCompletionIds = completionsData
+        ?.filter(c => obligationsData?.find(o => o.id === c.obligation_id)?.recurrence_type === 'unica')
+        .map(c => c.id) || [];
+      
+      await fetchAttachmentCounts(uniqueCompletionIds);
     } catch (error) {
       console.error("Error fetching obligations:", error);
       toast({
@@ -120,12 +151,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
   }, [employeeId]);
 
   const getCompletion = (obligationId: string): ObligationCompletion | undefined => {
-    // For unique obligations, just find any completion
     return completions.find(c => c.obligation_id === obligationId);
-  };
-
-  const isCompleted = (obligationId: string): boolean => {
-    return !!getCompletion(obligationId);
   };
 
   const handleToggleCompletion = async (obligation: Obligation) => {
@@ -133,7 +159,6 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
     try {
       if (existingCompletion) {
-        // Remove completion
         const { error } = await supabase
           .from("employee_obligation_completions")
           .delete()
@@ -142,13 +167,17 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
         if (error) throw error;
 
         setCompletions(prev => prev.filter(c => c.id !== existingCompletion.id));
+        setAttachmentCounts(prev => {
+          const newCounts = { ...prev };
+          delete newCounts[existingCompletion.id];
+          return newCounts;
+        });
         
         toast({
           title: "Removido",
           description: "Conclusão removida"
         });
       } else {
-        // Add completion
         const { data: user } = await supabase.auth.getUser();
         if (!user.user) throw new Error("Usuário não autenticado");
 
@@ -191,9 +220,31 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Usuário não autenticado");
 
+      let completionId: string;
+      const existingCompletion = getCompletion(obligation.id);
+
+      if (existingCompletion) {
+        completionId = existingCompletion.id;
+      } else {
+        // Create completion first
+        const { data, error } = await supabase
+          .from("employee_obligation_completions")
+          .insert({
+            employee_id: employeeId,
+            obligation_id: obligation.id,
+            completed_by: user.user.id
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        completionId = data.id;
+        setCompletions(prev => [...prev, data]);
+      }
+
       // Upload file to storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${employeeId}/${obligation.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${completionId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("obligation-attachments")
@@ -201,41 +252,23 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
       if (uploadError) throw uploadError;
 
-      // Store just the file path for private bucket
-      const attachmentUrl = fileName;
+      // Insert into attachments table
+      const { error: insertError } = await supabase
+        .from("employee_obligation_attachments")
+        .insert({
+          completion_id: completionId,
+          file_path: fileName,
+          file_name: file.name,
+          uploaded_by: user.user.id
+        });
 
-      // Check if completion exists
-      const existingCompletion = getCompletion(obligation.id);
+      if (insertError) throw insertError;
 
-      if (existingCompletion) {
-        // Update existing completion with attachment
-        const { data, error } = await supabase
-          .from("employee_obligation_completions")
-          .update({ attachment_url: attachmentUrl })
-          .eq("id", existingCompletion.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setCompletions(prev => prev.map(c => c.id === existingCompletion.id ? data : c));
-      } else {
-        // Create new completion with attachment
-        const { data, error } = await supabase
-          .from("employee_obligation_completions")
-          .insert({
-            employee_id: employeeId,
-            obligation_id: obligation.id,
-            completed_by: user.user.id,
-            attachment_url: attachmentUrl
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setCompletions(prev => [...prev, data]);
-      }
+      // Update attachment count
+      setAttachmentCounts(prev => ({
+        ...prev,
+        [completionId]: (prev[completionId] || 0) + 1
+      }));
 
       toast({
         title: "Sucesso",
@@ -250,35 +283,19 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
       });
     } finally {
       setUploading(null);
-    }
-  };
-
-  const handleViewAttachment = async (filePath: string) => {
-    try {
-      // Handle old format (full URL) vs new format (just path)
-      let path = filePath;
-      if (filePath.includes('/storage/v1/object/public/obligation-attachments/')) {
-        path = filePath.split('/storage/v1/object/public/obligation-attachments/')[1];
-      }
-
-      const { data, error } = await supabase.storage
-        .from("obligation-attachments")
-        .createSignedUrl(path, 60); // 60 seconds expiry
-
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank');
-    } catch (error) {
-      console.error("Error viewing attachment:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao abrir anexo",
-        variant: "destructive"
-      });
+      event.target.value = '';
     }
   };
 
   const getRecurrenceLabel = (type: string) => {
     return type === 'periodica' ? 'Periódica' : 'Única';
+  };
+
+  const handleAttachmentsChange = (completionId: string, count: number) => {
+    setAttachmentCounts(prev => ({
+      ...prev,
+      [completionId]: count
+    }));
   };
 
   if (loading) {
@@ -319,7 +336,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                 <TableHead>Obrigação</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Data Conclusão</TableHead>
-                <TableHead>Anexo</TableHead>
+                <TableHead>Anexos</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -329,6 +346,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                 const completed = !!completion;
                 const isUnica = obligation.recurrence_type === 'unica';
                 const isPeriodica = obligation.recurrence_type === 'periodica';
+                const attachmentCount = completion ? (attachmentCounts[completion.id] || 0) : 0;
 
                 return (
                   <TableRow 
@@ -363,18 +381,21 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                         : isPeriodica ? "Ver movimentações" : "-"}
                     </TableCell>
                     <TableCell>
-                      {isUnica && completion?.attachment_url ? (
+                      {isUnica && completion ? (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleViewAttachment(completion.attachment_url!);
+                            setSelectedAttachment({
+                              completionId: completion.id,
+                              obligationName: obligation.name
+                            });
                           }}
                           className="text-primary"
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          Ver
+                          Ver ({attachmentCount})
                         </Button>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
@@ -429,6 +450,17 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
             employeeName={employeeName}
             obligationId={selectedPeriodicObligation.id}
             obligationName={selectedPeriodicObligation.name}
+          />
+        )}
+
+        {selectedAttachment && (
+          <ObligationAttachmentsModal
+            isOpen={!!selectedAttachment}
+            onClose={() => setSelectedAttachment(null)}
+            completionId={selectedAttachment.completionId}
+            obligationName={selectedAttachment.obligationName}
+            employeeName={employeeName}
+            onAttachmentsChange={(count) => handleAttachmentsChange(selectedAttachment.completionId, count)}
           />
         )}
       </CardContent>

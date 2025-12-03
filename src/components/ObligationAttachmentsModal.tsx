@@ -1,0 +1,271 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2, Plus, Eye, Trash2, Paperclip } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { format, parseISO } from "date-fns";
+
+interface ObligationAttachmentsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  completionId: string;
+  obligationName: string;
+  employeeName: string;
+  onAttachmentsChange?: (count: number) => void;
+}
+
+interface Attachment {
+  id: string;
+  file_path: string;
+  file_name: string;
+  uploaded_at: string;
+}
+
+const parseLocalDate = (dateString: string) => {
+  const datePart = dateString.split('T')[0];
+  return parseISO(datePart + 'T12:00:00');
+};
+
+const ObligationAttachmentsModal = ({
+  isOpen,
+  onClose,
+  completionId,
+  obligationName,
+  employeeName,
+  onAttachmentsChange
+}: ObligationAttachmentsModalProps) => {
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const fetchAttachments = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("employee_obligation_attachments")
+        .select("id, file_path, file_name, uploaded_at")
+        .eq("completion_id", completionId)
+        .order("uploaded_at", { ascending: false });
+
+      if (error) throw error;
+      setAttachments(data || []);
+      onAttachmentsChange?.(data?.length || 0);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar anexos",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && completionId) {
+      fetchAttachments();
+    }
+  }, [isOpen, completionId]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error("Usuário não autenticado");
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${completionId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("obligation-attachments")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await supabase
+        .from("employee_obligation_attachments")
+        .insert({
+          completion_id: completionId,
+          file_path: fileName,
+          file_name: file.name,
+          uploaded_by: user.user.id
+        });
+
+      if (insertError) throw insertError;
+
+      toast({
+        title: "Sucesso",
+        description: "Anexo enviado"
+      });
+
+      fetchAttachments();
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar arquivo",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  const handleViewAttachment = async (filePath: string) => {
+    try {
+      let path = filePath;
+      if (filePath.includes('/storage/v1/object/public/obligation-attachments/')) {
+        path = filePath.split('/storage/v1/object/public/obligation-attachments/')[1];
+      }
+
+      const { data, error } = await supabase.storage
+        .from("obligation-attachments")
+        .createSignedUrl(path, 60);
+
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error("Error viewing attachment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao abrir anexo",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDelete = async (attachment: Attachment) => {
+    if (!confirm(`Deseja excluir o anexo "${attachment.file_name}"?`)) return;
+
+    try {
+      // Delete from storage
+      await supabase.storage
+        .from("obligation-attachments")
+        .remove([attachment.file_path]);
+
+      // Delete from database
+      const { error } = await supabase
+        .from("employee_obligation_attachments")
+        .delete()
+        .eq("id", attachment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Anexo excluído"
+      });
+
+      fetchAttachments();
+    } catch (error) {
+      console.error("Error deleting attachment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir anexo",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Anexos - {obligationName}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Funcionário: {employeeName}
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              className="hidden"
+              id="attachment-upload"
+              onChange={handleFileUpload}
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            />
+            <Button
+              onClick={() => document.getElementById("attachment-upload")?.click()}
+              disabled={uploading}
+              className="w-full"
+            >
+              {uploading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
+              Adicionar Anexo
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : attachments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Paperclip className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum anexo cadastrado</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Arquivo</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {attachments.map((attachment) => (
+                  <TableRow key={attachment.id}>
+                    <TableCell className="font-medium">
+                      {attachment.file_name}
+                    </TableCell>
+                    <TableCell>
+                      {format(parseLocalDate(attachment.uploaded_at), "dd/MM/yyyy HH:mm")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewAttachment(attachment.file_path)}
+                          className="text-primary"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(attachment)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default ObligationAttachmentsModal;

@@ -1260,6 +1260,41 @@ export type Database = {
           },
         ]
       }
+      employee_obligation_attachments: {
+        Row: {
+          completion_id: string
+          file_name: string
+          file_path: string
+          id: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          completion_id: string
+          file_name: string
+          file_path: string
+          id?: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          completion_id?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_obligation_attachments_completion_id_fkey"
+            columns: ["completion_id"]
+            isOneToOne: false
+            referencedRelation: "employee_obligation_completions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_obligation_completions: {
         Row: {
           attachment_url: string | null
