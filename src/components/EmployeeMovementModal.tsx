@@ -8,12 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Building2, User, FileText, Download, Calendar, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Building2, User, FileText, Download, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import EmployeeObligationsTab from "./EmployeeObligationsTab";
 import { ptBR } from "date-fns/locale";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Store {
   id: string;
@@ -326,7 +330,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     return payableAccounts.reduce((sum, account) => sum + Number(account.amount), 0);
   };
 
-  const exportReport = () => {
+  const exportToExcel = () => {
     if (!selectedEmployee || payableAccounts.length === 0) {
       toast({
         title: "Atenção",
@@ -358,19 +362,91 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
       'Observações': ''
     });
 
-    // Usar XLSX para exportar
-    const XLSX = require('xlsx');
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     
-    const periodText = ` - ${getFilterDescription()}`;
+    const periodText = `_${getFilterDescription().replace(/\s+/g, '_')}`;
     
     XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
-    XLSX.writeFile(wb, `Movimentacoes_${selectedEmployee.name.replace(/\s+/g, '_')}${periodText.replace(/\s+/g, '_')}.xlsx`);
+    XLSX.writeFile(wb, `Movimentacoes_${selectedEmployee.name.replace(/\s+/g, '_')}${periodText}.xlsx`);
 
     toast({
       title: "Sucesso",
-      description: "Relatório exportado com sucesso",
+      description: "Relatório Excel exportado com sucesso",
+    });
+  };
+
+  const exportToPDF = () => {
+    if (!selectedEmployee || !selectedStore || payableAccounts.length === 0) {
+      toast({
+        title: "Atenção",
+        description: "Não há dados para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Movimentações Financeiras - Funcionário", pageWidth / 2, 20, { align: "center" });
+    
+    // Info do funcionário e loja
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Loja: ${selectedStore.name}`, 14, 35);
+    doc.text(`Funcionário: ${selectedEmployee.name}`, 14, 42);
+    doc.text(`CPF: ${selectedEmployee.cpf}`, 14, 49);
+    doc.text(`Período: ${getFilterDescription()}`, 14, 56);
+    doc.text(`Data de emissão: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 63);
+
+    // Tabela de movimentações
+    const tableData = payableAccounts.map(account => [
+      account.payment_date ? format(new Date(account.payment_date), "dd/MM/yyyy") : "-",
+      account.description,
+      account.document_type && account.document_number
+        ? `${account.document_type} ${account.document_number}`
+        : "-",
+      formatCurrency(Number(account.amount)),
+    ]);
+
+    autoTable(doc, {
+      startY: 70,
+      head: [["Data Pagamento", "Descrição", "Documento", "Valor"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 70 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 35, halign: "right" },
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+    });
+
+    // Total
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(`Total do Período: ${formatCurrency(calculateTotal())}`, pageWidth - 14, finalY, { align: "right" });
+
+    const periodText = `_${getFilterDescription().replace(/\s+/g, '_')}`;
+    doc.save(`Movimentacoes_${selectedEmployee.name.replace(/\s+/g, '_')}${periodText}.pdf`);
+
+    toast({
+      title: "Sucesso",
+      description: "Relatório PDF exportado com sucesso",
     });
   };
 
@@ -534,15 +610,25 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                       </PopoverContent>
                     </Popover>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={exportReport}
-                      className="flex items-center gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Exportar
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex items-center gap-2">
+                          <Download className="w-4 h-4" />
+                          Exportar
+                          <ChevronDown className="w-3 h-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={exportToExcel} className="cursor-pointer">
+                          <FileSpreadsheet className="w-4 h-4 mr-2" />
+                          Exportar Excel
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDF} className="cursor-pointer">
+                          <FileText className="w-4 h-4 mr-2" />
+                          Exportar PDF
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   <Card>
                     <CardHeader>
