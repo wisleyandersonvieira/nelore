@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Building2, User, FileText, Download, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Building2, User, FileText, Download, ChevronDown, FileSpreadsheet, UserX, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -73,6 +73,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showInactiveEmployees, setShowInactiveEmployees] = useState(false);
   const { toast } = useToast();
 
   const fetchStores = async () => {
@@ -108,7 +109,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     }
   };
 
-  const fetchEmployees = async (storeId: string) => {
+  const fetchEmployees = async (storeId: string, inactive: boolean = false) => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -120,7 +121,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           is_active
         `)
         .eq("store_id", storeId)
-        .eq("is_active", true)
+        .eq("is_active", !inactive)
         .order("name");
 
       if (error) throw error;
@@ -304,6 +305,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
   const handleStoreSelect = (store: Store) => {
     setSelectedStore(store);
+    setShowInactiveEmployees(false);
   };
 
   const handleEmployeeSelect = (employee: Employee) => {
@@ -318,6 +320,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     } else if (selectedStore) {
       setSelectedStore(null);
       setEmployees([]);
+      setShowInactiveEmployees(false);
     }
   };
 
@@ -534,11 +537,39 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           ) : !selectedEmployee ? (
             // Employee Selection
             <div className="p-4">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Funcionários Ativos - {selectedStore.name}
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  {showInactiveEmployees ? "Funcionários Inativos" : "Funcionários Ativos"} - {selectedStore.name}
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowInactiveEmployees(!showInactiveEmployees);
+                    fetchEmployees(selectedStore.id, !showInactiveEmployees);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  {showInactiveEmployees ? (
+                    <>
+                      <Users className="w-4 h-4" />
+                      Funcionários Ativos
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="w-4 h-4" />
+                      Funcionários Inativos
+                    </>
+                  )}
+                </Button>
+              </div>
               <div className="space-y-2">
+                {employees.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Nenhum funcionário {showInactiveEmployees ? "inativo" : "ativo"} encontrado
+                  </div>
+                ) : null}
                 {employees.map((employee) => (
                   <Card
                     key={employee.id}
