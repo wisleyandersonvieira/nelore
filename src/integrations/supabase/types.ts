@@ -1266,6 +1266,7 @@ export type Database = {
           completed_at: string
           completed_by: string
           created_at: string
+          due_date: string | null
           employee_id: string
           id: string
           notes: string | null
@@ -1279,6 +1280,7 @@ export type Database = {
           completed_at?: string
           completed_by: string
           created_at?: string
+          due_date?: string | null
           employee_id: string
           id?: string
           notes?: string | null
@@ -1292,6 +1294,7 @@ export type Database = {
           completed_at?: string
           completed_by?: string
           created_at?: string
+          due_date?: string | null
           employee_id?: string
           id?: string
           notes?: string | null
