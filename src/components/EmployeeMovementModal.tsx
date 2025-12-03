@@ -361,6 +361,12 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     }).format(value);
   };
 
+  // Parse date string without timezone issues
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const calculateTotal = () => {
     return payableAccounts.reduce((sum, account) => sum + Number(account.amount), 0);
   };
@@ -385,7 +391,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     // Criar dados para exportação
     const exportData = payableAccounts.map(account => ({
       'Data Pagamento': account.payment_date 
-        ? format(new Date(account.payment_date), "dd/MM/yyyy") 
+        ? format(parseLocalDate(account.payment_date), "dd/MM/yyyy")
         : "-",
       'Valor': formatCurrency(Number(account.amount)),
       'Subgrupo': account.subgroups || "-",
@@ -447,7 +453,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
     // Tabela de movimentações
     const tableData = payableAccounts.map(account => [
-      account.payment_date ? format(new Date(account.payment_date), "dd/MM/yyyy") : "-",
+      account.payment_date ? format(parseLocalDate(account.payment_date), "dd/MM/yyyy") : "-",
       account.subgroups || "-",
       account.document_type && account.document_number
         ? `${account.document_type} ${account.document_number}`
@@ -725,7 +731,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                                 <TableRow key={account.id}>
                                   <TableCell className="py-2">
                                     {account.payment_date
-                                      ? format(new Date(account.payment_date), "dd/MM/yyyy")
+                                      ? format(parseLocalDate(account.payment_date), "dd/MM/yyyy")
                                       : "-"}
                                   </TableCell>
                                   <TableCell className="py-2 font-medium">
