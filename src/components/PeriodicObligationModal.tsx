@@ -91,11 +91,8 @@ const PeriodicObligationModal = ({
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from("obligation-attachments")
-        .getPublicUrl(fileName);
-
-      setFormData(prev => ({ ...prev, attachment_url: urlData.publicUrl }));
+      // Store just the file path for private bucket
+      setFormData(prev => ({ ...prev, attachment_url: fileName }));
 
       toast({
         title: "Sucesso",
@@ -110,6 +107,30 @@ const PeriodicObligationModal = ({
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleViewAttachment = async (filePath: string) => {
+    try {
+      // Handle old format (full URL) vs new format (just path)
+      let path = filePath;
+      if (filePath.includes('/storage/v1/object/public/obligation-attachments/')) {
+        path = filePath.split('/storage/v1/object/public/obligation-attachments/')[1];
+      }
+
+      const { data, error } = await supabase.storage
+        .from("obligation-attachments")
+        .createSignedUrl(path, 60); // 60 seconds expiry
+
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error("Error viewing attachment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao abrir anexo",
+        variant: "destructive"
+      });
     }
   };
 
@@ -254,7 +275,7 @@ const PeriodicObligationModal = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => window.open(formData.attachment_url!, '_blank')}
+                      onClick={() => handleViewAttachment(formData.attachment_url!)}
                     >
                       <Eye className="w-4 h-4 mr-1" />
                       Ver
@@ -309,7 +330,7 @@ const PeriodicObligationModal = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.open(entry.attachment_url!, '_blank')}
+                          onClick={() => handleViewAttachment(entry.attachment_url!)}
                           className="text-primary"
                         >
                           <Eye className="w-4 h-4 mr-1" />
