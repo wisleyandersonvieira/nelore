@@ -59,10 +59,10 @@ const PeriodicObligationModal = ({
     try {
       const { data, error } = await supabase
         .from("employee_obligation_completions")
-        .select("id, completed_at, due_date, attachment_url")
+        .select("id, completed_at, due_date, attachment_url, created_at")
         .eq("employee_id", employeeId)
         .eq("obligation_id", obligationId)
-        .order("due_date", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setEntries(data || []);
