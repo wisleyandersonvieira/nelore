@@ -201,12 +201,8 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("obligation-attachments")
-        .getPublicUrl(fileName);
-
-      const attachmentUrl = urlData.publicUrl;
+      // Store just the file path for private bucket
+      const attachmentUrl = fileName;
 
       // Check if completion exists
       const existingCompletion = getCompletion(obligation.id);
@@ -254,6 +250,30 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
       });
     } finally {
       setUploading(null);
+    }
+  };
+
+  const handleViewAttachment = async (filePath: string) => {
+    try {
+      // Handle old format (full URL) vs new format (just path)
+      let path = filePath;
+      if (filePath.includes('/storage/v1/object/public/obligation-attachments/')) {
+        path = filePath.split('/storage/v1/object/public/obligation-attachments/')[1];
+      }
+
+      const { data, error } = await supabase.storage
+        .from("obligation-attachments")
+        .createSignedUrl(path, 60); // 60 seconds expiry
+
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error("Error viewing attachment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao abrir anexo",
+        variant: "destructive"
+      });
     }
   };
 
@@ -349,7 +369,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(completion.attachment_url!, '_blank');
+                            handleViewAttachment(completion.attachment_url!);
                           }}
                           className="text-primary"
                         >
