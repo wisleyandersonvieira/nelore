@@ -90,8 +90,10 @@ const PeriodicObligationModal = ({
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${employeeId}/${obligationId}/${Date.now()}.${fileExt}`;
+      // Keep original filename with timestamp prefix to avoid collisions
+      const timestamp = Date.now();
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `${employeeId}/${obligationId}/${timestamp}_${sanitizedFileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("obligation-attachments")
@@ -132,12 +134,17 @@ const PeriodicObligationModal = ({
 
       if (error) throw error;
 
-      // Create blob URL and open/download
+      // Create blob URL and download
       const blob = new Blob([data], { type: data.type });
       const url = URL.createObjectURL(blob);
       
-      // For PDFs and other files, trigger download
-      const fileName = path.split('/').pop() || 'arquivo';
+      // Extract original filename (remove timestamp prefix)
+      const fullName = path.split('/').pop() || 'arquivo';
+      const underscoreIndex = fullName.indexOf('_');
+      const fileName = (underscoreIndex > 0 && /^\d+$/.test(fullName.substring(0, underscoreIndex)))
+        ? fullName.substring(underscoreIndex + 1)
+        : fullName;
+      
       const link = document.createElement('a');
       link.href = url;
       link.download = fileName;
@@ -340,11 +347,17 @@ const PeriodicObligationModal = ({
               </TableHeader>
               <TableBody>
                 {entries.map((entry, index) => {
-                  // Extract file name from attachment_url
+                  // Extract file name from attachment_url (remove timestamp prefix)
                   const getFileName = (url: string | null) => {
                     if (!url) return null;
                     const parts = url.split('/');
-                    return parts[parts.length - 1];
+                    const fullName = parts[parts.length - 1];
+                    // Remove timestamp prefix (format: timestamp_filename)
+                    const underscoreIndex = fullName.indexOf('_');
+                    if (underscoreIndex > 0 && /^\d+$/.test(fullName.substring(0, underscoreIndex))) {
+                      return fullName.substring(underscoreIndex + 1);
+                    }
+                    return fullName;
                   };
                   const fileName = getFileName(entry.attachment_url);
                   
