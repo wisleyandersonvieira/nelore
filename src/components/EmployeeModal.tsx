@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, UserPlus, Upload, Download, Eye, X } from "lucide-react";
+import { Plus, Edit, Trash2, UserPlus, Upload, Download, Eye, X, Ban, RotateCcw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -63,6 +64,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [employeesWithMovements, setEmployeesWithMovements] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Função utilitária para upload de arquivo
@@ -251,7 +253,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
             name
           )
         `)
-        .eq('is_active', true)
+        .order('is_active', { ascending: false })
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -259,6 +261,9 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         ...emp,
         attachments: Array.isArray(emp.attachments) ? emp.attachments : []
       })));
+
+      // Check which employees have financial movements
+      await checkEmployeesWithMovements(data || []);
     } catch (error) {
       console.error('Erro ao carregar funcionários:', error);
       toast({
@@ -266,6 +271,30 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         description: "Erro ao carregar funcionários",
         variant: "destructive"
       });
+    }
+  };
+
+  const checkEmployeesWithMovements = async (employeesList: { id: string }[]) => {
+    try {
+      const employeeIds = employeesList.map(e => e.id);
+      
+      const { data, error } = await supabase
+        .from('accounts_payable')
+        .select('employee_id')
+        .in('employee_id', employeeIds);
+
+      if (error) throw error;
+
+      const idsWithMovements = new Set<string>();
+      (data || []).forEach(item => {
+        if (item.employee_id) {
+          idsWithMovements.add(item.employee_id);
+        }
+      });
+      
+      setEmployeesWithMovements(idsWithMovements);
+    } catch (error) {
+      console.error('Erro ao verificar movimentações:', error);
     }
   };
 
@@ -443,11 +472,21 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   };
 
   const handleDelete = async (id: string) => {
+    // Check if employee has movements
+    if (employeesWithMovements.has(id)) {
+      toast({
+        title: "Ação não permitida",
+        description: "Não é possível excluir funcionário com movimentações financeiras. Use a opção Inativar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (confirm('Tem certeza que deseja excluir este funcionário?')) {
       try {
         const { error } = await supabase
           .from('employees')
-          .update({ is_active: false })
+          .delete()
           .eq('id', id);
 
         if (error) throw error;
@@ -462,6 +501,58 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         toast({
           title: "Erro",
           description: "Erro ao excluir funcionário",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleInactivate = async (id: string) => {
+    if (confirm('Tem certeza que deseja inativar este funcionário?')) {
+      try {
+        const { error } = await supabase
+          .from('employees')
+          .update({ is_active: false, dismissal_date: new Date().toISOString().split('T')[0] })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Sucesso",
+          description: "Funcionário inativado com sucesso"
+        });
+        fetchEmployees();
+      } catch (error) {
+        console.error('Erro ao inativar funcionário:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao inativar funcionário",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleReactivate = async (id: string) => {
+    if (confirm('Tem certeza que deseja reativar este funcionário?')) {
+      try {
+        const { error } = await supabase
+          .from('employees')
+          .update({ is_active: true, dismissal_date: null })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Sucesso",
+          description: "Funcionário reativado com sucesso"
+        });
+        fetchEmployees();
+      } catch (error) {
+        console.error('Erro ao reativar funcionário:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao reativar funcionário",
           variant: "destructive"
         });
       }
@@ -818,47 +909,83 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                     <TableHead>Função</TableHead>
                     <TableHead>Salário</TableHead>
                     <TableHead>Data Registro</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {employees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{employee.name}</TableCell>
-                      <TableCell>{employee.cpf}</TableCell>
-                      <TableCell>{employee.job_functions?.name || '-'}</TableCell>
-                      <TableCell>
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL'
-                        }).format(employee.base_salary)}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(employee.registration_date).toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEdit(employee)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(employee.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {employees.map((employee) => {
+                    const hasMovements = employeesWithMovements.has(employee.id);
+                    const isInactive = !employee.is_active;
+                    
+                    return (
+                      <TableRow key={employee.id} className={isInactive ? "opacity-60" : ""}>
+                        <TableCell className="font-medium">{employee.name}</TableCell>
+                        <TableCell>{employee.cpf}</TableCell>
+                        <TableCell>{employee.job_functions?.name || '-'}</TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(employee.base_salary)}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(employee.registration_date).toLocaleDateString('pt-BR')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={isInactive ? "secondary" : "default"}>
+                            {isInactive ? "Inativo" : "Ativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {isInactive ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReactivate(employee.id)}
+                                title="Reativar funcionário"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEdit(employee)}
+                                  title="Editar funcionário"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleInactivate(employee.id)}
+                                  title="Inativar funcionário"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </Button>
+                                {!hasMovements && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDelete(employee.id)}
+                                    title="Excluir funcionário"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {employees.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
                         Nenhum funcionário cadastrado
                       </TableCell>
                     </TableRow>
