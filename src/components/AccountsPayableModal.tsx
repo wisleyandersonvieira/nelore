@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -114,6 +114,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
   const [items, setItems] = useState<PayableItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [viewCurrentPage, setViewCurrentPage] = useState(1);
+  const viewItemsPerPage = 15;
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -296,6 +298,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
       }));
       setAccountsPayable(formattedData);
+      setViewCurrentPage(1);
       setShowFilteredData(true);
     } catch (error) {
       console.error("Error fetching latest accounts:", error);
@@ -470,6 +473,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         } else {
           // Se não encontrou nenhuma conta com pagamento no período, retornar vazio
           setAccountsPayable([]);
+          setViewCurrentPage(1);
           setShowFilteredData(true);
           return;
         }
@@ -519,6 +523,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       })));
       
       setAccountsPayable(formattedData);
+      setViewCurrentPage(1);
       setShowFilteredData(true);
     } catch (error) {
       console.error("Error fetching filtered accounts payable:", error);
@@ -3144,143 +3149,184 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     <CardTitle>Contas a Pagar</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Fornecedor</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead>Valor</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Data Pagamento</TableHead>
-                          <TableHead>Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {accountsPayable.map((account) => (
-                          <TableRow key={account.id}>
-                            <TableCell>{account.description}</TableCell>
-                            <TableCell>{account.suppliers?.name || account.employees?.name || '-'}</TableCell>
-                            <TableCell>{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</TableCell>
-                            <TableCell>R$ {Number(account.amount).toFixed(2)}</TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                account.status === 'paid' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : account.status === 'partial'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {account.status === 'paid' ? 'Pago' : account.status === 'partial' ? 'Parcial' : 'Pendente'}
+                    {(() => {
+                      const viewTotalItems = accountsPayable.length;
+                      const viewTotalPages = Math.ceil(viewTotalItems / viewItemsPerPage);
+                      const viewStartIndex = (viewCurrentPage - 1) * viewItemsPerPage;
+                      const viewEndIndex = viewStartIndex + viewItemsPerPage;
+                      const paginatedAccounts = accountsPayable.slice(viewStartIndex, viewEndIndex);
+                      
+                      return (
+                        <>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="py-2">Descrição</TableHead>
+                                <TableHead className="py-2">Fornecedor</TableHead>
+                                <TableHead className="py-2">Vencimento</TableHead>
+                                <TableHead className="py-2">Valor</TableHead>
+                                <TableHead className="py-2">Status</TableHead>
+                                <TableHead className="py-2">Data Pagamento</TableHead>
+                                <TableHead className="py-2">Ações</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedAccounts.map((account) => (
+                                <TableRow key={account.id}>
+                                  <TableCell className="py-2">{account.description}</TableCell>
+                                  <TableCell className="py-2">{account.suppliers?.name || account.employees?.name || '-'}</TableCell>
+                                  <TableCell className="py-2">{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</TableCell>
+                                  <TableCell className="py-2">R$ {Number(account.amount).toFixed(2)}</TableCell>
+                                  <TableCell className="py-2">
+                                    <span className={`px-2 py-1 rounded text-xs ${
+                                      account.status === 'paid' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : account.status === 'partial'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {account.status === 'paid' ? 'Pago' : account.status === 'partial' ? 'Parcial' : 'Pendente'}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    {account.payment_date 
+                                      ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')
+                                      : '-'
+                                    }
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleViewOnlyAccount(account)}
+                                        disabled={loading}
+                                        title="Visualizar conta"
+                                        className="text-blue-600 hover:text-blue-700"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                      
+                                      {account.status !== 'paid' && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleEditAccount(account)}
+                                          disabled={loading}
+                                          title="Editar conta"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      
+                                      {account.status === 'paid' && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleReversePayment(account)}
+                                          disabled={loading}
+                                          title="Estornar pagamento"
+                                        >
+                                          <RefreshCw className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      
+                                      {account.status === 'partial' && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => openPaymentModal(account)}
+                                            disabled={loading}
+                                            title="Pagar conta"
+                                            className="text-green-600 hover:text-green-700"
+                                          >
+                                            <DollarSign className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleReversePayment(account)}
+                                            disabled={loading}
+                                            title="Estornar pagamento"
+                                          >
+                                            <RefreshCw className="h-4 w-4" />
+                                          </Button>
+                                        </>
+                                      )}
+                                      
+                                      {account.status === 'pending' && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => openPaymentModal(account)}
+                                            disabled={loading}
+                                            title="Pagar conta"
+                                            className="text-green-600 hover:text-green-700"
+                                          >
+                                            <DollarSign className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleDeleteAccount(account.id, account.status)}
+                                            disabled={loading}
+                                            title="Excluir conta"
+                                            className="text-red-600 hover:text-red-700"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              {accountsPayable.length === 0 && (
+                                <TableRow>
+                                  <TableCell colSpan={7} className="text-center text-muted-foreground py-2">
+                                    {showFilteredData 
+                                      ? "Nenhuma conta encontrada com os filtros aplicados"
+                                      : "Carregando contas..."
+                                    }
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                          
+                          {/* Pagination */}
+                          {viewTotalPages > 1 && (
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                              <span className="text-sm text-muted-foreground">
+                                {viewTotalItems} conta(s) • Página {viewCurrentPage} de {viewTotalPages}
                               </span>
-                            </TableCell>
-                            <TableCell>
-                              {account.payment_date 
-                                ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')
-                                : '-'
-                              }
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
+                              <div className="flex items-center gap-2">
                                 <Button
-                                  size="sm"
                                   variant="outline"
-                                  onClick={() => handleViewOnlyAccount(account)}
-                                  disabled={loading}
-                                  title="Visualizar conta"
-                                  className="text-blue-600 hover:text-blue-700"
+                                  size="sm"
+                                  onClick={() => setViewCurrentPage(prev => Math.max(prev - 1, 1))}
+                                  disabled={viewCurrentPage === 1}
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  <ChevronLeft className="w-4 h-4" />
+                                  Anterior
                                 </Button>
-                                
-                                {account.status !== 'paid' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditAccount(account)}
-                                    disabled={loading}
-                                    title="Editar conta"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                
-                                {account.status === 'paid' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleReversePayment(account)}
-                                    disabled={loading}
-                                    title="Estornar pagamento"
-                                  >
-                                    <RefreshCw className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                
-                                {account.status === 'partial' && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => openPaymentModal(account)}
-                                      disabled={loading}
-                                      title="Pagar conta"
-                                      className="text-green-600 hover:text-green-700"
-                                    >
-                                      <DollarSign className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleReversePayment(account)}
-                                      disabled={loading}
-                                      title="Estornar pagamento"
-                                    >
-                                      <RefreshCw className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                                
-                                {account.status === 'pending' && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => openPaymentModal(account)}
-                                      disabled={loading}
-                                      title="Pagar conta"
-                                      className="text-green-600 hover:text-green-700"
-                                    >
-                                      <DollarSign className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleDeleteAccount(account.id, account.status)}
-                                      disabled={loading}
-                                      title="Excluir conta"
-                                      className="text-red-600 hover:text-red-700"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCurrentPage(prev => Math.min(prev + 1, viewTotalPages))}
+                                  disabled={viewCurrentPage === viewTotalPages}
+                                >
+                                  Próxima
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {accountsPayable.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground">
-                              {showFilteredData 
-                                ? "Nenhuma conta encontrada com os filtros aplicados"
-                                : "Carregando contas..."
-                              }
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               )}
