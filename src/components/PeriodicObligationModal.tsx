@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Paperclip, Eye, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isAfter, isBefore, subDays } from "date-fns";
 
 // Helper to parse date strings without timezone issues
 const parseLocalDate = (dateString: string) => {
@@ -317,13 +318,14 @@ const PeriodicObligationModal = ({
                 <TableRow>
                   <TableHead>Data Cadastro</TableHead>
                   <TableHead>Data Vencimento</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Nome do Anexo</TableHead>
                   <TableHead>Anexo</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => {
+                {entries.map((entry, index) => {
                   // Extract file name from attachment_url
                   const getFileName = (url: string | null) => {
                     if (!url) return null;
@@ -331,6 +333,35 @@ const PeriodicObligationModal = ({
                     return parts[parts.length - 1];
                   };
                   const fileName = getFileName(entry.attachment_url);
+                  
+                  // Calculate status
+                  const getStatus = () => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    // If not the first entry (most recent), it's renewed
+                    if (index > 0) {
+                      return { label: "Renovado", variant: "secondary" as const };
+                    }
+                    
+                    // First entry - check due date
+                    if (!entry.due_date) {
+                      return { label: "Vigente", variant: "default" as const };
+                    }
+                    
+                    const dueDate = parseLocalDate(entry.due_date);
+                    dueDate.setHours(0, 0, 0, 0);
+                    
+                    // If due date is after or equal to today, it's active
+                    if (isAfter(dueDate, subDays(today, 1))) {
+                      return { label: "Vigente", variant: "default" as const };
+                    }
+                    
+                    // If due date passed, it's expired
+                    return { label: "Vencido", variant: "destructive" as const };
+                  };
+                  
+                  const status = getStatus();
                   
                   return (
                     <TableRow key={entry.id}>
@@ -341,6 +372,11 @@ const PeriodicObligationModal = ({
                         {entry.due_date 
                           ? format(parseLocalDate(entry.due_date), "dd/MM/yyyy")
                           : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={status.variant}>
+                          {status.label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate" title={fileName || undefined}>
                         {fileName || <span className="text-muted-foreground">-</span>}
