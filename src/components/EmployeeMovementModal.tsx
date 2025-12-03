@@ -459,11 +459,12 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
         ? `${account.document_type} ${account.document_number}`
         : "-",
       formatCurrency(Number(account.amount)),
+      account.notes || "-",
     ]);
 
     autoTable(doc, {
       startY: 70,
-      head: [["Data Pagamento", "Subgrupo", "Documento", "Valor"]],
+      head: [["Data Pagamento", "Subgrupo", "Documento", "Valor", "Observações"]],
       body: tableData,
       theme: "striped",
       headStyles: {
@@ -472,10 +473,11 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
         fontStyle: "bold",
       },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 70 },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 35, halign: "right" },
+        0: { cellWidth: 30 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 30, halign: "right" },
+        4: { cellWidth: 45 },
       },
       styles: {
         fontSize: 9,
