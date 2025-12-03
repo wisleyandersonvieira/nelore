@@ -11,11 +11,9 @@ import { format, parseISO } from "date-fns";
 
 // Helper to parse date strings without timezone issues
 const parseLocalDate = (dateString: string) => {
-  // For date-only strings, append T12:00:00 to avoid UTC midnight issues
-  if (dateString && !dateString.includes('T')) {
-    return parseISO(dateString + 'T12:00:00');
-  }
-  return parseISO(dateString);
+  // Extract just the date part (YYYY-MM-DD) and treat as local date
+  const datePart = dateString.split('T')[0];
+  return parseISO(datePart + 'T12:00:00');
 };
 
 interface PeriodicObligationModalProps {
