@@ -317,48 +317,62 @@ const PeriodicObligationModal = ({
                 <TableRow>
                   <TableHead>Data Cadastro</TableHead>
                   <TableHead>Data Vencimento</TableHead>
+                  <TableHead>Nome do Anexo</TableHead>
                   <TableHead>Anexo</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      {format(parseLocalDate(entry.completed_at), "dd/MM/yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      {entry.due_date 
-                        ? format(parseLocalDate(entry.due_date), "dd/MM/yyyy")
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {entry.attachment_url ? (
+                {entries.map((entry) => {
+                  // Extract file name from attachment_url
+                  const getFileName = (url: string | null) => {
+                    if (!url) return null;
+                    const parts = url.split('/');
+                    return parts[parts.length - 1];
+                  };
+                  const fileName = getFileName(entry.attachment_url);
+                  
+                  return (
+                    <TableRow key={entry.id}>
+                      <TableCell>
+                        {format(parseLocalDate(entry.completed_at), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        {entry.due_date 
+                          ? format(parseLocalDate(entry.due_date), "dd/MM/yyyy")
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={fileName || undefined}>
+                        {fileName || <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell>
+                        {entry.attachment_url ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewAttachment(entry.attachment_url!)}
+                            className="text-primary"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Ver
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewAttachment(entry.attachment_url!)}
-                          className="text-primary"
+                          onClick={() => handleDelete(entry.id)}
+                          className="text-destructive hover:text-destructive"
                         >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Ver
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(entry.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
