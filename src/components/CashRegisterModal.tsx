@@ -157,27 +157,49 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
       if (data) {
         setCashControl(data);
-      form.reset({
-        saldo_inicial: data.saldo_inicial || 0,
-        contagem_dinheiro: data.contagem_dinheiro || 0,
-        despesas_pagas: data.despesas_pagas || 0,
-        valor_mantido_caixa: data.valor_mantido_caixa || 0,
-        valor_fechamento_pdv: data.valor_fechamento_pdv || 0,
-      });
+        form.reset({
+          saldo_inicial: data.saldo_inicial || 0,
+          contagem_dinheiro: data.contagem_dinheiro || 0,
+          despesas_pagas: data.despesas_pagas || 0,
+          valor_mantido_caixa: data.valor_mantido_caixa || 0,
+          valor_fechamento_pdv: data.valor_fechamento_pdv || 0,
+        });
 
-      // Carregar anexos existentes
-      if (data.image_urls && data.image_urls.length > 0) {
-        setExistingAttachments(data.image_urls);
-      }
+        // Carregar anexos existentes
+        if (data.image_urls && data.image_urls.length > 0) {
+          setExistingAttachments(data.image_urls);
+        }
 
-      setEditInfo({
-        edited_at: data.edited_at,
-        edited_by: data.edited_by
-      });
+        setEditInfo({
+          edited_at: data.edited_at,
+          edited_by: data.edited_by
+        });
 
         // Fetch items
         await fetchItems(data.id);
       } else {
+        // Não existe registro para a data atual - buscar valor do dia anterior
+        let saldoInicialPrevio = 0;
+        
+        if (mode === 'create') {
+          // Calcular a data do dia anterior
+          const previousDate = new Date(date);
+          previousDate.setDate(previousDate.getDate() - 1);
+          const previousDateString = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')}`;
+          
+          // Buscar dados do dia anterior
+          const { data: previousData } = await supabase
+            .from('cash_control')
+            .select('valor_mantido_caixa')
+            .eq('store_id', storeId)
+            .eq('date', previousDateString)
+            .maybeSingle();
+          
+          if (previousData && previousData.valor_mantido_caixa) {
+            saldoInicialPrevio = previousData.valor_mantido_caixa;
+          }
+        }
+        
         setCashControl(null);
         setCardItems([]);
         setAccountItems([]);
@@ -186,6 +208,15 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         setExistingAttachments([]);
         setAttachments([]);
         setEditInfo(null);
+        
+        // Preencher o saldo inicial com o valor do dia anterior (ou zero)
+        form.reset({
+          saldo_inicial: saldoInicialPrevio,
+          contagem_dinheiro: 0,
+          despesas_pagas: 0,
+          valor_mantido_caixa: 0,
+          valor_fechamento_pdv: 0,
+        });
       }
     } catch (error) {
       console.error('Erro ao carregar dados do caixa:', error);
