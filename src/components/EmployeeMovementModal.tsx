@@ -465,75 +465,6 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                   <FileText className="w-5 h-5" />
                   Movimentações - {selectedEmployee.name}
                 </h3>
-                <div className="flex items-center gap-3">
-                  {/* Year Selector */}
-                  <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-                    <SelectTrigger className="w-28">
-                      <SelectValue placeholder="Ano" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {generateYearOptions().map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Month Multi-Select Popover */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-52 justify-between">
-                        <span className="truncate text-sm">
-                          {getSelectedMonthsLabel()}
-                        </span>
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-52 p-3 bg-background border" align="end">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Meses</span>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 text-xs"
-                            onClick={() => setSelectedMonths([])}
-                          >
-                            Limpar
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {MONTHS.map((month) => (
-                            <div key={month.value} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`month-${month.value}`}
-                                checked={selectedMonths.includes(month.value)}
-                                onCheckedChange={() => handleMonthToggle(month.value)}
-                              />
-                              <label
-                                htmlFor={`month-${month.value}`}
-                                className="text-sm cursor-pointer"
-                              >
-                                {month.label.slice(0, 3)}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportReport}
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Exportar
-                  </Button>
-                </div>
               </div>
 
               <Tabs defaultValue="financeiro" className="w-full">
@@ -543,6 +474,76 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                 </TabsList>
 
                 <TabsContent value="financeiro" className="space-y-4">
+                  {/* Filters and Export - only in Financeiro tab */}
+                  <div className="flex items-center justify-end gap-3">
+                    {/* Year Selector */}
+                    <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                      <SelectTrigger className="w-28">
+                        <SelectValue placeholder="Ano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {generateYearOptions().map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Month Multi-Select Popover */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-52 justify-between">
+                          <span className="truncate text-sm">
+                            {getSelectedMonthsLabel()}
+                          </span>
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-3 bg-background border" align="end">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Meses</span>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 text-xs"
+                              onClick={() => setSelectedMonths([])}
+                            >
+                              Limpar
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {MONTHS.map((month) => (
+                              <div key={month.value} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`month-${month.value}`}
+                                  checked={selectedMonths.includes(month.value)}
+                                  onCheckedChange={() => handleMonthToggle(month.value)}
+                                />
+                                <label
+                                  htmlFor={`month-${month.value}`}
+                                  className="text-sm cursor-pointer"
+                                >
+                                  {month.label.slice(0, 3)}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportReport}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Exportar
+                    </Button>
+                  </div>
                   <Card>
                     <CardHeader>
                       <CardTitle>Movimentações Financeiras</CardTitle>
