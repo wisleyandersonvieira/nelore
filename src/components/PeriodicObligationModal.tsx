@@ -7,7 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Paperclip, Eye, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+
+// Helper to parse date strings without timezone issues
+const parseLocalDate = (dateString: string) => {
+  // For date-only strings, append T12:00:00 to avoid UTC midnight issues
+  if (dateString && !dateString.includes('T')) {
+    return parseISO(dateString + 'T12:00:00');
+  }
+  return parseISO(dateString);
+};
 
 interface PeriodicObligationModalProps {
   isOpen: boolean;
@@ -318,11 +327,11 @@ const PeriodicObligationModal = ({
                 {entries.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell>
-                      {format(new Date(entry.completed_at), "dd/MM/yyyy")}
+                      {format(parseLocalDate(entry.completed_at), "dd/MM/yyyy")}
                     </TableCell>
                     <TableCell>
                       {entry.due_date 
-                        ? format(new Date(entry.due_date), "dd/MM/yyyy")
+                        ? format(parseLocalDate(entry.due_date), "dd/MM/yyyy")
                         : "-"}
                     </TableCell>
                     <TableCell>
