@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Building2, User, FileText, Download, ChevronDown, FileSpreadsheet, UserX, Users } from "lucide-react";
+import { ArrowLeft, Building2, User, FileText, Download, ChevronDown, FileSpreadsheet, UserX, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -74,6 +74,8 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showInactiveEmployees, setShowInactiveEmployees] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const { toast } = useToast();
 
   const fetchStores = async () => {
@@ -300,6 +302,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   useEffect(() => {
     if (selectedEmployee) {
       fetchPayableAccounts(selectedEmployee.id, selectedYear, selectedMonths);
+      setCurrentPage(1);
     }
   }, [selectedEmployee, selectedYear, selectedMonths]);
 
@@ -361,6 +364,13 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const calculateTotal = () => {
     return payableAccounts.reduce((sum, account) => sum + Number(account.amount), 0);
   };
+
+  // Pagination calculations
+  const totalItems = payableAccounts.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAccounts = payableAccounts.slice(startIndex, endIndex);
 
   const exportToExcel = () => {
     if (!selectedEmployee || payableAccounts.length === 0) {
@@ -703,37 +713,67 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Data Pagamento</TableHead>
-                                <TableHead>Valor</TableHead>
-                                <TableHead>Subgrupo</TableHead>
-                                <TableHead>Documento</TableHead>
-                                <TableHead>Observações</TableHead>
+                                <TableHead className="py-2">Data Pagamento</TableHead>
+                                <TableHead className="py-2">Valor</TableHead>
+                                <TableHead className="py-2">Subgrupo</TableHead>
+                                <TableHead className="py-2">Documento</TableHead>
+                                <TableHead className="py-2">Observações</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {payableAccounts.map((account) => (
+                              {paginatedAccounts.map((account) => (
                                 <TableRow key={account.id}>
-                                  <TableCell>
+                                  <TableCell className="py-2">
                                     {account.payment_date
                                       ? format(new Date(account.payment_date), "dd/MM/yyyy")
                                       : "-"}
                                   </TableCell>
-                                  <TableCell className="font-medium">
+                                  <TableCell className="py-2 font-medium">
                                     {formatCurrency(Number(account.amount))}
                                   </TableCell>
-                                  <TableCell>{account.subgroups || "-"}</TableCell>
-                                  <TableCell>
+                                  <TableCell className="py-2">{account.subgroups || "-"}</TableCell>
+                                  <TableCell className="py-2">
                                     {account.document_type && account.document_number
                                       ? `${account.document_type} ${account.document_number}`
                                       : "-"}
                                   </TableCell>
-                                  <TableCell className="max-w-xs truncate">
+                                  <TableCell className="py-2 max-w-xs truncate">
                                     {account.notes || "-"}
                                   </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
                           </Table>
+                          
+                          {/* Pagination */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                              <span className="text-sm text-muted-foreground">
+                                {totalItems} movimentação(ões) • Página {currentPage} de {totalPages}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                  disabled={currentPage === 1}
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                  Anterior
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                  disabled={currentPage === totalPages}
+                                >
+                                  Próxima
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="mt-4 p-4 bg-muted rounded-lg">
                             <div className="flex justify-between items-center">
                               <span className="font-medium">Total do Período:</span>
