@@ -3161,7 +3161,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="py-2">Descrição</TableHead>
+                                <TableHead className="py-2">Documento</TableHead>
                                 <TableHead className="py-2">Fornecedor</TableHead>
                                 <TableHead className="py-2">Vencimento</TableHead>
                                 <TableHead className="py-2">Valor</TableHead>
