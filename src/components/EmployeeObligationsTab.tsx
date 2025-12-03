@@ -159,6 +159,18 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
     try {
       if (existingCompletion) {
+        // Check if there are attachments before allowing deletion
+        const currentAttachmentCount = attachmentCounts[existingCompletion.id] || 0;
+        
+        if (currentAttachmentCount > 0) {
+          toast({
+            title: "Não é possível desmarcar",
+            description: "Exclua os anexos primeiro através do botão 'Ver'",
+            variant: "destructive"
+          });
+          return;
+        }
+
         const { error } = await supabase
           .from("employee_obligation_completions")
           .delete()
