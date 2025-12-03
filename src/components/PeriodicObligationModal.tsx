@@ -316,6 +316,7 @@ const PeriodicObligationModal = ({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[60px]">Seq</TableHead>
                   <TableHead>Data Cadastro</TableHead>
                   <TableHead>Data Vencimento</TableHead>
                   <TableHead>Status</TableHead>
@@ -363,8 +364,14 @@ const PeriodicObligationModal = ({
                   
                   const status = getStatus();
                   
+                  // Calculate sequence number (oldest = 1, newest = total)
+                  const sequenceNumber = entries.length - index;
+                  
                   return (
                     <TableRow key={entry.id}>
+                      <TableCell className="font-medium text-center">
+                        {sequenceNumber}
+                      </TableCell>
                       <TableCell>
                         {format(parseLocalDate(entry.completed_at), "dd/MM/yyyy")}
                       </TableCell>
