@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, FileText, Paperclip, Eye, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO, isAfter, subDays } from "date-fns";
 import PeriodicObligationModal from "./PeriodicObligationModal";
 import ObligationAttachmentsModal from "./ObligationAttachmentsModal";
 
@@ -27,6 +27,12 @@ interface ObligationCompletion {
   notes: string | null;
   reference_month: number | null;
   reference_year: number | null;
+  due_date?: string | null;
+}
+
+interface PeriodicLatestCompletion {
+  obligation_id: string;
+  due_date: string | null;
 }
 
 interface EmployeeObligationsTabProps {
@@ -40,9 +46,16 @@ interface SelectedAttachment {
   obligationName: string;
 }
 
+// Helper to parse date strings without timezone issues
+const parseLocalDate = (dateString: string) => {
+  const datePart = dateString.split('T')[0];
+  return parseISO(datePart + 'T12:00:00');
+};
+
 const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeObligationsTabProps) => {
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [completions, setCompletions] = useState<ObligationCompletion[]>([]);
+  const [periodicLatestCompletions, setPeriodicLatestCompletions] = useState<PeriodicLatestCompletion[]>([]);
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -132,6 +145,34 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
         .map(c => c.id) || [];
       
       await fetchAttachmentCounts(uniqueCompletionIds);
+
+      // Fetch latest completion for periodic obligations (to get status)
+      const periodicObligationIds = obligationsData
+        ?.filter(o => o.recurrence_type === 'periodica')
+        .map(o => o.id) || [];
+
+      if (periodicObligationIds.length > 0) {
+        const latestCompletions: PeriodicLatestCompletion[] = [];
+        
+        for (const obligationId of periodicObligationIds) {
+          const { data: latestData } = await supabase
+            .from("employee_obligation_completions")
+            .select("obligation_id, due_date")
+            .eq("employee_id", employeeId)
+            .eq("obligation_id", obligationId)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          
+          if (latestData && latestData.length > 0) {
+            latestCompletions.push({
+              obligation_id: latestData[0].obligation_id,
+              due_date: latestData[0].due_date
+            });
+          }
+        }
+        
+        setPeriodicLatestCompletions(latestCompletions);
+      }
     } catch (error) {
       console.error("Error fetching obligations:", error);
       toast({
@@ -152,6 +193,30 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
   const getCompletion = (obligationId: string): ObligationCompletion | undefined => {
     return completions.find(c => c.obligation_id === obligationId);
+  };
+
+  const getPeriodicStatus = (obligationId: string) => {
+    const latest = periodicLatestCompletions.find(p => p.obligation_id === obligationId);
+    
+    if (!latest) {
+      return { label: "Pendente", variant: "outline" as const, className: "" };
+    }
+    
+    if (!latest.due_date) {
+      return { label: "Vigente", variant: "default" as const, className: "bg-green-500 hover:bg-green-600" };
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const dueDate = parseLocalDate(latest.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    if (isAfter(dueDate, subDays(today, 1))) {
+      return { label: "Vigente", variant: "default" as const, className: "bg-green-500 hover:bg-green-600" };
+    }
+    
+    return { label: "Vencido", variant: "destructive" as const, className: "" };
   };
 
   const handleToggleCompletion = async (obligation: Obligation) => {
@@ -375,11 +440,14 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                           onClick={(e) => e.stopPropagation()}
                         />
                       )}
-                      {isPeriodica && (
-                        <Badge variant="secondary" className="text-xs">
-                          <ChevronRight className="w-3 h-3" />
-                        </Badge>
-                      )}
+                      {isPeriodica && (() => {
+                        const status = getPeriodicStatus(obligation.id);
+                        return (
+                          <Badge variant={status.variant} className={status.className}>
+                            {status.label}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="font-medium">{obligation.name}</TableCell>
                     <TableCell>
