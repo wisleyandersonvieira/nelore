@@ -342,12 +342,12 @@ const PeriodicObligationModal = ({
                     
                     // If not the first entry (most recent), it's renewed
                     if (index > 0) {
-                      return { label: "Renovado", variant: "secondary" as const };
+                      return { label: "Renovado", variant: "secondary" as const, className: "" };
                     }
                     
                     // First entry - check due date
                     if (!entry.due_date) {
-                      return { label: "Vigente", variant: "default" as const };
+                      return { label: "Vigente", variant: "default" as const, className: "bg-green-500 hover:bg-green-600" };
                     }
                     
                     const dueDate = parseLocalDate(entry.due_date);
@@ -355,11 +355,11 @@ const PeriodicObligationModal = ({
                     
                     // If due date is after or equal to today, it's active
                     if (isAfter(dueDate, subDays(today, 1))) {
-                      return { label: "Vigente", variant: "default" as const };
+                      return { label: "Vigente", variant: "default" as const, className: "bg-green-500 hover:bg-green-600" };
                     }
                     
                     // If due date passed, it's expired
-                    return { label: "Vencido", variant: "destructive" as const };
+                    return { label: "Vencido", variant: "destructive" as const, className: "" };
                   };
                   
                   const status = getStatus();
@@ -381,7 +381,7 @@ const PeriodicObligationModal = ({
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={status.variant}>
+                        <Badge variant={status.variant} className={status.className}>
                           {status.label}
                         </Badge>
                       </TableCell>
