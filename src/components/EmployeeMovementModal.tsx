@@ -41,6 +41,7 @@ interface PayableAccount {
   document_type: string;
   document_number: string;
   status: string;
+  subgroups: string;
 }
 
 interface EmployeeMovementModalProps {
@@ -148,6 +149,32 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     try {
       setIsLoading(true);
       
+      const fetchSubgroupsForAccount = async (accountId: string): Promise<string> => {
+        const { data: items } = await supabase
+          .from("accounts_payable_items")
+          .select(`
+            product_id,
+            products!inner (
+              subgroup_id,
+              account_groups!products_subgroup_id_fkey (
+                name
+              )
+            )
+          `)
+          .eq("account_payable_id", accountId);
+        
+        if (!items || items.length === 0) return "-";
+        
+        const subgroupNames = new Set<string>();
+        items.forEach((item: any) => {
+          if (item.products?.account_groups?.name) {
+            subgroupNames.add(item.products.account_groups.name);
+          }
+        });
+        
+        return subgroupNames.size > 0 ? Array.from(subgroupNames).join(", ") : "-";
+      };
+      
       // Se não há meses selecionados, busca todos do ano
       if (months.length === 0) {
         const startDate = `${year}-01-01`;
@@ -174,7 +201,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
         if (error) throw error;
         
-        const accountsData = data?.map(account => ({
+        const accountsData = await Promise.all((data || []).map(async account => ({
           id: account.id,
           amount: Number(account.amount) || 0,
           payment_date: account.payment_date || '',
@@ -182,8 +209,9 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           notes: account.notes || '',
           document_type: account.document_type || '',
           document_number: account.document_number || '',
-          status: account.status || ''
-        })) || [];
+          status: account.status || '',
+          subgroups: await fetchSubgroupsForAccount(account.id)
+        })));
         
         setPayableAccounts(accountsData);
         return;
@@ -220,7 +248,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
         if (error) throw error;
         
         if (data) {
-          data.forEach(account => {
+          for (const account of data) {
             allAccounts.push({
               id: account.id,
               amount: Number(account.amount) || 0,
@@ -229,9 +257,10 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
               notes: account.notes || '',
               document_type: account.document_type || '',
               document_number: account.document_number || '',
-              status: account.status || ''
+              status: account.status || '',
+              subgroups: await fetchSubgroupsForAccount(account.id)
             });
-          });
+          }
         }
       }
 
@@ -346,7 +375,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
         ? format(new Date(account.payment_date), "dd/MM/yyyy") 
         : "-",
       'Valor': formatCurrency(Number(account.amount)),
-      'Descrição': account.description,
+      'Subgrupo': account.subgroups || "-",
       'Documento': account.document_type && account.document_number
         ? `${account.document_type} ${account.document_number}`
         : "-",
@@ -357,7 +386,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     exportData.push({
       'Data Pagamento': '',
       'Valor': formatCurrency(calculateTotal()),
-      'Descrição': 'TOTAL DO PERÍODO',
+      'Subgrupo': 'TOTAL DO PERÍODO',
       'Documento': '',
       'Observações': ''
     });
@@ -406,7 +435,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
     // Tabela de movimentações
     const tableData = payableAccounts.map(account => [
       account.payment_date ? format(new Date(account.payment_date), "dd/MM/yyyy") : "-",
-      account.description,
+      account.subgroups || "-",
       account.document_type && account.document_number
         ? `${account.document_type} ${account.document_number}`
         : "-",
@@ -415,7 +444,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
     autoTable(doc, {
       startY: 70,
-      head: [["Data Pagamento", "Descrição", "Documento", "Valor"]],
+      head: [["Data Pagamento", "Subgrupo", "Documento", "Valor"]],
       body: tableData,
       theme: "striped",
       headStyles: {
@@ -645,7 +674,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                               <TableRow>
                                 <TableHead>Data Pagamento</TableHead>
                                 <TableHead>Valor</TableHead>
-                                <TableHead>Descrição</TableHead>
+                                <TableHead>Subgrupo</TableHead>
                                 <TableHead>Documento</TableHead>
                                 <TableHead>Observações</TableHead>
                               </TableRow>
@@ -661,7 +690,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                                   <TableCell className="font-medium">
                                     {formatCurrency(Number(account.amount))}
                                   </TableCell>
-                                  <TableCell>{account.description}</TableCell>
+                                  <TableCell>{account.subgroups || "-"}</TableCell>
                                   <TableCell>
                                     {account.document_type && account.document_number
                                       ? `${account.document_type} ${account.document_number}`
