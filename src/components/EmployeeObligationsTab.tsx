@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Loader2, Upload, Check, FileText, Paperclip, Eye } from "lucide-react";
+import { Loader2, Check, FileText, Paperclip, Eye, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import PeriodicObligationModal from "./PeriodicObligationModal";
 
 interface Obligation {
   id: string;
@@ -39,6 +40,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [jobFunctionName, setJobFunctionName] = useState<string>("");
+  const [selectedPeriodicObligation, setSelectedPeriodicObligation] = useState<Obligation | null>(null);
   const { toast } = useToast();
 
   const fetchObligations = async () => {
@@ -306,20 +308,26 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                 const completion = getCompletion(obligation.id);
                 const completed = !!completion;
                 const isUnica = obligation.recurrence_type === 'unica';
+                const isPeriodica = obligation.recurrence_type === 'periodica';
 
                 return (
-                  <TableRow key={obligation.id}>
+                  <TableRow 
+                    key={obligation.id}
+                    className={isPeriodica ? "cursor-pointer hover:bg-muted/80" : ""}
+                    onClick={isPeriodica ? () => setSelectedPeriodicObligation(obligation) : undefined}
+                  >
                     <TableCell>
                       {isUnica && (
                         <Checkbox
                           checked={completed}
                           onCheckedChange={() => handleToggleCompletion(obligation)}
                           className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                          onClick={(e) => e.stopPropagation()}
                         />
                       )}
-                      {!isUnica && (
-                        <Badge variant={completed ? "default" : "secondary"} className="text-xs">
-                          {completed ? <Check className="w-3 h-3" /> : "-"}
+                      {isPeriodica && (
+                        <Badge variant="secondary" className="text-xs">
+                          <ChevronRight className="w-3 h-3" />
                         </Badge>
                       )}
                     </TableCell>
@@ -330,16 +338,19 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {completion?.completed_at 
+                      {isUnica && completion?.completed_at 
                         ? format(new Date(completion.completed_at), "dd/MM/yyyy HH:mm")
-                        : "-"}
+                        : isPeriodica ? "Ver movimentações" : "-"}
                     </TableCell>
                     <TableCell>
-                      {completion?.attachment_url ? (
+                      {isUnica && completion?.attachment_url ? (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.open(completion.attachment_url!, '_blank')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(completion.attachment_url!, '_blank');
+                          }}
                           className="text-primary"
                         >
                           <Eye className="w-4 h-4 mr-1" />
@@ -362,7 +373,10 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => document.getElementById(`file-${obligation.id}`)?.click()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              document.getElementById(`file-${obligation.id}`)?.click();
+                            }}
                             disabled={uploading === obligation.id}
                           >
                             {uploading === obligation.id ? (
@@ -376,12 +390,26 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                           </Button>
                         </div>
                       )}
+                      {isPeriodica && (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
+        )}
+
+        {selectedPeriodicObligation && (
+          <PeriodicObligationModal
+            isOpen={!!selectedPeriodicObligation}
+            onClose={() => setSelectedPeriodicObligation(null)}
+            employeeId={employeeId}
+            employeeName={employeeName}
+            obligationId={selectedPeriodicObligation.id}
+            obligationName={selectedPeriodicObligation.name}
+          />
         )}
       </CardContent>
     </Card>
