@@ -172,6 +172,7 @@ const CashControl = () => {
           month={currentDate}
           onMonthChange={setCurrentDate}
           onSelect={handleDateSelect}
+          locale={ptBR}
           modifiers={{
             hasData: (date) => {
               const dateString = date.toISOString().split('T')[0];
