@@ -399,6 +399,132 @@ const PaidAccountsReport = () => {
     doc.save("contas-pagas-detalhado.pdf");
   };
 
+  const exportToPDFPorSubgrupo = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS PAGAS POR SUBGRUPO", 105, 20, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
+    }
+    
+    // Group accounts by subgroup
+    const accountsBySubgroup: { [key: string]: { subgroupName: string; accounts: any[] } } = {};
+    
+    accounts.forEach(account => {
+      if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
+        account.accounts_payable_items.forEach((item: any) => {
+          const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
+          const subgroupName = item.products?.account_groups?.name || 'Sem Subgrupo';
+          
+          if (!accountsBySubgroup[subgroupId]) {
+            accountsBySubgroup[subgroupId] = {
+              subgroupName,
+              accounts: []
+            };
+          }
+          
+          // Check if this account is already added for this subgroup
+          const existingAccount = accountsBySubgroup[subgroupId].accounts.find(
+            (a: any) => a.id === account.id && a.installment_id === account.installment_id
+          );
+          
+          if (!existingAccount) {
+            accountsBySubgroup[subgroupId].accounts.push({
+              ...account,
+              itemAmount: item.total_price || 0
+            });
+          }
+        });
+      } else {
+        // Accounts without items go to "Sem Subgrupo"
+        if (!accountsBySubgroup['sem-subgrupo']) {
+          accountsBySubgroup['sem-subgrupo'] = {
+            subgroupName: 'Sem Subgrupo',
+            accounts: []
+          };
+        }
+        accountsBySubgroup['sem-subgrupo'].accounts.push(account);
+      }
+    });
+    
+    // Build table data
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    let totalAccounts = 0;
+    
+    Object.values(accountsBySubgroup).forEach(group => {
+      // Subgroup header row
+      tableData.push([
+        { content: group.subgroupName, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+      ]);
+      
+      // Accounts for this subgroup
+      let subgroupTotal = 0;
+      group.accounts.forEach(account => {
+        tableData.push([
+          account.description,
+          getSupplierOrEmployeeName(account),
+          account.stores?.name || "N/A",
+          account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+          account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+        ]);
+        subgroupTotal += account.amount || 0;
+        totalAccounts++;
+      });
+      
+      // Subgroup subtotal
+      tableData.push([
+        { content: `Subtotal ${group.subgroupName}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+        { content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
+        { content: `${group.accounts.length} conta(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      ]);
+      
+      grandTotal += subgroupTotal;
+    });
+    
+    // Grand total row
+    tableData.push([
+      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [34, 197, 94], textColor: 255 } },
+      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } },
+      { content: `${totalAccounts} conta(s)`, styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Fornecedor", "Loja", "Pagamento", "Valor", "Parcelas"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 37 : 27,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [34, 197, 94],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-pagas-por-subgrupo.pdf");
+  };
+
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: account.description,
@@ -583,6 +709,9 @@ const PaidAccountsReport = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFDetalhado}>
                         Relatório Detalhado
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>
+                        Relatório por Subgrupo
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
