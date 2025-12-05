@@ -279,15 +279,11 @@ const AccountsPayableReport = () => {
     doc.setFont("helvetica", "bold");
     doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
     
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não pagas - Detalhado", 105, 28, { align: "center" });
-    
     const filterInfo = getFilterInfo();
     
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
     }
     
     // Build table data with product details
@@ -314,12 +310,12 @@ const AccountsPayableReport = () => {
           const totalPrice = item.total_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
           
           tableData.push([
+            { content: "", styles: { fontSize: 8 } },
             { content: `   ${productName}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
             { content: subgroupName, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: `Qtd: ${quantity}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: `Unit: ${unitPrice}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: `Total: ${totalPrice}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: "", styles: { fontSize: 8 } }
+            { content: `${quantity}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
+            { content: totalPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } },
+            { content: unitPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } }
           ]);
         });
       }
@@ -336,9 +332,9 @@ const AccountsPayableReport = () => {
     ]);
 
     autoTable(doc, {
-      head: [["Título / Produto", "Fornecedor / Subgrupo", "Loja / Qtd", "Vencimento / Unit.", "Valor / Total", "Parcelas"]],
+      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
+      startY: filterInfo.length > 0 ? 37 : 27,
       styles: {
         fontSize: 9,
         cellPadding: 3,
