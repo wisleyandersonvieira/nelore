@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Filter, FileDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -79,7 +80,7 @@ const PaidAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch paid accounts with suppliers, employees, stores and installments
+      // Fetch paid accounts with suppliers, employees, stores, installments and items with products
       const { data: allAccounts, error } = await supabase
         .from("accounts_payable")
         .select(`
@@ -87,7 +88,15 @@ const PaidAccountsReport = () => {
           suppliers(id, name),
           employees(id, name),
           stores(id, name),
-          accounts_payable_installments(*)
+          accounts_payable_installments(*),
+          accounts_payable_items(
+            id,
+            product_id,
+            quantity,
+            unit_price,
+            total_price,
+            products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+          )
         `) as { data: any[] | null; error: any };
 
       if (error) throw error;
@@ -204,19 +213,7 @@ const PaidAccountsReport = () => {
     setAccounts([]);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS PAGAS", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas já quitadas", 105, 28, { align: "center" });
-    
-    // Date range info
+  const getFilterInfo = () => {
     let filterInfo = [];
     if (filters.payment_start || filters.payment_end) {
       const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
@@ -231,19 +228,34 @@ const PaidAccountsReport = () => {
       const store = stores.find(s => s.id === filters.store_id);
       if (store) filterInfo.push(`Loja: ${store.name}`);
     }
+    return filterInfo;
+  };
+
+  const getSupplierOrEmployeeName = (account: any) => {
+    if (account.employee_id && account.employees?.name) {
+      return account.employees.name;
+    }
+    return account.suppliers?.name || "N/A";
+  };
+
+  const exportToPDFResumido = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS PAGAS", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas já quitadas - Resumido", 105, 28, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
     
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
-    
-    // Helper to get supplier or employee name
-    const getSupplierOrEmployeeName = (account: any) => {
-      if (account.employee_id && account.employees?.name) {
-        return account.employees.name;
-      }
-      return account.suppliers?.name || "N/A";
-    };
 
     // Table data
     const tableData = accounts.map(account => [
@@ -294,18 +306,100 @@ const PaidAccountsReport = () => {
       doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
     }
 
-    doc.save("contas-pagas.pdf");
+    doc.save("contas-pagas-resumido.pdf");
+  };
+
+  const exportToPDFDetalhado = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS PAGAS", 105, 20, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
+    }
+    
+    // Build table data with product details
+    const tableData: any[] = [];
+    
+    accounts.forEach(account => {
+      // Main account row
+      tableData.push([
+        { content: account.description, styles: { fontStyle: "bold" } },
+        { content: getSupplierOrEmployeeName(account), styles: { fontStyle: "bold" } },
+        { content: account.stores?.name || "N/A", styles: { fontStyle: "bold" } },
+        { content: account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A", styles: { fontStyle: "bold" } },
+        { content: account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A", styles: { fontStyle: "bold" } },
+        { content: account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A", styles: { fontStyle: "bold" } },
+        { content: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista", styles: { fontStyle: "bold" } }
+      ]);
+      
+      // Product detail rows
+      if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
+        account.accounts_payable_items.forEach((item: any) => {
+          const productName = item.products?.name || "Produto não encontrado";
+          const subgroupName = item.products?.account_groups?.name || "-";
+          const quantity = item.quantity || 0;
+          const unitPrice = item.unit_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
+          const totalPrice = item.total_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
+          
+          tableData.push([
+            { content: "", styles: { fontSize: 8 } },
+            { content: `   ${productName}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
+            { content: subgroupName, styles: { fontSize: 8, textColor: [100, 100, 100] } },
+            { content: `${quantity}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
+            { content: "", styles: { fontSize: 8 } },
+            { content: totalPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } },
+            { content: unitPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } }
+          ]);
+        });
+      }
+    });
+
+    // Calculate total
+    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    
+    // Add total row
+    tableData.push([
+      { content: "TOTAL", colSpan: 5, styles: { fontStyle: "bold", halign: "right" } },
+      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 37 : 27,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [34, 197, 94],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-pagas-detalhado.pdf");
   };
 
   const exportToExcel = () => {
-    // Helper to get supplier or employee name
-    const getSupplierOrEmployeeName = (account: any) => {
-      if (account.employee_id && account.employees?.name) {
-        return account.employees.name;
-      }
-      return account.suppliers?.name || "N/A";
-    };
-
     const excelData = accounts.map(account => ({
       Título: account.description,
       Fornecedor: getSupplierOrEmployeeName(account),
@@ -475,10 +569,23 @@ const PaidAccountsReport = () => {
               <div className="flex justify-between items-center">
                 <CardTitle>Contas Pagas ({accounts.length})</CardTitle>
                 <div className="flex gap-2">
-                  <Button onClick={exportToPDF} variant="outline" size="sm">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <FileDown className="h-4 w-4 mr-2" />
+                        PDF
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={exportToPDFResumido}>
+                        Relatório Resumido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFDetalhado}>
+                        Relatório Detalhado
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button onClick={exportToExcel} variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Excel
