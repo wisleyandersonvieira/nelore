@@ -48,12 +48,14 @@ const PaidAccountsReport = () => {
     supplier_id: "all",
     store_id: "all",
     product_id: "all",
+    account_id: "all",
   });
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -61,6 +63,16 @@ const PaidAccountsReport = () => {
     fetchStores();
     fetchProducts();
   }, []);
+
+  // Fetch available accounts when store is selected
+  useEffect(() => {
+    if (filters.store_id && filters.store_id !== "all") {
+      fetchAccountsForStore(filters.store_id);
+    } else {
+      setAvailableAccounts([]);
+      setFilters(prev => ({ ...prev, account_id: "all" }));
+    }
+  }, [filters.store_id]);
 
   const fetchSuppliers = async () => {
     const { data } = await supabase.from("suppliers").select("id, name");
@@ -75,6 +87,71 @@ const PaidAccountsReport = () => {
   const fetchProducts = async () => {
     const { data } = await supabase.from("products").select("id, name");
     setProducts(data || []);
+  };
+
+  const fetchAccountsForStore = async (storeId: string) => {
+    try {
+      const allAccounts: any[] = [];
+
+      // Fetch cash accounts for the store
+      const { data: cashAccountStores } = await supabase
+        .from("cash_account_stores")
+        .select("account_id, cash_accounts(id, name)")
+        .eq("store_id", storeId);
+      
+      if (cashAccountStores) {
+        cashAccountStores.forEach((cas: any) => {
+          if (cas.cash_accounts) {
+            allAccounts.push({
+              id: cas.cash_accounts.id,
+              name: cas.cash_accounts.name,
+              type: "Caixa"
+            });
+          }
+        });
+      }
+
+      // Fetch current accounts for the store
+      const { data: currentAccountStores } = await supabase
+        .from("current_account_stores")
+        .select("account_id, current_accounts(id, name)")
+        .eq("store_id", storeId);
+      
+      if (currentAccountStores) {
+        currentAccountStores.forEach((cas: any) => {
+          if (cas.current_accounts) {
+            allAccounts.push({
+              id: cas.current_accounts.id,
+              name: cas.current_accounts.name,
+              type: "Conta Corrente"
+            });
+          }
+        });
+      }
+
+      // Fetch card accounts for the store
+      const { data: cardAccountStores } = await supabase
+        .from("card_account_stores")
+        .select("account_id, card_accounts(id, name)")
+        .eq("store_id", storeId);
+      
+      if (cardAccountStores) {
+        cardAccountStores.forEach((cas: any) => {
+          if (cas.card_accounts) {
+            allAccounts.push({
+              id: cas.card_accounts.id,
+              name: cas.card_accounts.name,
+              type: "Cartão"
+            });
+          }
+        });
+      }
+
+      setAvailableAccounts(allAccounts);
+    } catch (error) {
+      console.error("Error fetching accounts for store:", error);
+      setAvailableAccounts([]);
+    }
   };
 
   const handleSearch = async () => {
@@ -181,6 +258,10 @@ const PaidAccountsReport = () => {
         accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
       }
 
+      if (filters.account_id && filters.account_id !== "all") {
+        accountsData = accountsData.filter((account: any) => account.account_id === filters.account_id);
+      }
+
       setAccounts(accountsData);
       toast({
         title: "Pesquisa realizada",
@@ -209,7 +290,9 @@ const PaidAccountsReport = () => {
       supplier_id: "all",
       store_id: "all",
       product_id: "all",
+      account_id: "all",
     });
+    setAvailableAccounts([]);
     setAccounts([]);
   };
 
@@ -227,6 +310,10 @@ const PaidAccountsReport = () => {
     if (filters.store_id !== "all") {
       const store = stores.find(s => s.id === filters.store_id);
       if (store) filterInfo.push(`Loja: ${store.name}`);
+    }
+    if (filters.account_id !== "all") {
+      const account = availableAccounts.find(a => a.id === filters.account_id);
+      if (account) filterInfo.push(`Conta: ${account.name}`);
     }
     return filterInfo;
   };
@@ -670,6 +757,26 @@ const PaidAccountsReport = () => {
                     {products.map((product) => (
                       <SelectItem key={product.id} value={product.id}>
                         {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Conta</Label>
+                <Select 
+                  value={filters.account_id} 
+                  onValueChange={(value) => setFilters(prev => ({...prev, account_id: value}))}
+                  disabled={filters.store_id === "all"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={filters.store_id === "all" ? "Selecione uma loja primeiro" : "Selecionar conta"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {availableAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name} ({account.type})
                       </SelectItem>
                     ))}
                   </SelectContent>
