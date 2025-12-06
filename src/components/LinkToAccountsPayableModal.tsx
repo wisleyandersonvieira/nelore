@@ -35,6 +35,7 @@ interface LinkToAccountsPayableModalProps {
   expense: ExpenseData | null;
   storeId: string;
   onLinkSuccess?: () => void;
+  expenseType?: "caixa_geral" | "banco";
 }
 
 interface Supplier {
@@ -80,7 +81,8 @@ export function LinkToAccountsPayableModal({
   onOpenChange, 
   expense, 
   storeId,
-  onLinkSuccess
+  onLinkSuccess,
+  expenseType = "caixa_geral"
 }: LinkToAccountsPayableModalProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -851,6 +853,7 @@ export function LinkToAccountsPayableModal({
         }}
         accountPayable={createdAccountPayable}
         onPaymentSuccess={handlePaymentSuccess}
+        showAllAccounts={expenseType === "banco"}
       />
     </>
   );

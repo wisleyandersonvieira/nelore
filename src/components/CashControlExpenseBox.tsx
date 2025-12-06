@@ -762,6 +762,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         expense={expenseToLink}
         storeId={storeId}
         onLinkSuccess={fetchExpenses}
+        expenseType={expenseType}
       />
     </Card>
   );
