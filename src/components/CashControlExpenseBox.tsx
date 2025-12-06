@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Eye, Pencil, Ban, Upload, X, FileText, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Eye, Pencil, Ban, Upload, X, FileText, ArrowUp, ArrowDown, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LinkToAccountsPayableModal } from "./LinkToAccountsPayableModal";
 
 interface AttachmentInfo {
   path: string;
@@ -54,6 +55,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [sortField, setSortField] = useState<SortField>('issue_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
+  // Link to accounts payable modal
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [expenseToLink, setExpenseToLink] = useState<Expense | null>(null);
+  
   // Form fields
   const [issueDate, setIssueDate] = useState("");
   const [supplier, setSupplier] = useState("");
@@ -63,6 +68,11 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [existingAttachments, setExistingAttachments] = useState<AttachmentInfo[]>([]);
   const [attachmentStatus, setAttachmentStatus] = useState<Record<string, boolean>>({});
   const [uploading, setUploading] = useState(false);
+
+  const handleOpenLinkModal = (expense: Expense) => {
+    setExpenseToLink(expense);
+    setLinkModalOpen(true);
+  };
 
   useEffect(() => {
     fetchExpenses();
@@ -454,6 +464,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                             size="icon" 
                             className="h-6 w-6"
                             onClick={() => handleView(expense)}
+                            title="Visualizar"
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
@@ -462,14 +473,25 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                             size="icon" 
                             className="h-6 w-6"
                             onClick={() => handleOpenForm(expense)}
+                            title="Editar"
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
+                            className="h-6 w-6 text-blue-600"
+                            onClick={() => handleOpenLinkModal(expense)}
+                            title="Vincular ao Contas a Pagar"
+                          >
+                            <Link2 className="h-3 w-3" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
                             className={`h-6 w-6 ${expense.is_disabled ? "text-green-600" : "text-red-600"}`}
                             onClick={() => handleDisable(expense)}
+                            title={expense.is_disabled ? "Habilitar" : "Inabilitar"}
                           >
                             <Ban className="h-3 w-3" />
                           </Button>
@@ -713,6 +735,14 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Link to Accounts Payable Modal */}
+      <LinkToAccountsPayableModal
+        open={linkModalOpen}
+        onOpenChange={setLinkModalOpen}
+        expense={expenseToLink}
+        storeId={storeId}
+      />
     </Card>
   );
 };
