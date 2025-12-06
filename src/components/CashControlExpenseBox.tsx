@@ -310,42 +310,42 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             Nenhuma despesa cadastrada
           </p>
         ) : (
-          <div className="max-h-[300px] overflow-auto">
+          <div className="max-h-[180px] overflow-auto border rounded">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Data</TableHead>
-                  <TableHead className="text-xs">Fornecedor</TableHead>
-                  <TableHead className="text-xs">Descrição</TableHead>
-                  <TableHead className="text-xs text-right">Valor</TableHead>
-                  <TableHead className="text-xs text-right">Ações</TableHead>
+                <TableRow className="h-8">
+                  <TableHead className="text-xs py-1">Data</TableHead>
+                  <TableHead className="text-xs py-1">Fornecedor</TableHead>
+                  <TableHead className="text-xs py-1">Descrição</TableHead>
+                  <TableHead className="text-xs py-1 text-right">Valor</TableHead>
+                  <TableHead className="text-xs py-1 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {expenses.map((expense) => (
                   <TableRow 
                     key={expense.id}
-                    className={expense.is_disabled ? "bg-red-50 text-red-700" : ""}
+                    className={`h-8 ${expense.is_disabled ? "bg-red-50 text-red-700" : ""}`}
                   >
-                    <TableCell className="text-xs py-2">
+                    <TableCell className="text-xs py-1">
                       {format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy")}
                     </TableCell>
-                    <TableCell className="text-xs py-2">
+                    <TableCell className="text-xs py-1">
                       {expense.supplier}
                       {expense.is_disabled && " (inabilitado)"}
                     </TableCell>
-                    <TableCell className="text-xs py-2 max-w-[150px] truncate">
+                    <TableCell className="text-xs py-1 max-w-[200px] truncate">
                       {expense.description}
                     </TableCell>
-                    <TableCell className="text-xs py-2 text-right">
+                    <TableCell className="text-xs py-1 text-right">
                       {formatCurrency(expense.amount)}
                     </TableCell>
-                    <TableCell className="text-xs py-2 text-right">
-                      <div className="flex justify-end gap-1">
+                    <TableCell className="text-xs py-1 text-right">
+                      <div className="flex justify-end gap-0.5">
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-7 w-7"
+                          className="h-6 w-6"
                           onClick={() => handleView(expense)}
                         >
                           <Eye className="h-3 w-3" />
@@ -353,7 +353,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-7 w-7"
+                          className="h-6 w-6"
                           onClick={() => handleOpenForm(expense)}
                         >
                           <Pencil className="h-3 w-3" />
@@ -361,7 +361,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className={`h-7 w-7 ${expense.is_disabled ? "text-green-600" : "text-red-600"}`}
+                          className={`h-6 w-6 ${expense.is_disabled ? "text-green-600" : "text-red-600"}`}
                           onClick={() => handleDisable(expense)}
                         >
                           <Ban className="h-3 w-3" />
