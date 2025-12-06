@@ -140,7 +140,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   };
 
   const uploadAttachments = async (): Promise<string[]> => {
-    const urls: string[] = [];
+    const paths: string[] = [];
     
     for (const file of newAttachments) {
       const fileExt = file.name.split('.').pop();
@@ -156,14 +156,37 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         continue;
       }
 
-      const { data: urlData } = supabase.storage
-        .from("account-documents")
-        .getPublicUrl(filePath);
-
-      urls.push(urlData.publicUrl);
+      // Store the path, not the public URL (bucket is private)
+      paths.push(filePath);
     }
 
-    return urls;
+    return paths;
+  };
+
+  const openAttachment = async (pathOrUrl: string) => {
+    try {
+      // Check if it's already a full URL (legacy data)
+      if (pathOrUrl.startsWith('http')) {
+        window.open(pathOrUrl, "_blank");
+        return;
+      }
+
+      // Generate signed URL for private bucket
+      const { data, error } = await supabase.storage
+        .from("account-documents")
+        .createSignedUrl(pathOrUrl, 60); // 60 seconds expiry
+
+      if (error) {
+        console.error("Erro ao gerar URL:", error);
+        toast.error("Erro ao abrir anexo");
+        return;
+      }
+
+      window.open(data.signedUrl, "_blank");
+    } catch (error) {
+      console.error("Erro ao abrir anexo:", error);
+      toast.error("Erro ao abrir anexo");
+    }
   };
 
   const handleSubmit = async () => {
@@ -531,7 +554,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => window.open(url, "_blank")}
+                          onClick={() => openAttachment(url)}
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
@@ -639,7 +662,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => window.open(url, "_blank")}
+                          onClick={() => openAttachment(url)}
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
