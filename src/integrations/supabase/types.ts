@@ -553,15 +553,19 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           approved_status: boolean | null
+          attachment_status: Json | null
           closing_balance: number
           contagem_dinheiro: number | null
           created_at: string
           created_by: string
+          created_by_name: string | null
           date: string
           despesas_pagas: number | null
           diferenca: number | null
+          edit_history: Json | null
           edited_at: string | null
           edited_by: string | null
+          edited_by_name: string | null
           faturamento_cartao: number | null
           faturamento_conta: number | null
           faturamento_delivery: number | null
@@ -584,15 +588,19 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           approved_status?: boolean | null
+          attachment_status?: Json | null
           closing_balance?: number
           contagem_dinheiro?: number | null
           created_at?: string
           created_by: string
+          created_by_name?: string | null
           date: string
           despesas_pagas?: number | null
           diferenca?: number | null
+          edit_history?: Json | null
           edited_at?: string | null
           edited_by?: string | null
+          edited_by_name?: string | null
           faturamento_cartao?: number | null
           faturamento_conta?: number | null
           faturamento_delivery?: number | null
@@ -615,15 +623,19 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           approved_status?: boolean | null
+          attachment_status?: Json | null
           closing_balance?: number
           contagem_dinheiro?: number | null
           created_at?: string
           created_by?: string
+          created_by_name?: string | null
           date?: string
           despesas_pagas?: number | null
           diferenca?: number | null
+          edit_history?: Json | null
           edited_at?: string | null
           edited_by?: string | null
+          edited_by_name?: string | null
           faturamento_cartao?: number | null
           faturamento_conta?: number | null
           faturamento_delivery?: number | null

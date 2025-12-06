@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, DollarSign, CreditCard, Building2, Truck, Trash2, Plus, Eye } from "lucide-react";
+import { Upload, DollarSign, CreditCard, Building2, Truck, Trash2, Plus, Eye, Ban } from "lucide-react";
 import { validateCashControlPeriod } from "@/utils/periodValidation";
 
 interface CashRegisterModalProps {
@@ -39,6 +39,14 @@ interface CashControl {
   diferenca: number;
   anexos: any;
   image_urls?: string[];
+  created_by_name?: string;
+  edit_history?: Array<{edited_at: string; edited_by: string; edited_by_name: string}>;
+  attachment_status?: Array<{url: string; disabled: boolean}>;
+}
+
+interface AttachmentStatus {
+  url: string;
+  disabled: boolean;
 }
 
 interface CardItem {
@@ -110,7 +118,9 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
   const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
-  const [editInfo, setEditInfo] = useState<{edited_at?: string; edited_by?: string} | null>(null);
+  const [attachmentStatus, setAttachmentStatus] = useState<AttachmentStatus[]>([]);
+  const [editHistory, setEditHistory] = useState<Array<{edited_at: string; edited_by: string; edited_by_name: string}>>([]);
+  const [createdInfo, setCreatedInfo] = useState<{created_at?: string; created_by_name?: string} | null>(null);
   
   const [loading, setLoading] = useState(false);
 
@@ -138,7 +148,9 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       // Limpar estados quando fechar o modal
       setAttachments([]);
       setExistingAttachments([]);
-      setEditInfo(null);
+      setAttachmentStatus([]);
+      setEditHistory([]);
+      setCreatedInfo(null);
       setCashItems([]);
       form.reset();
     }
@@ -156,7 +168,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
       if (error) throw error;
 
       if (data) {
-        setCashControl(data);
+        setCashControl(data as any);
         form.reset({
           saldo_inicial: data.saldo_inicial || 0,
           contagem_dinheiro: data.contagem_dinheiro || 0,
@@ -168,12 +180,25 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         // Carregar anexos existentes
         if (data.image_urls && data.image_urls.length > 0) {
           setExistingAttachments(data.image_urls);
+          // Carregar status dos anexos
+          if (data.attachment_status && Array.isArray(data.attachment_status)) {
+            setAttachmentStatus(data.attachment_status as unknown as AttachmentStatus[]);
+          } else {
+            // Inicializar status como habilitado para anexos existentes
+            setAttachmentStatus(data.image_urls.map((url: string) => ({ url, disabled: false })));
+          }
         }
 
-        setEditInfo({
-          edited_at: data.edited_at,
-          edited_by: data.edited_by
+        // Carregar info de criação
+        setCreatedInfo({
+          created_at: data.created_at,
+          created_by_name: data.created_by_name
         });
+
+        // Carregar histórico de edições
+        if (data.edit_history && Array.isArray(data.edit_history)) {
+          setEditHistory(data.edit_history as unknown as Array<{edited_at: string; edited_by: string; edited_by_name: string}>);
+        }
 
         // Fetch items
         await fetchItems(data.id);
@@ -206,8 +231,10 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         setDeliveryItems([]);
         setCashItems([]);
         setExistingAttachments([]);
+        setAttachmentStatus([]);
         setAttachments([]);
-        setEditInfo(null);
+        setEditHistory([]);
+        setCreatedInfo(null);
         
         // Preencher o saldo inicial com o valor do dia anterior (ou zero)
         form.reset({
@@ -593,6 +620,23 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         existingUrls = existingAttachments;
       }
 
+      // Obter dados do usuário atual
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      
+      // Buscar nome do usuário atual
+      let userName = 'Usuário';
+      if (userId) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', userId)
+          .maybeSingle();
+        if (profileData?.name) {
+          userName = profileData.name;
+        }
+      }
+
       if (cashControlId) {
         // Update existing cash control
         let finalUrls = existingUrls;
@@ -601,7 +645,22 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         if (attachments.length > 0) {
           const newUrls = await uploadAttachments(cashControlId);
           finalUrls = [...existingUrls, ...newUrls];
+          
+          // Adicionar status para novos anexos
+          const newAttachmentStatus = [
+            ...attachmentStatus,
+            ...newUrls.map(url => ({ url, disabled: false }))
+          ];
+          setAttachmentStatus(newAttachmentStatus);
         }
+
+        // Criar nova entrada no histórico de edições
+        const newEditEntry = {
+          edited_at: new Date().toISOString(),
+          edited_by: userId,
+          edited_by_name: userName
+        };
+        const updatedHistory = [...editHistory, newEditEntry];
         
         const { error } = await supabase
           .from('cash_control')
@@ -618,8 +677,11 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
             image_urls: finalUrls.length > 0 ? finalUrls : null,
+            attachment_status: attachmentStatus.length > 0 ? JSON.parse(JSON.stringify(attachmentStatus)) : null,
             edited_at: new Date().toISOString(),
-            edited_by: (await supabase.auth.getUser()).data.user?.id,
+            edited_by: userId,
+            edited_by_name: userName,
+            edit_history: updatedHistory,
           })
           .eq('id', cashControlId);
 
@@ -642,7 +704,9 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
             faturamento_total: faturamentoTotal,
             valor_fechamento_pdv: data.valor_fechamento_pdv,
             diferenca: diferenca,
-            created_by: (await supabase.auth.getUser()).data.user?.id,
+            created_by: userId,
+            created_by_name: userName,
+            edit_history: [],
           })
           .select()
           .single();
@@ -653,9 +717,13 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
         // Upload de anexos após criar o cash control
         if (attachments.length > 0) {
           const uploadedUrls = await uploadAttachments(cashControlId);
+          const newAttachmentStatus = uploadedUrls.map(url => ({ url, disabled: false }));
           await supabase
             .from('cash_control')
-            .update({ image_urls: uploadedUrls })
+            .update({ 
+              image_urls: uploadedUrls,
+              attachment_status: JSON.parse(JSON.stringify(newAttachmentStatus))
+            })
             .eq('id', cashControlId);
         }
       }
@@ -964,31 +1032,52 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                   {existingAttachments.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-sm text-muted-foreground">Anexos salvos:</Label>
-                      {existingAttachments.map((url, index) => (
-                        <div key={index} className="flex items-center justify-between bg-blue-50 p-2 rounded border">
-                          <span className="text-sm">Anexo {index + 1}</span>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => viewAttachment(url)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {!isReadOnly && (
+                      {existingAttachments.map((url, index) => {
+                        const status = attachmentStatus.find(s => s.url === url);
+                        const isDisabled = status?.disabled || false;
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className={`flex items-center justify-between p-2 rounded border ${
+                              isDisabled ? 'bg-red-100 border-red-300' : 'bg-blue-50'
+                            }`}
+                          >
+                            <span className={`text-sm ${isDisabled ? 'text-red-700' : ''}`}>
+                              Anexo {index + 1} {isDisabled && '(inabilitado)'}
+                            </span>
+                            <div className="flex gap-2">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== index))}
+                                onClick={() => viewAttachment(url)}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
-                            )}
+                              {!isReadOnly && !isDisabled && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setAttachmentStatus(prev => {
+                                      const existing = prev.find(s => s.url === url);
+                                      if (existing) {
+                                        return prev.map(s => s.url === url ? { ...s, disabled: true } : s);
+                                      }
+                                      return [...prev, { url, disabled: true }];
+                                    });
+                                  }}
+                                  title="Inabilitar anexo"
+                                >
+                                  <Ban className="h-4 w-4 text-orange-500" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   
@@ -1036,12 +1125,21 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                   )}
                 </div>
 
-                {/* Informações de Edição */}
-                {mode === 'edit' && editInfo && (
-                  <div className="bg-muted p-4 rounded-lg">
-                    <Label className="text-sm font-medium">
-                      Caixa editado em {new Date(editInfo.edited_at!).toLocaleString('pt-BR')} por {editInfo.edited_by}
-                    </Label>
+                {/* Informações de Criação e Histórico de Edições */}
+                {(createdInfo?.created_at || editHistory.length > 0) && (
+                  <div className="bg-muted p-4 rounded-lg space-y-2">
+                    {createdInfo?.created_at && (
+                      <div className="text-sm">
+                        <span className="font-medium">Caixa criado em:</span> {new Date(createdInfo.created_at).toLocaleString('pt-BR')}
+                        {createdInfo.created_by_name && <span> por {createdInfo.created_by_name}</span>}
+                      </div>
+                    )}
+                    {editHistory.map((edit, index) => (
+                      <div key={index} className="text-sm border-t border-border pt-2 mt-2">
+                        <span className="font-medium">Editado em:</span> {new Date(edit.edited_at).toLocaleString('pt-BR')}
+                        {edit.edited_by_name && <span> por {edit.edited_by_name}</span>}
+                      </div>
+                    ))}
                   </div>
                 )}
 
