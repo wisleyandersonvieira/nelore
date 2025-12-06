@@ -168,9 +168,9 @@ const CashControl = () => {
 
       {/* Main Content - Calendar with Expense Boxes */}
       <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Calendar Section */}
-          <div className="lg:col-span-1 flex flex-col items-center">
+          <div className="lg:w-[320px] flex-shrink-0 flex flex-col items-center">
             <Calendar
               mode="single"
               month={currentDate}
@@ -225,8 +225,8 @@ const CashControl = () => {
             </div>
           </div>
 
-          {/* Expense Boxes Section */}
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Expense Boxes Section - Stacked Vertically */}
+          <div className="flex-1 flex flex-col gap-4">
             <CashControlExpenseBox
               storeId={storeId!}
               expenseType="caixa_geral"
