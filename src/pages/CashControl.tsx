@@ -171,6 +171,7 @@ const CashControl = () => {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Calendar Section */}
           <div className="lg:w-[320px] flex-shrink-0 flex flex-col items-center">
+            <h2 className="text-xl font-bold text-foreground mb-4">Caixa Diário</h2>
             <Calendar
               mode="single"
               month={currentDate}
