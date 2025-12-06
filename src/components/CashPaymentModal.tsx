@@ -8,11 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 
-interface CashAccount {
+interface Account {
   id: string;
   name: string;
   bank: string | null;
   account_number: string | null;
+  type: "cash" | "current" | "card";
 }
 
 interface AccountPayable {
@@ -30,16 +31,19 @@ interface CashPaymentModalProps {
   onOpenChange: (open: boolean) => void;
   accountPayable: AccountPayable | null;
   onPaymentSuccess?: () => void;
+  showAllAccounts?: boolean;
 }
 
 export function CashPaymentModal({ 
   open, 
   onOpenChange, 
   accountPayable,
-  onPaymentSuccess 
+  onPaymentSuccess,
+  showAllAccounts = false
 }: CashPaymentModalProps) {
-  const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [selectedAccountType, setSelectedAccountType] = useState<"cash" | "current" | "card">("cash");
   const [paymentDate, setPaymentDate] = useState("");
   const [surcharge, setSurcharge] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
@@ -47,32 +51,103 @@ export function CashPaymentModal({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (open) {
-      fetchCashAccounts();
+    if (open && accountPayable) {
+      fetchAccounts();
       setSelectedAccountId("");
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setSurcharge(0);
       setDiscount(0);
     }
-  }, [open]);
+  }, [open, accountPayable, showAllAccounts]);
 
-  const fetchCashAccounts = async () => {
+  const fetchAccounts = async () => {
+    if (!accountPayable) return;
+    
     try {
-      const { data, error } = await supabase
+      const allAccounts: Account[] = [];
+      
+      // Always fetch cash accounts
+      const { data: cashData, error: cashError } = await supabase
         .from("cash_accounts")
         .select("id, name, bank, account_number")
         .eq("is_active", true)
         .order("name");
 
-      if (error) throw error;
-      setCashAccounts(data || []);
+      if (cashError) throw cashError;
+      
+      // Filter cash accounts by store
+      const { data: cashStores } = await supabase
+        .from("cash_account_stores")
+        .select("account_id")
+        .eq("store_id", accountPayable.store_id);
+      
+      const cashStoreIds = cashStores?.map(s => s.account_id) || [];
+      const filteredCash = (cashData || []).filter(acc => cashStoreIds.includes(acc.id));
+      allAccounts.push(...filteredCash.map(acc => ({ ...acc, type: "cash" as const })));
+
+      // If showAllAccounts, also fetch current and card accounts
+      if (showAllAccounts) {
+        // Fetch current accounts
+        const { data: currentData, error: currentError } = await supabase
+          .from("current_accounts")
+          .select("id, name, bank, account_number")
+          .eq("is_active", true)
+          .order("name");
+
+        if (currentError) throw currentError;
+        
+        const { data: currentStores } = await supabase
+          .from("current_account_stores")
+          .select("account_id")
+          .eq("store_id", accountPayable.store_id);
+        
+        const currentStoreIds = currentStores?.map(s => s.account_id) || [];
+        const filteredCurrent = (currentData || []).filter(acc => currentStoreIds.includes(acc.id));
+        allAccounts.push(...filteredCurrent.map(acc => ({ ...acc, type: "current" as const })));
+
+        // Fetch card accounts
+        const { data: cardData, error: cardError } = await supabase
+          .from("card_accounts")
+          .select("id, name, bank, account_number")
+          .eq("is_active", true)
+          .order("name");
+
+        if (cardError) throw cardError;
+        
+        const { data: cardStores } = await supabase
+          .from("card_account_stores")
+          .select("account_id")
+          .eq("store_id", accountPayable.store_id);
+        
+        const cardStoreIds = cardStores?.map(s => s.account_id) || [];
+        const filteredCard = (cardData || []).filter(acc => cardStoreIds.includes(acc.id));
+        allAccounts.push(...filteredCard.map(acc => ({ ...acc, type: "card" as const })));
+      }
+
+      setAccounts(allAccounts);
     } catch (error) {
-      console.error("Error fetching cash accounts:", error);
+      console.error("Error fetching accounts:", error);
       toast({
         title: "Erro",
-        description: "Erro ao buscar contas caixa",
+        description: "Erro ao buscar contas",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleAccountSelect = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    const account = accounts.find(a => a.id === accountId);
+    if (account) {
+      setSelectedAccountType(account.type);
+    }
+  };
+
+  const getAccountTypeLabel = (type: "cash" | "current" | "card") => {
+    switch (type) {
+      case "cash": return "Caixa";
+      case "current": return "Conta Corrente";
+      case "card": return "Cartão";
     }
   };
 
@@ -97,34 +172,7 @@ export function CashPaymentModal({
       return;
     }
 
-    // Validate cash account is linked to the store
-    try {
-      const { data: accountStores, error: storesError } = await supabase
-        .from("cash_account_stores")
-        .select("store_id")
-        .eq("account_id", selectedAccountId);
-
-      if (storesError) throw storesError;
-
-      const allowedStoreIds = accountStores?.map(store => store.store_id) || [];
-      
-      if (!allowedStoreIds.includes(accountPayable.store_id)) {
-        toast({
-          title: "Conta não autorizada",
-          description: "A conta caixa selecionada não está vinculada à loja desta conta a pagar.",
-          variant: "destructive",
-        });
-        return;
-      }
-    } catch (error) {
-      console.error("Error validating account:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao validar a conta selecionada",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Account validation is already done during fetch - accounts are filtered by store
 
     setLoading(true);
     try {
@@ -260,15 +308,15 @@ export function CashPaymentModal({
             </div>
 
             <div className="space-y-2">
-              <Label>Conta Caixa para Pagamento *</Label>
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+              <Label>Conta para Pagamento *</Label>
+              <Select value={selectedAccountId} onValueChange={handleAccountSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a conta caixa" />
+                  <SelectValue placeholder={showAllAccounts ? "Selecione a conta" : "Selecione a conta caixa"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {cashAccounts.map((account) => (
+                  {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
-                      {account.name} - Conta Caixa
+                      {account.name} - {getAccountTypeLabel(account.type)}
                     </SelectItem>
                   ))}
                 </SelectContent>
