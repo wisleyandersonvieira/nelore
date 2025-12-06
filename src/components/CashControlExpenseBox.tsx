@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Eye, Pencil, Ban, Upload, X, FileText } from "lucide-react";
+import { Plus, Eye, Pencil, Ban, Upload, X, FileText, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,6 +35,9 @@ interface CashControlExpenseBoxProps {
   referenceYear: number;
 }
 
+type SortField = 'issue_date' | 'supplier' | 'description' | 'amount';
+type SortDirection = 'asc' | 'desc';
+
 export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMonth, referenceYear }: CashControlExpenseBoxProps) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +45,8 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [viewOpen, setViewOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
+  const [sortField, setSortField] = useState<SortField>('issue_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   // Form fields
   const [issueDate, setIssueDate] = useState("");
@@ -289,6 +294,43 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
     return parts[parts.length - 1];
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'issue_date' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortedExpenses = [...expenses].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortField) {
+      case 'issue_date':
+        comparison = new Date(a.issue_date).getTime() - new Date(b.issue_date).getTime();
+        break;
+      case 'supplier':
+        comparison = a.supplier.localeCompare(b.supplier, 'pt-BR');
+        break;
+      case 'description':
+        comparison = a.description.localeCompare(b.description, 'pt-BR');
+        break;
+      case 'amount':
+        comparison = a.amount - b.amount;
+        break;
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 inline ml-1" />
+      : <ArrowDown className="h-3 w-3 inline ml-1" />;
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
@@ -310,68 +352,92 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             Nenhuma despesa cadastrada
           </p>
         ) : (
-          <div className="max-h-[180px] overflow-auto border rounded">
+          <div className="border rounded">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-card z-10">
                 <TableRow className="h-8">
-                  <TableHead className="text-xs py-1">Data</TableHead>
-                  <TableHead className="text-xs py-1">Fornecedor</TableHead>
-                  <TableHead className="text-xs py-1">Descrição</TableHead>
-                  <TableHead className="text-xs py-1 text-right">Valor</TableHead>
+                  <TableHead 
+                    className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('issue_date')}
+                  >
+                    Data <SortIcon field="issue_date" />
+                  </TableHead>
+                  <TableHead 
+                    className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('supplier')}
+                  >
+                    Fornecedor <SortIcon field="supplier" />
+                  </TableHead>
+                  <TableHead 
+                    className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('description')}
+                  >
+                    Descrição <SortIcon field="description" />
+                  </TableHead>
+                  <TableHead 
+                    className="text-xs py-1 text-right cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('amount')}
+                  >
+                    Valor <SortIcon field="amount" />
+                  </TableHead>
                   <TableHead className="text-xs py-1 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {expenses.map((expense) => (
-                  <TableRow 
-                    key={expense.id}
-                    className={`h-8 ${expense.is_disabled ? "bg-red-50 text-red-700" : ""}`}
-                  >
-                    <TableCell className="text-xs py-1">
-                      {format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy")}
-                    </TableCell>
-                    <TableCell className="text-xs py-1">
-                      {expense.supplier}
-                      {expense.is_disabled && " (inabilitado)"}
-                    </TableCell>
-                    <TableCell className="text-xs py-1 max-w-[200px] truncate">
-                      {expense.description}
-                    </TableCell>
-                    <TableCell className="text-xs py-1 text-right">
-                      {formatCurrency(expense.amount)}
-                    </TableCell>
-                    <TableCell className="text-xs py-1 text-right">
-                      <div className="flex justify-end gap-0.5">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6"
-                          onClick={() => handleView(expense)}
-                        >
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6"
-                          onClick={() => handleOpenForm(expense)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className={`h-6 w-6 ${expense.is_disabled ? "text-green-600" : "text-red-600"}`}
-                          onClick={() => handleDisable(expense)}
-                        >
-                          <Ban className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
             </Table>
+            <div className="max-h-[150px] overflow-auto">
+              <Table>
+                <TableBody>
+                  {sortedExpenses.map((expense) => (
+                    <TableRow 
+                      key={expense.id}
+                      className={`h-8 ${expense.is_disabled ? "bg-red-50 text-red-700" : ""}`}
+                    >
+                      <TableCell className="text-xs py-1">
+                        {format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell className="text-xs py-1">
+                        {expense.supplier}
+                        {expense.is_disabled && " (inabilitado)"}
+                      </TableCell>
+                      <TableCell className="text-xs py-1 max-w-[200px] truncate">
+                        {expense.description}
+                      </TableCell>
+                      <TableCell className="text-xs py-1 text-right">
+                        {formatCurrency(expense.amount)}
+                      </TableCell>
+                      <TableCell className="text-xs py-1 text-right">
+                        <div className="flex justify-end gap-0.5">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6"
+                            onClick={() => handleView(expense)}
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6"
+                            onClick={() => handleOpenForm(expense)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className={`h-6 w-6 ${expense.is_disabled ? "text-green-600" : "text-red-600"}`}
+                            onClick={() => handleDisable(expense)}
+                          >
+                            <Ban className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
