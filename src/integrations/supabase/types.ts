@@ -837,6 +837,7 @@ export type Database = {
           id: string
           is_disabled: boolean
           issue_date: string
+          linked_account_payable_id: string | null
           reference_month: number
           reference_year: number
           store_id: string
@@ -856,6 +857,7 @@ export type Database = {
           id?: string
           is_disabled?: boolean
           issue_date: string
+          linked_account_payable_id?: string | null
           reference_month?: number
           reference_year?: number
           store_id: string
@@ -875,6 +877,7 @@ export type Database = {
           id?: string
           is_disabled?: boolean
           issue_date?: string
+          linked_account_payable_id?: string | null
           reference_month?: number
           reference_year?: number
           store_id?: string
@@ -882,6 +885,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cash_control_expenses_linked_account_payable_id_fkey"
+            columns: ["linked_account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cash_control_expenses_store_id_fkey"
             columns: ["store_id"]

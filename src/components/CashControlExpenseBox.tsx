@@ -32,6 +32,7 @@ interface Expense {
   edit_history: Array<{ edited_at: string; edited_by_name: string }>;
   reference_month: number;
   reference_year: number;
+  linked_account_payable_id: string | null;
 }
 
 interface CashControlExpenseBoxProps {
@@ -110,7 +111,8 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
           attachment_status: (exp.attachment_status as Record<string, boolean>) || {},
           edit_history: (exp.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || [],
           reference_month: exp.reference_month,
-          reference_year: exp.reference_year
+          reference_year: exp.reference_year,
+          linked_account_payable_id: exp.linked_account_payable_id || null
         };
       }));
     } catch (error) {
@@ -439,10 +441,18 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             <div className="max-h-[150px] overflow-auto">
               <Table>
                 <TableBody>
-                  {sortedExpenses.map((expense) => (
+                  {sortedExpenses.map((expense) => {
+                    const isLinked = !!expense.linked_account_payable_id;
+                    const rowClassName = expense.is_disabled 
+                      ? "h-8 bg-red-50 text-red-700" 
+                      : isLinked 
+                        ? "h-8 bg-green-50" 
+                        : "h-8";
+                    
+                    return (
                     <TableRow 
                       key={expense.id}
-                      className={`h-8 ${expense.is_disabled ? "bg-red-50 text-red-700" : ""}`}
+                      className={rowClassName}
                     >
                       <TableCell className="text-xs py-1">
                         {format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy")}
@@ -480,9 +490,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6 text-blue-600"
+                            className={`h-6 w-6 ${isLinked ? "text-green-600 opacity-50" : "text-blue-600"}`}
                             onClick={() => handleOpenLinkModal(expense)}
-                            title="Vincular ao Contas a Pagar"
+                            title={isLinked ? "Já vinculado" : "Vincular ao Contas a Pagar"}
+                            disabled={isLinked}
                           >
                             <Link2 className="h-3 w-3" />
                           </Button>
@@ -498,7 +509,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             </div>
@@ -742,6 +753,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         onOpenChange={setLinkModalOpen}
         expense={expenseToLink}
         storeId={storeId}
+        onLinkSuccess={fetchExpenses}
       />
     </Card>
   );

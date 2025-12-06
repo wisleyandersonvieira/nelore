@@ -32,6 +32,7 @@ interface LinkToAccountsPayableModalProps {
   onOpenChange: (open: boolean) => void;
   expense: ExpenseData | null;
   storeId: string;
+  onLinkSuccess?: () => void;
 }
 
 interface Supplier {
@@ -76,7 +77,8 @@ export function LinkToAccountsPayableModal({
   open, 
   onOpenChange, 
   expense, 
-  storeId 
+  storeId,
+  onLinkSuccess
 }: LinkToAccountsPayableModalProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -419,6 +421,18 @@ export function LinkToAccountsPayableModal({
 
       if (itemsError) throw itemsError;
 
+      // Update cash_control_expenses to mark as linked
+      if (expense?.id) {
+        const { error: updateError } = await supabase
+          .from("cash_control_expenses")
+          .update({ linked_account_payable_id: payable.id })
+          .eq("id", expense.id);
+
+        if (updateError) {
+          console.error("Error updating expense link:", updateError);
+        }
+      }
+
       toast({
         title: "Sucesso",
         description: "Conta a pagar criada e vinculada com sucesso",
@@ -426,6 +440,7 @@ export function LinkToAccountsPayableModal({
 
       onOpenChange(false);
       resetForm();
+      onLinkSuccess?.();
 
     } catch (error) {
       console.error("Error saving account payable:", error);
