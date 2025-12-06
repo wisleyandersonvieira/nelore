@@ -434,11 +434,15 @@ export function LinkToAccountsPayableModal({
 
       if (itemsError) throw itemsError;
 
-      // Update cash_control_expenses to mark as linked
+      // Update cash_control_expenses to mark as linked and update supplier name
       if (expense?.id) {
+        const selectedSupplierData = suppliers.find(s => s.id === supplierId);
         const { error: updateError } = await supabase
           .from("cash_control_expenses")
-          .update({ linked_account_payable_id: payable.id })
+          .update({ 
+            linked_account_payable_id: payable.id,
+            supplier: selectedSupplierData?.name || expense.supplier
+          })
           .eq("id", expense.id);
 
         if (updateError) {
