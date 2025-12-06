@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SupplierSearchModal } from "./SupplierSearchModal";
 import { ProductSearchModal } from "./ProductSearchModal";
+import { CashPaymentModal } from "./CashPaymentModal";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 
 interface AttachmentInfo {
@@ -107,6 +109,18 @@ export function LinkToAccountsPayableModal({
   const [showSupplierSearch, setShowSupplierSearch] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
+
+  // Payment confirmation and modal states
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [createdAccountPayable, setCreatedAccountPayable] = useState<{
+    id: string;
+    description: string;
+    amount: number;
+    due_date: string;
+    store_id: string;
+    suppliers?: { name: string };
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -455,9 +469,20 @@ export function LinkToAccountsPayableModal({
         description: "Conta a pagar criada e vinculada com sucesso",
       });
 
+      // Store the created account payable for potential payment
+      const selectedSupplierData = suppliers.find(s => s.id === supplierId);
+      setCreatedAccountPayable({
+        id: payable.id,
+        description: `${documentType} ${documentNumber}`,
+        amount: totalAmount,
+        due_date: dueDate,
+        store_id: storeToUse,
+        suppliers: selectedSupplierData ? { name: selectedSupplierData.name } : undefined
+      });
+
+      // Close the main modal and show payment confirmation
       onOpenChange(false);
-      resetForm();
-      onLinkSuccess?.();
+      setShowPaymentConfirmation(true);
 
     } catch (error) {
       console.error("Error saving account payable:", error);
@@ -469,6 +494,24 @@ export function LinkToAccountsPayableModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaymentConfirmationYes = () => {
+    setShowPaymentConfirmation(false);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentConfirmationNo = () => {
+    setShowPaymentConfirmation(false);
+    resetForm();
+    onLinkSuccess?.();
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    setCreatedAccountPayable(null);
+    resetForm();
+    onLinkSuccess?.();
   };
 
   const selectedSupplier = suppliers.find(s => s.id === supplierId);
@@ -773,6 +816,41 @@ export function LinkToAccountsPayableModal({
         open={showProductSearch}
         onOpenChange={setShowProductSearch}
         onSelectProduct={handleProductSelect}
+      />
+
+      {/* Payment Confirmation Dialog */}
+      <AlertDialog open={showPaymentConfirmation} onOpenChange={setShowPaymentConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Realizar Pagamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              A conta a pagar foi criada com sucesso. Deseja realizar o pagamento dessa conta agora?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handlePaymentConfirmationNo}>
+              Não
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handlePaymentConfirmationYes}>
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cash Payment Modal */}
+      <CashPaymentModal
+        open={showPaymentModal}
+        onOpenChange={(open) => {
+          setShowPaymentModal(open);
+          if (!open) {
+            setCreatedAccountPayable(null);
+            resetForm();
+            onLinkSuccess?.();
+          }
+        }}
+        accountPayable={createdAccountPayable}
+        onPaymentSuccess={handlePaymentSuccess}
       />
     </>
   );
