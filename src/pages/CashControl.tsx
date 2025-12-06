@@ -231,11 +231,15 @@ const CashControl = () => {
               storeId={storeId!}
               expenseType="caixa_geral"
               title="Contas Pagas no Caixa Geral"
+              referenceMonth={currentDate.getMonth() + 1}
+              referenceYear={currentDate.getFullYear()}
             />
             <CashControlExpenseBox
               storeId={storeId!}
               expenseType="banco"
               title="Contas a Pagar/Pagas via Banco"
+              referenceMonth={currentDate.getMonth() + 1}
+              referenceYear={currentDate.getFullYear()}
             />
           </div>
         </div>
