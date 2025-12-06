@@ -416,6 +416,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                   >
                     Data <SortIcon field="issue_date" />
                   </TableHead>
+                  <TableHead className="text-xs py-1">
+                    Criado em
+                  </TableHead>
                   <TableHead 
                     className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('supplier')}
@@ -456,6 +459,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                     >
                       <TableCell className="text-xs py-1">
                         {format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell className="text-xs py-1">
+                        {format(new Date(expense.created_at), "dd/MM/yyyy HH:mm")}
                       </TableCell>
                       <TableCell className="text-xs py-1">
                         {expense.supplier}

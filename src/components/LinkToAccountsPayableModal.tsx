@@ -314,6 +314,19 @@ export function LinkToAccountsPayableModal({
       return;
     }
 
+    // Validate that total items amount equals expense amount
+    const totalItemsAmount = getTotalAmount();
+    const expenseAmount = expense?.amount || 0;
+    
+    if (Math.abs(totalItemsAmount - expenseAmount) > 0.01) {
+      toast({
+        title: "Erro de Validação",
+        description: `O valor total dos itens (${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalItemsAmount)}) deve ser igual ao valor da despesa (${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(expenseAmount)})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate period
     const competenceValidation = await validateAccountsPayablePeriod.competencia(dataCompetencia);
     if (competenceValidation.blocked) {
