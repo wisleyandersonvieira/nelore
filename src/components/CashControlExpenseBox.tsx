@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +12,18 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+interface AttachmentInfo {
+  path: string;
+  originalName: string;
+}
+
 interface Expense {
   id: string;
   issue_date: string;
   supplier: string;
   description: string;
   amount: number;
-  attachments: string[];
+  attachments: AttachmentInfo[];
   attachment_status: Record<string, boolean>;
   is_disabled: boolean;
   created_by_name: string;
@@ -54,7 +60,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
-  const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<AttachmentInfo[]>([]);
   const [attachmentStatus, setAttachmentStatus] = useState<Record<string, boolean>>({});
   const [uploading, setUploading] = useState(false);
 
@@ -76,14 +82,27 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
 
       if (error) throw error;
       
-      setExpenses((data || []).map(exp => ({
-        ...exp,
-        attachments: exp.attachments as string[] || [],
-        attachment_status: (exp.attachment_status as Record<string, boolean>) || {},
-        edit_history: (exp.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || [],
-        reference_month: exp.reference_month,
-        reference_year: exp.reference_year
-      })));
+      setExpenses((data || []).map(exp => {
+        // Handle both old format (string[]) and new format (AttachmentInfo[])
+        const rawAttachments = exp.attachments as (string | AttachmentInfo)[] || [];
+        const normalizedAttachments: AttachmentInfo[] = rawAttachments.map(att => {
+          if (typeof att === 'string') {
+            // Legacy format - extract name from path
+            const parts = att.split('/');
+            return { path: att, originalName: parts[parts.length - 1] };
+          }
+          return att as AttachmentInfo;
+        });
+        
+        return {
+          ...exp,
+          attachments: normalizedAttachments,
+          attachment_status: (exp.attachment_status as Record<string, boolean>) || {},
+          edit_history: (exp.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || [],
+          reference_month: exp.reference_month,
+          reference_year: exp.reference_year
+        };
+      }));
     } catch (error) {
       console.error("Erro ao carregar despesas:", error);
     } finally {
@@ -132,15 +151,15 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
     setNewAttachments(newAttachments.filter((_, i) => i !== index));
   };
 
-  const toggleAttachmentStatus = (url: string) => {
+  const toggleAttachmentStatus = (path: string) => {
     setAttachmentStatus(prev => ({
       ...prev,
-      [url]: prev[url] === undefined ? false : !prev[url]
+      [path]: prev[path] === undefined ? false : !prev[path]
     }));
   };
 
-  const uploadAttachments = async (): Promise<string[]> => {
-    const paths: string[] = [];
+  const uploadAttachments = async (): Promise<AttachmentInfo[]> => {
+    const attachments: AttachmentInfo[] = [];
     
     for (const file of newAttachments) {
       const fileExt = file.name.split('.').pop();
@@ -156,11 +175,11 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         continue;
       }
 
-      // Store the path, not the public URL (bucket is private)
-      paths.push(filePath);
+      // Store the path and original filename
+      attachments.push({ path: filePath, originalName: file.name });
     }
 
-    return paths;
+    return attachments;
   };
 
   const openAttachment = async (pathOrUrl: string) => {
@@ -208,13 +227,13 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         .single();
 
       const userName = profile?.name || user.email || "Usuário";
-      const uploadedUrls = await uploadAttachments();
-      const allAttachments = [...existingAttachments, ...uploadedUrls];
+      const uploadedAttachments = await uploadAttachments();
+      const allAttachments = [...existingAttachments, ...uploadedAttachments];
       
       // Initialize status for new attachments
       const newStatus = { ...attachmentStatus };
-      uploadedUrls.forEach(url => {
-        newStatus[url] = true;
+      uploadedAttachments.forEach(att => {
+        newStatus[att.path] = true;
       });
 
       if (editingExpense) {
@@ -231,8 +250,8 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             supplier,
             description,
             amount: parseFloat(amount),
-            attachments: allAttachments,
-            attachment_status: newStatus,
+            attachments: allAttachments as unknown as Json,
+            attachment_status: newStatus as unknown as Json,
             edit_history: newHistory
           })
           .eq("id", editingExpense.id);
@@ -250,8 +269,8 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             supplier,
             description,
             amount: parseFloat(amount),
-            attachments: allAttachments,
-            attachment_status: newStatus,
+            attachments: allAttachments as unknown as Json,
+            attachment_status: newStatus as unknown as Json,
             created_by: user.id,
             created_by_name: userName,
             reference_month: referenceMonth,
@@ -536,25 +555,25 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
               {existingAttachments.length > 0 && (
                 <div className="mt-2 space-y-1">
                   <p className="text-xs text-muted-foreground">Anexos existentes:</p>
-                  {existingAttachments.map((url, index) => (
+                  {existingAttachments.map((att, index) => (
                     <div
                       key={index}
                       className={`flex items-center justify-between p-2 rounded text-xs ${
-                        attachmentStatus[url] === false
+                        attachmentStatus[att.path] === false
                           ? "bg-red-100 border border-red-300 text-red-700"
                           : "bg-muted"
                       }`}
                     >
                       <span className="truncate flex-1">
-                        {getAttachmentName(url)}
-                        {attachmentStatus[url] === false && " (inabilitado)"}
+                        {att.originalName}
+                        {attachmentStatus[att.path] === false && " (inabilitado)"}
                       </span>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => openAttachment(url)}
+                          onClick={() => openAttachment(att.path)}
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
@@ -562,7 +581,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-red-600"
-                          onClick={() => toggleAttachmentStatus(url)}
+                          onClick={() => toggleAttachmentStatus(att.path)}
                         >
                           <Ban className="h-3 w-3" />
                         </Button>
@@ -644,25 +663,25 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                 <div>
                   <Label className="text-muted-foreground text-xs">Anexos</Label>
                   <div className="mt-1 space-y-1">
-                    {viewingExpense.attachments.map((url, index) => (
+                    {viewingExpense.attachments.map((att, index) => (
                       <div
                         key={index}
                         className={`flex items-center justify-between p-2 rounded text-xs ${
-                          viewingExpense.attachment_status[url] === false
+                          viewingExpense.attachment_status[att.path] === false
                             ? "bg-red-100 border border-red-300 text-red-700"
                             : "bg-muted"
                         }`}
                       >
                         <span className="truncate flex-1 flex items-center gap-2">
                           <FileText className="h-3 w-3" />
-                          {getAttachmentName(url)}
-                          {viewingExpense.attachment_status[url] === false && " (inabilitado)"}
+                          {att.originalName}
+                          {viewingExpense.attachment_status[att.path] === false && " (inabilitado)"}
                         </span>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => openAttachment(url)}
+                          onClick={() => openAttachment(att.path)}
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
