@@ -481,9 +481,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6"
+                            className={`h-6 w-6 ${isLinked ? "opacity-50" : ""}`}
                             onClick={() => handleOpenForm(expense)}
-                            title="Editar"
+                            title={isLinked ? "Não pode editar (vinculado)" : "Editar"}
+                            disabled={isLinked}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -500,9 +501,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={`h-6 w-6 ${expense.is_disabled ? "text-green-600" : "text-red-600"}`}
+                            className={`h-6 w-6 ${isLinked ? "opacity-50" : expense.is_disabled ? "text-green-600" : "text-red-600"}`}
                             onClick={() => handleDisable(expense)}
-                            title={expense.is_disabled ? "Habilitar" : "Inabilitar"}
+                            title={isLinked ? "Não pode inabilitar (vinculado)" : expense.is_disabled ? "Habilitar" : "Inabilitar"}
+                            disabled={isLinked}
                           >
                             <Ban className="h-3 w-3" />
                           </Button>
