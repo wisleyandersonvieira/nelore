@@ -1048,7 +1048,25 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
     setLoading(true);
     try {
-      // Delete items first (foreign key constraint)
+      // Remove link from cash_control_expenses before deleting
+      const { error: unlinkError } = await supabase
+        .from("cash_control_expenses")
+        .update({ linked_account_payable_id: null })
+        .eq("linked_account_payable_id", accountId);
+
+      if (unlinkError) {
+        console.error("Error unlinking cash control expenses:", unlinkError);
+      }
+
+      // Delete installments first (foreign key constraint)
+      const { error: installmentsError } = await supabase
+        .from("accounts_payable_installments")
+        .delete()
+        .eq("account_payable_id", accountId);
+
+      if (installmentsError) throw installmentsError;
+
+      // Delete items (foreign key constraint)
       const { error: itemsError } = await supabase
         .from("accounts_payable_items")
         .delete()
