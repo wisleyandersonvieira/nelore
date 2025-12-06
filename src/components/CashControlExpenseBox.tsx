@@ -23,15 +23,19 @@ interface Expense {
   created_by_name: string;
   created_at: string;
   edit_history: Array<{ edited_at: string; edited_by_name: string }>;
+  reference_month: number;
+  reference_year: number;
 }
 
 interface CashControlExpenseBoxProps {
   storeId: string;
   expenseType: "caixa_geral" | "banco";
   title: string;
+  referenceMonth: number;
+  referenceYear: number;
 }
 
-export const CashControlExpenseBox = ({ storeId, expenseType, title }: CashControlExpenseBoxProps) => {
+export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMonth, referenceYear }: CashControlExpenseBoxProps) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -51,15 +55,18 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title }: CashContr
 
   useEffect(() => {
     fetchExpenses();
-  }, [storeId, expenseType]);
+  }, [storeId, expenseType, referenceMonth, referenceYear]);
 
   const fetchExpenses = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("cash_control_expenses")
         .select("*")
         .eq("store_id", storeId)
         .eq("expense_type", expenseType)
+        .eq("reference_month", referenceMonth)
+        .eq("reference_year", referenceYear)
         .order("issue_date", { ascending: false });
 
       if (error) throw error;
@@ -68,7 +75,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title }: CashContr
         ...exp,
         attachments: exp.attachments as string[] || [],
         attachment_status: (exp.attachment_status as Record<string, boolean>) || {},
-        edit_history: (exp.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || []
+        edit_history: (exp.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || [],
+        reference_month: exp.reference_month,
+        reference_year: exp.reference_year
       })));
     } catch (error) {
       console.error("Erro ao carregar despesas:", error);
@@ -216,7 +225,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title }: CashContr
             attachments: allAttachments,
             attachment_status: newStatus,
             created_by: user.id,
-            created_by_name: userName
+            created_by_name: userName,
+            reference_month: referenceMonth,
+            reference_year: referenceYear
           });
 
         if (error) throw error;

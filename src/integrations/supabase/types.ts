@@ -837,6 +837,8 @@ export type Database = {
           id: string
           is_disabled: boolean
           issue_date: string
+          reference_month: number
+          reference_year: number
           store_id: string
           supplier: string
           updated_at: string
@@ -854,6 +856,8 @@ export type Database = {
           id?: string
           is_disabled?: boolean
           issue_date: string
+          reference_month?: number
+          reference_year?: number
           store_id: string
           supplier: string
           updated_at?: string
@@ -871,6 +875,8 @@ export type Database = {
           id?: string
           is_disabled?: boolean
           issue_date?: string
+          reference_month?: number
+          reference_year?: number
           store_id?: string
           supplier?: string
           updated_at?: string
