@@ -9,6 +9,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CashDateModal } from "@/components/CashDateModal";
 import { MonthViewModal } from "@/components/MonthViewModal";
+import { CashControlExpenseBox } from "@/components/CashControlExpenseBox";
 
 interface Store {
   id: string;
@@ -165,60 +166,78 @@ const CashControl = () => {
         </div>
       </header>
 
-      {/* Main Content - Full Screen Calendar */}
-      <main className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-120px)]">
-        <Calendar
-          mode="single"
-          month={currentDate}
-          onMonthChange={setCurrentDate}
-          onSelect={handleDateSelect}
-          locale={ptBR}
-          modifiers={{
-            hasData: (date) => {
-              const dateString = date.toISOString().split('T')[0];
-              return datesWithData.has(dateString) && !approvedDates.has(dateString);
-            },
-            approved: (date) => approvedDates.has(date.toISOString().split('T')[0])
-          }}
-          modifiersClassNames={{
-            hasData: "bg-yellow-100 border-2 border-yellow-300",
-            approved: "bg-green-100 border-2 border-green-300"
-          }}
-          className={cn(
-            "rounded-lg border shadow-lg p-4 md:p-8 pointer-events-auto bg-card",
-            "scale-75 md:scale-90 transform"
-          )}
-          classNames={{
-            months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-            month: "space-y-4",
-            caption: "flex justify-center pt-1 relative items-center",
-            caption_label: "text-2xl font-medium",
-            nav: "space-x-1 flex items-center",
-            nav_button: cn(
-              "h-10 w-10 bg-transparent p-0 opacity-50 hover:opacity-100"
-            ),
-            nav_button_previous: "absolute left-1",
-            nav_button_next: "absolute right-1",
-            table: "w-full border-collapse space-y-2",
-            head_row: "flex",
-            head_cell: "text-muted-foreground rounded-md w-10 md:w-14 font-normal text-sm md:text-lg",
-            row: "flex w-full mt-2 md:mt-4",
-            cell: "h-10 w-10 md:h-14 md:w-14 text-center text-sm md:text-lg p-0 relative cursor-pointer hover:bg-accent rounded-md transition-colors",
-            day: cn(
-              "h-10 w-10 md:h-14 md:w-14 p-0 font-normal aria-selected:opacity-100 hover:bg-accent rounded-md text-sm md:text-lg transition-colors",
-              "data-[has-data=true]:bg-yellow-100 data-[has-data=true]:border-2 data-[has-data=true]:border-yellow-300"
-            ),
-            day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-            day_today: "bg-accent text-accent-foreground font-semibold ring-2 ring-primary",
-            day_outside: "text-muted-foreground opacity-50",
-            day_disabled: "text-muted-foreground opacity-50",
-          }}
-        />
+      {/* Main Content - Calendar with Expense Boxes */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Calendar Section */}
+          <div className="lg:col-span-1 flex flex-col items-center">
+            <Calendar
+              mode="single"
+              month={currentDate}
+              onMonthChange={setCurrentDate}
+              onSelect={handleDateSelect}
+              locale={ptBR}
+              modifiers={{
+                hasData: (date) => {
+                  const dateString = date.toISOString().split('T')[0];
+                  return datesWithData.has(dateString) && !approvedDates.has(dateString);
+                },
+                approved: (date) => approvedDates.has(date.toISOString().split('T')[0])
+              }}
+              modifiersClassNames={{
+                hasData: "bg-yellow-100 border-2 border-yellow-300",
+                approved: "bg-green-100 border-2 border-green-300"
+              }}
+              className={cn(
+                "rounded-lg border shadow-lg p-4 pointer-events-auto bg-card"
+              )}
+              classNames={{
+                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center",
+                caption_label: "text-xl font-medium",
+                nav: "space-x-1 flex items-center",
+                nav_button: cn(
+                  "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100"
+                ),
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-muted-foreground rounded-md w-10 font-normal text-sm",
+                row: "flex w-full mt-2",
+                cell: "h-10 w-10 text-center text-sm p-0 relative cursor-pointer hover:bg-accent rounded-md transition-colors",
+                day: cn(
+                  "h-10 w-10 p-0 font-normal aria-selected:opacity-100 hover:bg-accent rounded-md text-sm transition-colors",
+                  "data-[has-data=true]:bg-yellow-100 data-[has-data=true]:border-2 data-[has-data=true]:border-yellow-300"
+                ),
+                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                day_today: "bg-accent text-accent-foreground font-semibold ring-2 ring-primary",
+                day_outside: "text-muted-foreground opacity-50",
+                day_disabled: "text-muted-foreground opacity-50",
+              }}
+            />
 
-        <div className="mt-8 p-6 bg-muted rounded-lg max-w-md">
-          <p className="text-center text-muted-foreground">
-            Clique em um dia do calendário para acessar as funções do caixa dessa data
-          </p>
+            <div className="mt-4 p-4 bg-muted rounded-lg w-full max-w-[280px]">
+              <p className="text-center text-muted-foreground text-sm">
+                Clique em um dia do calendário para acessar as funções do caixa dessa data
+              </p>
+            </div>
+          </div>
+
+          {/* Expense Boxes Section */}
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CashControlExpenseBox
+              storeId={storeId!}
+              expenseType="caixa_geral"
+              title="Contas Pagas no Caixa Geral"
+            />
+            <CashControlExpenseBox
+              storeId={storeId!}
+              expenseType="banco"
+              title="Contas a Pagar/Pagas via Banco"
+            />
+          </div>
         </div>
       </main>
 

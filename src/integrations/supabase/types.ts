@@ -823,6 +823,68 @@ export type Database = {
           },
         ]
       }
+      cash_control_expenses: {
+        Row: {
+          amount: number
+          attachment_status: Json | null
+          attachments: Json | null
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          description: string
+          edit_history: Json | null
+          expense_type: string
+          id: string
+          is_disabled: boolean
+          issue_date: string
+          store_id: string
+          supplier: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          attachment_status?: Json | null
+          attachments?: Json | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          description: string
+          edit_history?: Json | null
+          expense_type: string
+          id?: string
+          is_disabled?: boolean
+          issue_date: string
+          store_id: string
+          supplier: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          attachment_status?: Json | null
+          attachments?: Json | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          description?: string
+          edit_history?: Json | null
+          expense_type?: string
+          id?: string
+          is_disabled?: boolean
+          issue_date?: string
+          store_id?: string
+          supplier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_control_expenses_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
