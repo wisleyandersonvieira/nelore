@@ -889,8 +889,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                     <TableCell className="text-right text-red-600">
                       {item.saida > 0 ? formatCurrency(item.saida) : '-'}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(item.saldo)}
+                    <TableCell className={cn(
+                      "text-right font-medium",
+                      item.saldo < 0 && "text-red-600"
+                    )}>
+                      {item.saldo < 0 ? `-${formatCurrency(item.saldo)}` : formatCurrency(item.saldo)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -905,8 +908,15 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                   <TableCell className="text-right font-semibold text-red-600">
                     {formatCurrency(extratoItems.reduce((total, item) => total + item.saida, 0))}
                   </TableCell>
-                  <TableCell className="text-right font-bold">
-                    {extratoItems.length > 0 ? formatCurrency(extratoItems[extratoItems.length - 1].saldo) : formatCurrency(saldoAnterior)}
+                  <TableCell className={cn(
+                    "text-right font-bold",
+                    extratoItems.length > 0 && extratoItems[extratoItems.length - 1].saldo < 0 && "text-red-600"
+                  )}>
+                    {extratoItems.length > 0 
+                      ? (extratoItems[extratoItems.length - 1].saldo < 0 
+                          ? `-${formatCurrency(extratoItems[extratoItems.length - 1].saldo)}` 
+                          : formatCurrency(extratoItems[extratoItems.length - 1].saldo))
+                      : formatCurrency(saldoAnterior)}
                   </TableCell>
                 </TableRow>
               </TableBody>
