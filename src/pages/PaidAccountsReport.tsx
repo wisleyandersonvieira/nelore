@@ -178,10 +178,31 @@ const PaidAccountsReport = () => {
 
       if (error) throw error;
 
+      // If filtering by account, fetch the financial transactions to get the payment account
+      let transactionsByPayable: { [key: string]: string } = {};
+      if (filters.account_id && filters.account_id !== "all") {
+        const { data: transactions } = await supabase
+          .from("financial_transactions")
+          .select("reference_id, account_id")
+          .eq("reference_type", "accounts_payable")
+          .eq("account_id", filters.account_id);
+        
+        if (transactions) {
+          transactions.forEach((t: any) => {
+            transactionsByPayable[t.reference_id] = t.account_id;
+          });
+        }
+      }
+
       // Filter for paid accounts only and expand installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
         if (account.status !== 'paid') return;
+
+        // If filtering by account, check if this account was paid with the selected account
+        if (filters.account_id && filters.account_id !== "all") {
+          if (!transactionsByPayable[account.id]) return;
+        }
         
         if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
           // Has installments - create one row per paid installment
@@ -194,7 +215,8 @@ const PaidAccountsReport = () => {
                 payment_date: installment.payment_date,
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_payable_installments.length,
-                installment_id: installment.id
+                installment_id: installment.id,
+                payment_account_id: transactionsByPayable[account.id] || null
               });
             }
           });
@@ -203,7 +225,8 @@ const PaidAccountsReport = () => {
           accountsData.push({
             ...account,
             installment_number: 1,
-            total_installments: 1
+            total_installments: 1,
+            payment_account_id: transactionsByPayable[account.id] || null
           });
         }
       });
@@ -256,10 +279,6 @@ const PaidAccountsReport = () => {
 
       if (filters.store_id && filters.store_id !== "all") {
         accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
-      }
-
-      if (filters.account_id && filters.account_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.account_id === filters.account_id);
       }
 
       setAccounts(accountsData);
