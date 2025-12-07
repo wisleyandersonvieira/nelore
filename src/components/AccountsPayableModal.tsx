@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -126,6 +126,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [discount, setDiscount] = useState<number>(0);
   const [accountInstallments, setAccountInstallments] = useState<any[]>([]);
   const [selectedInstallments, setSelectedInstallments] = useState<string[]>([]);
+  
+  // Payment attachments state
+  const [paymentAttachments, setPaymentAttachments] = useState<Array<{file: File; name: string; title: string}>>([]);
+  const [uploadingPaymentAttachment, setUploadingPaymentAttachment] = useState(false);
+  const paymentFileInputRef = useRef<HTMLInputElement>(null);
 
   // Function to convert date input to local timezone format - prevents timezone issues
   const formatDateForDatabase = (dateString: string): string => {
@@ -2509,6 +2514,66 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     }
   };
 
+  // Payment attachment handlers
+  const handlePaymentFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: Array<{file: File; name: string; title: string}> = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      newAttachments.push({
+        file,
+        name: file.name,
+        title: `Comprovante de Pagamento - ${file.name}`,
+      });
+    }
+    setPaymentAttachments(prev => [...prev, ...newAttachments]);
+    
+    if (paymentFileInputRef.current) {
+      paymentFileInputRef.current.value = '';
+    }
+  };
+
+  const removePaymentAttachment = (index: number) => {
+    setPaymentAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updatePaymentAttachmentTitle = (index: number, title: string) => {
+    setPaymentAttachments(prev => prev.map((att, i) => 
+      i === index ? { ...att, title } : att
+    ));
+  };
+
+  const uploadPaymentAttachments = async (): Promise<any[]> => {
+    if (paymentAttachments.length === 0 || !paymentAccount) return [];
+
+    const uploadedAttachments: any[] = [];
+
+    for (const attachment of paymentAttachments) {
+      const fileExt = attachment.file.name.split('.').pop();
+      const fileName = `${paymentAccount.id}/payment_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('account-documents')
+        .upload(fileName, attachment.file);
+
+      if (uploadError) {
+        console.error('Error uploading file:', uploadError);
+        throw uploadError;
+      }
+
+      uploadedAttachments.push({
+        name: attachment.title,
+        path: fileName,
+        type: 'comprovante_pagamento',
+        uploaded_at: new Date().toISOString(),
+      });
+    }
+
+    return uploadedAttachments;
+  };
+
   const handlePayment = async () => {
     if (!paymentAccount || !selectedAccountId || !paymentDate) {
       toast({
@@ -2665,6 +2730,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         console.warn("Could not get user store_id:", profileError);
       }
 
+      // Upload payment attachments if any
+      let uploadedPaymentAttachments: any[] = [];
+      if (paymentAttachments.length > 0) {
+        setUploadingPaymentAttachment(true);
+        try {
+          uploadedPaymentAttachments = await uploadPaymentAttachments();
+        } finally {
+          setUploadingPaymentAttachment(false);
+        }
+      }
+
       if (accountInstallments.length > 0) {
         // Payment with installments
         const installmentsToPay = accountInstallments.filter(inst => 
@@ -2772,12 +2848,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         const allPaid = updatedInstallments?.every(inst => inst.payment_date !== null);
         const accountStatus = allPaid ? "paid" : "partial";
         
+        // Merge new attachments with existing ones
+        const existingAttachments = Array.isArray(paymentAccount.attachments) ? paymentAccount.attachments : [];
+        const allAttachments = [...existingAttachments, ...uploadedPaymentAttachments];
+        
         // Update account status
         const { error: updateAccountError } = await supabase
           .from("accounts_payable")
           .update({
             status: accountStatus,
             payment_date: accountStatus === "paid" ? formatDateForDatabase(paymentDate) : null,
+            attachments: allAttachments.length > 0 ? allAttachments : undefined,
           })
           .eq("id", paymentAccount.id);
 
@@ -2827,6 +2908,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         // Atualizar o valor total da conta se houver acréscimo ou desconto
         const updatedTotalAmount = originalAmount + surcharge - discount;
 
+        // Merge new attachments with existing ones (for non-installment payments)
+        const existingAttachmentsNoInst = Array.isArray(paymentAccount.attachments) ? paymentAccount.attachments : [];
+        const allAttachmentsNoInst = [...existingAttachmentsNoInst, ...uploadedPaymentAttachments];
+
         // Update account status to paid
         const { error: updateError } = await supabase
           .from("accounts_payable")
@@ -2835,6 +2920,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             payment_date: formatDateForDatabase(paymentDate),
             amount: finalAmount,
             total_amount: updatedTotalAmount,
+            attachments: allAttachmentsNoInst.length > 0 ? allAttachmentsNoInst : undefined,
           })
           .eq("id", paymentAccount.id);
 
@@ -2865,6 +2951,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       setShowPaymentModal(false);
       setPaymentAccount(null);
+      setPaymentAttachments([]);
       fetchFilteredAccountsPayable();
 
     } catch (error) {
@@ -4160,15 +4247,76 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </p>
                 </div>
 
+                {/* Anexos de Comprovante */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Comprovante de Pagamento
+                  </Label>
+                  
+                  <input
+                    ref={paymentFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    onChange={handlePaymentFileSelect}
+                    className="hidden"
+                  />
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => paymentFileInputRef.current?.click()}
+                    className="w-full"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Selecionar Arquivos
+                  </Button>
+
+                  {paymentAttachments.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {paymentAttachments.map((att, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                          <Paperclip className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Input
+                            value={att.title}
+                            onChange={(e) => updatePaymentAttachmentTitle(index, e.target.value)}
+                            placeholder="Título do anexo"
+                            className="h-8 text-sm flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removePaymentAttachment(index)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setShowPaymentModal(false);
+                    setPaymentAttachments([]);
+                  }}>
                     Cancelar
                   </Button>
                   <Button 
                     onClick={handlePayment} 
-                    disabled={loading || !selectedAccountId || !paymentDate || (accountInstallments.length > 0 && selectedInstallments.length === 0)}
+                    disabled={loading || uploadingPaymentAttachment || !selectedAccountId || !paymentDate || (accountInstallments.length > 0 && selectedInstallments.length === 0)}
                   >
-                    {loading ? "Processando..." : "Confirmar Pagamento"}
+                    {uploadingPaymentAttachment ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Enviando anexos...
+                      </>
+                    ) : loading ? "Processando..." : "Confirmar Pagamento"}
                   </Button>
                 </div>
               </div>
