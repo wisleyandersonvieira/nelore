@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
+import { Paperclip, X, Upload, Loader2 } from "lucide-react";
 
 interface Account {
   id: string;
@@ -24,6 +25,13 @@ interface AccountPayable {
   store_id: string;
   supplier_id?: string;
   suppliers?: { name: string };
+  attachments?: any[];
+}
+
+interface AttachmentFile {
+  file: File;
+  name: string;
+  title: string;
 }
 
 interface CashPaymentModalProps {
@@ -48,6 +56,9 @@ export function CashPaymentModal({
   const [surcharge, setSurcharge] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,8 +68,69 @@ export function CashPaymentModal({
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setSurcharge(0);
       setDiscount(0);
+      setAttachments([]);
     }
   }, [open, accountPayable, showAllAccounts]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: AttachmentFile[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      newAttachments.push({
+        file,
+        name: file.name,
+        title: `Comprovante de Pagamento - ${file.name}`,
+      });
+    }
+    setAttachments(prev => [...prev, ...newAttachments]);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateAttachmentTitle = (index: number, title: string) => {
+    setAttachments(prev => prev.map((att, i) => 
+      i === index ? { ...att, title } : att
+    ));
+  };
+
+  const uploadAttachments = async (): Promise<any[]> => {
+    if (attachments.length === 0 || !accountPayable) return [];
+
+    const uploadedAttachments: any[] = [];
+
+    for (const attachment of attachments) {
+      const fileExt = attachment.file.name.split('.').pop();
+      const fileName = `${accountPayable.id}/payment_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('account-documents')
+        .upload(fileName, attachment.file);
+
+      if (uploadError) {
+        console.error('Error uploading file:', uploadError);
+        throw uploadError;
+      }
+
+      uploadedAttachments.push({
+        name: attachment.title,
+        path: fileName,
+        type: 'comprovante_pagamento',
+        uploaded_at: new Date().toISOString(),
+      });
+    }
+
+    return uploadedAttachments;
+  };
 
   const fetchAccounts = async () => {
     if (!accountPayable) return;
@@ -191,6 +263,17 @@ export function CashPaymentModal({
         .eq("id", user.id)
         .single();
 
+      // Upload attachments if any
+      let uploadedAttachments: any[] = [];
+      if (attachments.length > 0) {
+        setUploadingAttachment(true);
+        try {
+          uploadedAttachments = await uploadAttachments();
+        } finally {
+          setUploadingAttachment(false);
+        }
+      }
+
       // Buscar produtos configurados para acréscimo e desconto
       if (surcharge > 0) {
         const { data: surchargeParam } = await supabase
@@ -234,6 +317,10 @@ export function CashPaymentModal({
         }
       }
 
+      // Merge new attachments with existing ones
+      const existingAttachments = Array.isArray(accountPayable.attachments) ? accountPayable.attachments : [];
+      const allAttachments = [...existingAttachments, ...uploadedAttachments];
+
       // Update account payable status
       const { error: updateError } = await supabase
         .from("accounts_payable")
@@ -241,6 +328,7 @@ export function CashPaymentModal({
           status: "paid",
           payment_date: paymentDate,
           amount: finalAmount,
+          attachments: allAttachments,
         })
         .eq("id", accountPayable.id);
 
@@ -364,15 +452,75 @@ export function CashPaymentModal({
               </p>
             </div>
 
+            {/* Anexos de Comprovante */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Comprovante de Pagamento
+              </Label>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Selecionar Arquivos
+              </Button>
+
+              {attachments.length > 0 && (
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {attachments.map((att, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                      <Paperclip className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        value={att.title}
+                        onChange={(e) => updateAttachmentTitle(index, e.target.value)}
+                        placeholder="Título do anexo"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeAttachment(index)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button 
                 onClick={handlePayment} 
-                disabled={loading || !selectedAccountId || !paymentDate}
+                disabled={loading || uploadingAttachment || !selectedAccountId || !paymentDate}
               >
-                {loading ? "Processando..." : "Confirmar Pagamento"}
+                {loading || uploadingAttachment ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {uploadingAttachment ? "Enviando anexos..." : "Processando..."}
+                  </>
+                ) : (
+                  "Confirmar Pagamento"
+                )}
               </Button>
             </div>
           </div>
