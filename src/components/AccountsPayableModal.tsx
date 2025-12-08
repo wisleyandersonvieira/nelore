@@ -2766,7 +2766,28 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           const finalAmount = installmentAmount + surcharge - discount;
           totalPaymentAmount += finalAmount;
 
-          // Inserir item de acréscimo se houver
+          // Registrar o pagamento na nova tabela accounts_payable_payments
+          const { data: paymentRecord, error: paymentRecordError } = await supabase
+            .from("accounts_payable_payments")
+            .insert({
+              installment_id: installment.id,
+              account_payable_id: paymentAccount.id,
+              payment_date: formatDateForDatabase(paymentDate),
+              amount_paid: installmentAmount,
+              interest_amount: surcharge,
+              discount_amount: discount,
+              interest_product_id: surcharge > 0 && surchargeProduct ? surchargeProduct.id : null,
+              discount_product_id: discount > 0 && discountProduct ? discountProduct.id : null,
+              payment_account_id: selectedAccountId,
+              payment_account_type: currentAccounts.find(acc => acc.id === selectedAccountId)?.account_type || 'current',
+              created_by: user.id,
+            })
+            .select()
+            .single();
+
+          if (paymentRecordError) throw paymentRecordError;
+
+          // Inserir item de acréscimo se houver (manter comportamento legado para relatórios antigos)
           if (surcharge > 0 && surchargeProduct) {
             const { error: surchargeItemError } = await supabase
               .from("accounts_payable_items")
@@ -2792,7 +2813,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             if (updateInstallmentAmountError) throw updateInstallmentAmountError;
           }
 
-          // Inserir item de desconto se houver
+          // Inserir item de desconto se houver (manter comportamento legado para relatórios antigos)
           if (discount > 0 && discountProduct) {
             const { error: discountItemError } = await supabase
               .from("accounts_payable_items")
