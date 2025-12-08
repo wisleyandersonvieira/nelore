@@ -321,12 +321,14 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         }
       } else {
         // Para regime de competência: buscar por data de competência (lógica original)
+        // Incluir payment_date e accounts_payable_installments para processar juros/descontos corretamente
         const { data, error } = await supabase
           .from('accounts_payable')
           .select(`
             id,
             store_id,
             data_competencia,
+            payment_date,
             accounts_payable_items (
               product_id,
               quantity,
@@ -337,6 +339,13 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                 name,
                 subgroup_id
               )
+            ),
+            accounts_payable_installments (
+              id,
+              installment_number,
+              due_date,
+              amount,
+              payment_date
             ),
             stores (name)
           `)
