@@ -202,16 +202,26 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       // Buscar parâmetros de faturamento configurados
       const { data: faturamentoParams, error: paramsError } = await supabase
         .from('system_parameters')
-        .select('parameter_key, subgroup_id')
-        .in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery']);
+        .select('parameter_key, subgroup_id, product_id')
+        .in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto']);
 
       if (paramsError) throw paramsError;
 
       // Criar mapeamento de parâmetros para subgrupos
       const faturamentoMapping: Record<string, string> = {};
+      // IDs dos produtos de acréscimo e desconto (juros)
+      let acrescimoProductId: string | null = null;
+      let descontoProductId: string | null = null;
+      
       faturamentoParams?.forEach(param => {
         if (param.subgroup_id) {
           faturamentoMapping[param.parameter_key] = param.subgroup_id;
+        }
+        if (param.parameter_key === 'acrescimo' && param.product_id) {
+          acrescimoProductId = param.product_id;
+        }
+        if (param.parameter_key === 'desconto' && param.product_id) {
+          descontoProductId = param.product_id;
         }
       });
 
@@ -467,7 +477,8 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                   si.account_group_id === subgroupId
                 );
 
-                if (structureItem && value > 0) {
+                // Considerar valores positivos e negativos (descontos são negativos)
+                if (structureItem && value !== 0) {
                   if (!groupedData[key].values[structureItem.id]) {
                     groupedData[key].values[structureItem.id] = 0;
                   }
@@ -489,14 +500,37 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             return;
           }
 
-          // Valor total da conta a pagar
-          const totalAccountAmount = parseFloat(account.total_amount) || 0;
+          // Separar itens normais de itens de juros/desconto
+          const normalItems = account.accounts_payable_items?.filter((item: any) => 
+            item.product_id !== acrescimoProductId && item.product_id !== descontoProductId
+          ) || [];
           
-          if (totalAccountAmount === 0) {
-            console.warn('Conta a pagar sem valor total:', account.id);
+          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => 
+            item.product_id === acrescimoProductId || item.product_id === descontoProductId
+          ) || [];
+
+          // Calcular o valor base da conta (sem juros/descontos) para proporção correta
+          const baseAccountAmount = normalItems.reduce((sum: number, item: any) => 
+            sum + (parseFloat(item.total_price) || 0), 0);
+          
+          // Valor original de cada parcela (antes de juros/descontos adicionados)
+          // Assumindo que as parcelas foram criadas com base no valor original
+          const totalInstallmentsOriginalAmount = account.accounts_payable_installments?.reduce(
+            (sum: number, inst: any) => sum + (parseFloat(inst.amount) || 0), 0
+          ) || 0;
+          
+          if (baseAccountAmount === 0 && interestDiscountItems.length === 0) {
+            console.warn('Conta a pagar sem itens:', account.id);
             return;
           }
 
+          // Para cada parcela paga, calcular a proporção dos itens normais
+          // e lançar 100% dos juros/descontos apenas na primeira parcela que está sendo processada
+          // (já que não temos como saber qual parcela gerou qual juros)
+          
+          // Abordagem: dividir os juros/descontos pelo número de parcelas pagas
+          const totalPaidInstallments = paidInstallments.length;
+          
           paidInstallments.forEach((installment: any) => {
             const { month, year } = getMonthAndYearFromDate(installment.payment_date);
 
@@ -520,10 +554,13 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               };
             }
 
-            // Proporção desta parcela em relação ao valor total da conta
-            const installmentProportion = parseFloat(installment.amount) / totalAccountAmount;
+            // Proporção desta parcela em relação ao valor base da conta (sem juros/descontos)
+            const installmentProportion = baseAccountAmount > 0 
+              ? parseFloat(installment.amount) / totalInstallmentsOriginalAmount
+              : 0;
 
-            account.accounts_payable_items?.forEach((item: any) => {
+            // Processar itens normais proporcionalmente
+            normalItems.forEach((item: any) => {
               if (item.products?.subgroup_id) {
                 const subgroupId = item.products.subgroup_id;
                 // Calcular o valor proporcional baseado na parcela paga
@@ -540,6 +577,29 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                     groupedData[key].values[structureItem.id] = 0;
                   }
                   groupedData[key].values[structureItem.id] += proportionalValue;
+                }
+              }
+            });
+
+            // Processar juros/descontos divididos igualmente entre as parcelas pagas
+            // (já que não temos como saber qual parcela específica gerou qual juros)
+            interestDiscountItems.forEach((item: any) => {
+              if (item.products?.subgroup_id) {
+                const subgroupId = item.products.subgroup_id;
+                // Dividir o valor do juros/desconto pelo número de parcelas pagas
+                const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+
+                // Encontrar o item da estrutura que corresponde a este subgrupo
+                const structureItem = structureItems.find(si => 
+                  si.item_type === 'subgroup' && 
+                  si.account_group_id === subgroupId
+                );
+
+                if (structureItem && dividedValue !== 0) {
+                  if (!groupedData[key].values[structureItem.id]) {
+                    groupedData[key].values[structureItem.id] = 0;
+                  }
+                  groupedData[key].values[structureItem.id] += dividedValue;
                 }
               }
             });
