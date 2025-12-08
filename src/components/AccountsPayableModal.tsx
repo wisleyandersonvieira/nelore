@@ -3707,7 +3707,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     <FileDown className="h-3 w-3" />
                                     Download
                                   </Button>
-                                  {(editingAccount?.status !== 'paid' && editingAccount?.status !== 'parcial' && viewOnlyAccount?.status !== 'paid' && viewOnlyAccount?.status !== 'parcial') && (
+                                  {(editingAccount?.status !== 'paid' && editingAccount?.status !== 'partial' && viewOnlyAccount?.status !== 'paid' && viewOnlyAccount?.status !== 'partial') && (
                                     <Button
                                       type="button"
                                       variant="ghost"
