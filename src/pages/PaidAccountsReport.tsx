@@ -178,6 +178,21 @@ const PaidAccountsReport = () => {
 
       if (error) throw error;
 
+      // Fetch payments data with interest/discount products
+      const { data: paymentsData } = await supabase
+        .from("accounts_payable_payments")
+        .select(`
+          *,
+          interest_product:interest_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
+          discount_product:discount_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+        `);
+
+      // Create a map of payments by installment_id
+      const paymentsByInstallmentId: { [key: string]: any } = {};
+      (paymentsData || []).forEach((payment: any) => {
+        paymentsByInstallmentId[payment.installment_id] = payment;
+      });
+
       // If filtering by account, fetch the financial transactions to get the payment account
       let transactionsByPayable: { [key: string]: string } = {};
       if (filters.account_id && filters.account_id !== "all") {
@@ -209,6 +224,7 @@ const PaidAccountsReport = () => {
           // Has installments - create one row per paid installment
           account.accounts_payable_installments.forEach((installment: any) => {
             if (installment.payment_date) { // Only paid installments
+              const payment = paymentsByInstallmentId[installment.id];
               accountsData.push({
                 ...account,
                 due_date: installment.due_date,
@@ -217,7 +233,12 @@ const PaidAccountsReport = () => {
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_payable_installments.length,
                 installment_id: installment.id,
-                payment_account_id: transactionsByPayable[account.id] || null
+                payment_account_id: transactionsByPayable[account.id] || null,
+                // Add interest/discount data from payments table
+                interest_amount: payment?.interest_amount || 0,
+                discount_amount: payment?.discount_amount || 0,
+                interest_product: payment?.interest_product || null,
+                discount_product: payment?.discount_product || null
               });
             }
           });
@@ -227,7 +248,11 @@ const PaidAccountsReport = () => {
             ...account,
             installment_number: 1,
             total_installments: 1,
-            payment_account_id: transactionsByPayable[account.id] || null
+            payment_account_id: transactionsByPayable[account.id] || null,
+            interest_amount: 0,
+            discount_amount: 0,
+            interest_product: null,
+            discount_product: null
           });
         }
       });
@@ -521,10 +546,11 @@ const PaidAccountsReport = () => {
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
     }
     
-    // Group accounts by subgroup
-    const accountsBySubgroup: { [key: string]: { subgroupName: string; accounts: any[] } } = {};
+    // Group accounts by subgroup - using product items for grouping
+    const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
     
     accounts.forEach(account => {
+      // Process normal product items (original values, no interest/discount)
       if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
         account.accounts_payable_items.forEach((item: any) => {
           const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
@@ -533,38 +559,106 @@ const PaidAccountsReport = () => {
           if (!accountsBySubgroup[subgroupId]) {
             accountsBySubgroup[subgroupId] = {
               subgroupName,
-              accounts: []
+              items: []
             };
           }
           
-          // Check if this account is already added for this subgroup
-          const existingAccount = accountsBySubgroup[subgroupId].accounts.find(
-            (a: any) => a.id === account.id && a.installment_id === account.installment_id
-          );
-          
-          if (!existingAccount) {
-            accountsBySubgroup[subgroupId].accounts.push({
-              ...account,
-              itemAmount: item.total_price || 0
-            });
-          }
+          // Add item with its original value (total_price from the item, not the installment amount)
+          accountsBySubgroup[subgroupId].items.push({
+            description: account.description,
+            supplierName: getSupplierOrEmployeeName(account),
+            storeName: account.stores?.name || "N/A",
+            paymentDate: account.payment_date,
+            amount: item.total_price || 0,
+            installmentNumber: account.installment_number,
+            totalInstallments: account.total_installments,
+            accountId: account.id,
+            installmentId: account.installment_id,
+            productName: item.products?.name || "Produto"
+          });
         });
-      } else {
-        // Accounts without items go to "Sem Subgrupo"
+      }
+      
+      // Process interest (juros) - add to interest product's subgroup
+      if (account.interest_amount && account.interest_amount > 0 && account.interest_product) {
+        const subgroupId = account.interest_product.subgroup_id || 'sem-subgrupo';
+        const subgroupName = account.interest_product.account_groups?.name || 'Sem Subgrupo';
+        
+        if (!accountsBySubgroup[subgroupId]) {
+          accountsBySubgroup[subgroupId] = {
+            subgroupName,
+            items: []
+          };
+        }
+        
+        accountsBySubgroup[subgroupId].items.push({
+          description: `${account.description} (Juros)`,
+          supplierName: getSupplierOrEmployeeName(account),
+          storeName: account.stores?.name || "N/A",
+          paymentDate: account.payment_date,
+          amount: account.interest_amount,
+          installmentNumber: account.installment_number,
+          totalInstallments: account.total_installments,
+          accountId: account.id,
+          installmentId: account.installment_id,
+          productName: account.interest_product.name || "Juros"
+        });
+      }
+      
+      // Process discount (desconto) - add to discount product's subgroup with negative value
+      if (account.discount_amount && account.discount_amount > 0 && account.discount_product) {
+        const subgroupId = account.discount_product.subgroup_id || 'sem-subgrupo';
+        const subgroupName = account.discount_product.account_groups?.name || 'Sem Subgrupo';
+        
+        if (!accountsBySubgroup[subgroupId]) {
+          accountsBySubgroup[subgroupId] = {
+            subgroupName,
+            items: []
+          };
+        }
+        
+        accountsBySubgroup[subgroupId].items.push({
+          description: `${account.description} (Desconto)`,
+          supplierName: getSupplierOrEmployeeName(account),
+          storeName: account.stores?.name || "N/A",
+          paymentDate: account.payment_date,
+          amount: -account.discount_amount, // Negative for discount
+          installmentNumber: account.installment_number,
+          totalInstallments: account.total_installments,
+          accountId: account.id,
+          installmentId: account.installment_id,
+          productName: account.discount_product.name || "Desconto"
+        });
+      }
+      
+      // If account has no items and no interest/discount, add to "Sem Subgrupo"
+      if ((!account.accounts_payable_items || account.accounts_payable_items.length === 0) && 
+          !account.interest_amount && !account.discount_amount) {
         if (!accountsBySubgroup['sem-subgrupo']) {
           accountsBySubgroup['sem-subgrupo'] = {
             subgroupName: 'Sem Subgrupo',
-            accounts: []
+            items: []
           };
         }
-        accountsBySubgroup['sem-subgrupo'].accounts.push(account);
+        accountsBySubgroup['sem-subgrupo'].items.push({
+          description: account.description,
+          supplierName: getSupplierOrEmployeeName(account),
+          storeName: account.stores?.name || "N/A",
+          paymentDate: account.payment_date,
+          amount: account.amount || 0,
+          installmentNumber: account.installment_number,
+          totalInstallments: account.total_installments,
+          accountId: account.id,
+          installmentId: account.installment_id,
+          productName: null
+        });
       }
     });
     
     // Build table data
     const tableData: any[] = [];
     let grandTotal = 0;
-    let totalAccounts = 0;
+    let totalItems = 0;
     
     Object.values(accountsBySubgroup).forEach(group => {
       // Subgroup header row
@@ -572,26 +666,26 @@ const PaidAccountsReport = () => {
         { content: group.subgroupName, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
       ]);
       
-      // Accounts for this subgroup
+      // Items for this subgroup
       let subgroupTotal = 0;
-      group.accounts.forEach(account => {
+      group.items.forEach(item => {
         tableData.push([
-          account.description,
-          getSupplierOrEmployeeName(account),
-          account.stores?.name || "N/A",
-          account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
-          account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+          item.description,
+          item.supplierName,
+          item.storeName,
+          item.paymentDate ? new Date(item.paymentDate + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+          item.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          item.totalInstallments > 1 ? `${item.installmentNumber}/${item.totalInstallments}` : "À vista"
         ]);
-        subgroupTotal += account.amount || 0;
-        totalAccounts++;
+        subgroupTotal += item.amount || 0;
+        totalItems++;
       });
       
       // Subgroup subtotal
       tableData.push([
         { content: `Subtotal ${group.subgroupName}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
         { content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
-        { content: `${group.accounts.length} conta(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+        { content: `${group.items.length} item(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
       ]);
       
       grandTotal += subgroupTotal;
@@ -601,7 +695,7 @@ const PaidAccountsReport = () => {
     tableData.push([
       { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [34, 197, 94], textColor: 255 } },
       { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } },
-      { content: `${totalAccounts} conta(s)`, styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } }
+      { content: `${totalItems} item(s)`, styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } }
     ]);
 
     autoTable(doc, {
