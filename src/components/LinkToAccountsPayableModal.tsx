@@ -122,6 +122,7 @@ export function LinkToAccountsPayableModal({
     due_date: string;
     store_id: string;
     suppliers?: { name: string };
+    attachments?: any[];
   } | null>(null);
 
   useEffect(() => {
@@ -471,7 +472,14 @@ export function LinkToAccountsPayableModal({
         description: "Conta a pagar criada e vinculada com sucesso",
       });
 
-      // Store the created account payable for potential payment
+      // Buscar os dados atualizados da conta a pagar (incluindo anexos copiados)
+      const { data: updatedPayable } = await supabase
+        .from("accounts_payable")
+        .select("attachments")
+        .eq("id", payable.id)
+        .single();
+
+      // Store the created account payable for potential payment (with attachments)
       const selectedSupplierData = suppliers.find(s => s.id === supplierId);
       setCreatedAccountPayable({
         id: payable.id,
@@ -479,7 +487,8 @@ export function LinkToAccountsPayableModal({
         amount: totalAmount,
         due_date: dueDate,
         store_id: storeToUse,
-        suppliers: selectedSupplierData ? { name: selectedSupplierData.name } : undefined
+        suppliers: selectedSupplierData ? { name: selectedSupplierData.name } : undefined,
+        attachments: Array.isArray(updatedPayable?.attachments) ? updatedPayable.attachments : []
       });
 
       // Close the main modal and show payment confirmation
