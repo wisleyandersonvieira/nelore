@@ -194,10 +194,11 @@ const PaidAccountsReport = () => {
         }
       }
 
-      // Filter for paid accounts only and expand installments
+      // Filter for paid or partial accounts and expand installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        if (account.status !== 'paid') return;
+        // Include both 'paid' and 'partial' status - we want to show paid installments
+        if (account.status !== 'paid' && account.status !== 'partial') return;
 
         // If filtering by account, check if this account was paid with the selected account
         if (filters.account_id && filters.account_id !== "all") {
