@@ -85,7 +85,7 @@ interface AccountPayable {
   stores?: { name: string };
   created_at: string;
   payment_date?: string;
-  attachments?: Array<{name: string, url: string, size: number}>;
+  attachments?: Array<{name: string, url?: string, path?: string, size?: number, type?: string}>;
 }
 
 interface Installment {
@@ -224,7 +224,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   // File upload fields
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url: string, size: number}>>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url?: string, path?: string, size?: number, type?: string}>>([]);
 
   // Search modals state
   const [showSupplierSearch, setShowSupplierSearch] = useState(false);
@@ -300,7 +300,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (error) throw error;
       const formattedData = (data || []).map(item => ({
         ...item,
-        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}> : []
       }));
       setAccountsPayable(formattedData);
       setViewCurrentPage(1);
@@ -331,7 +331,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (error) throw error;
       const formattedData = (data || []).map(item => ({
         ...item,
-        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}> : []
       }));
       setAccountsPayable(formattedData);
     } catch (error) {
@@ -386,7 +386,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (error) throw error;
       const formattedData = (data || []).map(item => ({
         ...item,
-        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}> : []
       }));
       setAccountsPayable(formattedData);
       setPaymentShowFilteredData(true);
@@ -518,7 +518,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (error) throw error;
       const formattedData = (data || []).map(item => ({
         ...item,
-        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url: string, size: number}> : []
+        attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}> : []
       }));
       
       console.log('📊 Dados das contas buscadas:', formattedData.map(item => ({
@@ -1448,8 +1448,19 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     return uploadedFiles;
   };
 
-  const downloadFile = async (filePath: string, fileName: string) => {
+  const downloadFile = async (filePath: string | undefined, fileName: string) => {
     try {
+      // Verificar se filePath existe
+      if (!filePath) {
+        console.error('❌ Erro no download: filePath é undefined');
+        toast({
+          title: "Erro",
+          description: "Caminho do arquivo não encontrado",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       console.log('📥 Iniciando download do arquivo:', filePath);
       
       // Detectar se é PDF para forçar download
@@ -3674,16 +3685,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 <div className="flex items-center gap-2">
                                   <FileText className="h-4 w-4" />
                                   <span className="text-sm">{file.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    ({(file.size / 1024).toFixed(1)} KB)
-                                  </span>
+                                  {file.size && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ({(file.size / 1024).toFixed(1)} KB)
+                                    </span>
+                                  )}
+                                  {file.type && (
+                                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                      {file.type === 'comprovante_pagamento' ? 'Comprovante' : file.type}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => downloadFile(file.url, file.name)}
+                                    onClick={() => downloadFile(file.path || file.url, file.name)}
                                     className="flex items-center gap-1"
                                   >
                                     <FileDown className="h-3 w-3" />

@@ -390,7 +390,7 @@ export function LinkToAccountsPayableModal({
 
       // Copy attachments from expense to accounts payable
       if (expense?.attachments && expense.attachments.length > 0) {
-        const copiedAttachments: Array<{name: string, url: string, size: number}> = [];
+        const copiedAttachments: Array<{name: string, path: string, size: number}> = [];
         
         for (const att of expense.attachments) {
           try {
@@ -418,7 +418,7 @@ export function LinkToAccountsPayableModal({
 
             copiedAttachments.push({
               name: att.originalName,
-              url: newFileName,
+              path: newFileName,
               size: fileData.size
             });
           } catch (error) {
