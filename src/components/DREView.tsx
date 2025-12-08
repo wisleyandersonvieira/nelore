@@ -513,11 +513,8 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           const baseAccountAmount = normalItems.reduce((sum: number, item: any) => 
             sum + (parseFloat(item.total_price) || 0), 0);
           
-          // Valor original de cada parcela (antes de juros/descontos adicionados)
-          // Assumindo que as parcelas foram criadas com base no valor original
-          const totalInstallmentsOriginalAmount = account.accounts_payable_installments?.reduce(
-            (sum: number, inst: any) => sum + (parseFloat(inst.amount) || 0), 0
-          ) || 0;
+          // Calcular o total de parcelas para saber a proporção de cada uma
+          const totalInstallments = account.accounts_payable_installments?.length || 1;
           
           if (baseAccountAmount === 0 && interestDiscountItems.length === 0) {
             console.warn('Conta a pagar sem itens:', account.id);
@@ -554,10 +551,9 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               };
             }
 
-            // Proporção desta parcela em relação ao valor base da conta (sem juros/descontos)
-            const installmentProportion = baseAccountAmount > 0 
-              ? parseFloat(installment.amount) / totalInstallmentsOriginalAmount
-              : 0;
+            // Proporção desta parcela em relação ao total de parcelas
+            // Cada parcela representa 1/N do valor base dos itens normais
+            const installmentProportion = 1 / totalInstallments;
 
             // Processar itens normais proporcionalmente
             normalItems.forEach((item: any) => {
