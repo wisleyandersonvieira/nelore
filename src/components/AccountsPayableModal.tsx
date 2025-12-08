@@ -3707,15 +3707,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     <FileDown className="h-3 w-3" />
                                     Download
                                   </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeExistingAttachment(index)}
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
+                                  {editingAccount?.status !== 'paid' && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeExistingAttachment(index)}
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             ))}
