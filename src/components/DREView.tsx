@@ -247,6 +247,33 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       // Buscar contas a pagar com produtos
       let accountsPayableData, apError;
       
+      // Buscar registros de pagamentos da nova tabela (para juros/descontos corretos)
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('accounts_payable_payments')
+        .select(`
+          id,
+          installment_id,
+          account_payable_id,
+          payment_date,
+          amount_paid,
+          interest_amount,
+          discount_amount,
+          interest_product_id,
+          discount_product_id
+        `)
+        .gte('payment_date', `${selectedYear}-01-01`)
+        .lte('payment_date', `${selectedYear}-12-31`);
+
+      if (paymentsError) {
+        console.warn('Erro ao buscar payments:', paymentsError);
+      }
+
+      // Criar mapa de pagamentos por installment_id para uso posterior
+      const paymentsByInstallmentId: Record<string, any> = {};
+      paymentsData?.forEach(payment => {
+        paymentsByInstallmentId[payment.installment_id] = payment;
+      });
+      
       if (isCashRegime) {
         // Para regime de caixa: buscar contas pagas (com ou sem parcelas)
         
@@ -586,28 +613,81 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               }
             });
 
-            // Processar juros/descontos divididos igualmente entre as parcelas pagas
-            // (já que não temos como saber qual parcela específica gerou qual juros)
-            interestDiscountItems.forEach((item: any) => {
-              if (item.products?.subgroup_id) {
-                const subgroupId = item.products.subgroup_id;
-                // Dividir o valor do juros/desconto pelo número de parcelas pagas
-                const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
-
-                // Encontrar o item da estrutura que corresponde a este subgrupo
-                const structureItem = structureItems.find(si => 
-                  si.item_type === 'subgroup' && 
-                  si.account_group_id === subgroupId
+            // Processar juros/descontos da nova tabela accounts_payable_payments
+            // Cada pagamento tem seus próprios juros/descontos com data correta
+            const paymentRecord = paymentsByInstallmentId[installment.id];
+            
+            if (paymentRecord) {
+              // Processar juros (acréscimo) se houver
+              if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoProductId) {
+                // Buscar subgrupo do produto de acréscimo
+                const interestItem = interestDiscountItems.find((item: any) => 
+                  item.product_id === acrescimoProductId
                 );
+                
+                if (interestItem?.products?.subgroup_id) {
+                  const subgroupId = interestItem.products.subgroup_id;
+                  const structureItem = structureItems.find(si => 
+                    si.item_type === 'subgroup' && 
+                    si.account_group_id === subgroupId
+                  );
 
-                if (structureItem && dividedValue !== 0) {
-                  if (!groupedData[key].values[structureItem.id]) {
-                    groupedData[key].values[structureItem.id] = 0;
+                  if (structureItem) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    groupedData[key].values[structureItem.id] += paymentRecord.interest_amount;
                   }
-                  groupedData[key].values[structureItem.id] += dividedValue;
                 }
               }
-            });
+
+              // Processar desconto se houver (valor negativo)
+              if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
+                // Buscar subgrupo do produto de desconto
+                const discountItem = interestDiscountItems.find((item: any) => 
+                  item.product_id === descontoProductId
+                );
+                
+                if (discountItem?.products?.subgroup_id) {
+                  const subgroupId = discountItem.products.subgroup_id;
+                  const structureItem = structureItems.find(si => 
+                    si.item_type === 'subgroup' && 
+                    si.account_group_id === subgroupId
+                  );
+
+                  if (structureItem) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    // Desconto é valor negativo
+                    groupedData[key].values[structureItem.id] -= paymentRecord.discount_amount;
+                  }
+                }
+              }
+            } else {
+              // Fallback: se não encontrar na nova tabela, usar a lógica legada
+              // (para pagamentos feitos antes da nova estrutura)
+              interestDiscountItems.forEach((item: any) => {
+                if (item.products?.subgroup_id) {
+                  const subgroupId = item.products.subgroup_id;
+                  // Dividir o valor do juros/desconto pelo número de parcelas pagas
+                  const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+
+                  // Encontrar o item da estrutura que corresponde a este subgrupo
+                  const structureItem = structureItems.find(si => 
+                    si.item_type === 'subgroup' && 
+                    si.account_group_id === subgroupId
+                  );
+
+                  if (structureItem && dividedValue !== 0) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    groupedData[key].values[structureItem.id] += dividedValue;
+                  }
+                }
+              });
+            }
           });
         } else {
           // Para regime de competência: usar data_competencia para itens normais
@@ -704,25 +784,74 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                     };
                   }
 
-                  // Dividir o valor dos juros/descontos entre as parcelas pagas
-                  interestDiscountItems.forEach((item: any) => {
-                    if (item.products?.subgroup_id) {
-                      const subgroupId = item.products.subgroup_id;
-                      const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
-
-                      const structureItem = structureItems.find(si => 
-                        si.item_type === 'subgroup' && 
-                        si.account_group_id === subgroupId
+                  // Usar dados da nova tabela accounts_payable_payments
+                  const paymentRecord = paymentsByInstallmentId[installment.id];
+                  
+                  if (paymentRecord) {
+                    // Processar juros (acréscimo) se houver
+                    if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoProductId) {
+                      const interestItem = interestDiscountItems.find((item: any) => 
+                        item.product_id === acrescimoProductId
                       );
+                      
+                      if (interestItem?.products?.subgroup_id) {
+                        const subgroupId = interestItem.products.subgroup_id;
+                        const structureItem = structureItems.find(si => 
+                          si.item_type === 'subgroup' && 
+                          si.account_group_id === subgroupId
+                        );
 
-                      if (structureItem && dividedValue !== 0) {
-                        if (!groupedData[key].values[structureItem.id]) {
-                          groupedData[key].values[structureItem.id] = 0;
+                        if (structureItem) {
+                          if (!groupedData[key].values[structureItem.id]) {
+                            groupedData[key].values[structureItem.id] = 0;
+                          }
+                          groupedData[key].values[structureItem.id] += paymentRecord.interest_amount;
                         }
-                        groupedData[key].values[structureItem.id] += dividedValue;
                       }
                     }
-                  });
+
+                    // Processar desconto se houver (valor negativo)
+                    if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
+                      const discountItem = interestDiscountItems.find((item: any) => 
+                        item.product_id === descontoProductId
+                      );
+                      
+                      if (discountItem?.products?.subgroup_id) {
+                        const subgroupId = discountItem.products.subgroup_id;
+                        const structureItem = structureItems.find(si => 
+                          si.item_type === 'subgroup' && 
+                          si.account_group_id === subgroupId
+                        );
+
+                        if (structureItem) {
+                          if (!groupedData[key].values[structureItem.id]) {
+                            groupedData[key].values[structureItem.id] = 0;
+                          }
+                          groupedData[key].values[structureItem.id] -= paymentRecord.discount_amount;
+                        }
+                      }
+                    }
+                  } else {
+                    // Fallback para lógica legada (pagamentos anteriores à nova tabela)
+                    interestDiscountItems.forEach((item: any) => {
+                      if (item.products?.subgroup_id) {
+                        const subgroupId = item.products.subgroup_id;
+                        const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+
+                        const structureItem = structureItems.find(si => 
+                          si.item_type === 'subgroup' && 
+                          si.account_group_id === subgroupId
+                        );
+
+                        if (structureItem && dividedValue !== 0) {
+                          if (!groupedData[key].values[structureItem.id]) {
+                            groupedData[key].values[structureItem.id] = 0;
+                          }
+                          groupedData[key].values[structureItem.id] += dividedValue;
+                        }
+                      }
+                    });
+                  }
                 });
               }
             } else {

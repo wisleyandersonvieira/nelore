@@ -250,6 +250,89 @@ export type Database = {
           },
         ]
       }
+      accounts_payable_payments: {
+        Row: {
+          account_payable_id: string
+          amount_paid: number
+          created_at: string
+          created_by: string
+          discount_amount: number
+          discount_product_id: string | null
+          id: string
+          installment_id: string
+          interest_amount: number
+          interest_product_id: string | null
+          notes: string | null
+          payment_account_id: string | null
+          payment_account_type: string | null
+          payment_date: string
+          updated_at: string
+        }
+        Insert: {
+          account_payable_id: string
+          amount_paid?: number
+          created_at?: string
+          created_by: string
+          discount_amount?: number
+          discount_product_id?: string | null
+          id?: string
+          installment_id: string
+          interest_amount?: number
+          interest_product_id?: string | null
+          notes?: string | null
+          payment_account_id?: string | null
+          payment_account_type?: string | null
+          payment_date: string
+          updated_at?: string
+        }
+        Update: {
+          account_payable_id?: string
+          amount_paid?: number
+          created_at?: string
+          created_by?: string
+          discount_amount?: number
+          discount_product_id?: string | null
+          id?: string
+          installment_id?: string
+          interest_amount?: number
+          interest_product_id?: string | null
+          notes?: string | null
+          payment_account_id?: string | null
+          payment_account_type?: string | null
+          payment_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_payments_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payments_discount_product_id_fkey"
+            columns: ["discount_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payments_interest_product_id_fkey"
+            columns: ["interest_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_receivable: {
         Row: {
           account_id: string | null
