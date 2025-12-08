@@ -601,48 +601,165 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             });
           });
         } else {
-          // Para regime de competência: usar lógica original
-          const { month, year } = getMonthAndYearFromDate(account.data_competencia);
+          // Para regime de competência: usar data_competencia para itens normais
+          // mas data de pagamento para juros/descontos
+          
+          // Separar itens normais de itens de juros/desconto
+          const normalItems = account.accounts_payable_items?.filter((item: any) => 
+            item.product_id !== acrescimoProductId && item.product_id !== descontoProductId
+          ) || [];
+          
+          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => 
+            item.product_id === acrescimoProductId || item.product_id === descontoProductId
+          ) || [];
 
-          // Verificar se o mês está selecionado
-          if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
-            return;
-          }
+          // Processar itens normais pela data de competência
+          if (normalItems.length > 0) {
+            const { month, year } = getMonthAndYearFromDate(account.data_competencia);
 
-          const storeId = account.store_id;
-          const storeName = account.stores?.name || 'Loja sem nome';
-          const key = `${storeId}-${month}`;
+            // Verificar se o mês está selecionado
+            if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
+              const storeId = account.store_id;
+              const storeName = account.stores?.name || 'Loja sem nome';
+              const key = `${storeId}-${month}`;
 
-          // Inicializar se não existir
-          if (!groupedData[key]) {
-            groupedData[key] = {
-              month,
-              year: parseInt(selectedYear),
-              store_id: storeId,
-              store_name: storeName,
-              values: {}
-            };
-          }
+              // Inicializar se não existir
+              if (!groupedData[key]) {
+                groupedData[key] = {
+                  month,
+                  year: parseInt(selectedYear),
+                  store_id: storeId,
+                  store_name: storeName,
+                  values: {}
+                };
+              }
 
-          account.accounts_payable_items?.forEach((item: any) => {
-            if (item.products?.subgroup_id) {
-              const subgroupId = item.products.subgroup_id;
-              const value = parseFloat(item.total_price) || 0;
+              normalItems.forEach((item: any) => {
+                if (item.products?.subgroup_id) {
+                  const subgroupId = item.products.subgroup_id;
+                  const value = parseFloat(item.total_price) || 0;
 
-              // Encontrar o item da estrutura que corresponde a este subgrupo
-              const structureItem = structureItems.find(si => 
-                si.item_type === 'subgroup' && 
-                si.account_group_id === subgroupId
-              );
+                  // Encontrar o item da estrutura que corresponde a este subgrupo
+                  const structureItem = structureItems.find(si => 
+                    si.item_type === 'subgroup' && 
+                    si.account_group_id === subgroupId
+                  );
 
-              if (structureItem) {
-                if (!groupedData[key].values[structureItem.id]) {
-                  groupedData[key].values[structureItem.id] = 0;
+                  if (structureItem) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    groupedData[key].values[structureItem.id] += value;
+                  }
                 }
-                groupedData[key].values[structureItem.id] += value;
+              });
+            }
+          }
+
+          // Processar juros/descontos pela data de pagamento
+          // Se não houver parcelas, usar payment_date da conta principal
+          // Se houver parcelas, usar payment_date de cada parcela paga
+          if (interestDiscountItems.length > 0) {
+            const hasInstallments = account.accounts_payable_installments && 
+                                    account.accounts_payable_installments.length > 0;
+            
+            if (hasInstallments) {
+              // Parcelas: processar juros/descontos na data de pagamento de cada parcela paga
+              const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => 
+                installment.payment_date !== null && installment.payment_date !== undefined
+              ) || [];
+              
+              const totalPaidInstallments = paidInstallments.length;
+              
+              if (totalPaidInstallments > 0) {
+                paidInstallments.forEach((installment: any) => {
+                  const { month, year } = getMonthAndYearFromDate(installment.payment_date);
+
+                  // Verificar se o mês está selecionado
+                  if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+                    return;
+                  }
+
+                  const storeId = account.store_id;
+                  const storeName = account.stores?.name || 'Loja sem nome';
+                  const key = `${storeId}-${month}`;
+
+                  // Inicializar se não existir
+                  if (!groupedData[key]) {
+                    groupedData[key] = {
+                      month,
+                      year: parseInt(selectedYear),
+                      store_id: storeId,
+                      store_name: storeName,
+                      values: {}
+                    };
+                  }
+
+                  // Dividir o valor dos juros/descontos entre as parcelas pagas
+                  interestDiscountItems.forEach((item: any) => {
+                    if (item.products?.subgroup_id) {
+                      const subgroupId = item.products.subgroup_id;
+                      const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+
+                      const structureItem = structureItems.find(si => 
+                        si.item_type === 'subgroup' && 
+                        si.account_group_id === subgroupId
+                      );
+
+                      if (structureItem && dividedValue !== 0) {
+                        if (!groupedData[key].values[structureItem.id]) {
+                          groupedData[key].values[structureItem.id] = 0;
+                        }
+                        groupedData[key].values[structureItem.id] += dividedValue;
+                      }
+                    }
+                  });
+                });
+              }
+            } else {
+              // Sem parcelas: usar payment_date da conta principal
+              if (account.payment_date) {
+                const { month, year } = getMonthAndYearFromDate(account.payment_date);
+
+                // Verificar se o mês está selecionado
+                if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
+                  const storeId = account.store_id;
+                  const storeName = account.stores?.name || 'Loja sem nome';
+                  const key = `${storeId}-${month}`;
+
+                  // Inicializar se não existir
+                  if (!groupedData[key]) {
+                    groupedData[key] = {
+                      month,
+                      year: parseInt(selectedYear),
+                      store_id: storeId,
+                      store_name: storeName,
+                      values: {}
+                    };
+                  }
+
+                  interestDiscountItems.forEach((item: any) => {
+                    if (item.products?.subgroup_id) {
+                      const subgroupId = item.products.subgroup_id;
+                      const value = parseFloat(item.total_price) || 0;
+
+                      const structureItem = structureItems.find(si => 
+                        si.item_type === 'subgroup' && 
+                        si.account_group_id === subgroupId
+                      );
+
+                      if (structureItem && value !== 0) {
+                        if (!groupedData[key].values[structureItem.id]) {
+                          groupedData[key].values[structureItem.id] = 0;
+                        }
+                        groupedData[key].values[structureItem.id] += value;
+                      }
+                    }
+                  });
+                }
               }
             }
-          });
+          }
         }
       });
 
