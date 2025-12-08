@@ -380,8 +380,58 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           .gte('data_competencia', `${selectedYear}-01-01`)
           .lte('data_competencia', `${selectedYear}-12-31`);
         
-        accountsPayableData = data;
+        accountsPayableData = data || [];
         apError = error;
+        
+        // Para competência: também precisamos buscar juros/descontos de contas cuja 
+        // competência pode estar em outro ano, mas o pagamento foi feito no ano selecionado
+        // Buscar IDs das contas que têm pagamentos no ano selecionado
+        const accountIdsFromPayments = [...new Set(paymentsData?.map(p => p.account_payable_id) || [])];
+        
+        // Filtrar apenas IDs que não estão já nos dados buscados
+        const existingAccountIds = new Set(accountsPayableData.map((a: any) => a.id));
+        const missingAccountIds = accountIdsFromPayments.filter(id => !existingAccountIds.has(id));
+        
+        if (missingAccountIds.length > 0) {
+          // Buscar contas adicionais que têm pagamentos no ano mas competência em outro ano
+          const { data: additionalAccounts, error: additionalError } = await supabase
+            .from('accounts_payable')
+            .select(`
+              id,
+              store_id,
+              data_competencia,
+              payment_date,
+              accounts_payable_items (
+                product_id,
+                quantity,
+                unit_price,
+                total_price,
+                products (
+                  id,
+                  name,
+                  subgroup_id
+                )
+              ),
+              accounts_payable_installments (
+                id,
+                installment_number,
+                due_date,
+                amount,
+                payment_date
+              ),
+              stores (name)
+            `)
+            .in('id', missingAccountIds)
+            .in('store_id', selectedStores);
+          
+          if (!additionalError && additionalAccounts) {
+            // Marcar essas contas para processar APENAS juros/descontos, não itens normais
+            additionalAccounts.forEach((acc: any) => {
+              acc._onlyInterestDiscount = true;
+            });
+            accountsPayableData = [...accountsPayableData, ...additionalAccounts];
+          }
+        }
       }
 
       // Verificar se existem dados para as lojas selecionadas
@@ -703,7 +753,8 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           ) || [];
 
           // Processar itens normais pela data de competência
-          if (normalItems.length > 0) {
+          // MAS apenas se a conta não for marcada para processar apenas juros/descontos
+          if (normalItems.length > 0 && !account._onlyInterestDiscount) {
             const { month, year } = getMonthAndYearFromDate(account.data_competencia);
 
             // Verificar se o mês está selecionado
