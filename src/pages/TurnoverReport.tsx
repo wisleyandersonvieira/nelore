@@ -31,13 +31,47 @@ const TurnoverReport = () => {
   useEffect(() => {
     const fetchStores = async () => {
       try {
-        const { data, error } = await supabase
-          .from('stores')
-          .select('id, name, code')
-          .order('name');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-        if (error) throw error;
-        setStores(data || []);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, store_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.role === 'admin') {
+          const { data, error } = await supabase
+            .from('stores')
+            .select('id, name, code')
+            .order('name');
+
+          if (error) throw error;
+          setStores(data || []);
+        } else {
+          const storeIds: string[] = [];
+          if (profile?.store_id) storeIds.push(profile.store_id);
+          
+          const { data: userStores } = await supabase
+            .from('user_stores')
+            .select('store_id')
+            .eq('user_id', user.id);
+          
+          userStores?.forEach((us: any) => {
+            if (!storeIds.includes(us.store_id)) storeIds.push(us.store_id);
+          });
+
+          if (storeIds.length > 0) {
+            const { data, error } = await supabase
+              .from('stores')
+              .select('id, name, code')
+              .in('id', storeIds)
+              .order('name');
+
+            if (error) throw error;
+            setStores(data || []);
+          }
+        }
       } catch (error) {
         console.error('Erro ao buscar lojas:', error);
         toast({
