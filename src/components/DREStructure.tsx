@@ -10,13 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ArrowUp, ArrowDown, Edit2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
 interface AccountGroup {
   id: string;
   name: string;
   parent_id?: string;
 }
-
 interface StructureItem {
   id?: string;
   item_type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock';
@@ -29,134 +27,123 @@ interface StructureItem {
   sum_items?: string[];
   account_group?: AccountGroup;
 }
-
 interface DREStructureData {
   id?: string;
   name: string;
   items: StructureItem[];
 }
-
 export const DREStructure: React.FC = () => {
   const [structures, setStructures] = useState<DREStructureData[]>([]);
   const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([]);
-  const [currentStructure, setCurrentStructure] = useState<DREStructureData>({ name: "", items: [] });
+  const [currentStructure, setCurrentStructure] = useState<DREStructureData>({
+    name: "",
+    items: []
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     fetchStructures();
     fetchAccountGroups();
   }, []);
-
   const fetchStructures = async () => {
     try {
-      const { data, error } = await supabase
-        .from('dre_structures')
-        .select(`
+      const {
+        data,
+        error
+      } = await supabase.from('dre_structures').select(`
           *,
           dre_structure_items (
             *,
             account_groups (id, name, parent_id)
           )
-        `)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
+        `).eq('is_active', true).order('created_at', {
+        ascending: false
+      });
       if (error) throw error;
-
       const formattedStructures = data?.map(structure => ({
         id: structure.id,
         name: structure.name,
-        items: structure.dre_structure_items
-          ?.sort((a: any, b: any) => a.position_order - b.position_order)
-          .map((item: any) => ({
-            id: item.id,
-            item_type: item.item_type,
-            account_group_id: item.account_group_id,
-            parent_id: item.parent_id,
-            name: item.name,
-            description: item.description,
-            operation_type: item.operation_type,
-            position_order: item.position_order,
-            sum_items: item.sum_items || [],
-            account_group: item.account_groups
-          })) || []
+        items: structure.dre_structure_items?.sort((a: any, b: any) => a.position_order - b.position_order).map((item: any) => ({
+          id: item.id,
+          item_type: item.item_type,
+          account_group_id: item.account_group_id,
+          parent_id: item.parent_id,
+          name: item.name,
+          description: item.description,
+          operation_type: item.operation_type,
+          position_order: item.position_order,
+          sum_items: item.sum_items || [],
+          account_group: item.account_groups
+        })) || []
       })) || [];
-
       setStructures(formattedStructures);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar estruturas",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const fetchAccountGroups = async () => {
     try {
-      const { data, error } = await supabase
-        .from('account_groups')
-        .select('id, name, parent_id')
-        .order('name');
-
+      const {
+        data,
+        error
+      } = await supabase.from('account_groups').select('id, name, parent_id').order('name');
       if (error) throw error;
       setAccountGroups(data || []);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar grupos de contas",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleSaveStructure = async () => {
     if (!currentStructure.name.trim()) {
       toast({
         title: "Nome obrigatório",
         description: "Por favor, informe o nome da estrutura DRE",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setLoading(true);
     try {
-      const { data: user } = await supabase.auth.getUser();
+      const {
+        data: user
+      } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Usuário não autenticado");
-
       let structureId = currentStructure.id;
-
       if (isEditing && structureId) {
         // Atualizar estrutura existente
-        const { error: updateError } = await supabase
-          .from('dre_structures')
-          .update({ name: currentStructure.name })
-          .eq('id', structureId);
-
+        const {
+          error: updateError
+        } = await supabase.from('dre_structures').update({
+          name: currentStructure.name
+        }).eq('id', structureId);
         if (updateError) throw updateError;
 
         // Deletar itens existentes
-        const { error: deleteError } = await supabase
-          .from('dre_structure_items')
-          .delete()
-          .eq('structure_id', structureId);
-
+        const {
+          error: deleteError
+        } = await supabase.from('dre_structure_items').delete().eq('structure_id', structureId);
         if (deleteError) throw deleteError;
       } else {
         // Criar nova estrutura
-        const { data: structureData, error: structureError } = await supabase
-          .from('dre_structures')
-          .insert({
-            name: currentStructure.name,
-            created_by: user.user.id
-          })
-          .select()
-          .single();
-
+        const {
+          data: structureData,
+          error: structureError
+        } = await supabase.from('dre_structures').insert({
+          name: currentStructure.name,
+          created_by: user.user.id
+        }).select().single();
         if (structureError) throw structureError;
         structureId = structureData.id;
       }
@@ -174,20 +161,19 @@ export const DREStructure: React.FC = () => {
           position_order: item.position_order,
           sum_items: item.sum_items || []
         }));
-
-        const { error: itemsError } = await supabase
-          .from('dre_structure_items')
-          .insert(itemsToInsert);
-
+        const {
+          error: itemsError
+        } = await supabase.from('dre_structure_items').insert(itemsToInsert);
         if (itemsError) throw itemsError;
       }
-
       toast({
         title: isEditing ? "Estrutura atualizada" : "Estrutura criada",
-        description: `A estrutura "${currentStructure.name}" foi ${isEditing ? 'atualizada' : 'criada'} com sucesso`,
+        description: `A estrutura "${currentStructure.name}" foi ${isEditing ? 'atualizada' : 'criada'} com sucesso`
       });
-
-      setCurrentStructure({ name: "", items: [] });
+      setCurrentStructure({
+        name: "",
+        items: []
+      });
       setIsEditing(false);
       setShowDialog(false);
       await fetchStructures();
@@ -195,66 +181,53 @@ export const DREStructure: React.FC = () => {
       toast({
         title: "Erro ao salvar estrutura",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const handleEditStructure = (structure: DREStructureData) => {
     setCurrentStructure(structure);
     setIsEditing(true);
     setShowDialog(true);
   };
-
   const handleDeleteStructure = async (structureId: string) => {
     if (!confirm("Tem certeza que deseja excluir esta estrutura?")) return;
-
     try {
       // Primeiro excluir os itens da estrutura
-      const { error: itemsError } = await supabase
-        .from('dre_structure_items')
-        .delete()
-        .eq('structure_id', structureId);
-
+      const {
+        error: itemsError
+      } = await supabase.from('dre_structure_items').delete().eq('structure_id', structureId);
       if (itemsError) throw itemsError;
 
       // Depois excluir as entradas relacionadas
-      const { error: entriesError } = await supabase
-        .from('dre_entries')
-        .delete()
-        .eq('structure_id', structureId);
-
+      const {
+        error: entriesError
+      } = await supabase.from('dre_entries').delete().eq('structure_id', structureId);
       if (entriesError) throw entriesError;
 
       // Por fim, excluir a estrutura
-      const { error } = await supabase
-        .from('dre_structures')
-        .delete()
-        .eq('id', structureId);
-
+      const {
+        error
+      } = await supabase.from('dre_structures').delete().eq('id', structureId);
       if (error) throw error;
-
       toast({
         title: "Estrutura excluída",
-        description: "A estrutura foi excluída com sucesso",
+        description: "A estrutura foi excluída com sucesso"
       });
-
       await fetchStructures();
     } catch (error: any) {
       toast({
         title: "Erro ao excluir estrutura",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const addItem = (type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock') => {
     let name = "";
     let description = undefined;
-    
     if (type === 'sum_line') {
       name = 'Linha de Soma';
       description = '';
@@ -265,7 +238,6 @@ export const DREStructure: React.FC = () => {
       name = 'Estoque Final';
       description = 'Estoque Final';
     }
-
     const newItem: StructureItem = {
       item_type: type,
       name: name,
@@ -274,17 +246,18 @@ export const DREStructure: React.FC = () => {
       position_order: currentStructure.items.length + 1,
       sum_items: ['sum_line', 'initial_stock', 'final_stock'].includes(type) ? [] : undefined
     };
-
     setCurrentStructure({
       ...currentStructure,
       items: [...currentStructure.items, newItem]
     });
   };
-
   const updateItem = (index: number, updatedItem: Partial<StructureItem>) => {
     const items = [...currentStructure.items];
-    items[index] = { ...items[index], ...updatedItem };
-    
+    items[index] = {
+      ...items[index],
+      ...updatedItem
+    };
+
     // Se está atualizando o account_group_id, atualizar também o nome
     if (updatedItem.account_group_id) {
       const selectedGroup = accountGroups.find(g => g.id === updatedItem.account_group_id);
@@ -292,8 +265,10 @@ export const DREStructure: React.FC = () => {
         items[index].name = selectedGroup.name;
       }
     }
-    
-    setCurrentStructure({ ...currentStructure, items });
+    setCurrentStructure({
+      ...currentStructure,
+      items
+    });
   };
 
   // Função para obter apenas grupos (sem parent_id)
@@ -315,42 +290,46 @@ export const DREStructure: React.FC = () => {
     }
     return null;
   };
-
   const removeItem = (index: number) => {
     const items = currentStructure.items.filter((_, i) => i !== index);
-    const reorderedItems = items.map((item, i) => ({ ...item, position_order: i + 1 }));
-    setCurrentStructure({ ...currentStructure, items: reorderedItems });
+    const reorderedItems = items.map((item, i) => ({
+      ...item,
+      position_order: i + 1
+    }));
+    setCurrentStructure({
+      ...currentStructure,
+      items: reorderedItems
+    });
   };
-
   const moveItem = (index: number, direction: 'up' | 'down') => {
     const items = [...currentStructure.items];
     const newIndex = direction === 'up' ? index - 1 : index + 1;
-    
     if (newIndex >= 0 && newIndex < items.length) {
       [items[index], items[newIndex]] = [items[newIndex], items[index]];
-      const reorderedItems = items.map((item, i) => ({ ...item, position_order: i + 1 }));
-      setCurrentStructure({ ...currentStructure, items: reorderedItems });
+      const reorderedItems = items.map((item, i) => ({
+        ...item,
+        position_order: i + 1
+      }));
+      setCurrentStructure({
+        ...currentStructure,
+        items: reorderedItems
+      });
     }
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Estruturas DRE</h2>
-          <p className="text-muted-foreground">Configure as estruturas dos demonstrativos de resultados</p>
-        </div>
+        
         
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                setCurrentStructure({ name: "", items: [] });
-                setIsEditing(false);
-                setShowDialog(true);
-              }}
-              className="flex items-center space-x-2"
-            >
+            <Button onClick={() => {
+            setCurrentStructure({
+              name: "",
+              items: []
+            });
+            setIsEditing(false);
+            setShowDialog(true);
+          }} className="flex items-center space-x-2">
               <Plus className="h-4 w-4" />
               <span>Nova Estrutura</span>
             </Button>
@@ -369,12 +348,10 @@ export const DREStructure: React.FC = () => {
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="structure-name">Nome da Estrutura</Label>
-                <Input
-                  id="structure-name"
-                  value={currentStructure.name}
-                  onChange={(e) => setCurrentStructure({ ...currentStructure, name: e.target.value })}
-                  placeholder="Digite o nome da estrutura DRE"
-                />
+                <Input id="structure-name" value={currentStructure.name} onChange={e => setCurrentStructure({
+                ...currentStructure,
+                name: e.target.value
+              })} placeholder="Digite o nome da estrutura DRE" />
               </div>
 
               <div className="space-y-4">
@@ -404,8 +381,7 @@ export const DREStructure: React.FC = () => {
                   </div>
                 </div>
 
-                {currentStructure.items.length > 0 && (
-                    <Table>
+                {currentStructure.items.length > 0 && <Table>
                        <TableHeader>
                          <TableRow>
                            <TableHead>Tipo</TableHead>
@@ -418,89 +394,41 @@ export const DREStructure: React.FC = () => {
                          </TableRow>
                        </TableHeader>
                     <TableBody>
-                      {currentStructure.items.map((item, index) => (
-                        <TableRow key={index}>
+                      {currentStructure.items.map((item, index) => <TableRow key={index}>
                           <TableCell>
-                             <Badge variant={
-                               item.item_type === 'group' ? 'default' : 
-                               item.item_type === 'subgroup' ? 'secondary' : 'outline'
-                             }>
-                               {item.item_type === 'group' ? 'Grupo' : 
-                                item.item_type === 'subgroup' ? 'Subgrupo' : 
-                                item.item_type === 'sum_line' ? 'Soma' :
-                                item.item_type === 'initial_stock' ? 'Estoque Inicial' :
-                                item.item_type === 'final_stock' ? 'Estoque Final' : 'Outro'}
+                             <Badge variant={item.item_type === 'group' ? 'default' : item.item_type === 'subgroup' ? 'secondary' : 'outline'}>
+                               {item.item_type === 'group' ? 'Grupo' : item.item_type === 'subgroup' ? 'Subgrupo' : item.item_type === 'sum_line' ? 'Soma' : item.item_type === 'initial_stock' ? 'Estoque Inicial' : item.item_type === 'final_stock' ? 'Estoque Final' : 'Outro'}
                              </Badge>
                           </TableCell>
                            <TableCell>
                               <span className="font-medium">
-                                {item.name || 
-                                 (item.item_type === 'sum_line' 
-                                   ? 'Linha de Soma' 
-                                   : item.item_type === 'initial_stock'
-                                   ? 'Estoque Inicial'
-                                   : item.item_type === 'final_stock'
-                                   ? 'Estoque Final'
-                                   : 'Selecione um ' + (item.item_type === 'group' ? 'grupo' : 'subgrupo')
-                                 )
-                                }
+                                {item.name || (item.item_type === 'sum_line' ? 'Linha de Soma' : item.item_type === 'initial_stock' ? 'Estoque Inicial' : item.item_type === 'final_stock' ? 'Estoque Final' : 'Selecione um ' + (item.item_type === 'group' ? 'grupo' : 'subgrupo'))}
                               </span>
                            </TableCell>
                            <TableCell>
-                               {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) ? (
-                                 <Input
-                                   placeholder={
-                                     item.item_type === 'sum_line' 
-                                       ? "Digite a descrição da linha de soma"
-                                       : item.item_type === 'initial_stock'
-                                       ? "Digite a descrição do estoque inicial"
-                                       : "Digite a descrição do estoque final"
-                                   }
-                                   value={item.description || ''}
-                                   onChange={(e) => updateItem(index, { description: e.target.value })}
-                                 />
-                               ) : (
-                                 <span className="text-muted-foreground">-</span>
-                               )}
+                               {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) ? <Input placeholder={item.item_type === 'sum_line' ? "Digite a descrição da linha de soma" : item.item_type === 'initial_stock' ? "Digite a descrição do estoque inicial" : "Digite a descrição do estoque final"} value={item.description || ''} onChange={e => updateItem(index, {
+                        description: e.target.value
+                      })} /> : <span className="text-muted-foreground">-</span>}
                             </TableCell>
                            <TableCell>
-                             {!['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && (
-                               <Select
-                                 value={item.account_group_id || ''}
-                                 onValueChange={(value) => updateItem(index, { account_group_id: value })}
-                               >
+                             {!['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && <Select value={item.account_group_id || ''} onValueChange={value => updateItem(index, {
+                        account_group_id: value
+                      })}>
                                  <SelectTrigger>
-                                   <SelectValue placeholder={
-                                     item.item_type === 'group' 
-                                       ? "Selecione o grupo" 
-                                       : "Selecione o subgrupo"
-                                   } />
+                                   <SelectValue placeholder={item.item_type === 'group' ? "Selecione o grupo" : "Selecione o subgrupo"} />
                                  </SelectTrigger>
                                  <SelectContent>
-                                   {(item.item_type === 'group' 
-                                     ? getMainGroups()
-                                     : item.item_type === 'subgroup' 
-                                       ? getSubgroups(findParentGroup(index) || '')
-                                       : []
-                                   ).map((group) => (
-                                     <SelectItem key={group.id} value={group.id}>
+                                   {(item.item_type === 'group' ? getMainGroups() : item.item_type === 'subgroup' ? getSubgroups(findParentGroup(index) || '') : []).map(group => <SelectItem key={group.id} value={group.id}>
                                        {group.name}
-                                     </SelectItem>
-                                   ))}
+                                     </SelectItem>)}
                                  </SelectContent>
-                               </Select>
-                             )}
-                              {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && (
-                                <span className="text-muted-foreground">-</span>
-                              )}
+                               </Select>}
+                              {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && <span className="text-muted-foreground">-</span>}
                            </TableCell>
                           <TableCell>
-                            <Select
-                              value={item.operation_type}
-                              onValueChange={(value: 'credit' | 'debit') => 
-                                updateItem(index, { operation_type: value })
-                              }
-                            >
+                            <Select value={item.operation_type} onValueChange={(value: 'credit' | 'debit') => updateItem(index, {
+                        operation_type: value
+                      })}>
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
@@ -513,50 +441,28 @@ export const DREStructure: React.FC = () => {
                           <TableCell>{item.position_order}</TableCell>
                           <TableCell>
                             <div className="flex space-x-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => moveItem(index, 'up')}
-                                disabled={index === 0}
-                              >
+                              <Button size="sm" variant="ghost" onClick={() => moveItem(index, 'up')} disabled={index === 0}>
                                 <ArrowUp className="h-4 w-4" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => moveItem(index, 'down')}
-                                disabled={index === currentStructure.items.length - 1}
-                              >
+                              <Button size="sm" variant="ghost" onClick={() => moveItem(index, 'down')} disabled={index === currentStructure.items.length - 1}>
                                 <ArrowDown className="h-4 w-4" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeItem(index)}
-                              >
+                              <Button size="sm" variant="ghost" onClick={() => removeItem(index)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
-                  </Table>
-                )}
+                  </Table>}
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDialog(false)}
-                >
+                <Button variant="outline" onClick={() => setShowDialog(false)}>
                   Cancelar
                 </Button>
-                <Button
-                  onClick={handleSaveStructure}
-                  disabled={loading || !currentStructure.name.trim()}
-                >
-                  {loading ? "Salvando..." : (isEditing ? "Atualizar" : "Salvar")}
+                <Button onClick={handleSaveStructure} disabled={loading || !currentStructure.name.trim()}>
+                  {loading ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}
                 </Button>
               </div>
             </div>
@@ -572,8 +478,7 @@ export const DREStructure: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {structures.length > 0 ? (
-            <Table>
+          {structures.length > 0 ? <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
@@ -583,8 +488,7 @@ export const DREStructure: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {structures.map((structure) => (
-                  <TableRow key={structure.id}>
+                {structures.map(structure => <TableRow key={structure.id}>
                     <TableCell className="font-medium">{structure.name}</TableCell>
                     <TableCell>{structure.items.length} itens</TableCell>
                     <TableCell>
@@ -593,34 +497,21 @@ export const DREStructure: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditStructure(structure)}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => handleEditStructure(structure)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => structure.id && handleDeleteStructure(structure.id)}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => structure.id && handleDeleteStructure(structure.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>)}
               </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8">
+            </Table> : <div className="text-center py-8">
               <p className="text-muted-foreground">Nenhuma estrutura cadastrada ainda.</p>
               <p className="text-muted-foreground">Clique em "Nova Estrutura" para começar.</p>
-            </div>
-          )}
+            </div>}
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
