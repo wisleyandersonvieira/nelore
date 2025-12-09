@@ -22,13 +22,61 @@ const StockModule = () => {
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('id, name, code')
-        .order('name');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) throw error;
-      setStores(data || []);
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, store_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role === 'admin') {
+        // Admin vê todas as lojas
+        const { data, error } = await supabase
+          .from('stores')
+          .select('id, name, code')
+          .order('name');
+
+        if (error) throw error;
+        setStores(data || []);
+      } else {
+        // Usuário normal: buscar lojas autorizadas
+        const storeIds: string[] = [];
+        
+        // Loja do perfil
+        if (profile?.store_id) {
+          storeIds.push(profile.store_id);
+        }
+        
+        // Lojas adicionais em user_stores
+        const { data: userStores } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', user.id);
+        
+        if (userStores) {
+          userStores.forEach(us => {
+            if (!storeIds.includes(us.store_id)) {
+              storeIds.push(us.store_id);
+            }
+          });
+        }
+
+        if (storeIds.length > 0) {
+          const { data, error } = await supabase
+            .from('stores')
+            .select('id, name, code')
+            .in('id', storeIds)
+            .order('name');
+
+          if (error) throw error;
+          setStores(data || []);
+        } else {
+          setStores([]);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar lojas:', error);
     } finally {
