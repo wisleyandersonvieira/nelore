@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, X, Store, Settings, UserCog } from "lucide-react";
+import { ArrowLeft, Check, X, Store, Settings, UserCog, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import CreateUserModal from "@/components/CreateUserModal";
 
 interface User {
   id: string;
@@ -45,6 +46,7 @@ const Users = () => {
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [isStoreDialogOpen, setIsStoreDialogOpen] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -306,13 +308,23 @@ const Users = () => {
             </div>
           </div>
           
-          <Button 
-            onClick={() => navigate("/profiles")}
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Gestão de Perfis
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setIsCreateUserOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              Novo Usuário
+            </Button>
+            <Button 
+              onClick={() => navigate("/profiles")}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Gestão de Perfis
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -526,6 +538,15 @@ const Users = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal para criar usuário */}
+        <CreateUserModal
+          isOpen={isCreateUserOpen}
+          onClose={() => setIsCreateUserOpen(false)}
+          onSuccess={fetchUsers}
+          stores={stores}
+          profiles={profiles}
+        />
       </div>
     </div>
   );
