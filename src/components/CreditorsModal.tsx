@@ -40,9 +40,11 @@ interface Creditor {
 interface CreditorsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
+export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete = true }: CreditorsModalProps) {
   const [creditors, setCreditors] = useState<Creditor[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -315,7 +317,7 @@ export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register">
+            <TabsTrigger value="register" disabled={!canEdit}>
               {editingCreditor ? "Editar" : "Cadastrar"}
             </TabsTrigger>
             <TabsTrigger value="list">Listar</TabsTrigger>
@@ -489,20 +491,24 @@ export function CreditorsModal({ open, onOpenChange }: CreditorsModalProps) {
                           <TableCell>{creditor.email || "-"}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(creditor)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(creditor)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canEdit && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(creditor)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDelete(creditor)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

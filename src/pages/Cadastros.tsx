@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings, Wallet, DollarSign, Truck } from "lucide-react";
+import { ArrowLeft, Users, Store, FileText, FolderTree, CreditCard, Settings, Lock } from "lucide-react";
 import { SuppliersModal } from "@/components/SuppliersModal";
 import { CreditorsModal } from "@/components/CreditorsModal";
 import { StoresModal } from "@/components/StoresModal";
@@ -14,6 +14,9 @@ import { CardAccountsModal } from "@/components/CardAccountsModal";
 import { DeliveryModal } from "@/components/DeliveryModal";
 import { ParametersModal } from "@/components/ParametersModal";
 import { ContasModal } from "@/components/ContasModal";
+import { useCadastrosPermissions } from "@/hooks/useCadastrosPermissions";
+import { useToast } from "@/hooks/use-toast";
+
 const Cadastros = () => {
   const [suppliersModalOpen, setSuppliersModalOpen] = useState(false);
   const [creditorsModalOpen, setCreditorsModalOpen] = useState(false);
@@ -27,56 +30,101 @@ const Cadastros = () => {
   const [parametersModalOpen, setParametersModalOpen] = useState(false);
   const [contasModalOpen, setContasModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { canAccess, canEdit, canDelete, canAccessParameters, canAccessStores, permissionLevel } = useCadastrosPermissions();
+
+  const handleMenuClick = (menuId: string, openModal: () => void) => {
+    // Read permission: can see menus but cannot access
+    if (permissionLevel === 'read') {
+      toast({
+        variant: "destructive",
+        title: "Acesso negado",
+        description: "Você não tem permissão para acessar este menu.",
+      });
+      return;
+    }
+
+    // Write permission: cannot access Parameters or Stores
+    if (permissionLevel === 'write') {
+      if (menuId === 'parametros') {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Você não tem permissão para acessar Parâmetros.",
+        });
+        return;
+      }
+      if (menuId === 'lojas') {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Você não tem permissão para acessar Lojas.",
+        });
+        return;
+      }
+    }
+
+    openModal();
+  };
+
   const cadastroModules = [{
     id: "fornecedores",
     title: "Fornecedores",
     description: "Cadastro e gestão de fornecedores",
     icon: Users,
     color: "bg-orange-500",
-    onClick: () => setSuppliersModalOpen(true)
+    onClick: () => handleMenuClick("fornecedores", () => setSuppliersModalOpen(true)),
+    restricted: false
   }, {
     id: "credores",
     title: "Credores",
     description: "Cadastro e gestão de credores",
     icon: Users,
     color: "bg-green-600",
-    onClick: () => setCreditorsModalOpen(true)
+    onClick: () => handleMenuClick("credores", () => setCreditorsModalOpen(true)),
+    restricted: false
   }, {
     id: "lojas",
     title: "Lojas",
     description: "Cadastro e gestão de lojas",
     icon: Store,
     color: "bg-pink-500",
-    onClick: () => setStoresModalOpen(true)
+    onClick: () => handleMenuClick("lojas", () => setStoresModalOpen(true)),
+    restricted: !canAccessStores
   }, {
     id: "grupos",
     title: "Grupos",
     description: "Cadastro de grupos financeiros",
     icon: FileText,
     color: "bg-blue-500",
-    onClick: () => setGrupoModalOpen(true)
+    onClick: () => handleMenuClick("grupos", () => setGrupoModalOpen(true)),
+    restricted: false
   }, {
     id: "subgrupos",
     title: "Subgrupos",
     description: "Cadastro de subgrupos financeiros",
     icon: FolderTree,
     color: "bg-green-500",
-    onClick: () => setSubgrupoModalOpen(true)
+    onClick: () => handleMenuClick("subgrupos", () => setSubgrupoModalOpen(true)),
+    restricted: false
   }, {
     id: "contas",
     title: "Contas",
     description: "Contas correntes, caixa, cartão e delivery",
     icon: CreditCard,
     color: "bg-emerald-500",
-    onClick: () => setContasModalOpen(true)
+    onClick: () => handleMenuClick("contas", () => setContasModalOpen(true)),
+    restricted: false
   }, {
     id: "parametros",
     title: "Parâmetros",
     description: "Configuração de parâmetros do sistema",
     icon: Settings,
     color: "bg-indigo-500",
-    onClick: () => setParametersModalOpen(true)
+    onClick: () => handleMenuClick("parametros", () => setParametersModalOpen(true)),
+    restricted: !canAccessParameters
   }];
+
   return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
@@ -103,7 +151,16 @@ const Cadastros = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {cadastroModules.map(module => {
           const IconComponent = module.icon;
-          return <Card key={module.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+          const isDisabled = permissionLevel === 'read';
+          return <Card 
+              key={module.id} 
+              className={`${isDisabled ? 'opacity-60' : 'cursor-pointer hover:shadow-lg'} transition-shadow relative`}
+            >
+                {module.restricted && (
+                  <div className="absolute top-2 right-2">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
                 <CardHeader className="pb-3">
                   <div className={`w-12 h-12 rounded-lg ${module.color} flex items-center justify-center mb-3`}>
                     <IconComponent className="h-6 w-6 text-white" />
@@ -112,8 +169,13 @@ const Cadastros = () => {
                   <CardDescription>{module.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button className="w-full" variant="outline" onClick={module.onClick}>
-                    Acessar
+                  <Button 
+                    className="w-full" 
+                    variant="outline" 
+                    onClick={module.onClick}
+                    disabled={isDisabled}
+                  >
+                    {isDisabled ? "Sem acesso" : "Acessar"}
                   </Button>
                 </CardContent>
               </Card>;
@@ -121,17 +183,64 @@ const Cadastros = () => {
         </div>
       </main>
 
-      {/* Modals */}
-      <ContasModal open={contasModalOpen} onOpenChange={setContasModalOpen} onCurrentAccountsOpen={() => setCurrentAccountsModalOpen(true)} onCashAccountsOpen={() => setCashAccountsModalOpen(true)} onCardAccountsOpen={() => setCardAccountsModalOpen(true)} onDeliveryOpen={() => setDeliveryModalOpen(true)} />
-      <SuppliersModal open={suppliersModalOpen} onOpenChange={setSuppliersModalOpen} />
-      <CreditorsModal open={creditorsModalOpen} onOpenChange={setCreditorsModalOpen} />
+      {/* Modals - pass permission props */}
+      <ContasModal 
+        open={contasModalOpen} 
+        onOpenChange={setContasModalOpen} 
+        onCurrentAccountsOpen={() => setCurrentAccountsModalOpen(true)} 
+        onCashAccountsOpen={() => setCashAccountsModalOpen(true)} 
+        onCardAccountsOpen={() => setCardAccountsModalOpen(true)} 
+        onDeliveryOpen={() => setDeliveryModalOpen(true)} 
+      />
+      <SuppliersModal 
+        open={suppliersModalOpen} 
+        onOpenChange={setSuppliersModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
+      <CreditorsModal 
+        open={creditorsModalOpen} 
+        onOpenChange={setCreditorsModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
       <StoresModal open={storesModalOpen} onOpenChange={setStoresModalOpen} />
-      <GrupoModal open={grupoModalOpen} onOpenChange={setGrupoModalOpen} />
-      <SubgrupoModal open={subgrupoModalOpen} onOpenChange={setSubgrupoModalOpen} />
-      <CurrentAccountsModal open={currentAccountsModalOpen} onOpenChange={setCurrentAccountsModalOpen} />
-      <CashAccountsModal open={cashAccountsModalOpen} onOpenChange={setCashAccountsModalOpen} />
-      <CardAccountsModal open={cardAccountsModalOpen} onOpenChange={setCardAccountsModalOpen} />
-      <DeliveryModal open={deliveryModalOpen} onOpenChange={setDeliveryModalOpen} />
+      <GrupoModal 
+        open={grupoModalOpen} 
+        onOpenChange={setGrupoModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
+      <SubgrupoModal 
+        open={subgrupoModalOpen} 
+        onOpenChange={setSubgrupoModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
+      <CurrentAccountsModal 
+        open={currentAccountsModalOpen} 
+        onOpenChange={setCurrentAccountsModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
+      <CashAccountsModal 
+        open={cashAccountsModalOpen} 
+        onOpenChange={setCashAccountsModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
+      <CardAccountsModal 
+        open={cardAccountsModalOpen} 
+        onOpenChange={setCardAccountsModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
+      <DeliveryModal 
+        open={deliveryModalOpen} 
+        onOpenChange={setDeliveryModalOpen}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
       <ParametersModal open={parametersModalOpen} onOpenChange={setParametersModalOpen} />
     </div>;
 };
