@@ -200,6 +200,12 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
 
   const openAttachment = async (pathOrUrl: string) => {
     try {
+      if (!pathOrUrl) {
+        console.error("Path do anexo não encontrado");
+        toast.error("Erro ao abrir anexo: caminho não encontrado");
+        return;
+      }
+
       // Check if it's already a full URL (legacy data)
       if (pathOrUrl.startsWith('http')) {
         window.open(pathOrUrl, "_blank");
@@ -209,10 +215,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
       // Generate signed URL for private bucket
       const { data, error } = await supabase.storage
         .from("account-documents")
-        .createSignedUrl(pathOrUrl, 60); // 60 seconds expiry
+        .createSignedUrl(pathOrUrl, 3600); // 1 hour expiry (increased for better UX)
 
       if (error) {
-        console.error("Erro ao gerar URL:", error);
+        console.error("Erro ao gerar URL:", error, "Path:", pathOrUrl);
         toast.error("Erro ao abrir anexo");
         return;
       }
