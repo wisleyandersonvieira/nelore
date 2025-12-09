@@ -29,31 +29,25 @@ const DRECompetencia: React.FC = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Sistema DRE por Competência</CardTitle>
-            <CardDescription>
-              Configure estruturas e visualize relatórios baseados na competência
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="structure" className="w-full">
+          <CardContent className="pt-6">
+            <Tabs defaultValue="view" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="structure" className="flex items-center space-x-2">
-                  <FileBarChart className="h-4 w-4" />
-                  <span>Estrutura DRE</span>
-                </TabsTrigger>
                 <TabsTrigger value="view" className="flex items-center space-x-2">
                   <Eye className="h-4 w-4" />
                   <span>Visualizar DRE</span>
                 </TabsTrigger>
+                <TabsTrigger value="structure" className="flex items-center space-x-2">
+                  <FileBarChart className="h-4 w-4" />
+                  <span>Estrutura DRE</span>
+                </TabsTrigger>
               </TabsList>
-
-              <TabsContent value="structure" className="mt-6">
-                <DREStructure />
-              </TabsContent>
 
               <TabsContent value="view" className="mt-6">
                 <DREView regime="competence" />
+              </TabsContent>
+
+              <TabsContent value="structure" className="mt-6">
+                <DREStructure />
               </TabsContent>
             </Tabs>
           </CardContent>
