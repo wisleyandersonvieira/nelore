@@ -16,6 +16,7 @@ interface ProfileModalProps {
 }
 
 const MODULES = [
+  { id: 'cadastros', name: 'Cadastros', description: 'Acesso ao módulo de cadastros gerais' },
   { id: 'produtos', name: 'Produtos', description: 'Cadastro e gestão de produtos' },
   { id: 'fornecedores', name: 'Fornecedores', description: 'Cadastro e gestão de fornecedores' },
   { id: 'usuarios', name: 'Usuários', description: 'Gestão de usuários e permissões' },
