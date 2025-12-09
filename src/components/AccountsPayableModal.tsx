@@ -16,6 +16,7 @@ import { SupplierSearchModal } from "./SupplierSearchModal";
 import { ProductSearchModal } from "./ProductSearchModal";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 import * as pdfjsLib from 'pdfjs-dist';
+import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 
 interface AccountsPayableModalProps {
   open: boolean;
@@ -116,6 +117,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [loading, setLoading] = useState(false);
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
   const viewItemsPerPage = 15;
+  const { canEdit } = useFinanceiroPermissions();
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -3194,7 +3196,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="view">Visualizar Contas</TabsTrigger>
-            <TabsTrigger value="create">Cadastrar Conta</TabsTrigger>
+            <TabsTrigger value="create" disabled={!canEdit}>Cadastrar Conta</TabsTrigger>
           </TabsList>
 
           <TabsContent value="view">
@@ -3387,76 +3389,80 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                         <Eye className="h-4 w-4" />
                                       </Button>
                                       
-                                      {account.status !== 'paid' && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleEditAccount(account)}
-                                          disabled={loading}
-                                          title="Editar conta"
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                      )}
-                                      
-                                      {account.status === 'paid' && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleReversePayment(account)}
-                                          disabled={loading}
-                                          title="Estornar pagamento"
-                                        >
-                                          <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                      )}
-                                      
-                                      {account.status === 'partial' && (
+                                      {canEdit && (
                                         <>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => openPaymentModal(account)}
-                                            disabled={loading}
-                                            title="Pagar conta"
-                                            className="text-green-600 hover:text-green-700"
-                                          >
-                                            <DollarSign className="h-4 w-4" />
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleReversePayment(account)}
-                                            disabled={loading}
-                                            title="Estornar pagamento"
-                                          >
-                                            <RefreshCw className="h-4 w-4" />
-                                          </Button>
-                                        </>
-                                      )}
-                                      
-                                      {account.status === 'pending' && (
-                                        <>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => openPaymentModal(account)}
-                                            disabled={loading}
-                                            title="Pagar conta"
-                                            className="text-green-600 hover:text-green-700"
-                                          >
-                                            <DollarSign className="h-4 w-4" />
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleDeleteAccount(account.id, account.status)}
-                                            disabled={loading}
-                                            title="Excluir conta"
-                                            className="text-red-600 hover:text-red-700"
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
+                                          {account.status !== 'paid' && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleEditAccount(account)}
+                                              disabled={loading}
+                                              title="Editar conta"
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          )}
+                                          
+                                          {account.status === 'paid' && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleReversePayment(account)}
+                                              disabled={loading}
+                                              title="Estornar pagamento"
+                                            >
+                                              <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                          )}
+                                          
+                                          {account.status === 'partial' && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => openPaymentModal(account)}
+                                                disabled={loading}
+                                                title="Pagar conta"
+                                                className="text-green-600 hover:text-green-700"
+                                              >
+                                                <DollarSign className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleReversePayment(account)}
+                                                disabled={loading}
+                                                title="Estornar pagamento"
+                                              >
+                                                <RefreshCw className="h-4 w-4" />
+                                              </Button>
+                                            </>
+                                          )}
+                                          
+                                          {account.status === 'pending' && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => openPaymentModal(account)}
+                                                disabled={loading}
+                                                title="Pagar conta"
+                                                className="text-green-600 hover:text-green-700"
+                                              >
+                                                <DollarSign className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleDeleteAccount(account.id, account.status)}
+                                                disabled={loading}
+                                                title="Excluir conta"
+                                                className="text-red-600 hover:text-red-700"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </>
+                                          )}
                                         </>
                                       )}
                                     </div>

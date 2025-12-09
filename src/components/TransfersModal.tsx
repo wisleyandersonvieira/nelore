@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { TransferFormModal } from "./TransferFormModal";
 import { validateCashControlPeriod } from "@/utils/periodValidation";
+import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 
 interface Transfer {
   id: string;
@@ -58,6 +59,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
   const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
   const [viewingTransfer, setViewingTransfer] = useState<Transfer | null>(null);
   const { toast } = useToast();
+  const { canEdit } = useFinanceiroPermissions();
 
   // Filtros
   const [selectedStore, setSelectedStore] = useState<string>("ALL_STORES");
@@ -473,12 +475,14 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
           </div>
 
           {/* Botão Cadastrar */}
-          <div className="flex justify-end">
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar Transferência
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex justify-end">
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar Transferência
+              </Button>
+            </div>
+          )}
 
           {/* Tabela */}
           <div className="border rounded-lg">
@@ -547,20 +551,24 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(transfer)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(transfer.id, transfer.transfer_date)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {canEdit && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(transfer)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(transfer.id, transfer.transfer_date)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

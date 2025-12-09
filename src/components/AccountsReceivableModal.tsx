@@ -12,6 +12,7 @@ import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSig
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateAccountsReceivablePeriod } from "@/utils/periodValidation";
+import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 
 interface AccountsReceivableModalProps {
   open: boolean;
@@ -96,6 +97,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [currentAccounts, setCurrentAccounts] = useState<CurrentAccount[]>([]);
   const [items, setItems] = useState<ReceivableItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const { canEdit } = useFinanceiroPermissions();
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -985,10 +987,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="view">Visualizar</TabsTrigger>
-            <TabsTrigger value="create">
+            <TabsTrigger value="create" disabled={!canEdit}>
               {isEditing ? "Editar" : "Criar"}
             </TabsTrigger>
-            <TabsTrigger value="payment">Recebimento</TabsTrigger>
+            <TabsTrigger value="payment" disabled={!canEdit}>Recebimento</TabsTrigger>
           </TabsList>
 
           <TabsContent value="view" className="space-y-4">
@@ -1135,37 +1137,41 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                >
                                  <Eye className="h-4 w-4" />
                                </Button>
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleEditAccount(account)}
-                               >
-                                 <Edit className="h-4 w-4" />
-                               </Button>
-                               
-                               {account.status === 'paid' && (
-                                 <Button
-                                   size="sm"
-                                   variant="outline"
-                                   onClick={() => handleReversePayment(account)}
-                                   disabled={loading}
-                                   title="Estornar recebimento"
-                                 >
-                                   <RefreshCw className="h-4 w-4" />
-                                 </Button>
-                               )}
-                               
-                               {account.status === 'pending' && (
-                                 <Button
-                                   size="sm"
-                                   variant="outline"
-                                   onClick={() => handleDeleteAccount(account.id, account.status)}
-                                   disabled={loading}
-                                   title="Excluir conta"
-                                   className="text-red-600 hover:text-red-700"
-                                 >
-                                   <Trash2 className="h-4 w-4" />
-                                 </Button>
+                               {canEdit && (
+                                 <>
+                                   <Button
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => handleEditAccount(account)}
+                                   >
+                                     <Edit className="h-4 w-4" />
+                                   </Button>
+                                   
+                                   {account.status === 'paid' && (
+                                     <Button
+                                       size="sm"
+                                       variant="outline"
+                                       onClick={() => handleReversePayment(account)}
+                                       disabled={loading}
+                                       title="Estornar recebimento"
+                                     >
+                                       <RefreshCw className="h-4 w-4" />
+                                     </Button>
+                                   )}
+                                   
+                                   {account.status === 'pending' && (
+                                     <Button
+                                       size="sm"
+                                       variant="outline"
+                                       onClick={() => handleDeleteAccount(account.id, account.status)}
+                                       disabled={loading}
+                                       title="Excluir conta"
+                                       className="text-red-600 hover:text-red-700"
+                                     >
+                                       <Trash2 className="h-4 w-4" />
+                                     </Button>
+                                   )}
+                                 </>
                                )}
                              </div>
                            </TableCell>
