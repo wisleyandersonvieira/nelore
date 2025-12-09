@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { ProfileModal } from "@/components/ProfileModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ArrowLeft, Shield } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useConfiguracoesPermissions } from "@/hooks/useConfiguracoesPermissions";
 
 interface UserProfile {
   id: string;
@@ -27,6 +28,7 @@ export default function Profiles() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState<UserProfile | null>(null);
+  const { hasAccess, loading: permissionsLoading } = useConfiguracoesPermissions();
 
   const fetchProfiles = async () => {
     try {
@@ -114,10 +116,31 @@ export default function Profiles() {
     return badges;
   };
 
-  if (loading) {
+  if (loading || permissionsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <ShieldAlert className="h-16 w-16 text-destructive" />
+              <h2 className="text-xl font-semibold">Acesso Negado</h2>
+              <p className="text-muted-foreground">
+                Você não tem permissão para acessar o módulo de Configurações.
+              </p>
+              <Button onClick={() => navigate('/dashboard')}>
+                Voltar ao Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
