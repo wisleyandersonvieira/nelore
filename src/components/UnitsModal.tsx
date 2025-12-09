@@ -22,9 +22,11 @@ interface UnitsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inlineMode?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export const UnitsModal = ({ open, onOpenChange, inlineMode = false }: UnitsModalProps) => {
+export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = true, canDelete = true }: UnitsModalProps) => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
@@ -200,17 +202,19 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false }: UnitsModa
   const content = (
     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
       {/* Botão Novo */}
-      <Button
-        onClick={() => setShowForm(true)}
-        className="self-start"
-        disabled={loading}
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Nova Unidade
-      </Button>
+      {canEdit && (
+        <Button
+          onClick={() => setShowForm(true)}
+          className="self-start"
+          disabled={loading}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Unidade
+        </Button>
+      )}
 
       {/* Formulário */}
-      {showForm && (
+      {canEdit && showForm && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -292,31 +296,37 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false }: UnitsModa
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(unit)}
-                            title="Editar"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleStatus(unit)}
-                            title={unit.is_active ? "Desativar" : "Ativar"}
-                          >
-                            <Ban className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(unit)}
-                            title="Excluir"
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(unit)}
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(unit)}
+                              title={unit.is_active ? "Desativar" : "Ativar"}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(unit)}
+                              title="Excluir"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

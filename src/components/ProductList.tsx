@@ -34,9 +34,11 @@ interface Group {
 
 interface ProductListProps {
   onEditProduct?: (product: Product) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export const ProductList = ({ onEditProduct }: ProductListProps) => {
+export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }: ProductListProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -340,35 +342,41 @@ export const ProductList = ({ onEditProduct }: ProductListProps) => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (onEditProduct) {
-                                onEditProduct(product);
-                              }
-                            }}
-                            title="Editar"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleBlock(product)}
-                            title={product.is_blocked ? "Desbloquear" : "Bloquear"}
-                          >
-                            <Ban className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(product)}
-                            title="Excluir"
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (onEditProduct) {
+                                  onEditProduct(product);
+                                }
+                              }}
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleBlock(product)}
+                              title={product.is_blocked ? "Desbloquear" : "Bloquear"}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(product)}
+                              title="Excluir"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
