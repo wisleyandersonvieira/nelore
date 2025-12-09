@@ -81,22 +81,67 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const fetchStores = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from("stores")
-        .select(`
-          id,
-          name,
-          code
-        `)
-        .order("name");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) throw error;
-      
-      const storesData = data?.map(store => ({
-        id: store.id,
-        name: store.name || '',
-        code: store.code || ''
-      })) || [];
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, store_id')
+        .eq('id', user.id)
+        .single();
+
+      let storesData: Store[] = [];
+
+      if (profile?.role === 'admin') {
+        // Admin vê todas as lojas
+        const { data, error } = await supabase
+          .from("stores")
+          .select("id, name, code")
+          .order("name");
+
+        if (error) throw error;
+        storesData = data?.map(store => ({
+          id: store.id,
+          name: store.name || '',
+          code: store.code || ''
+        })) || [];
+      } else {
+        // Usuário normal: buscar lojas autorizadas
+        const storeIds: string[] = [];
+        
+        if (profile?.store_id) {
+          storeIds.push(profile.store_id);
+        }
+        
+        const { data: userStores } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', user.id);
+        
+        if (userStores) {
+          userStores.forEach(us => {
+            if (!storeIds.includes(us.store_id)) {
+              storeIds.push(us.store_id);
+            }
+          });
+        }
+
+        if (storeIds.length > 0) {
+          const { data, error } = await supabase
+            .from("stores")
+            .select("id, name, code")
+            .in('id', storeIds)
+            .order("name");
+
+          if (error) throw error;
+          storesData = data?.map(store => ({
+            id: store.id,
+            name: store.name || '',
+            code: store.code || ''
+          })) || [];
+        }
+      }
       
       setStores(storesData);
     } catch (error) {
