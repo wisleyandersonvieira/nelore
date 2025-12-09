@@ -204,12 +204,32 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
   };
 
   const handleDelete = async (supplier: Supplier) => {
-    if (!confirm(`Tem certeza que deseja excluir o fornecedor ${supplier.name}?`)) {
-      return;
-    }
-
     setLoading(true);
     try {
+      // Verificar se existem contas a pagar relacionadas ao fornecedor
+      const { data: relatedAccounts, error: checkError } = await supabase
+        .from("accounts_payable")
+        .select("id")
+        .eq("supplier_id", supplier.id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (relatedAccounts && relatedAccounts.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Este fornecedor possui contas a pagar vinculadas e não pode ser excluído.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!confirm(`Tem certeza que deseja excluir o fornecedor ${supplier.name}?`)) {
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("suppliers")
         .update({ is_active: false })
