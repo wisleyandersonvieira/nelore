@@ -34,6 +34,8 @@ interface Store {
 interface CurrentAccountsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 interface FormData {
@@ -45,7 +47,7 @@ interface FormData {
   store_ids: string[];
 }
 
-export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModalProps) {
+export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDelete = true }: CurrentAccountsModalProps) {
   const [accounts, setAccounts] = useState<CurrentAccount[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [editingAccount, setEditingAccount] = useState<CurrentAccount | null>(null);
@@ -304,10 +306,12 @@ export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModa
           {!showForm ? (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-4 items-end">
-                <Button onClick={() => setShowForm(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Conta Corrente
-                </Button>
+                {canEdit && (
+                  <Button onClick={() => setShowForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Conta Corrente
+                  </Button>
+                )}
 
                 <div className="flex-1 min-w-[200px]">
                   <Label htmlFor="searchName" className="text-sm mb-1 block">Filtrar por Nome</Label>
@@ -393,31 +397,37 @@ export function CurrentAccountsModal({ open, onOpenChange }: CurrentAccountsModa
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(account)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleBlock(account)}
-                          >
-                            {account.is_blocked ? (
-                              <Unlock className="h-4 w-4" />
-                            ) : (
-                              <Lock className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(account)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(account)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleBlock(account)}
+                            >
+                              {account.is_blocked ? (
+                                <Unlock className="h-4 w-4" />
+                              ) : (
+                                <Lock className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(account)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

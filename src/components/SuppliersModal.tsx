@@ -30,9 +30,11 @@ interface Supplier {
 interface SuppliersModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
+export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete = true }: SuppliersModalProps) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -274,7 +276,7 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
         <ScrollArea className="h-[calc(90vh-120px)] pr-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register">Cadastro</TabsTrigger>
+            <TabsTrigger value="register" disabled={!canEdit}>Cadastro</TabsTrigger>
             <TabsTrigger value="list">Exibir Cadastros</TabsTrigger>
           </TabsList>
 
@@ -468,20 +470,24 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(supplier)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(supplier)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEdit(supplier)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {canDelete && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDelete(supplier)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

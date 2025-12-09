@@ -21,9 +21,11 @@ interface Grupo {
 interface GrupoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
+export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = true }: GrupoModalProps) => {
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingGrupo, setEditingGrupo] = useState<Grupo | null>(null);
@@ -296,13 +298,15 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
         <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
           {/* Controles superiores */}
           <div className="flex flex-wrap gap-4 items-center">
-            <Button
-              onClick={() => setShowForm(true)}
-              disabled={loading}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Grupo
-            </Button>
+            {canEdit && (
+              <Button
+                onClick={() => setShowForm(true)}
+                disabled={loading}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Grupo
+              </Button>
+            )}
             
             {/* Busca */}
             <div className="flex-1 max-w-xs">
@@ -419,34 +423,40 @@ export const GrupoModal = ({ open, onOpenChange }: GrupoModalProps) => {
                         </TableCell>
                         <TableCell className="text-right py-2">
                           <div className="flex gap-1 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(grupo)}
-                              title="Editar"
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleStatus(grupo)}
-                              title="Bloquear/Desbloquear"
-                              disabled
-                              className="h-8 w-8 p-0"
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(grupo)}
-                              title="Excluir"
-                              className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(grupo)}
+                                title="Editar"
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleStatus(grupo)}
+                                title="Bloquear/Desbloquear"
+                                disabled
+                                className="h-8 w-8 p-0"
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(grupo)}
+                                title="Excluir"
+                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

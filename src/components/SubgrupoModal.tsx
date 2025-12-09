@@ -30,9 +30,11 @@ interface Subgrupo {
 interface SubgrupoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
+export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = true }: SubgrupoModalProps) => {
   const [subgrupos, setSubgrupos] = useState<Subgrupo[]>([]);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -303,13 +305,15 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
         <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
           {/* Controles superiores */}
           <div className="flex flex-wrap gap-4 items-center">
-            <Button
-              onClick={() => setShowForm(true)}
-              disabled={loading}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Subgrupo
-            </Button>
+            {canEdit && (
+              <Button
+                onClick={() => setShowForm(true)}
+                disabled={loading}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Subgrupo
+              </Button>
+            )}
             
             {/* Filtros */}
             <div className="flex gap-4 items-center flex-1">
@@ -448,34 +452,40 @@ export const SubgrupoModal = ({ open, onOpenChange }: SubgrupoModalProps) => {
                         </TableCell>
                         <TableCell className="text-right py-2">
                           <div className="flex gap-1 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(subgrupo)}
-                              title="Editar"
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleStatus(subgrupo)}
-                              title="Bloquear/Desbloquear"
-                              disabled
-                              className="h-8 w-8 p-0"
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(subgrupo)}
-                              title="Excluir"
-                              className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(subgrupo)}
+                                title="Editar"
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleStatus(subgrupo)}
+                                title="Bloquear/Desbloquear"
+                                disabled
+                                className="h-8 w-8 p-0"
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(subgrupo)}
+                                title="Excluir"
+                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
