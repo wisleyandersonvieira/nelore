@@ -66,21 +66,58 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
   }, [selectedStore]);
 
   const fetchStores = async () => {
-    const { data, error } = await supabase
-      .from('stores')
-      .select('id, name')
-      .order('name');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    if (error) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, store_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role === 'admin') {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('id, name')
+          .order('name');
+
+        if (error) throw error;
+        setStores(data || []);
+      } else {
+        const storeIds: string[] = [];
+        if (profile?.store_id) storeIds.push(profile.store_id);
+        
+        const { data: userStores } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', user.id);
+        
+        userStores?.forEach(us => {
+          if (!storeIds.includes(us.store_id)) storeIds.push(us.store_id);
+        });
+
+        if (storeIds.length > 0) {
+          const { data, error } = await supabase
+            .from('stores')
+            .select('id, name')
+            .in('id', storeIds)
+            .order('name');
+
+          if (error) throw error;
+          setStores(data || []);
+        } else {
+          setStores([]);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar lojas:', error);
       toast({
         title: "Erro",
         description: "Erro ao carregar lojas",
         variant: "destructive",
       });
-      return;
     }
-
-    setStores(data || []);
   };
 
   const fetchAccounts = async () => {
