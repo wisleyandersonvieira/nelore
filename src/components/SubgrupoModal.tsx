@@ -205,12 +205,81 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   };
 
   const handleDelete = async (subgrupo: Subgrupo) => {
-    if (!confirm(`Tem certeza que deseja excluir o subgrupo ${subgrupo.name}?`)) {
-      return;
-    }
-
     setLoading(true);
     try {
+      // Verificar se existem contas a pagar vinculadas (através do chart_of_accounts)
+      const { data: chartAccounts, error: chartError } = await supabase
+        .from("chart_of_accounts")
+        .select("id")
+        .eq("group_id", subgrupo.id)
+        .limit(1);
+
+      if (chartError) throw chartError;
+
+      if (chartAccounts && chartAccounts.length > 0) {
+        // Verificar se alguma conta está vinculada a contas a pagar
+        const { data: payables, error: payablesError } = await supabase
+          .from("accounts_payable")
+          .select("id")
+          .in("account_id", chartAccounts.map(c => c.id))
+          .limit(1);
+
+        if (payablesError) throw payablesError;
+
+        if (payables && payables.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Exclusão não permitida",
+            description: "Este subgrupo possui contas a pagar vinculadas e não pode ser excluído.",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Verificar se alguma conta está vinculada a contas a receber
+        const { data: receivables, error: receivablesError } = await supabase
+          .from("accounts_receivable")
+          .select("id")
+          .in("account_id", chartAccounts.map(c => c.id))
+          .limit(1);
+
+        if (receivablesError) throw receivablesError;
+
+        if (receivables && receivables.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Exclusão não permitida",
+            description: "Este subgrupo possui contas a receber vinculadas e não pode ser excluído.",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Verificar se existem produtos vinculados ao subgrupo
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select("id")
+        .eq("subgroup_id", subgrupo.id)
+        .limit(1);
+
+      if (productsError) throw productsError;
+
+      if (products && products.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Este subgrupo possui produtos vinculados e não pode ser excluído.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!confirm(`Tem certeza que deseja excluir o subgrupo ${subgrupo.name}?`)) {
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("account_groups")
         .delete()
