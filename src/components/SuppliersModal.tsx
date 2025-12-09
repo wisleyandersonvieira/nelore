@@ -38,7 +38,6 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [activeTab, setActiveTab] = useState("register");
-  const [userStoreId, setUserStoreId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   
@@ -58,27 +57,11 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
 
   useEffect(() => {
     if (open) {
-      fetchUserStoreId();
       fetchSuppliers();
     }
   }, [open]);
 
-  const fetchUserStoreId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("store_id")
-          .eq("id", user.id)
-          .single();
-        
-        setUserStoreId(profile?.store_id || null);
-      }
-    } catch (error) {
-      console.error("Error fetching user store:", error);
-    }
-  };
+  // Função removida - fornecedores são globais agora
 
   const formatCnpjCpf = (value: string) => {
     const cleaned = value.replace(/\D/g, "");
@@ -178,18 +161,9 @@ export const SuppliersModal = ({ open, onOpenChange }: SuppliersModalProps) => {
           description: "Fornecedor atualizado com sucesso!",
         });
       } else {
-        if (!userStoreId) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Usuário não associado a uma loja.",
-          });
-          return;
-        }
-        
         const { error } = await supabase
           .from("suppliers")
-          .insert([{ ...formData, store_id: userStoreId }]);
+          .insert([formData]);
 
         if (error) throw error;
         toast({
