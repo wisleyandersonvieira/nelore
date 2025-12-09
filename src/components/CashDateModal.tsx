@@ -8,6 +8,7 @@ import { Eye, Edit, Plus, Check, X } from "lucide-react";
 import { CashRegisterModal } from "./CashRegisterModal";
 import { toast } from "@/hooks/use-toast";
 import { validateCashControlPeriod } from "@/utils/periodValidation";
+import { useCaixaPermissions } from "@/hooks/useCaixaPermissions";
 
 interface CashDateModalProps {
   open: boolean;
@@ -22,6 +23,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create');
   const [periodBlocked, setPeriodBlocked] = useState(false);
+  const { canView, canEdit, canApprove, loading: permissionsLoading } = useCaixaPermissions();
 
   // Format date properly to avoid timezone issues
   const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -143,7 +145,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
     }
   };
 
-  if (loading) {
+  if (loading || permissionsLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
@@ -154,6 +156,12 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
       </Dialog>
     );
   }
+
+  // Determine which cards should be disabled based on permissions
+  const canCreateCash = canEdit && !cashControl && !periodBlocked;
+  const canViewCash = canView && cashControl;
+  const canEditCash = canEdit && cashControl && !cashControl?.approved_status && !periodBlocked;
+  const canApproveCash = canApprove && cashControl && !periodBlocked;
 
   return (
     <>
@@ -169,9 +177,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Cadastrar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                cashControl || cashControl?.approved_status || periodBlocked ? 'opacity-50 cursor-not-allowed' : ''
+                !canCreateCash ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => !cashControl && !cashControl?.approved_status && !periodBlocked && handleAction('create')}
+              onClick={() => canCreateCash && handleAction('create')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center mx-auto mb-2">
@@ -186,7 +194,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={cashControl || cashControl?.approved_status || periodBlocked}
+                  disabled={!canCreateCash}
                 >
                   Cadastrar
                 </Button>
@@ -196,9 +204,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Visualizar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                !cashControl ? 'opacity-50 cursor-not-allowed' : ''
+                !canViewCash ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => cashControl && handleAction('view')}
+              onClick={() => canViewCash && handleAction('view')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center mx-auto mb-2">
@@ -213,7 +221,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={!cashControl}
+                  disabled={!canViewCash}
                 >
                   Visualizar
                 </Button>
@@ -223,9 +231,9 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
             {/* Editar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                !cashControl || cashControl?.approved_status || periodBlocked ? 'opacity-50 cursor-not-allowed' : ''
+                !canEditCash ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              onClick={() => cashControl && !cashControl.approved_status && !periodBlocked && handleAction('edit')}
+              onClick={() => canEditCash && handleAction('edit')}
             >
               <CardHeader className="text-center">
                 <div className="w-12 h-12 rounded-lg bg-yellow-500 flex items-center justify-center mx-auto mb-2">
@@ -240,7 +248,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={!cashControl || cashControl?.approved_status || periodBlocked}
+                  disabled={!canEditCash}
                 >
                   Editar
                 </Button>
@@ -249,10 +257,10 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
 
             {/* Aprovar/Reprovar Caixa */}
             <AlertDialog>
-              <AlertDialogTrigger asChild>
+              <AlertDialogTrigger asChild disabled={!canApproveCash}>
                 <Card 
                   className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                    !cashControl || periodBlocked ? 'opacity-50 cursor-not-allowed' : ''
+                    !canApproveCash ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
               <CardHeader className="text-center">
@@ -279,7 +287,7 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                 <Button 
                   className="w-full" 
                   variant="outline"
-                  disabled={!cashControl || periodBlocked}
+                  disabled={!canApproveCash}
                 >
                   {cashControl?.approved_status ? 'Reprovar' : 'Aprovar'}
                 </Button>

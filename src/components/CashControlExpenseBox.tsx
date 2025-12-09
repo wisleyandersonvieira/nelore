@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LinkToAccountsPayableModal } from "./LinkToAccountsPayableModal";
+import { useCaixaPermissions } from "@/hooks/useCaixaPermissions";
 
 interface AttachmentInfo {
   path: string;
@@ -55,6 +56,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [sortField, setSortField] = useState<SortField>('issue_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
+  // Permissions
+  const { canEdit, canApprove } = useCaixaPermissions();
   
   // Link to accounts payable modal
   const [linkModalOpen, setLinkModalOpen] = useState(false);
@@ -390,10 +394,12 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{title}</CardTitle>
-          <Button size="sm" onClick={() => handleOpenForm()}>
-            <Plus className="h-4 w-4 mr-1" />
-            Nova Despesa
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => handleOpenForm()}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nova Despesa
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -484,36 +490,40 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className={`h-6 w-6 ${isLinked ? "opacity-50" : ""}`}
-                            onClick={() => handleOpenForm(expense)}
-                            title={isLinked ? "Não pode editar (vinculado)" : "Editar"}
-                            disabled={isLinked}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className={`h-6 w-6 ${isLinked ? "text-green-600 opacity-50" : "text-blue-600"}`}
-                            onClick={() => handleOpenLinkModal(expense)}
-                            title={isLinked ? "Já vinculado" : "Vincular ao Contas a Pagar"}
-                            disabled={isLinked}
-                          >
-                            <Link2 className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className={`h-6 w-6 ${isLinked ? "opacity-50" : expense.is_disabled ? "text-green-600" : "text-red-600"}`}
-                            onClick={() => handleDisable(expense)}
-                            title={isLinked ? "Não pode inabilitar (vinculado)" : expense.is_disabled ? "Habilitar" : "Inabilitar"}
-                            disabled={isLinked}
-                          >
-                            <Ban className="h-3 w-3" />
-                          </Button>
+                          {canEdit && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={`h-6 w-6 ${isLinked ? "opacity-50" : ""}`}
+                                onClick={() => handleOpenForm(expense)}
+                                title={isLinked ? "Não pode editar (vinculado)" : "Editar"}
+                                disabled={isLinked}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={`h-6 w-6 ${isLinked ? "text-green-600 opacity-50" : "text-blue-600"}`}
+                                onClick={() => handleOpenLinkModal(expense)}
+                                title={isLinked ? "Já vinculado" : "Vincular ao Contas a Pagar"}
+                                disabled={isLinked}
+                              >
+                                <Link2 className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={`h-6 w-6 ${isLinked ? "opacity-50" : expense.is_disabled ? "text-green-600" : "text-red-600"}`}
+                                onClick={() => handleDisable(expense)}
+                                title={isLinked ? "Não pode inabilitar (vinculado)" : expense.is_disabled ? "Habilitar" : "Inabilitar"}
+                                disabled={isLinked}
+                              >
+                                <Ban className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
