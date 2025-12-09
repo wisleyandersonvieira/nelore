@@ -145,12 +145,95 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   };
 
   const handleDelete = async (grupo: Grupo) => {
-    if (!confirm(`Tem certeza que deseja excluir o grupo ${grupo.name}?`)) {
-      return;
-    }
-
     setLoading(true);
     try {
+      // Verificar se existem contas a pagar vinculadas (através do chart_of_accounts)
+      const { data: chartAccounts, error: chartError } = await supabase
+        .from("chart_of_accounts")
+        .select("id")
+        .eq("group_id", grupo.id)
+        .limit(1);
+
+      if (chartError) throw chartError;
+
+      if (chartAccounts && chartAccounts.length > 0) {
+        // Verificar se alguma conta está vinculada a contas a pagar
+        const { data: payables, error: payablesError } = await supabase
+          .from("accounts_payable")
+          .select("id")
+          .in("account_id", chartAccounts.map(c => c.id))
+          .limit(1);
+
+        if (payablesError) throw payablesError;
+
+        if (payables && payables.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Exclusão não permitida",
+            description: "Este grupo possui contas a pagar vinculadas e não pode ser excluído.",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Verificar se alguma conta está vinculada a contas a receber
+        const { data: receivables, error: receivablesError } = await supabase
+          .from("accounts_receivable")
+          .select("id")
+          .in("account_id", chartAccounts.map(c => c.id))
+          .limit(1);
+
+        if (receivablesError) throw receivablesError;
+
+        if (receivables && receivables.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Exclusão não permitida",
+            description: "Este grupo possui contas a receber vinculadas e não pode ser excluído.",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Verificar se existem subgrupos vinculados
+      const { data: subgroups, error: subgroupsError } = await supabase
+        .from("account_groups")
+        .select("id")
+        .eq("parent_id", grupo.id)
+        .limit(1);
+
+      if (subgroupsError) throw subgroupsError;
+
+      if (subgroups && subgroups.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Este grupo possui subgrupos vinculados e não pode ser excluído.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se existem produtos vinculados ao grupo
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select("id")
+        .eq("group_id", grupo.id)
+        .limit(1);
+
+      if (productsError) throw productsError;
+
+      if (products && products.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Este grupo possui produtos vinculados e não pode ser excluído.",
+        });
+        setLoading(false);
+        return;
+      }
+
       // Verificar se existem contas ATIVAS associadas a este grupo
       const { data: accounts, error: checkError } = await supabase
         .from("chart_of_accounts")
@@ -162,7 +245,6 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
       if (checkError) throw checkError;
 
       if (accounts && accounts.length > 0) {
-        // Buscar detalhes das contas para mostrar na mensagem
         const { data: accountDetails } = await supabase
           .from("chart_of_accounts")
           .select("name")
@@ -171,13 +253,13 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
           .limit(3);
 
         const accountNames = accountDetails?.map(acc => acc.name).join(", ") || "";
-        const countText = accounts.length === 1 ? "1 conta ativa" : `${accounts.length} contas ativas`;
         
         toast({
           variant: "destructive",
           title: "Não é possível excluir",
-          description: `Este grupo possui ${countText} associada(s): ${accountNames}${accounts.length > 3 ? "..." : ""}. Remova as contas antes de excluir o grupo.`,
+          description: `Este grupo possui contas ativas associadas: ${accountNames}. Remova as contas antes de excluir o grupo.`,
         });
+        setLoading(false);
         return;
       }
 
@@ -196,13 +278,18 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
 
       if (dreItems && dreItems.length > 0) {
         const dreItemNames = dreItems.map(item => `"${item.name}" (${item.dre_structures.name})`).join(", ");
-        const countText = dreItems.length === 1 ? "1 item" : `${dreItems.length} itens`;
         
         toast({
           variant: "destructive",
           title: "Não é possível excluir",
-          description: `Este grupo está sendo usado em ${countText} da estrutura DRE: ${dreItemNames}${dreItems.length > 3 ? "..." : ""}. Remova essas referências antes de excluir o grupo.`,
+          description: `Este grupo está sendo usado na estrutura DRE: ${dreItemNames}. Remova essas referências antes de excluir o grupo.`,
         });
+        setLoading(false);
+        return;
+      }
+
+      if (!confirm(`Tem certeza que deseja excluir o grupo ${grupo.name}?`)) {
+        setLoading(false);
         return;
       }
 
