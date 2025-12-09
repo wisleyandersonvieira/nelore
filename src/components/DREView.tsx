@@ -12,17 +12,14 @@ import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
-
 interface Store {
   id: string;
   name: string;
 }
-
 interface DREStructure {
   id: string;
   name: string;
 }
-
 interface StructureItem {
   id: string;
   item_type: 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock';
@@ -34,7 +31,6 @@ interface StructureItem {
   sum_items?: string[];
   account_group_id?: string;
 }
-
 interface DREData {
   month: number;
   year: number;
@@ -42,30 +38,33 @@ interface DREData {
   store_name: string;
   values: Record<string, number>;
 }
-
 interface DREViewProps {
   regime?: 'cash' | 'competence';
 }
-
-export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
+export const DREView: React.FC<DREViewProps> = ({
+  regime = 'competence'
+}) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [structures, setStructures] = useState<DREStructure[]>([]);
   const [structureItems, setStructureItems] = useState<StructureItem[]>([]);
   const [dreData, setDreData] = useState<DREData[]>([]);
-  
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedStructure, setSelectedStructure] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-  
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  
+  const {
+    toast
+  } = useToast();
+
   // Detectar se estamos na página de DRE Caixa ou Competência
   const isCashRegime = regime === 'cash';
 
   // Função para extrair mês e ano de uma data string sem problemas de timezone
-  const getMonthAndYearFromDate = (dateString: string): { month: number; year: number } => {
+  const getMonthAndYearFromDate = (dateString: string): {
+    month: number;
+    year: number;
+  } => {
     // Extrair ano, mês e dia da string no formato YYYY-MM-DD
     const [yearStr, monthStr] = dateString.split('-');
     return {
@@ -73,67 +72,82 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       year: parseInt(yearStr, 10)
     };
   };
-
-  const months = [
-    { value: "1", label: "Janeiro" },
-    { value: "2", label: "Fevereiro" },
-    { value: "3", label: "Março" },
-    { value: "4", label: "Abril" },
-    { value: "5", label: "Maio" },
-    { value: "6", label: "Junho" },
-    { value: "7", label: "Julho" },
-    { value: "8", label: "Agosto" },
-    { value: "9", label: "Setembro" },
-    { value: "10", label: "Outubro" },
-    { value: "11", label: "Novembro" },
-    { value: "12", label: "Dezembro" },
-  ];
-
+  const months = [{
+    value: "1",
+    label: "Janeiro"
+  }, {
+    value: "2",
+    label: "Fevereiro"
+  }, {
+    value: "3",
+    label: "Março"
+  }, {
+    value: "4",
+    label: "Abril"
+  }, {
+    value: "5",
+    label: "Maio"
+  }, {
+    value: "6",
+    label: "Junho"
+  }, {
+    value: "7",
+    label: "Julho"
+  }, {
+    value: "8",
+    label: "Agosto"
+  }, {
+    value: "9",
+    label: "Setembro"
+  }, {
+    value: "10",
+    label: "Outubro"
+  }, {
+    value: "11",
+    label: "Novembro"
+  }, {
+    value: "12",
+    label: "Dezembro"
+  }];
   useEffect(() => {
     fetchStores();
     fetchStructures();
   }, []);
-
   useEffect(() => {
     if (selectedStructure) {
       fetchStructureItems();
     }
   }, [selectedStructure]);
-
   const fetchStores = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Verificar se é admin
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, store_id')
-        .eq('id', user.id)
-        .single();
-
+      const {
+        data: profile
+      } = await supabase.from('profiles').select('role, store_id').eq('id', user.id).single();
       if (profile?.role === 'admin') {
         // Admin vê todas as lojas
-        const { data, error } = await supabase
-          .from('stores')
-          .select('id, name')
-          .order('name');
-
+        const {
+          data,
+          error
+        } = await supabase.from('stores').select('id, name').order('name');
         if (error) throw error;
         setStores(data || []);
       } else {
         // Usuário normal: buscar lojas autorizadas
         const storeIds: string[] = [];
-        
         if (profile?.store_id) {
           storeIds.push(profile.store_id);
         }
-        
-        const { data: userStores } = await supabase
-          .from('user_stores')
-          .select('store_id')
-          .eq('user_id', user.id);
-        
+        const {
+          data: userStores
+        } = await supabase.from('user_stores').select('store_id').eq('user_id', user.id);
         if (userStores) {
           userStores.forEach(us => {
             if (!storeIds.includes(us.store_id)) {
@@ -141,14 +155,11 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             }
           });
         }
-
         if (storeIds.length > 0) {
-          const { data, error } = await supabase
-            .from('stores')
-            .select('id, name')
-            .in('id', storeIds)
-            .order('name');
-
+          const {
+            data,
+            error
+          } = await supabase.from('stores').select('id, name').in('id', storeIds).order('name');
           if (error) throw error;
           setStores(data || []);
         } else {
@@ -159,42 +170,34 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       toast({
         title: "Erro ao carregar lojas",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const fetchStructures = async () => {
     try {
-      const { data, error } = await supabase
-        .from('dre_structures')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
+      const {
+        data,
+        error
+      } = await supabase.from('dre_structures').select('id, name').eq('is_active', true).order('name');
       if (error) throw error;
       setStructures(data || []);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar estruturas",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const fetchStructureItems = async () => {
     if (!selectedStructure) return;
-
     try {
-      const { data, error } = await supabase
-        .from('dre_structure_items')
-        .select('*, account_group_id')
-        .eq('structure_id', selectedStructure)
-        .order('position_order');
-
+      const {
+        data,
+        error
+      } = await supabase.from('dre_structure_items').select('*, account_group_id').eq('structure_id', selectedStructure).order('position_order');
       if (error) throw error;
-      
       const formattedItems = (data || []).map((item: any) => ({
         id: item.id,
         item_type: item.item_type as 'group' | 'subgroup' | 'sum_line' | 'initial_stock' | 'final_stock',
@@ -206,17 +209,15 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         sum_items: item.sum_items || [],
         account_group_id: item.account_group_id
       }));
-      
       setStructureItems(formattedItems);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar itens da estrutura",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleStoreSelection = (storeId: string, checked: boolean) => {
     if (checked) {
       setSelectedStores(prev => [...prev, storeId]);
@@ -224,7 +225,6 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       setSelectedStores(prev => prev.filter(id => id !== storeId));
     }
   };
-
   const handleMonthSelection = (monthId: string, checked: boolean) => {
     if (checked) {
       setSelectedMonths(prev => [...prev, monthId]);
@@ -232,25 +232,22 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       setSelectedMonths(prev => prev.filter(id => id !== monthId));
     }
   };
-
   const loadDREData = async () => {
     if (!selectedStructure || selectedStores.length === 0 || selectedMonths.length === 0) {
       toast({
         title: "Seleção incompleta",
         description: "Selecione estrutura, lojas e meses para visualizar",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setLoading(true);
     try {
       // Buscar parâmetros de faturamento configurados
-      const { data: faturamentoParams, error: paramsError } = await supabase
-        .from('system_parameters')
-        .select('parameter_key, subgroup_id, product_id')
-        .in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto']);
-
+      const {
+        data: faturamentoParams,
+        error: paramsError
+      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto']);
       if (paramsError) throw paramsError;
 
       // Criar mapeamento de parâmetros para subgrupos
@@ -258,7 +255,6 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       // IDs dos produtos de acréscimo e desconto (juros)
       let acrescimoProductId: string | null = null;
       let descontoProductId: string | null = null;
-      
       faturamentoParams?.forEach(param => {
         if (param.subgroup_id) {
           faturamentoMapping[param.parameter_key] = param.subgroup_id;
@@ -272,9 +268,10 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       });
 
       // Buscar dados do controle de caixa
-      const { data: cashControlData, error: ccError } = await supabase
-        .from('cash_control')
-        .select(`
+      const {
+        data: cashControlData,
+        error: ccError
+      } = await supabase.from('cash_control').select(`
           id,
           store_id,
           date,
@@ -283,20 +280,17 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           faturamento_conta,
           faturamento_delivery,
           stores (name)
-        `)
-        .in('store_id', selectedStores)
-        .gte('date', `${selectedYear}-01-01`)
-        .lte('date', `${selectedYear}-12-31`);
-
+        `).in('store_id', selectedStores).gte('date', `${selectedYear}-01-01`).lte('date', `${selectedYear}-12-31`);
       if (ccError) throw ccError;
 
       // Buscar contas a pagar com produtos
       let accountsPayableData, apError;
-      
+
       // Buscar registros de pagamentos da nova tabela (para juros/descontos corretos)
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('accounts_payable_payments')
-        .select(`
+      const {
+        data: paymentsData,
+        error: paymentsError
+      } = await supabase.from('accounts_payable_payments').select(`
           id,
           installment_id,
           account_payable_id,
@@ -306,10 +300,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           discount_amount,
           interest_product_id,
           discount_product_id
-        `)
-        .gte('payment_date', `${selectedYear}-01-01`)
-        .lte('payment_date', `${selectedYear}-12-31`);
-
+        `).gte('payment_date', `${selectedYear}-01-01`).lte('payment_date', `${selectedYear}-12-31`);
       if (paymentsError) {
         console.warn('Erro ao buscar payments:', paymentsError);
       }
@@ -319,42 +310,33 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       paymentsData?.forEach(payment => {
         paymentsByInstallmentId[payment.installment_id] = payment;
       });
-      
       if (isCashRegime) {
         // Para regime de caixa: buscar contas pagas (com ou sem parcelas)
-        
-        // 1. Buscar parcelas pagas no ano selecionado
-        const { data: paidInstallments, error: installmentsError } = await supabase
-          .from('accounts_payable_installments')
-          .select('account_payable_id, payment_date, amount, installment_number')
-          .not('payment_date', 'is', null)
-          .gte('payment_date', `${selectedYear}-01-01`)
-          .lte('payment_date', `${selectedYear}-12-31`);
 
+        // 1. Buscar parcelas pagas no ano selecionado
+        const {
+          data: paidInstallments,
+          error: installmentsError
+        } = await supabase.from('accounts_payable_installments').select('account_payable_id, payment_date, amount, installment_number').not('payment_date', 'is', null).gte('payment_date', `${selectedYear}-01-01`).lte('payment_date', `${selectedYear}-12-31`);
         if (installmentsError) throw installmentsError;
 
         // 2. Buscar contas pagas à vista (status = paid e payment_date no ano)
-        const { data: paidAccounts, error: paidAccountsError } = await supabase
-          .from('accounts_payable')
-          .select('id, payment_date')
-          .eq('status', 'paid')
-          .not('payment_date', 'is', null)
-          .gte('payment_date', `${selectedYear}-01-01`)
-          .lte('payment_date', `${selectedYear}-12-31`)
-          .in('store_id', selectedStores);
-
+        const {
+          data: paidAccounts,
+          error: paidAccountsError
+        } = await supabase.from('accounts_payable').select('id, payment_date').eq('status', 'paid').not('payment_date', 'is', null).gte('payment_date', `${selectedYear}-01-01`).lte('payment_date', `${selectedYear}-12-31`).in('store_id', selectedStores);
         if (paidAccountsError) throw paidAccountsError;
 
         // Combinar IDs de contas com parcelas pagas e contas pagas à vista
         const accountPayableIdsFromInstallments = [...new Set(paidInstallments?.map(inst => inst.account_payable_id) || [])];
         const accountPayableIdsFromDirectPayment = paidAccounts?.map(acc => acc.id) || [];
         const accountPayableIds = [...new Set([...accountPayableIdsFromInstallments, ...accountPayableIdsFromDirectPayment])];
-
         if (accountPayableIds.length > 0) {
           // Buscar as contas a pagar com seus itens, valor total e parcelas (quitadas ou parcialmente pagas)
-          const { data, error } = await supabase
-            .from('accounts_payable')
-            .select(`
+          const {
+            data,
+            error
+          } = await supabase.from('accounts_payable').select(`
               id,
               store_id,
               total_amount,
@@ -381,11 +363,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                 payment_date
               ),
               stores (name)
-            `)
-            .in('id', accountPayableIds)
-            .in('store_id', selectedStores)
-            .in('status', ['paid', 'partial']);
-
+            `).in('id', accountPayableIds).in('store_id', selectedStores).in('status', ['paid', 'partial']);
           accountsPayableData = data;
           apError = error;
         } else {
@@ -395,9 +373,10 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       } else {
         // Para regime de competência: buscar por data de competência (lógica original)
         // Incluir payment_date e accounts_payable_installments para processar juros/descontos corretamente
-        const { data, error } = await supabase
-          .from('accounts_payable')
-          .select(`
+        const {
+          data,
+          error
+        } = await supabase.from('accounts_payable').select(`
             id,
             store_id,
             data_competencia,
@@ -421,28 +400,24 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               payment_date
             ),
             stores (name)
-          `)
-          .in('store_id', selectedStores)
-          .gte('data_competencia', `${selectedYear}-01-01`)
-          .lte('data_competencia', `${selectedYear}-12-31`);
-        
+          `).in('store_id', selectedStores).gte('data_competencia', `${selectedYear}-01-01`).lte('data_competencia', `${selectedYear}-12-31`);
         accountsPayableData = data || [];
         apError = error;
-        
+
         // Para competência: também precisamos buscar juros/descontos de contas cuja 
         // competência pode estar em outro ano, mas o pagamento foi feito no ano selecionado
         // Buscar IDs das contas que têm pagamentos no ano selecionado
         const accountIdsFromPayments = [...new Set(paymentsData?.map(p => p.account_payable_id) || [])];
-        
+
         // Filtrar apenas IDs que não estão já nos dados buscados
         const existingAccountIds = new Set(accountsPayableData.map((a: any) => a.id));
         const missingAccountIds = accountIdsFromPayments.filter(id => !existingAccountIds.has(id));
-        
         if (missingAccountIds.length > 0) {
           // Buscar contas adicionais que têm pagamentos no ano mas competência em outro ano
-          const { data: additionalAccounts, error: additionalError } = await supabase
-            .from('accounts_payable')
-            .select(`
+          const {
+            data: additionalAccounts,
+            error: additionalError
+          } = await supabase.from('accounts_payable').select(`
               id,
               store_id,
               data_competencia,
@@ -466,10 +441,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                 payment_date
               ),
               stores (name)
-            `)
-            .in('id', missingAccountIds)
-            .in('store_id', selectedStores);
-          
+            `).in('id', missingAccountIds).in('store_id', selectedStores);
           if (!additionalError && additionalAccounts) {
             // Marcar essas contas para processar APENAS juros/descontos, não itens normais
             additionalAccounts.forEach((acc: any) => {
@@ -485,30 +457,24 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         acc[item.store_id] = (acc[item.store_id] || 0) + 1;
         return acc;
       }, {}) || {};
-
       const accountsPayableByStore = accountsPayableData?.reduce((acc: Record<string, number>, item: any) => {
         acc[item.store_id] = (acc[item.store_id] || 0) + 1;
         return acc;
       }, {}) || {};
 
       // Verificar lojas sem dados
-      const storesWithoutData = selectedStores.filter(storeId => 
-        !cashControlByStore[storeId] && !accountsPayableByStore[storeId]
-      );
-
+      const storesWithoutData = selectedStores.filter(storeId => !cashControlByStore[storeId] && !accountsPayableByStore[storeId]);
       if (storesWithoutData.length > 0) {
         const storeNames = storesWithoutData.map(storeId => {
           const store = stores.find(s => s.id === storeId);
           return store?.name || 'Loja desconhecida';
         }).join(', ');
-        
         toast({
           title: "Atenção: Dados não encontrados",
           description: `Não foram encontrados dados financeiros para as seguintes lojas no ano ${selectedYear}: ${storeNames}. Verifique se os dados foram cadastrados corretamente para essas lojas.`,
-          variant: "default",
+          variant: "default"
         });
       }
-
       if (apError) throw apError;
 
       // Agrupar dados por mês, loja e subgrupo
@@ -516,13 +482,15 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
 
       // Processar dados do controle de caixa (FATURAMENTO)
       cashControlData?.forEach((cashControl: any) => {
-        const { month, year } = getMonthAndYearFromDate(cashControl.date);
+        const {
+          month,
+          year
+        } = getMonthAndYearFromDate(cashControl.date);
 
         // Verificar se o mês está selecionado
         if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
           return;
         }
-
         const storeId = cashControl.store_id;
         const storeName = cashControl.stores?.name || 'Loja sem nome';
         const key = `${storeId}-${month}`;
@@ -545,16 +513,11 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           venda_contas: parseFloat(cashControl.faturamento_conta) || 0,
           venda_delivery: parseFloat(cashControl.faturamento_delivery) || 0
         };
-
         Object.entries(faturamentoData).forEach(([paramKey, value]) => {
           const subgroupId = faturamentoMapping[paramKey];
           if (subgroupId && value > 0) {
             // Encontrar o item da estrutura que corresponde a este subgrupo
-            const structureItem = structureItems.find(si => 
-              si.item_type === 'subgroup' && 
-              si.account_group_id === subgroupId
-            );
-
+            const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
             if (structureItem) {
               if (!groupedData[key].values[structureItem.id]) {
                 groupedData[key].values[structureItem.id] = 0;
@@ -569,19 +532,20 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       accountsPayableData?.forEach((account: any) => {
         if (isCashRegime) {
           // Para regime de caixa: processar baseado nas parcelas pagas OU pagamento à vista
-          
+
           // Verificar se é pagamento à vista (sem parcelas)
           const hasInstallments = account.accounts_payable_installments && account.accounts_payable_installments.length > 0;
-          
           if (!hasInstallments && account.status === 'paid' && account.payment_date) {
             // Conta paga à vista - processar o valor total
-            const { month, year } = getMonthAndYearFromDate(account.payment_date);
+            const {
+              month,
+              year
+            } = getMonthAndYearFromDate(account.payment_date);
 
             // Verificar se o mês está selecionado
             if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
               return;
             }
-
             const storeId = account.store_id;
             const storeName = account.stores?.name || 'Loja sem nome';
             const key = `${storeId}-${month}`;
@@ -604,10 +568,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                 const value = parseFloat(item.total_price) || 0;
 
                 // Encontrar o item da estrutura que corresponde a este subgrupo
-                const structureItem = structureItems.find(si => 
-                  si.item_type === 'subgroup' && 
-                  si.account_group_id === subgroupId
-                );
+                const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
 
                 // Considerar valores positivos e negativos (descontos são negativos)
                 if (structureItem && value !== 0) {
@@ -618,14 +579,11 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                 }
               }
             });
-            
             return; // Já processou, não precisa processar parcelas
           }
 
           // Processar parcelas pagas
-          const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => 
-            installment.payment_date !== null && installment.payment_date !== undefined
-          ) || [];
+          const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => installment.payment_date !== null && installment.payment_date !== undefined) || [];
 
           // Se não houver parcelas pagas, não processar esta conta
           if (paidInstallments.length === 0) {
@@ -633,21 +591,14 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           }
 
           // Separar itens normais de itens de juros/desconto
-          const normalItems = account.accounts_payable_items?.filter((item: any) => 
-            item.product_id !== acrescimoProductId && item.product_id !== descontoProductId
-          ) || [];
-          
-          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => 
-            item.product_id === acrescimoProductId || item.product_id === descontoProductId
-          ) || [];
+          const normalItems = account.accounts_payable_items?.filter((item: any) => item.product_id !== acrescimoProductId && item.product_id !== descontoProductId) || [];
+          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => item.product_id === acrescimoProductId || item.product_id === descontoProductId) || [];
 
           // Calcular o valor base da conta (sem juros/descontos) para proporção correta
-          const baseAccountAmount = normalItems.reduce((sum: number, item: any) => 
-            sum + (parseFloat(item.total_price) || 0), 0);
-          
+          const baseAccountAmount = normalItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+
           // Calcular o total de parcelas para saber a proporção de cada uma
           const totalInstallments = account.accounts_payable_installments?.length || 1;
-          
           if (baseAccountAmount === 0 && interestDiscountItems.length === 0) {
             console.warn('Conta a pagar sem itens:', account.id);
             return;
@@ -656,18 +607,19 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           // Para cada parcela paga, calcular a proporção dos itens normais
           // e lançar 100% dos juros/descontos apenas na primeira parcela que está sendo processada
           // (já que não temos como saber qual parcela gerou qual juros)
-          
+
           // Abordagem: dividir os juros/descontos pelo número de parcelas pagas
           const totalPaidInstallments = paidInstallments.length;
-          
           paidInstallments.forEach((installment: any) => {
-            const { month, year } = getMonthAndYearFromDate(installment.payment_date);
+            const {
+              month,
+              year
+            } = getMonthAndYearFromDate(installment.payment_date);
 
             // Verificar se o mês está selecionado
             if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
               return;
             }
-
             const storeId = account.store_id;
             const storeName = account.stores?.name || 'Loja sem nome';
             const key = `${storeId}-${month}`;
@@ -695,11 +647,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                 const proportionalValue = (parseFloat(item.total_price) || 0) * installmentProportion;
 
                 // Encontrar o item da estrutura que corresponde a este subgrupo
-                const structureItem = structureItems.find(si => 
-                  si.item_type === 'subgroup' && 
-                  si.account_group_id === subgroupId
-                );
-
+                const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                 if (structureItem && proportionalValue > 0) {
                   if (!groupedData[key].values[structureItem.id]) {
                     groupedData[key].values[structureItem.id] = 0;
@@ -712,22 +660,14 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             // Processar juros/descontos da nova tabela accounts_payable_payments
             // Cada pagamento tem seus próprios juros/descontos com data correta
             const paymentRecord = paymentsByInstallmentId[installment.id];
-            
             if (paymentRecord) {
               // Processar juros (acréscimo) se houver
               if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoProductId) {
                 // Buscar subgrupo do produto de acréscimo
-                const interestItem = interestDiscountItems.find((item: any) => 
-                  item.product_id === acrescimoProductId
-                );
-                
+                const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoProductId);
                 if (interestItem?.products?.subgroup_id) {
                   const subgroupId = interestItem.products.subgroup_id;
-                  const structureItem = structureItems.find(si => 
-                    si.item_type === 'subgroup' && 
-                    si.account_group_id === subgroupId
-                  );
-
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                   if (structureItem) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
@@ -740,17 +680,10 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               // Processar desconto se houver (valor negativo)
               if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
                 // Buscar subgrupo do produto de desconto
-                const discountItem = interestDiscountItems.find((item: any) => 
-                  item.product_id === descontoProductId
-                );
-                
+                const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoProductId);
                 if (discountItem?.products?.subgroup_id) {
                   const subgroupId = discountItem.products.subgroup_id;
-                  const structureItem = structureItems.find(si => 
-                    si.item_type === 'subgroup' && 
-                    si.account_group_id === subgroupId
-                  );
-
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                   if (structureItem) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
@@ -770,11 +703,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                   const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
 
                   // Encontrar o item da estrutura que corresponde a este subgrupo
-                  const structureItem = structureItems.find(si => 
-                    si.item_type === 'subgroup' && 
-                    si.account_group_id === subgroupId
-                  );
-
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                   if (structureItem && dividedValue !== 0) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
@@ -788,20 +717,18 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         } else {
           // Para regime de competência: usar data_competencia para itens normais
           // mas data de pagamento para juros/descontos
-          
+
           // Separar itens normais de itens de juros/desconto
-          const normalItems = account.accounts_payable_items?.filter((item: any) => 
-            item.product_id !== acrescimoProductId && item.product_id !== descontoProductId
-          ) || [];
-          
-          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => 
-            item.product_id === acrescimoProductId || item.product_id === descontoProductId
-          ) || [];
+          const normalItems = account.accounts_payable_items?.filter((item: any) => item.product_id !== acrescimoProductId && item.product_id !== descontoProductId) || [];
+          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => item.product_id === acrescimoProductId || item.product_id === descontoProductId) || [];
 
           // Processar itens normais pela data de competência
           // MAS apenas se a conta não for marcada para processar apenas juros/descontos
           if (normalItems.length > 0 && !account._onlyInterestDiscount) {
-            const { month, year } = getMonthAndYearFromDate(account.data_competencia);
+            const {
+              month,
+              year
+            } = getMonthAndYearFromDate(account.data_competencia);
 
             // Verificar se o mês está selecionado
             if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
@@ -819,18 +746,13 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                   values: {}
                 };
               }
-
               normalItems.forEach((item: any) => {
                 if (item.products?.subgroup_id) {
                   const subgroupId = item.products.subgroup_id;
                   const value = parseFloat(item.total_price) || 0;
 
                   // Encontrar o item da estrutura que corresponde a este subgrupo
-                  const structureItem = structureItems.find(si => 
-                    si.item_type === 'subgroup' && 
-                    si.account_group_id === subgroupId
-                  );
-
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                   if (structureItem) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
@@ -846,26 +768,22 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
           // Se não houver parcelas, usar payment_date da conta principal
           // Se houver parcelas, usar payment_date de cada parcela paga
           if (interestDiscountItems.length > 0) {
-            const hasInstallments = account.accounts_payable_installments && 
-                                    account.accounts_payable_installments.length > 0;
-            
+            const hasInstallments = account.accounts_payable_installments && account.accounts_payable_installments.length > 0;
             if (hasInstallments) {
               // Parcelas: processar juros/descontos na data de pagamento de cada parcela paga
-              const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => 
-                installment.payment_date !== null && installment.payment_date !== undefined
-              ) || [];
-              
+              const paidInstallments = account.accounts_payable_installments?.filter((installment: any) => installment.payment_date !== null && installment.payment_date !== undefined) || [];
               const totalPaidInstallments = paidInstallments.length;
-              
               if (totalPaidInstallments > 0) {
                 paidInstallments.forEach((installment: any) => {
-                  const { month, year } = getMonthAndYearFromDate(installment.payment_date);
+                  const {
+                    month,
+                    year
+                  } = getMonthAndYearFromDate(installment.payment_date);
 
                   // Verificar se o mês está selecionado
                   if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
                     return;
                   }
-
                   const storeId = account.store_id;
                   const storeName = account.stores?.name || 'Loja sem nome';
                   const key = `${storeId}-${month}`;
@@ -883,21 +801,13 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
 
                   // Usar dados da nova tabela accounts_payable_payments
                   const paymentRecord = paymentsByInstallmentId[installment.id];
-                  
                   if (paymentRecord) {
                     // Processar juros (acréscimo) se houver
                     if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoProductId) {
-                      const interestItem = interestDiscountItems.find((item: any) => 
-                        item.product_id === acrescimoProductId
-                      );
-                      
+                      const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoProductId);
                       if (interestItem?.products?.subgroup_id) {
                         const subgroupId = interestItem.products.subgroup_id;
-                        const structureItem = structureItems.find(si => 
-                          si.item_type === 'subgroup' && 
-                          si.account_group_id === subgroupId
-                        );
-
+                        const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                         if (structureItem) {
                           if (!groupedData[key].values[structureItem.id]) {
                             groupedData[key].values[structureItem.id] = 0;
@@ -909,17 +819,10 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
 
                     // Processar desconto se houver (valor negativo)
                     if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
-                      const discountItem = interestDiscountItems.find((item: any) => 
-                        item.product_id === descontoProductId
-                      );
-                      
+                      const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoProductId);
                       if (discountItem?.products?.subgroup_id) {
                         const subgroupId = discountItem.products.subgroup_id;
-                        const structureItem = structureItems.find(si => 
-                          si.item_type === 'subgroup' && 
-                          si.account_group_id === subgroupId
-                        );
-
+                        const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                         if (structureItem) {
                           if (!groupedData[key].values[structureItem.id]) {
                             groupedData[key].values[structureItem.id] = 0;
@@ -934,12 +837,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                       if (item.products?.subgroup_id) {
                         const subgroupId = item.products.subgroup_id;
                         const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
-
-                        const structureItem = structureItems.find(si => 
-                          si.item_type === 'subgroup' && 
-                          si.account_group_id === subgroupId
-                        );
-
+                        const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                         if (structureItem && dividedValue !== 0) {
                           if (!groupedData[key].values[structureItem.id]) {
                             groupedData[key].values[structureItem.id] = 0;
@@ -954,7 +852,10 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             } else {
               // Sem parcelas: usar payment_date da conta principal
               if (account.payment_date) {
-                const { month, year } = getMonthAndYearFromDate(account.payment_date);
+                const {
+                  month,
+                  year
+                } = getMonthAndYearFromDate(account.payment_date);
 
                 // Verificar se o mês está selecionado
                 if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
@@ -972,17 +873,11 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                       values: {}
                     };
                   }
-
                   interestDiscountItems.forEach((item: any) => {
                     if (item.products?.subgroup_id) {
                       const subgroupId = item.products.subgroup_id;
                       const value = parseFloat(item.total_price) || 0;
-
-                      const structureItem = structureItems.find(si => 
-                        si.item_type === 'subgroup' && 
-                        si.account_group_id === subgroupId
-                      );
-
+                      const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                       if (structureItem && value !== 0) {
                         if (!groupedData[key].values[structureItem.id]) {
                           groupedData[key].values[structureItem.id] = 0;
@@ -1004,62 +899,55 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       // Converter para array
       const formattedData: DREData[] = Object.values(groupedData);
       setDreData(formattedData);
-
       if (formattedData.length === 0) {
         toast({
           title: "Nenhum dado encontrado",
           description: "Não foram encontradas contas a pagar para os filtros selecionados",
-          variant: "default",
+          variant: "default"
         });
       }
     } catch (error: any) {
       toast({
         title: "Erro ao carregar dados DRE",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const loadStockData = async (groupedData: Record<string, DREData>) => {
     try {
       // Verificar se há itens de estoque na estrutura
-      const stockItems = structureItems.filter(item => 
-        item.item_type === 'initial_stock' || item.item_type === 'final_stock'
-      );
-
+      const stockItems = structureItems.filter(item => item.item_type === 'initial_stock' || item.item_type === 'final_stock');
       if (stockItems.length === 0) return;
 
       // Para cada combinação de loja/mês nos dados agrupados
       for (const [key, dreData] of Object.entries(groupedData)) {
-        const { store_id, month, year } = dreData;
+        const {
+          store_id,
+          month,
+          year
+        } = dreData;
 
         // Para estoque inicial: buscar mês anterior ao selecionado
         const initialStockItems = stockItems.filter(item => item.item_type === 'initial_stock');
         if (initialStockItems.length > 0) {
           let initialMonth = month - 1;
           let initialYear = year;
-          
+
           // Ajustar ano se necessário
           if (initialMonth <= 0) {
             initialMonth = 12;
             initialYear -= 1;
           }
-
-          const { data: initialStockData, error: initialError } = await supabase
-            .from('stock_control')
-            .select('total_value')
-            .eq('store_id', store_id)
-            .eq('month', initialMonth)
-            .eq('year', initialYear)
-            .single();
-
+          const {
+            data: initialStockData,
+            error: initialError
+          } = await supabase.from('stock_control').select('total_value').eq('store_id', store_id).eq('month', initialMonth).eq('year', initialYear).single();
           if (initialError && initialError.code !== 'PGRST116') {
             console.error('Erro ao buscar estoque inicial:', initialError);
           }
-
           const initialStockValue = initialStockData?.total_value || 0;
           initialStockItems.forEach(item => {
             groupedData[key].values[item.id] = parseFloat(initialStockValue.toString());
@@ -1069,18 +957,13 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         // Para estoque final: buscar o mês atual selecionado
         const finalStockItems = stockItems.filter(item => item.item_type === 'final_stock');
         if (finalStockItems.length > 0) {
-          const { data: finalStockData, error: finalError } = await supabase
-            .from('stock_control')
-            .select('total_value')
-            .eq('store_id', store_id)
-            .eq('month', month)
-            .eq('year', year)
-            .single();
-
+          const {
+            data: finalStockData,
+            error: finalError
+          } = await supabase.from('stock_control').select('total_value').eq('store_id', store_id).eq('month', month).eq('year', year).single();
           if (finalError && finalError.code !== 'PGRST116') {
             console.error('Erro ao buscar estoque final:', finalError);
           }
-
           const finalStockValue = finalStockData?.total_value || 0;
           finalStockItems.forEach(item => {
             groupedData[key].values[item.id] = parseFloat(finalStockValue.toString());
@@ -1092,26 +975,21 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       toast({
         title: "Erro ao carregar dados de estoque",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const calculateGroupTotal = (groupId: string, data: DREData): number => {
     // Encontrar o grupo atual
     const currentGroupIndex = structureItems.findIndex(item => item.id === groupId);
     if (currentGroupIndex === -1) return 0;
 
     // Encontrar o próximo grupo após este
-    const nextGroupIndex = structureItems.findIndex((item, index) => 
-      index > currentGroupIndex && item.item_type === 'group'
-    );
+    const nextGroupIndex = structureItems.findIndex((item, index) => index > currentGroupIndex && item.item_type === 'group');
 
     // Pegar todos os itens entre este grupo e o próximo grupo (ou até o final)
     const endIndex = nextGroupIndex === -1 ? structureItems.length : nextGroupIndex;
-    const itemsInGroup = structureItems.slice(currentGroupIndex + 1, endIndex)
-      .filter(item => item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock');
-    
+    const itemsInGroup = structureItems.slice(currentGroupIndex + 1, endIndex).filter(item => item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock');
     return itemsInGroup.reduce((total, item) => {
       let value = 0;
       if (item.item_type === 'subgroup') {
@@ -1122,15 +1000,13 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       return total + (item.operation_type === 'credit' ? value : -value);
     }, 0);
   };
-
   const calculateSumLineTotal = (sumLineId: string, data: DREData): number => {
     // Find the current sum line position
     const currentSumLineIndex = structureItems.findIndex(item => item.id === sumLineId);
     if (currentSumLineIndex === -1) return 0;
-    
+
     // Sum all subgroups and stock items that are above this sum line
     const itemsAbove = structureItems.slice(0, currentSumLineIndex);
-    
     return itemsAbove.reduce((total, item) => {
       if (item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
         const value = data.values[item.id] || 0;
@@ -1139,55 +1015,43 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
       return total;
     }, 0);
   };
-
   const calculateStockTotal = (stockId: string, data: DREData): number => {
     // Para itens de estoque, retornar o valor direto
     return data.values[stockId] || 0;
   };
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
   };
-
   const getMonthName = (month: number) => {
     return months[month - 1]?.label || month.toString();
   };
-
   const exportToExcel = () => {
     try {
       // Preparar dados para exportação
       const exportData: any[] = [];
-      
+
       // Cabeçalho principal
       const headerRow1 = ['Descrição'];
       const headerRow2 = [''];
-      
       Object.entries(groupedData).forEach(([periodKey, periodData]) => {
         const [year, month] = periodKey.split('-');
         const monthName = `${getMonthName(parseInt(month))} ${year}`;
-        
-        periodData.forEach((data) => {
+        periodData.forEach(data => {
           headerRow1.push(monthName);
           headerRow2.push(data.store_name);
         });
       });
-      
       exportData.push(headerRow1);
       exportData.push(headerRow2);
-      
+
       // Dados das linhas
-      structureItems.forEach((item) => {
-        const row = [
-          item.item_type === 'sum_line' && item.description 
-            ? item.description 
-            : item.name
-        ];
-        
+      structureItems.forEach(item => {
+        const row = [item.item_type === 'sum_line' && item.description ? item.description : item.name];
         Object.entries(groupedData).forEach(([_, periodData]) => {
-          periodData.forEach((data) => {
+          periodData.forEach(data => {
             let value = 0;
             if (item.item_type === 'subgroup') {
               value = data.values[item.id] || 0;
@@ -1199,81 +1063,84 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             row.push(value.toString());
           });
         });
-        
         exportData.push(row);
       });
-      
+
       // Criar workbook e worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(exportData);
-      
+
       // Adicionar worksheet ao workbook
       XLSX.utils.book_append_sheet(wb, ws, "DRE");
-      
+
       // Baixar arquivo
       const fileName = `DRE_${selectedYear}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      
       toast({
         title: "Exportação concluída",
         description: "Arquivo Excel baixado com sucesso",
-        variant: "default",
+        variant: "default"
       });
     } catch (error: any) {
       toast({
         title: "Erro na exportação",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const exportToPDF = () => {
     try {
       const doc = new jsPDF('landscape');
-      
+
       // Título
       doc.setFontSize(16);
       doc.text('Demonstrativo de Resultados do Exercício', 20, 20);
       doc.setFontSize(12);
       doc.text(`Ano: ${selectedYear}`, 20, 30);
-      
+
       // Preparar dados para a tabela com metadados de estilo
       const tableHeaders: string[][] = [['Descrição'], ['']];
-      const tableData: { content: string; styles?: any }[][] = [];
-      const rowMetadata: { itemType: string; isNegative: boolean[] }[] = [];
-      
+      const tableData: {
+        content: string;
+        styles?: any;
+      }[][] = [];
+      const rowMetadata: {
+        itemType: string;
+        isNegative: boolean[];
+      }[] = [];
+
       // Cabeçalhos das colunas (duas linhas: período e loja)
       Object.entries(groupedData).forEach(([periodKey, periodData]) => {
         const [year, month] = periodKey.split('-');
         const monthName = `${getMonthName(parseInt(month))} ${year}`;
-        
-        periodData.forEach((data) => {
+        periodData.forEach(data => {
           tableHeaders[0].push(monthName);
           tableHeaders[1].push(data.store_name);
         });
       });
-      
+
       // Linhas de dados com metadados para estilização
-      structureItems.forEach((item) => {
-        const row: { content: string; styles?: any }[] = [];
+      structureItems.forEach(item => {
+        const row: {
+          content: string;
+          styles?: any;
+        }[] = [];
         const rowNegatives: boolean[] = [];
-        
+
         // Nome/descrição com indentação para subgrupos e itens de estoque
-        let displayName = item.item_type === 'sum_line' && item.description 
-          ? item.description 
-          : item.name;
-        
+        let displayName = item.item_type === 'sum_line' && item.description ? item.description : item.name;
+
         // Adicionar espaçamento visual para subgrupos e itens de estoque
         const isSubItem = item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock';
         if (isSubItem) {
           displayName = '    ' + displayName; // Indentação para subgrupos
         }
-        
-        row.push({ content: displayName });
-        
+        row.push({
+          content: displayName
+        });
         Object.entries(groupedData).forEach(([_, periodData]) => {
-          periodData.forEach((data) => {
+          periodData.forEach(data => {
             let value = 0;
             if (item.item_type === 'subgroup') {
               value = data.values[item.id] || 0;
@@ -1284,24 +1151,26 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
               value = calculateStockTotal(item.id, data);
             }
-            
+
             // Aplicar sinal negativo conforme operation_type
             let displayValue = value;
             if (item.operation_type === 'debit' && value !== 0) {
               displayValue = -Math.abs(value);
             }
-            
             const isNegative = displayValue < 0;
             rowNegatives.push(isNegative);
-            
-            row.push({ content: formatCurrency(displayValue) });
+            row.push({
+              content: formatCurrency(displayValue)
+            });
           });
         });
-        
         tableData.push(row);
-        rowMetadata.push({ itemType: item.item_type, isNegative: rowNegatives });
+        rowMetadata.push({
+          itemType: item.item_type,
+          isNegative: rowNegatives
+        });
       });
-      
+
       // Adicionar tabela ao PDF
       autoTable(doc, {
         head: tableHeaders,
@@ -1309,31 +1178,36 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         startY: 40,
         styles: {
           fontSize: 8,
-          cellPadding: 3,
+          cellPadding: 3
         },
         headStyles: {
           fillColor: [41, 128, 185],
           textColor: 255,
           fontStyle: 'bold',
-          halign: 'center',
+          halign: 'center'
         },
         columnStyles: {
-          0: { cellWidth: 'auto', minCellWidth: 50, halign: 'left' },
+          0: {
+            cellWidth: 'auto',
+            minCellWidth: 50,
+            halign: 'left'
+          }
         },
-        margin: { top: 40 },
-        didParseCell: function(data: any) {
+        margin: {
+          top: 40
+        },
+        didParseCell: function (data: any) {
           // Aplicar estilos personalizados nas células
           if (data.section === 'body') {
             const rowIndex = data.row.index;
             const colIndex = data.column.index;
             const metadata = rowMetadata[rowIndex];
-            
             if (metadata) {
               // Negrito para grupos e linhas de soma
               if (metadata.itemType === 'group' || metadata.itemType === 'sum_line') {
                 data.cell.styles.fontStyle = 'bold';
               }
-              
+
               // Cor vermelha para valores negativos (colunas de valores, não a descrição)
               if (colIndex > 0) {
                 const negativeIndex = colIndex - 1;
@@ -1343,23 +1217,22 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               }
             }
           }
-        },
+        }
       });
-      
+
       // Salvar PDF
       const fileName = `DRE_${selectedYear}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
-      
       toast({
         title: "Exportação concluída",
         description: "Arquivo PDF baixado com sucesso",
-        variant: "default",
+        variant: "default"
       });
     } catch (error: any) {
       toast({
         title: "Erro na exportação",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -1386,12 +1259,10 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
     }
     return acc;
   }, {} as Record<string, DREData[]>);
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Visualizar DRE</h2>
-        <p className="text-muted-foreground">Consulte e compare os demonstrativos de resultados</p>
+        
+        
       </div>
 
       <Card>
@@ -1409,11 +1280,9 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                   <SelectValue placeholder="Selecione a estrutura" />
                 </SelectTrigger>
                 <SelectContent>
-                  {structures.map((structure) => (
-                    <SelectItem key={structure.id} value={structure.id}>
+                  {structures.map(structure => <SelectItem key={structure.id} value={structure.id}>
                       {structure.name}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1426,14 +1295,14 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                   <SelectValue placeholder="Selecione o ano" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const year = new Date().getFullYear() - 2 + i;
-                    return (
-                      <SelectItem key={year} value={year.toString()}>
+                  {Array.from({
+                  length: 5
+                }, (_, i) => {
+                  const year = new Date().getFullYear() - 2 + i;
+                  return <SelectItem key={year} value={year.toString()}>
                         {year}
-                      </SelectItem>
-                    );
-                  })}
+                      </SelectItem>;
+                })}
                 </SelectContent>
               </Select>
             </div>
@@ -1442,20 +1311,12 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             <div className="space-y-2">
               <Label>Lojas</Label>
               <div className="border rounded-md p-3 max-h-32 overflow-y-auto">
-                {stores.map((store) => (
-                  <div key={store.id} className="flex items-center space-x-2 mb-2">
-                    <Checkbox
-                      id={`store-${store.id}`}
-                      checked={selectedStores.includes(store.id)}
-                      onCheckedChange={(checked) => 
-                        handleStoreSelection(store.id, checked as boolean)
-                      }
-                    />
+                {stores.map(store => <div key={store.id} className="flex items-center space-x-2 mb-2">
+                    <Checkbox id={`store-${store.id}`} checked={selectedStores.includes(store.id)} onCheckedChange={checked => handleStoreSelection(store.id, checked as boolean)} />
                     <label htmlFor={`store-${store.id}`} className="text-sm">
                       {store.name}
                     </label>
-                  </div>
-                ))}
+                  </div>)}
               </div>
             </div>
 
@@ -1463,29 +1324,18 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
             <div className="space-y-2">
               <Label>Meses</Label>
               <div className="border rounded-md p-3 max-h-32 overflow-y-auto">
-                {months.map((month) => (
-                  <div key={month.value} className="flex items-center space-x-2 mb-2">
-                    <Checkbox
-                      id={`month-${month.value}`}
-                      checked={selectedMonths.includes(month.value)}
-                      onCheckedChange={(checked) => 
-                        handleMonthSelection(month.value, checked as boolean)
-                      }
-                    />
+                {months.map(month => <div key={month.value} className="flex items-center space-x-2 mb-2">
+                    <Checkbox id={`month-${month.value}`} checked={selectedMonths.includes(month.value)} onCheckedChange={checked => handleMonthSelection(month.value, checked as boolean)} />
                     <label htmlFor={`month-${month.value}`} className="text-sm">
                       {month.label}
                     </label>
-                  </div>
-                ))}
+                  </div>)}
               </div>
             </div>
           </div>
 
           <div className="flex justify-between mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => window.history.back()}
-            >
+            <Button variant="outline" onClick={() => window.history.back()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
@@ -1497,8 +1347,7 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
         </CardContent>
       </Card>
 
-      {Object.keys(groupedData).length > 0 && (
-        <Card>
+      {Object.keys(groupedData).length > 0 && <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>Demonstrativo de Resultados</span>
@@ -1524,64 +1373,38 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
                   <TableRow>
                     <TableHead className="w-64">Descrição</TableHead>
                     {Object.entries(groupedData).map(([periodKey, periodData]) => {
-                      const [year, month] = periodKey.split('-');
-                      return (
-                        <TableHead key={periodKey} colSpan={periodData.length} className="text-center">
+                  const [year, month] = periodKey.split('-');
+                  return <TableHead key={periodKey} colSpan={periodData.length} className="text-center">
                           {getMonthName(parseInt(month))} {year}
-                        </TableHead>
-                      );
-                    })}
+                        </TableHead>;
+                })}
                   </TableRow>
                   <TableRow>
                     <TableHead></TableHead>
-                    {Object.entries(groupedData).map(([periodKey, periodData]) => 
-                      periodData.map((data, index) => (
-                        <TableHead key={`${periodKey}-${index}`} className="text-center">
+                    {Object.entries(groupedData).map(([periodKey, periodData]) => periodData.map((data, index) => <TableHead key={`${periodKey}-${index}`} className="text-center">
                           {data.store_name}
-                        </TableHead>
-                      ))
-                    )}
+                        </TableHead>))}
                   </TableRow>
                 </TableHeader>
                  <TableBody>
-                   {structureItems.map((item) => (
-                     <TableRow key={item.id} className={`h-8 ${
-                       item.item_type === 'group' ? 'font-bold' : 
-                       item.item_type === 'sum_line' ? 'bg-muted/70 font-bold' : ''
-                     }`}>
-                       <TableCell className={`py-1 ${
-                         item.item_type === 'group' ? 'font-bold' : 
-                         item.item_type === 'sum_line' ? 'font-bold' : 
-                         item.item_type === 'subgroup' ? 'font-medium pl-6' : 'font-medium'
-                       }`}>
-                         {item.item_type === 'sum_line' && item.description 
-                           ? item.description 
-                           : item.name}
+                   {structureItems.map(item => <TableRow key={item.id} className={`h-8 ${item.item_type === 'group' ? 'font-bold' : item.item_type === 'sum_line' ? 'bg-muted/70 font-bold' : ''}`}>
+                       <TableCell className={`py-1 ${item.item_type === 'group' ? 'font-bold' : item.item_type === 'sum_line' ? 'font-bold' : item.item_type === 'subgroup' ? 'font-medium pl-6' : 'font-medium'}`}>
+                         {item.item_type === 'sum_line' && item.description ? item.description : item.name}
                        </TableCell>
-                       {Object.entries(groupedData).map(([periodKey, periodData]) => 
-                         periodData.map((data, index) => (
-                            <TableCell key={`${periodKey}-${index}`} className={`text-right py-1 ${
-                              item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''
-                            } ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
+                       {Object.entries(groupedData).map(([periodKey, periodData]) => periodData.map((data, index) => <TableCell key={`${periodKey}-${index}`} className={`text-right py-1 ${item.item_type === 'group' || item.item_type === 'sum_line' ? 'font-bold' : ''} ${item.operation_type === 'debit' ? 'text-destructive' : ''}`}>
                               {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
                               {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
                               {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
-                              {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && 
-                                formatCurrency(calculateStockTotal(item.id, data))}
-                            </TableCell>
-                         ))
-                       )}
-                     </TableRow>
-                   ))}
+                              {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && formatCurrency(calculateStockTotal(item.id, data))}
+                            </TableCell>))}
+                     </TableRow>)}
                  </TableBody>
               </Table>
             </div>
           </CardContent>
-        </Card>
-      )}
+        </Card>}
 
-      {Object.keys(groupedData).length === 0 && !loading && (
-        <Card>
+      {Object.keys(groupedData).length === 0 && !loading && <Card>
           <CardContent className="text-center py-8">
             <p className="text-muted-foreground">
               Nenhum dado encontrado para os filtros selecionados.
@@ -1590,8 +1413,6 @@ export const DREView: React.FC<DREViewProps> = ({ regime = 'competence' }) => {
               Verifique se existem DREs cadastrados para o período e lojas selecionadas.
             </p>
           </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+        </Card>}
+    </div>;
 };
