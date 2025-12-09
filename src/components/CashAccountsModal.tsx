@@ -220,8 +220,38 @@ export const CashAccountsModal = ({
     }
   };
   const handleDelete = async (account: CashAccount) => {
-    if (!confirm('Tem certeza que deseja excluir esta conta caixa?')) return;
     try {
+      // Verificar se existem pagamentos de contas a pagar vinculados
+      const { data: payablePayments, error: payablePaymentsError } = await supabase
+        .from('accounts_payable_payments')
+        .select('id')
+        .eq('payment_account_type', 'cash_account')
+        .eq('payment_account_id', account.id)
+        .limit(1);
+
+      if (payablePaymentsError) throw payablePaymentsError;
+
+      if (payablePayments && payablePayments.length > 0) {
+        toast.error('Esta conta caixa possui pagamentos de contas a pagar vinculados e não pode ser excluída.');
+        return;
+      }
+
+      // Verificar se existem registros de controle de caixa vinculados
+      const { data: cashControlItems, error: cashControlError } = await supabase
+        .from('cash_control_cash_items')
+        .select('id')
+        .eq('cash_account_id', account.id)
+        .limit(1);
+
+      if (cashControlError) throw cashControlError;
+
+      if (cashControlItems && cashControlItems.length > 0) {
+        toast.error('Esta conta caixa possui registros de controle de caixa vinculados e não pode ser excluída.');
+        return;
+      }
+
+      if (!confirm('Tem certeza que deseja excluir esta conta caixa?')) return;
+
       // Delete store associations first
       const {
         error: deleteAssociationsError

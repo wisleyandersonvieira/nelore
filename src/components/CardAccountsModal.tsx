@@ -239,9 +239,38 @@ export const CardAccountsModal = ({ open, onOpenChange, canEdit = true, canDelet
   };
 
   const handleDelete = async (account: CardAccount) => {
-    if (!confirm('Tem certeza que deseja excluir esta conta cartão?')) return;
-
     try {
+      // Verificar se existem pagamentos de contas a pagar vinculados
+      const { data: payablePayments, error: payablePaymentsError } = await supabase
+        .from('accounts_payable_payments')
+        .select('id')
+        .eq('payment_account_type', 'card_account')
+        .eq('payment_account_id', account.id)
+        .limit(1);
+
+      if (payablePaymentsError) throw payablePaymentsError;
+
+      if (payablePayments && payablePayments.length > 0) {
+        toast.error('Esta conta cartão possui pagamentos de contas a pagar vinculados e não pode ser excluída.');
+        return;
+      }
+
+      // Verificar se existem registros de controle de caixa vinculados
+      const { data: cashControlItems, error: cashControlError } = await supabase
+        .from('cash_control_card_items')
+        .select('id')
+        .eq('card_account_id', account.id)
+        .limit(1);
+
+      if (cashControlError) throw cashControlError;
+
+      if (cashControlItems && cashControlItems.length > 0) {
+        toast.error('Esta conta cartão possui registros de controle de caixa vinculados e não pode ser excluída.');
+        return;
+      }
+
+      if (!confirm('Tem certeza que deseja excluir esta conta cartão?')) return;
+
       // Delete store associations first
       const { error: deleteAssociationsError } = await supabase
         .from('card_account_stores')

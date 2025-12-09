@@ -246,9 +246,38 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   };
 
   const handleDelete = async (account: DeliveryAccount) => {
-    if (!confirm('Tem certeza que deseja excluir esta conta delivery?')) return;
-
     try {
+      // Verificar se existem pagamentos de contas a pagar vinculados
+      const { data: payablePayments, error: payablePaymentsError } = await supabase
+        .from('accounts_payable_payments')
+        .select('id')
+        .eq('payment_account_type', 'delivery_account')
+        .eq('payment_account_id', account.id)
+        .limit(1);
+
+      if (payablePaymentsError) throw payablePaymentsError;
+
+      if (payablePayments && payablePayments.length > 0) {
+        toast.error('Esta conta delivery possui pagamentos de contas a pagar vinculados e não pode ser excluída.');
+        return;
+      }
+
+      // Verificar se existem registros de controle de caixa vinculados
+      const { data: cashControlItems, error: cashControlError } = await supabase
+        .from('cash_control_delivery_items')
+        .select('id')
+        .eq('delivery_account_id', account.id)
+        .limit(1);
+
+      if (cashControlError) throw cashControlError;
+
+      if (cashControlItems && cashControlItems.length > 0) {
+        toast.error('Esta conta delivery possui registros de controle de caixa vinculados e não pode ser excluída.');
+        return;
+      }
+
+      if (!confirm('Tem certeza que deseja excluir esta conta delivery?')) return;
+
       // Delete store associations first
       const { error: deleteAssociationsError } = await supabase
         .from('delivery_account_stores')

@@ -241,9 +241,46 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
   };
 
   const handleDelete = async (account: CurrentAccount) => {
-    if (!confirm('Tem certeza que deseja excluir esta conta corrente?')) return;
-
     try {
+      // Verificar se existem pagamentos de contas a pagar vinculados
+      const { data: payablePayments, error: payablePaymentsError } = await supabase
+        .from('accounts_payable_payments')
+        .select('id')
+        .eq('payment_account_type', 'current_account')
+        .eq('payment_account_id', account.id)
+        .limit(1);
+
+      if (payablePaymentsError) throw payablePaymentsError;
+
+      if (payablePayments && payablePayments.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Esta conta corrente possui pagamentos de contas a pagar vinculados e não pode ser excluída.",
+        });
+        return;
+      }
+
+      // Verificar se existem registros de controle de caixa vinculados
+      const { data: cashControlItems, error: cashControlError } = await supabase
+        .from('cash_control_account_items')
+        .select('id')
+        .eq('current_account_id', account.id)
+        .limit(1);
+
+      if (cashControlError) throw cashControlError;
+
+      if (cashControlItems && cashControlItems.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Esta conta corrente possui registros de controle de caixa vinculados e não pode ser excluída.",
+        });
+        return;
+      }
+
+      if (!confirm('Tem certeza que deseja excluir esta conta corrente?')) return;
+
       const { error } = await supabase
         .from('current_accounts')
         .delete()
