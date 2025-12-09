@@ -201,12 +201,51 @@ export const StoresModal = ({ open, onOpenChange }: StoresModalProps) => {
   };
 
   const handleDelete = async (store: Store) => {
-    if (!confirm(`Tem certeza que deseja excluir a loja ${store.name}?`)) {
-      return;
-    }
-
     setLoading(true);
     try {
+      // Verificar se existem contas a pagar vinculadas à loja
+      const { data: relatedPayables, error: payablesError } = await supabase
+        .from("accounts_payable")
+        .select("id")
+        .eq("store_id", store.id)
+        .limit(1);
+
+      if (payablesError) throw payablesError;
+
+      if (relatedPayables && relatedPayables.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Esta loja possui contas a pagar vinculadas e não pode ser excluída.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se existem controles de caixa vinculados à loja
+      const { data: relatedCashControl, error: cashError } = await supabase
+        .from("cash_control")
+        .select("id")
+        .eq("store_id", store.id)
+        .limit(1);
+
+      if (cashError) throw cashError;
+
+      if (relatedCashControl && relatedCashControl.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Exclusão não permitida",
+          description: "Esta loja possui controles de caixa vinculados e não pode ser excluída.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!confirm(`Tem certeza que deseja excluir a loja ${store.name}?`)) {
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("stores")
         .delete()
