@@ -315,13 +315,54 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
-        .from("stores")
-        .select("id, name, code")
-        .order("name");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) throw error;
-      setStores(data || []);
+      // Verificar se o usuário é admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, store_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role === 'admin') {
+        // Admins podem ver todas as lojas
+        const { data, error } = await supabase
+          .from("stores")
+          .select("id, name, code")
+          .order("name");
+
+        if (error) throw error;
+        setStores(data || []);
+      } else {
+        // Buscar lojas autorizadas para o usuário
+        const { data: userStores, error: userStoresError } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', user.id);
+
+        if (userStoresError) throw userStoresError;
+
+        // Incluir também a loja principal do profile
+        const authorizedStoreIds = new Set<string>();
+        if (profile?.store_id) {
+          authorizedStoreIds.add(profile.store_id);
+        }
+        userStores?.forEach(us => authorizedStoreIds.add(us.store_id));
+
+        if (authorizedStoreIds.size > 0) {
+          const { data, error } = await supabase
+            .from("stores")
+            .select("id, name, code")
+            .in('id', Array.from(authorizedStoreIds))
+            .order("name");
+
+          if (error) throw error;
+          setStores(data || []);
+        } else {
+          setStores([]);
+        }
+      }
     } catch (error) {
       console.error("Error fetching stores:", error);
       toast({
