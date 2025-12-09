@@ -77,7 +77,7 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
               return (
                 <Card 
                   key={module.id}
-                  className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group h-full flex flex-col"
                   onClick={() => handleModuleClick(module.id)}
                 >
                   <CardHeader className="text-center">
@@ -89,8 +89,8 @@ const FuncionariosModal = ({ isOpen, onClose }: FuncionariosModalProps) => {
                       {module.description}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Button 
+                  <CardContent className="mt-auto">
+                    <Button
                       className="w-full" 
                       variant="outline"
                       onClick={(e) => {
