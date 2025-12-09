@@ -497,11 +497,35 @@ export function LinkToAccountsPayableModal({
       // Update cash_control_expenses to mark as linked and update supplier name
       if (expense?.id) {
         const selectedSupplierData = suppliers.find(s => s.id === supplierId);
+        
+        // Get user name for history
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .single();
+        
+        const userName = profile?.name || user.email || "Usuário";
+        
+        // Fetch current edit_history
+        const { data: currentExpense } = await supabase
+          .from("cash_control_expenses")
+          .select("edit_history")
+          .eq("id", expense.id)
+          .single();
+        
+        const currentHistory = (currentExpense?.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || [];
+        const newHistory = [
+          ...currentHistory,
+          { edited_at: new Date().toISOString(), edited_by_name: `${userName} (vinculou ao contas a pagar)` }
+        ];
+        
         const { error: updateError } = await supabase
           .from("cash_control_expenses")
           .update({ 
             linked_account_payable_id: payable.id,
-            supplier: selectedSupplierData?.name || expense.supplier
+            supplier: selectedSupplierData?.name || expense.supplier,
+            edit_history: newHistory
           })
           .eq("id", expense.id);
 
