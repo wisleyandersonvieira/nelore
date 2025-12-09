@@ -81,15 +81,15 @@ export const FinanceiroModal = ({
           {modules.map((module) => {
             const IconComponent = module.icon;
             return (
-              <Card key={module.id} className="cursor-pointer hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
+              <Card key={module.id} className="cursor-pointer hover:shadow-lg transition-shadow h-full flex flex-col">
+                <CardHeader className="pb-3 flex-1">
                   <div className={`w-12 h-12 rounded-lg ${module.color} flex items-center justify-center mb-3`}>
                     <IconComponent className="h-6 w-6 text-white" />
                   </div>
                   <CardTitle className="text-lg">{module.title}</CardTitle>
                   <CardDescription>{module.description}</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="mt-auto">
                   <Button 
                     className="w-full" 
                     variant="outline"
