@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, Search, Upload, X, FileText, Eye } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Trash2, Plus, Search, Upload, X, FileText, Eye, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SupplierSearchModal } from "./SupplierSearchModal";
@@ -111,6 +114,8 @@ export function LinkToAccountsPayableModal({
   const [showSupplierSearch, setShowSupplierSearch] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState("");
 
   // Payment confirmation and modal states
   const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
@@ -307,6 +312,18 @@ export function LinkToAccountsPayableModal({
   const getTotalAmount = () => {
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
+
+  // Filtered products based on search term
+  const filteredProducts = useMemo(() => {
+    if (!productSearchTerm) return products;
+    const searchLower = productSearchTerm.toLowerCase();
+    return products.filter(product => 
+      product.name.toLowerCase().includes(searchLower) ||
+      (product.code && product.code.toLowerCase().includes(searchLower))
+    );
+  }, [products, productSearchTerm]);
+
+  const selectedProductData = products.find(p => p.id === selectedProduct);
 
   const handleSupplierSelect = (supplier: Supplier) => {
     setSupplierId(supplier.id);
@@ -760,18 +777,54 @@ export function LinkToAccountsPayableModal({
                 <div className="md:col-span-2">
                   <Label>Produto</Label>
                   <div className="flex gap-2">
-                    <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map(product => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.code ? `${product.code} - ` : ''}{product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={productSearchOpen}
+                          className="w-full justify-between font-normal"
+                        >
+                          {selectedProductData
+                            ? `${selectedProductData.code ? `${selectedProductData.code} - ` : ''}${selectedProductData.name}`
+                            : "Digite para buscar..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Buscar produto..." 
+                            value={productSearchTerm}
+                            onValueChange={setProductSearchTerm}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {filteredProducts.slice(0, 50).map((product) => (
+                                <CommandItem
+                                  key={product.id}
+                                  value={product.id}
+                                  onSelect={() => {
+                                    setSelectedProduct(product.id);
+                                    setProductSearchOpen(false);
+                                    setProductSearchTerm("");
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedProduct === product.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {product.code ? `${product.code} - ` : ''}{product.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <Button 
                       variant="outline" 
                       size="icon"
