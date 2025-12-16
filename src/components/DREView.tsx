@@ -1238,7 +1238,7 @@ export const DREView: React.FC<DREViewProps> = ({
   };
 
   // Agrupar dados por mês, mantendo separação por loja
-  const groupedData = dreData.reduce((acc, data) => {
+  const groupedDataUnsorted = dreData.reduce((acc, data) => {
     const key = `${data.year}-${data.month}`;
     if (!acc[key]) {
       acc[key] = [];
@@ -1259,6 +1259,16 @@ export const DREView: React.FC<DREViewProps> = ({
     }
     return acc;
   }, {} as Record<string, DREData[]>);
+
+  // Ordenar por ano e mês (janeiro a dezembro)
+  const sortedEntries = Object.entries(groupedDataUnsorted).sort((a, b) => {
+    const [yearA, monthA] = a[0].split('-').map(Number);
+    const [yearB, monthB] = b[0].split('-').map(Number);
+    if (yearA !== yearB) return yearA - yearB;
+    return monthA - monthB;
+  });
+
+  const groupedData = Object.fromEntries(sortedEntries) as Record<string, DREData[]>;
   return <div className="space-y-6">
       <div>
         
