@@ -101,7 +101,7 @@ export default {
     		},
     		fontFamily: {
     			sans: [
-    				'Poppins',
+    				'Inter',
     				'ui-sans-serif',
     				'system-ui',
     				'-apple-system',
@@ -114,7 +114,7 @@ export default {
     				'sans-serif'
     			],
     			serif: [
-    				'Merriweather',
+    				'Lora',
     				'ui-serif',
     				'Georgia',
     				'Cambria',
@@ -123,7 +123,7 @@ export default {
     				'serif'
     			],
     			mono: [
-    				'JetBrains Mono',
+    				'Space Mono',
     				'ui-monospace',
     				'SFMono-Regular',
     				'Menlo',
