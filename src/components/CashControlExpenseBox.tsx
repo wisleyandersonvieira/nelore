@@ -212,18 +212,42 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         return;
       }
 
-      // Generate signed URL for private bucket
-      const { data, error } = await supabase.storage
-        .from("account-documents")
-        .createSignedUrl(pathOrUrl, 3600); // 1 hour expiry (increased for better UX)
+      // Check if it's a PDF file
+      const isPdf = pathOrUrl.toLowerCase().endsWith('.pdf');
 
-      if (error) {
-        console.error("Erro ao gerar URL:", error, "Path:", pathOrUrl);
-        toast.error("Erro ao abrir anexo");
-        return;
+      if (isPdf) {
+        // For PDFs, download the file and open it using a blob URL to avoid browser blocking
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from("account-documents")
+          .download(pathOrUrl);
+
+        if (downloadError) {
+          console.error("Erro ao baixar PDF:", downloadError, "Path:", pathOrUrl);
+          toast.error("Erro ao abrir anexo PDF");
+          return;
+        }
+
+        // Create a blob URL and open it
+        const blob = new Blob([fileData], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+        
+        // Clean up the blob URL after a delay
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } else {
+        // For other file types, use signed URL
+        const { data, error } = await supabase.storage
+          .from("account-documents")
+          .createSignedUrl(pathOrUrl, 3600);
+
+        if (error) {
+          console.error("Erro ao gerar URL:", error, "Path:", pathOrUrl);
+          toast.error("Erro ao abrir anexo");
+          return;
+        }
+
+        window.open(data.signedUrl, "_blank");
       }
-
-      window.open(data.signedUrl, "_blank");
     } catch (error) {
       console.error("Erro ao abrir anexo:", error);
       toast.error("Erro ao abrir anexo");
