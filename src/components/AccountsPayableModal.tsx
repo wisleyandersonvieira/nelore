@@ -620,7 +620,33 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       console.log('📋 Parcelas encontradas para pagamento:', installmentsData?.length || 0, 'parcelas');
       console.log('📋 Detalhes das parcelas:', installmentsData);
       
-      setAccountInstallments(installmentsData || []);
+      // Fetch payment account info for paid installments
+      const installmentsWithPaymentInfo = await Promise.all(
+        (installmentsData || []).map(async (installment) => {
+          if (installment.payment_date) {
+            const { data: transactionData, error: transactionError } = await supabase
+              .from("financial_transactions")
+              .select("account_id")
+              .eq("reference_id", installment.id)
+              .eq("reference_type", "accounts_payable_installments")
+              .limit(1)
+              .single();
+
+            let paymentAccountInfo = null;
+            if (!transactionError && transactionData) {
+              paymentAccountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+            }
+
+            return {
+              ...installment,
+              paymentAccountInfo
+            };
+          }
+          return installment;
+        })
+      );
+      
+      setAccountInstallments(installmentsWithPaymentInfo);
       
       if (installmentsData && installmentsData.length > 0) {
         console.log('✅ Conta tem parcelas - exibindo seleção de parcelas');
@@ -4242,6 +4268,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                        </span>
                                      )}
                                   </p>
+                                  {isPaid && installment.paymentAccountInfo && (
+                                    <p className="text-sm text-muted-foreground">
+                                      <span className="font-medium">Conta:</span> {installment.paymentAccountInfo.name}
+                                      {installment.paymentAccountInfo.account_type === 'current' && ` - ${installment.paymentAccountInfo.bank} (${installment.paymentAccountInfo.account_number})`}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-right">
