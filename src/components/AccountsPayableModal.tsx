@@ -837,30 +837,31 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       if (error) throw error;
 
       const paidInstallments = (installmentsData || []).filter(inst => inst.payment_date !== null);
-      setReverseInstallments(paidInstallments);
+      
+      // Fetch payment account information for each paid installment
+      const installmentsWithPaymentInfo = await Promise.all(
+        paidInstallments.map(async (installment) => {
+          const { data: transactionData, error: transactionError } = await supabase
+            .from("financial_transactions")
+            .select("account_id")
+            .eq("reference_id", installment.id)
+            .eq("reference_type", "accounts_payable_installments")
+            .limit(1)
+            .single();
 
-      // Fetch payment account information from financial transactions
-      let referenceId = account.id;
-      let referenceType = "accounts_payable";
+          let paymentAccountInfo = null;
+          if (!transactionError && transactionData) {
+            paymentAccountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+          }
 
-      // If there are paid installments, use the first one to get the payment account
-      if (paidInstallments.length > 0) {
-        referenceId = paidInstallments[0].id;
-        referenceType = "accounts_payable_installments";
-      }
+          return {
+            ...installment,
+            paymentAccountInfo
+          };
+        })
+      );
 
-      const { data: transactionData, error: transactionError } = await supabase
-        .from("financial_transactions")
-        .select("account_id")
-        .eq("reference_id", referenceId)
-        .eq("reference_type", referenceType)
-        .limit(1)
-        .single();
-
-      if (!transactionError && transactionData) {
-        const paymentAccount = currentAccounts.find(acc => acc.id === transactionData.account_id);
-        setPaymentAccountInfo(paymentAccount || null);
-      }
+      setReverseInstallments(installmentsWithPaymentInfo);
 
       // Always show modal (both for accounts with and without installments)
       setShowReverseModal(true);
@@ -4434,18 +4435,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   <p className="text-lg font-semibold text-primary">
                     Valor Original: R$ {Number(reverseAccount.amount).toFixed(2)}
                   </p>
-                  {paymentAccountInfo && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      <span className="font-medium">Conta de Pagamento:</span> {paymentAccountInfo.name} - {
-                        paymentAccountInfo.account_type === 'current' ? 'Conta Corrente' : 
-                        paymentAccountInfo.account_type === 'cash' ? 'Conta Caixa' : 
-                        paymentAccountInfo.account_type === 'card' ? 'Conta Cartão' : 
-                        paymentAccountInfo.account_type === 'delivery' ? 'Conta Delivery' : 
-                        'Conta'
-                      }
-                      {paymentAccountInfo.account_type === 'current' && ` - ${paymentAccountInfo.bank} (${paymentAccountInfo.account_number})`}
-                    </p>
-                  )}
                 </div>
 
                 {/* Paid Installments Section */}
@@ -4481,6 +4470,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                      - Paga em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
                                    </span>
                                 </p>
+                                {installment.paymentAccountInfo && (
+                                  <p className="text-sm text-muted-foreground">
+                                    <span className="font-medium">Conta:</span> {installment.paymentAccountInfo.name}
+                                    {installment.paymentAccountInfo.account_type === 'current' && ` - ${installment.paymentAccountInfo.bank} (${installment.paymentAccountInfo.account_number})`}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="text-right">
