@@ -338,28 +338,84 @@ export function LinkToAccountsPayableModal({
 
   const openAttachment = async (pathOrUrl: string) => {
     try {
-      if (pathOrUrl.startsWith('http')) {
-        window.open(pathOrUrl, "_blank");
-        return;
-      }
-
-      const { data, error } = await supabase.storage
-        .from("account-documents")
-        .createSignedUrl(pathOrUrl, 60);
-
-      if (error) {
-        console.error("Erro ao gerar URL:", error);
+      if (!pathOrUrl) {
+        console.error("Path do anexo não encontrado");
         toast({
           title: "Erro",
-          description: "Erro ao abrir anexo",
+          description: "Erro ao abrir anexo: caminho não encontrado",
           variant: "destructive",
         });
         return;
       }
 
-      window.open(data.signedUrl, "_blank");
+      // Check if it's already a full URL (legacy data)
+      if (pathOrUrl.startsWith('http')) {
+        window.open(pathOrUrl, "_blank");
+        return;
+      }
+
+      // Check if it's a PDF file
+      const isPdf = pathOrUrl.toLowerCase().endsWith('.pdf');
+
+      if (isPdf) {
+        // For PDFs, download the file and trigger download via hidden link
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from("account-documents")
+          .download(pathOrUrl);
+
+        if (downloadError) {
+          console.error("Erro ao baixar PDF:", downloadError, "Path:", pathOrUrl);
+          toast({
+            title: "Erro",
+            description: "Erro ao abrir anexo PDF",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Create a blob URL and use a hidden link to open/download
+        const blob = new Blob([fileData], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Create a hidden link and click it to bypass popup blockers
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        // Extract filename from path
+        const fileName = pathOrUrl.split('/').pop() || 'documento.pdf';
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the blob URL after a delay
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } else {
+        // For other file types, use signed URL
+        const { data, error } = await supabase.storage
+          .from("account-documents")
+          .createSignedUrl(pathOrUrl, 3600);
+
+        if (error) {
+          console.error("Erro ao gerar URL:", error, "Path:", pathOrUrl);
+          toast({
+            title: "Erro",
+            description: "Erro ao abrir anexo",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        window.open(data.signedUrl, "_blank");
+      }
     } catch (error) {
       console.error("Erro ao abrir anexo:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao abrir anexo",
+        variant: "destructive",
+      });
     }
   };
 
