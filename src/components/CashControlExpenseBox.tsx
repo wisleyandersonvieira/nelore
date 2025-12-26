@@ -216,7 +216,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
       const isPdf = pathOrUrl.toLowerCase().endsWith('.pdf');
 
       if (isPdf) {
-        // For PDFs, download the file and open it using a blob URL to avoid browser blocking
+        // For PDFs, download the file and trigger download via hidden link
         const { data: fileData, error: downloadError } = await supabase.storage
           .from("account-documents")
           .download(pathOrUrl);
@@ -227,10 +227,21 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
           return;
         }
 
-        // Create a blob URL and open it
+        // Create a blob URL and use a hidden link to open/download
         const blob = new Blob([fileData], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, "_blank");
+        
+        // Create a hidden link and click it to bypass popup blockers
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        // Extract filename from path
+        const fileName = pathOrUrl.split('/').pop() || 'documento.pdf';
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         
         // Clean up the blob URL after a delay
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
