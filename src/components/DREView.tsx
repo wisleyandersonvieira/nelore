@@ -1144,14 +1144,23 @@ export const DREView: React.FC<DREViewProps> = ({
               return;
             }
 
-            // Calcular o valor base da conta para proporção correta
-            const normalItems = account.accounts_receivable_items || [];
+            // Separar itens normais de itens de juros/desconto (como no contas a pagar)
+            const allItems = account.accounts_receivable_items || [];
+            const normalItems = allItems.filter((item: any) => 
+              item.product_id !== acrescimoReceberProductId && item.product_id !== descontoReceberProductId
+            );
+            const interestDiscountItems = allItems.filter((item: any) => 
+              item.product_id === acrescimoReceberProductId || item.product_id === descontoReceberProductId
+            );
+
+            // Calcular o valor base da conta (sem juros/descontos) para proporção correta
             const baseAccountAmount = normalItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
 
             // Calcular o total de parcelas para saber a proporção de cada uma
             const totalInstallments = account.accounts_receivable_installments?.length || 1;
+            const totalReceivedInstallments = receivedInstallments.length;
 
-            if (baseAccountAmount === 0) {
+            if (baseAccountAmount === 0 && interestDiscountItems.length === 0) {
               console.warn('Conta a receber sem itens:', account.id);
               return;
             }
@@ -1183,19 +1192,41 @@ export const DREView: React.FC<DREViewProps> = ({
                 };
               }
 
-              // Calcular o valor proporcional ao pagamento da parcela
-              const installmentAmount = parseFloat(installment.amount) || 0;
-              const proportionFactor = installmentAmount / baseAccountAmount;
+              // Proporção desta parcela em relação ao total de parcelas
+              // Cada parcela representa 1/N do valor base dos itens normais
+              const installmentProportion = 1 / totalInstallments;
 
-              // Processar itens proporcionalmente
+              // Processar itens normais proporcionalmente
               normalItems.forEach((item: any) => {
                 if (item.products?.subgroup_id) {
                   const subgroupId = item.products.subgroup_id;
-                  const itemValue = parseFloat(item.total_price) || 0;
-                  const proportionalValue = itemValue * proportionFactor;
+                  // Calcular o valor proporcional baseado na parcela (1/N do valor total do item)
+                  const proportionalValue = (parseFloat(item.total_price) || 0) * installmentProportion;
+                  
+                  const productFunctionType = item.products.function_type || 'credit';
+
+                  // Encontrar o item da estrutura que corresponde a este subgrupo
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+
+                  if (structureItem && proportionalValue > 0) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    // Crédito = positivo, Débito = negativo
+                    const signedValue = productFunctionType === 'credit' ? proportionalValue : -proportionalValue;
+                    groupedData[key].values[structureItem.id] += signedValue;
+                  }
+                }
+              });
+
+              // Processar juros/descontos - dividir pelo número de parcelas recebidas
+              interestDiscountItems.forEach((item: any) => {
+                if (item.products?.subgroup_id) {
+                  const subgroupId = item.products.subgroup_id;
+                  // Dividir o valor do juros/desconto pelo número de parcelas recebidas
+                  const dividedValue = (parseFloat(item.total_price) || 0) / totalReceivedInstallments;
                   
                   // Verificar se é item de desconto do contas a receber
-                  // Desconto dado no recebimento = reduz a receita = débito (negativo)
                   const isDescontoReceber = item.product_id === descontoReceberProductId;
                   
                   const productFunctionType = item.products.function_type || 'credit';
@@ -1203,7 +1234,7 @@ export const DREView: React.FC<DREViewProps> = ({
                   // Encontrar o item da estrutura que corresponde a este subgrupo
                   const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
 
-                  if (structureItem && proportionalValue !== 0) {
+                  if (structureItem && dividedValue !== 0) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
@@ -1211,10 +1242,10 @@ export const DREView: React.FC<DREViewProps> = ({
                     let signedValue: number;
                     if (isDescontoReceber) {
                       // Desconto no recebimento é sempre débito (reduz receita)
-                      signedValue = -Math.abs(proportionalValue);
+                      signedValue = -Math.abs(dividedValue);
                     } else {
-                      // Crédito = positivo, Débito = negativo
-                      signedValue = productFunctionType === 'credit' ? proportionalValue : -proportionalValue;
+                      // Acréscimo (juros recebido) = crédito = positivo
+                      signedValue = productFunctionType === 'credit' ? dividedValue : -dividedValue;
                     }
                     groupedData[key].values[structureItem.id] += signedValue;
                   }
