@@ -1923,6 +1923,28 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const existingAttachments = Array.isArray(paymentAccount.attachments) ? paymentAccount.attachments : [];
       const allAttachments = [...existingAttachments, ...uploadedPaymentAttachments];
 
+      // Buscar produtos configurados para acréscimo e desconto
+      let surchargeProduct: any = null;
+      let discountProduct: any = null;
+      
+      if (surcharge > 0) {
+        const { data: surchargeParam } = await supabase
+          .from("system_parameters")
+          .select("product_id, products!inner(id, name, code)")
+          .eq("parameter_key", "acrescimo")
+          .single();
+        surchargeProduct = surchargeParam?.products;
+      }
+      
+      if (discount > 0) {
+        const { data: discountParam } = await supabase
+          .from("system_parameters")
+          .select("product_id, products!inner(id, name, code)")
+          .eq("parameter_key", "desconto")
+          .single();
+        discountProduct = discountParam?.products;
+      }
+
       // If processing an installment
       if (selectedInstallment) {
         // Register payment in accounts_receivable_payments table
@@ -1935,12 +1957,46 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             amount_paid: baseAmount,
             interest_amount: surcharge,
             discount_amount: discount,
+            interest_product_id: surcharge > 0 && surchargeProduct ? surchargeProduct.id : null,
+            discount_product_id: discount > 0 && discountProduct ? discountProduct.id : null,
             payment_account_id: selectedAccountId,
             payment_account_type: selectedAccount?.account_type || 'current',
             created_by: user.id,
           });
 
         if (paymentRecordError) throw paymentRecordError;
+
+        // Inserir item de acréscimo se houver
+        if (surcharge > 0 && surchargeProduct) {
+          const { error: surchargeItemError } = await supabase
+            .from("accounts_receivable_items")
+            .insert({
+              account_receivable_id: paymentAccount.id,
+              product_id: surchargeProduct.id,
+              quantity: 1,
+              unit_price: surcharge,
+              total_price: surcharge,
+              store_id: paymentAccount.store_id || "",
+            });
+          
+          if (surchargeItemError) throw surchargeItemError;
+        }
+
+        // Inserir item de desconto se houver
+        if (discount > 0 && discountProduct) {
+          const { error: discountItemError } = await supabase
+            .from("accounts_receivable_items")
+            .insert({
+              account_receivable_id: paymentAccount.id,
+              product_id: discountProduct.id,
+              quantity: 1,
+              unit_price: -discount, // Valor negativo para desconto
+              total_price: -discount,
+              store_id: paymentAccount.store_id || "",
+            });
+          
+          if (discountItemError) throw discountItemError;
+        }
 
         // Update installment payment date
         const { error: installmentError } = await supabase
@@ -2001,12 +2057,46 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             amount_paid: paymentAccount.amount,
             interest_amount: surcharge,
             discount_amount: discount,
+            interest_product_id: surcharge > 0 && surchargeProduct ? surchargeProduct.id : null,
+            discount_product_id: discount > 0 && discountProduct ? discountProduct.id : null,
             payment_account_id: selectedAccountId,
             payment_account_type: selectedAccount?.account_type || 'current',
             created_by: user.id,
           });
 
         if (paymentRecordError) throw paymentRecordError;
+
+        // Inserir item de acréscimo se houver
+        if (surcharge > 0 && surchargeProduct) {
+          const { error: surchargeItemError } = await supabase
+            .from("accounts_receivable_items")
+            .insert({
+              account_receivable_id: paymentAccount.id,
+              product_id: surchargeProduct.id,
+              quantity: 1,
+              unit_price: surcharge,
+              total_price: surcharge,
+              store_id: paymentAccount.store_id || "",
+            });
+          
+          if (surchargeItemError) throw surchargeItemError;
+        }
+
+        // Inserir item de desconto se houver
+        if (discount > 0 && discountProduct) {
+          const { error: discountItemError } = await supabase
+            .from("accounts_receivable_items")
+            .insert({
+              account_receivable_id: paymentAccount.id,
+              product_id: discountProduct.id,
+              quantity: 1,
+              unit_price: -discount, // Valor negativo para desconto
+              total_price: -discount,
+              store_id: paymentAccount.store_id || "",
+            });
+          
+          if (discountItemError) throw discountItemError;
+        }
 
         // Update account directly
         const { error: updateError } = await supabase
