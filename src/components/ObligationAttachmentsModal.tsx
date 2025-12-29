@@ -80,9 +80,19 @@ const ObligationAttachmentsModal = ({
     try {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Usuário não autenticado");
+      
+      // Get store_id for RLS-compliant file path
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('store_id')
+        .eq('id', user.user.id)
+        .single();
+      
+      if (!profileData?.store_id) throw new Error("Loja não encontrada");
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${completionId}/${Date.now()}.${fileExt}`;
+      // Use store_id as the first path segment for RLS compliance
+      const fileName = `${profileData.store_id}/${completionId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("obligation-attachments")

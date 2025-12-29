@@ -68,7 +68,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   const { toast } = useToast();
 
   // Função utilitária para upload de arquivo
-  const uploadFile = async (file: File): Promise<string | null> => {
+  const uploadFile = async (file: File, storeId: string): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -82,7 +82,8 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
 
       const fileExtension = file.name.split('.').pop();
       const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const filePath = `${user.id}/${fileName}`;
+      // Use store_id as the first path segment for RLS compliance
+      const filePath = `${storeId}/${user.id}/${fileName}`;
       
       // Determinar contentType correto
       let contentType = file.type;
@@ -397,10 +398,10 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
 
       if (!profile?.store_id) throw new Error('Store ID não encontrado');
 
-      // Upload de novos anexos
+      // Upload de novos anexos using store_id from form data for RLS compliance
       const uploadedPaths: string[] = [];
       for (const file of attachments) {
-        const filePath = await uploadFile(file);
+        const filePath = await uploadFile(file, formData.store_id);
         if (filePath) {
           uploadedPaths.push(filePath);
         }
