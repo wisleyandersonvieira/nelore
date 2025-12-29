@@ -131,16 +131,21 @@ const ReceivedAccountsReport = () => {
           account.accounts_receivable_installments.forEach((installment: any) => {
             if (installment.payment_date) { // Only paid installments
               const payment = paymentsByInstallmentId[installment.id];
+              const interestAmount = payment?.interest_amount || 0;
+              const discountAmount = payment?.discount_amount || 0;
+              // Calculate actual received amount: installment + interest - discount
+              const actualAmount = parseFloat(installment.amount) + parseFloat(interestAmount) - parseFloat(discountAmount);
               accountsData.push({
                 ...account,
                 due_date: installment.due_date,
-                amount: installment.amount,
+                amount: actualAmount,
+                original_amount: installment.amount,
                 payment_date: installment.payment_date,
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_receivable_installments.length,
                 installment_id: installment.id,
-                interest_amount: payment?.interest_amount || 0,
-                discount_amount: payment?.discount_amount || 0
+                interest_amount: interestAmount,
+                discount_amount: discountAmount
               });
             }
           });
@@ -148,6 +153,7 @@ const ReceivedAccountsReport = () => {
           // No installments - single payment
           accountsData.push({
             ...account,
+            original_amount: account.amount,
             installment_number: 1,
             total_installments: 1,
             interest_amount: 0,
