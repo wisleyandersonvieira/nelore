@@ -54,7 +54,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     group_id: undefined as string | undefined,
     subgroup_id: undefined as string | undefined,
     barcode: "",
-    cost_price: ""
+    cost_price: "",
+    product_type: "product" as "product" | "service",
+    function_type: "debit" as "credit" | "debit"
   });
   const [formKey, setFormKey] = useState(0); // Key para forçar re-render
   const { toast } = useToast();
@@ -92,7 +94,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         group_id: product.group_id || undefined,
         subgroup_id: product.subgroup_id || undefined,
         barcode: product.barcode || "",
-        cost_price: product.cost_price?.toString() || ""
+        cost_price: product.cost_price?.toString() || "",
+        product_type: (product.product_type || "product") as "product" | "service",
+        function_type: (product.function_type || "debit") as "credit" | "debit"
       };
       
       setFormData(newFormData);
@@ -111,7 +115,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       group_id: undefined,
       subgroup_id: undefined,
       barcode: "",
-      cost_price: ""
+      cost_price: "",
+      product_type: "product",
+      function_type: "debit"
     });
     setSubgroups([]);
     
@@ -204,6 +210,8 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         subgroup_id: formData.subgroup_id || null,
         barcode: formData.barcode || null,
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
+        product_type: formData.product_type,
+        function_type: formData.function_type,
         is_active: true
       };
 
@@ -266,7 +274,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           group_id: undefined,
           subgroup_id: undefined,
           barcode: "",
-          cost_price: ""
+          cost_price: "",
+          product_type: "product",
+          function_type: "debit"
         });
         
         // Get new next code
@@ -321,8 +331,22 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           />
         </div>
 
+        {/* Tipo: Produto ou Serviço */}
+        <div className="space-y-2">
+          <Label htmlFor="product_type">Tipo *</Label>
+          <Select value={formData.product_type} onValueChange={(value: "product" | "service") => setFormData({ ...formData, product_type: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="product">Produto</SelectItem>
+              <SelectItem value="service">Serviço</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Nome/Descrição */}
-        <div className="space-y-2 md:col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="name">Descrição do Produto *</Label>
           <Input
             id="name"
@@ -425,6 +449,20 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
           />
         </div>
 
+        {/* Função: Crédito ou Débito */}
+        <div className="space-y-2">
+          <Label htmlFor="function_type">Função *</Label>
+          <Select value={formData.function_type} onValueChange={(value: "credit" | "debit") => setFormData({ ...formData, function_type: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a função" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="credit">Crédito</SelectItem>
+              <SelectItem value="debit">Débito</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
 
         {/* Descrição adicional */}
         <div className="space-y-2 md:col-span-3">
@@ -460,7 +498,9 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
             group_id: undefined,
             subgroup_id: undefined,
             barcode: "",
-            cost_price: ""
+            cost_price: "",
+            product_type: "product",
+            function_type: "debit"
           })}
         >
           Limpar
