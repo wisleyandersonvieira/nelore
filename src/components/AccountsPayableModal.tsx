@@ -864,30 +864,49 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
       const paidInstallments = (installmentsData || []).filter(inst => inst.payment_date !== null);
       
-      // Fetch payment account information for each paid installment
-      const installmentsWithPaymentInfo = await Promise.all(
-        paidInstallments.map(async (installment) => {
-          const { data: transactionData, error: transactionError } = await supabase
-            .from("financial_transactions")
-            .select("account_id")
-            .eq("reference_id", installment.id)
-            .eq("reference_type", "accounts_payable_installments")
-            .limit(1)
-            .single();
+      if (paidInstallments.length > 0) {
+        // Fetch payment account information for each paid installment
+        const installmentsWithPaymentInfo = await Promise.all(
+          paidInstallments.map(async (installment) => {
+            const { data: transactionData, error: transactionError } = await supabase
+              .from("financial_transactions")
+              .select("account_id")
+              .eq("reference_id", installment.id)
+              .eq("reference_type", "accounts_payable_installments")
+              .limit(1)
+              .maybeSingle();
 
-          let paymentAccountInfo = null;
-          if (!transactionError && transactionData) {
-            paymentAccountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
-          }
+            let paymentAccountInfo = null;
+            if (!transactionError && transactionData) {
+              paymentAccountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+            }
 
-          return {
-            ...installment,
-            paymentAccountInfo
-          };
-        })
-      );
+            return {
+              ...installment,
+              paymentAccountInfo
+            };
+          })
+        );
 
-      setReverseInstallments(installmentsWithPaymentInfo);
+        setReverseInstallments(installmentsWithPaymentInfo);
+      } else {
+        // Account without installments - fetch payment info from financial_transactions
+        setReverseInstallments([]);
+        
+        // Fetch the payment info for account without installments
+        const { data: transactionData, error: transactionError } = await supabase
+          .from("financial_transactions")
+          .select("account_id, amount")
+          .eq("reference_id", account.id)
+          .eq("reference_type", "accounts_payable")
+          .limit(1)
+          .maybeSingle();
+
+        if (!transactionError && transactionData) {
+          const accountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+          setPaymentAccountInfo(accountInfo);
+        }
+      }
 
       // Always show modal (both for accounts with and without installments)
       setShowReverseModal(true);
@@ -4468,6 +4487,36 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Valor Original: R$ {Number(reverseAccount.amount).toFixed(2)}
                   </p>
                 </div>
+
+                {/* Payment info for accounts without installments */}
+                {reverseInstallments.length === 0 && reverseAccount.payment_date && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold">Informações do Pagamento:</h3>
+                    <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Data do Pagamento</p>
+                          <p className="font-medium">
+                            {new Date(reverseAccount.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Valor Pago</p>
+                          <p className="font-medium">R$ {Number(reverseAccount.amount).toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Conta de Pagamento</p>
+                          <p className="font-medium">
+                            {paymentAccountInfo 
+                              ? `${paymentAccountInfo.name}${paymentAccountInfo.account_type === 'current' ? ` - ${paymentAccountInfo.bank} (${paymentAccountInfo.account_number})` : ''}`
+                              : 'Não informada'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Paid Installments Section */}
                 {reverseInstallments.length > 0 && (
