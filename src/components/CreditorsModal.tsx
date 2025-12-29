@@ -258,6 +258,24 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
     try {
       setLoading(true);
       
+      // Verificar se existem contas a receber relacionadas ao credor
+      const { data: relatedAccounts, error: checkError } = await supabase
+        .from("accounts_receivable")
+        .select("id")
+        .eq("creditor_id", creditor.id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (relatedAccounts && relatedAccounts.length > 0) {
+        toast({
+          title: "Exclusão não permitida",
+          description: "Este credor possui contas a receber vinculadas e não pode ser excluído.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
       if (!confirm("Tem certeza que deseja excluir este credor?")) {
         setLoading(false);

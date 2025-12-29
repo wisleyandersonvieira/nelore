@@ -12,6 +12,13 @@ const Reports = () => {
     color: "bg-red-500",
     onClick: () => navigate("/reports/accounts-payable")
   }, {
+    id: "accounts-receivable",
+    title: "Relatório Contas a Receber",
+    description: "Relatórios de contas a receber e recebidas",
+    icon: FileText,
+    color: "bg-green-500",
+    onClick: () => navigate("/reports/accounts-receivable")
+  }, {
     id: "turnover-report",
     title: "Relatório de Faturamento",
     description: "Relatório de faturamento por período",

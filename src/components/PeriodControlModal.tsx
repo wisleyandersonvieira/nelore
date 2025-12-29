@@ -45,7 +45,7 @@ const MONTHS = [
 
 const MODULES = [
   { id: 'contas_pagar', label: 'Contas a Pagar' },
-  
+  { id: 'contas_receber', label: 'Contas a Receber' },
   { id: 'transferencias', label: 'Transferências' },
   { id: 'caixa', label: 'Controle de Caixa' },
   { id: 'estoque', label: 'Estoque' }

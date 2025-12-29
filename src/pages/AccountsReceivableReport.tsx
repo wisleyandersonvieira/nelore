@@ -1,0 +1,682 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Download, Filter, FileDown, RefreshCw, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
+const AccountsReceivableReport = () => {
+  const navigate = useNavigate();
+  const [filters, setFilters] = useState({
+    due_start: "",
+    due_end: "",
+    competencia_start: "",
+    competencia_end: "",
+    created_start: "",
+    created_end: "",
+    creditor_id: "all",
+    store_id: "all",
+    product_id: "all",
+  });
+
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [creditors, setCreditors] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  
+  // Reversal modal states
+  const [showReverseModal, setShowReverseModal] = useState(false);
+  const [reverseAccount, setReverseAccount] = useState<any>(null);
+
+  useEffect(() => {
+    fetchCreditors();
+    fetchStores();
+    fetchProducts();
+  }, []);
+
+  const fetchCreditors = async () => {
+    const { data } = await supabase.from("creditors").select("id, name");
+    setCreditors(data || []);
+  };
+
+  const fetchStores = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, store_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role === 'admin') {
+        const { data } = await supabase.from("stores").select("id, name").order('name');
+        setStores(data || []);
+      } else {
+        const storeIds: string[] = [];
+        if (profile?.store_id) storeIds.push(profile.store_id);
+        
+        const { data: userStores } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', user.id);
+        
+        userStores?.forEach(us => {
+          if (!storeIds.includes(us.store_id)) storeIds.push(us.store_id);
+        });
+
+        if (storeIds.length > 0) {
+          const { data } = await supabase.from("stores").select("id, name").in('id', storeIds).order('name');
+          setStores(data || []);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar lojas:', error);
+    }
+  };
+
+  const fetchProducts = async () => {
+    const { data } = await supabase.from("products").select("id, name");
+    setProducts(data || []);
+  };
+
+  const handleSearch = async () => {
+    setLoading(true);
+    try {
+      // Fetch accounts with creditors, stores and installments
+      const { data: allAccounts, error } = await supabase
+        .from("accounts_receivable")
+        .select(`
+          *,
+          creditors(id, name),
+          stores(id, name)
+        `) as { data: any[] | null; error: any };
+
+      if (error) throw error;
+
+      // Include all accounts, not just unpaid ones
+      let accountsData: any[] = [];
+      (allAccounts || []).forEach((account: any) => {
+        // For now, assume single payment (no installments implemented in receivables)
+        accountsData.push({
+          ...account,
+          installment_number: 1,
+          total_installments: 1
+        });
+      });
+
+      // Apply client-side filtering for all filters
+      if (filters.due_start || filters.due_end) {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.due_date) return false;
+          const dueDate = new Date(account.due_date);
+          const startDate = filters.due_start ? new Date(filters.due_start) : null;
+          const endDate = filters.due_end ? new Date(filters.due_end) : null;
+          
+          if (startDate && dueDate < startDate) return false;
+          if (endDate && dueDate > endDate) return false;
+          return true;
+        });
+      }
+
+      if (filters.competencia_start || filters.competencia_end) {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.issue_date) return false;
+          const competenciaDate = new Date(account.issue_date);
+          const startDate = filters.competencia_start ? new Date(filters.competencia_start) : null;
+          const endDate = filters.competencia_end ? new Date(filters.competencia_end) : null;
+          
+          if (startDate && competenciaDate < startDate) return false;
+          if (endDate && competenciaDate > endDate) return false;
+          return true;
+        });
+      }
+
+      if (filters.created_start || filters.created_end) {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.created_at) return false;
+          const createdDate = new Date(account.created_at);
+          const startDate = filters.created_start ? new Date(filters.created_start + "T00:00:00") : null;
+          const endDate = filters.created_end ? new Date(filters.created_end + "T23:59:59") : null;
+          
+          if (startDate && createdDate < startDate) return false;
+          if (endDate && createdDate > endDate) return false;
+          return true;
+        });
+      }
+
+      if (filters.creditor_id && filters.creditor_id !== "all") {
+        accountsData = accountsData.filter((account: any) => account.creditor_id === filters.creditor_id);
+      }
+
+      if (filters.store_id && filters.store_id !== "all") {
+        accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
+      }
+
+      setAccounts(accountsData);
+      toast({
+        title: "Pesquisa realizada",
+        description: `${accountsData.length} conta(s) encontrada(s)`,
+      });
+    } catch (error) {
+      console.error("Error searching accounts:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar contas a receber",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      due_start: "",
+      due_end: "",
+      competencia_start: "",
+      competencia_end: "",
+      created_start: "",
+      created_end: "",
+      creditor_id: "all",
+      store_id: "all",
+      product_id: "all",
+    });
+    setAccounts([]);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas ainda não recebidas", 105, 28, { align: "center" });
+    
+    // Date range info
+    let filterInfo = [];
+    if (filters.due_start || filters.due_end) {
+      const start = filters.due_start ? new Date(filters.due_start).toLocaleDateString("pt-BR") : "Início";
+      const end = filters.due_end ? new Date(filters.due_end).toLocaleDateString("pt-BR") : "Hoje";
+      filterInfo.push(`Vencimento: ${start} a ${end}`);
+    }
+    if (filters.creditor_id !== "all") {
+      const creditor = creditors.find(s => s.id === filters.creditor_id);
+      if (creditor) filterInfo.push(`Credor: ${creditor.name}`);
+    }
+    if (filters.store_id !== "all") {
+      const store = stores.find(s => s.id === filters.store_id);
+      if (store) filterInfo.push(`Loja: ${store.name}`);
+    }
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+    
+    // Table data
+    const tableData = accounts.map(account => [
+      account.description,
+      account.creditors?.name || "N/A",
+      account.stores?.name || "N/A",
+      new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+      account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+      account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+    ]);
+
+    // Calculate total
+    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    
+    // Add total row
+    tableData.push([
+      { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
+      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Credor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-receber.pdf");
+  };
+
+  const exportToExcel = () => {
+    const excelData = accounts.map(account => ({
+      Título: account.description,
+      Credor: account.creditors?.name || "N/A",
+      Loja: account.stores?.name || "N/A",
+      Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+      Valor: account.amount || 0,
+      Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contas a Receber");
+    XLSX.writeFile(wb, "contas-a-receber.xlsx");
+  };
+
+  const handleReversePayment = (account: any) => {
+    setReverseAccount(account);
+    setShowReverseModal(true);
+  };
+
+  const performReversePayment = async (accountId: string) => {
+    setLoading(true);
+    try {
+      // Update the account status back to pending and clear payment_date
+      const { error } = await supabase
+        .from("accounts_receivable")
+        .update({ 
+          status: 'pending',
+          payment_date: null 
+        })
+        .eq("id", accountId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Recebimento estornado com sucesso",
+      });
+
+      handleSearch(); // Refresh data
+      setShowReverseModal(false);
+      setReverseAccount(null);
+    } catch (error) {
+      console.error("Error reversing payment:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao estornar recebimento",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (accountId: string, status: string) => {
+    if (status === 'paid' || status === 'partial') {
+      toast({
+        title: "Ação não permitida",
+        description: "Não é possível excluir uma conta paga ou parcialmente paga. Estorne o recebimento primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("Tem certeza que deseja excluir esta conta a receber?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Delete items first (foreign key constraint)
+      const { error: itemsError } = await supabase
+        .from("accounts_receivable_items")
+        .delete()
+        .eq("account_receivable_id", accountId);
+
+      if (itemsError) throw itemsError;
+
+      // Delete the account
+      const { error: accountError } = await supabase
+        .from("accounts_receivable")
+        .delete()
+        .eq("id", accountId);
+
+      if (accountError) throw accountError;
+
+      toast({
+        title: "Sucesso",
+        description: "Conta a receber excluída com sucesso",
+      });
+
+      handleSearch(); // Refresh data
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir conta a receber",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
+          <Button onClick={() => navigate("/reports/accounts-receivable")} variant="outline" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-primary">Contas a Receber</h1>
+            <p className="text-sm text-muted-foreground">Relatório de contas a receber</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filtros
+            </CardTitle>
+            <CardDescription>
+              Configure os filtros para o relatório
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="due_start">Data Vencimento (Início)</Label>
+                <Input
+                  id="due_start"
+                  type="date"
+                  value={filters.due_start}
+                  onChange={(e) => setFilters(prev => ({...prev, due_start: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="due_end">Data Vencimento (Fim)</Label>
+                <Input
+                  id="due_end"
+                  type="date"
+                  value={filters.due_end}
+                  onChange={(e) => setFilters(prev => ({...prev, due_end: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="competencia_start">Data Competência (Início)</Label>
+                <Input
+                  id="competencia_start"
+                  type="date"
+                  value={filters.competencia_start}
+                  onChange={(e) => setFilters(prev => ({...prev, competencia_start: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="competencia_end">Data Competência (Fim)</Label>
+                <Input
+                  id="competencia_end"
+                  type="date"
+                  value={filters.competencia_end}
+                  onChange={(e) => setFilters(prev => ({...prev, competencia_end: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="created_start">Data Cadastro (Início)</Label>
+                <Input
+                  id="created_start"
+                  type="date"
+                  value={filters.created_start}
+                  onChange={(e) => setFilters(prev => ({...prev, created_start: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="created_end">Data Cadastro (Fim)</Label>
+                <Input
+                  id="created_end"
+                  type="date"
+                  value={filters.created_end}
+                  onChange={(e) => setFilters(prev => ({...prev, created_end: e.target.value}))}
+                />
+              </div>
+              <div>
+                <Label>Credor</Label>
+                <Select value={filters.creditor_id} onValueChange={(value) => setFilters(prev => ({...prev, creditor_id: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar credor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {creditors.map((creditor) => (
+                      <SelectItem key={creditor.id} value={creditor.id}>
+                        {creditor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Loja</Label>
+                <Select value={filters.store_id} onValueChange={(value) => setFilters(prev => ({...prev, store_id: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar loja" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {stores.map((store) => (
+                      <SelectItem key={store.id} value={store.id}>
+                        {store.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Produto</Label>
+                <Select value={filters.product_id} onValueChange={(value) => setFilters(prev => ({...prev, product_id: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar produto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button onClick={handleSearch} disabled={loading}>
+                {loading ? "Pesquisando..." : "Pesquisar"}
+              </Button>
+              <Button onClick={clearFilters} variant="outline">
+                Limpar Filtros
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Results */}
+        {accounts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Contas a Receber ({accounts.length})</CardTitle>
+                <div className="flex gap-2">
+                  <Button onClick={exportToPDF} variant="outline" size="sm">
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF
+                  </Button>
+                  <Button onClick={exportToExcel} variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Credor</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Parcelas</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {accounts.map((account, index) => (
+                    <TableRow key={`${account.id}-${index}`}>
+                      <TableCell>{account.description}</TableCell>
+                      <TableCell>{account.creditors?.name || "N/A"}</TableCell>
+                      <TableCell>{account.stores?.name || "N/A"}</TableCell>
+                      <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>
+                        {account.amount?.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        }) || "N/A"}
+                      </TableCell>
+                       <TableCell>
+                         {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
+                       </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            {account.status === 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReversePayment(account)}
+                                disabled={loading}
+                                title="Estornar recebimento"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            {account.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteAccount(account.id, account.status)}
+                                disabled={loading}
+                                title="Excluir conta"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                    </TableRow>
+                  ))}
+                   {/* Total Row */}
+                   <TableRow className="border-t-2 font-bold bg-muted/50">
+                     <TableCell colSpan={5} className="text-right">Total:</TableCell>
+                     <TableCell>
+                       {accounts.reduce((sum, account) => sum + (account.amount || 0), 0).toLocaleString("pt-BR", {
+                         style: "currency",
+                         currency: "BRL"
+                       })}
+                     </TableCell>
+                     <TableCell>{accounts.length} parcela(s)</TableCell>
+                     <TableCell></TableCell>
+                   </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </main>
+
+      {/* Modal de Estorno */}
+      <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Estornar Recebimento</DialogTitle>
+          </DialogHeader>
+          
+          {reverseAccount && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-medium">{reverseAccount.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  Credor: {reverseAccount.creditors?.name || '-'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Loja: {reverseAccount.stores?.name || '-'}
+                </p>
+                <p className="text-lg font-semibold text-primary">
+                  Valor: {reverseAccount.amount?.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL"
+                  })}
+                </p>
+              </div>
+
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-medium">Atenção!</p>
+                <p className="text-yellow-700 text-sm mt-1">
+                  Ao confirmar o estorno, esta conta voltará para o status "pendente" e poderá ser recebida novamente.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowReverseModal(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={() => performReversePayment(reverseAccount.id)} 
+                  disabled={loading}
+                  variant="destructive"
+                >
+                  {loading ? "Processando..." : "Confirmar Estorno"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default AccountsReceivableReport;
