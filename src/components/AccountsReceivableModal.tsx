@@ -848,7 +848,114 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
-  // Função handleRecordNote removida - não é mais necessária com a nova estrutura de abas
+  const handleRecordNote = async () => {
+    if (!creditorId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios do formulário",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um item na aba Itens",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar se o período de competência não está bloqueado
+    const competenceValidation = await validateAccountsReceivablePeriod.competencia(dataCompetencia);
+    if (competenceValidation.blocked) {
+      toast({
+        title: "Período Bloqueado",
+        description: competenceValidation.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const totalAmount = getTotalAmount();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("Usuário não autenticado");
+      }
+
+      // Upload attachments
+      let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
+      if (attachments.length > 0) {
+        uploadedAttachments = await uploadAttachments(items[0]?.store_id || 'default');
+      }
+
+      const insertData: any = {
+        creditor_id: creditorId,
+        description: `Conta a Receber - ${documentType} ${documentNumber}`,
+        document_type: documentType,
+        document_number: documentNumber,
+        issue_date: issueDate,
+        due_date: dueDate,
+        data_competencia: dataCompetencia,
+        amount: totalAmount,
+        notes,
+        status: "pending",
+        store_id: items[0]?.store_id,
+        account_id: null,
+        created_by: user.id,
+        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null,
+      };
+
+      const { data: accountData, error } = await supabase
+        .from("accounts_receivable")
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Insert items
+      const itemsToInsert = items.map(item => ({
+        account_receivable_id: accountData.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        store_id: item.store_id,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("accounts_receivable_items")
+        .insert(itemsToInsert);
+
+      if (itemsError) throw itemsError;
+
+      // Set editing mode with the newly created account
+      setEditingAccount({ ...accountData, id: accountData.id } as AccountReceivable);
+      setIsEditing(true);
+      setAttachments([]);
+      
+      setNoteRecorded(true);
+      toast({
+        title: "Sucesso",
+        description: "Nota gravada! Agora você pode configurar parcelas ou finalizar.",
+      });
+
+    } catch (error) {
+      console.error("Error recording note:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao gravar a nota",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateInstallments = () => {
     if (numberOfInstallments < 1 || numberOfInstallments > 12) {
@@ -1789,6 +1896,30 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   }}>
                     Voltar
                   </Button>
+                ) : isEditing ? (
+                  <>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      Cancelar
+                    </Button>
+                    
+                    <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                      Parcelas {installments.length > 0 && `(${installments.length})`}
+                    </Button>
+                    
+                    <Button onClick={handleSave} disabled={loading || items.length === 0}>
+                      {loading ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </>
+                ) : !noteRecorded ? (
+                  <>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      Cancelar
+                    </Button>
+                    
+                    <Button onClick={handleRecordNote} disabled={loading || items.length === 0}>
+                      {loading ? "Gravando..." : "Gravar Nota"}
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
