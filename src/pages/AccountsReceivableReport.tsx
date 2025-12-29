@@ -177,6 +177,13 @@ const AccountsReceivableReport = () => {
         accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
       }
 
+      // Sort by due_date ascending (earliest first)
+      accountsData.sort((a: any, b: any) => {
+        const dateA = new Date(a.due_date).getTime();
+        const dateB = new Date(b.due_date).getTime();
+        return dateA - dateB;
+      });
+
       setAccounts(accountsData);
       toast({
         title: "Pesquisa realizada",
