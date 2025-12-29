@@ -783,12 +783,15 @@ export const DREView: React.FC<DREViewProps> = ({
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
-                    groupedData[key].values[structureItem.id] += paymentRecord.interest_amount;
+                    // Juros: aplicar function_type do produto (debit = negativo, credit = positivo)
+                    const productFunctionType = interestItem.products.function_type || 'debit';
+                    const signedValue = productFunctionType === 'debit' ? -paymentRecord.interest_amount : paymentRecord.interest_amount;
+                    groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
               }
 
-              // Processar desconto se houver (valor negativo)
+              // Processar desconto se houver
               if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
                 // Buscar subgrupo do produto de desconto
                 const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoProductId);
@@ -799,8 +802,10 @@ export const DREView: React.FC<DREViewProps> = ({
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
-                    // Desconto é valor negativo
-                    groupedData[key].values[structureItem.id] -= paymentRecord.discount_amount;
+                    // Desconto: aplicar function_type do produto (credit = positivo, debit = negativo)
+                    const productFunctionType = discountItem.products.function_type || 'credit';
+                    const signedValue = productFunctionType === 'credit' ? paymentRecord.discount_amount : -paymentRecord.discount_amount;
+                    groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
               }
@@ -812,6 +817,7 @@ export const DREView: React.FC<DREViewProps> = ({
                   const subgroupId = item.products.subgroup_id;
                   // Dividir o valor do juros/desconto pelo número de parcelas pagas
                   const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+                  const productFunctionType = item.products.function_type || 'debit';
 
                   // Encontrar o item da estrutura que corresponde a este subgrupo
                   const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
@@ -819,7 +825,9 @@ export const DREView: React.FC<DREViewProps> = ({
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
-                    groupedData[key].values[structureItem.id] += dividedValue;
+                    // Aplicar function_type: debit = negativo, credit = positivo
+                    const signedValue = productFunctionType === 'debit' ? -dividedValue : dividedValue;
+                    groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
               });
@@ -928,12 +936,15 @@ export const DREView: React.FC<DREViewProps> = ({
                           if (!groupedData[key].values[structureItem.id]) {
                             groupedData[key].values[structureItem.id] = 0;
                           }
-                          groupedData[key].values[structureItem.id] += paymentRecord.interest_amount;
+                          // Juros: aplicar function_type do produto (debit = negativo, credit = positivo)
+                          const productFunctionType = interestItem.products.function_type || 'debit';
+                          const signedValue = productFunctionType === 'debit' ? -paymentRecord.interest_amount : paymentRecord.interest_amount;
+                          groupedData[key].values[structureItem.id] += signedValue;
                         }
                       }
                     }
 
-                    // Processar desconto se houver (valor negativo)
+                    // Processar desconto se houver
                     if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
                       const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoProductId);
                       if (discountItem?.products?.subgroup_id) {
@@ -943,7 +954,10 @@ export const DREView: React.FC<DREViewProps> = ({
                           if (!groupedData[key].values[structureItem.id]) {
                             groupedData[key].values[structureItem.id] = 0;
                           }
-                          groupedData[key].values[structureItem.id] -= paymentRecord.discount_amount;
+                          // Desconto: aplicar function_type do produto (credit = positivo, debit = negativo)
+                          const productFunctionType = discountItem.products.function_type || 'credit';
+                          const signedValue = productFunctionType === 'credit' ? paymentRecord.discount_amount : -paymentRecord.discount_amount;
+                          groupedData[key].values[structureItem.id] += signedValue;
                         }
                       }
                     }
@@ -953,12 +967,15 @@ export const DREView: React.FC<DREViewProps> = ({
                       if (item.products?.subgroup_id) {
                         const subgroupId = item.products.subgroup_id;
                         const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+                        const productFunctionType = item.products.function_type || 'debit';
                         const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                         if (structureItem && dividedValue !== 0) {
                           if (!groupedData[key].values[structureItem.id]) {
                             groupedData[key].values[structureItem.id] = 0;
                           }
-                          groupedData[key].values[structureItem.id] += dividedValue;
+                          // Aplicar function_type: debit = negativo, credit = positivo
+                          const signedValue = productFunctionType === 'debit' ? -dividedValue : dividedValue;
+                          groupedData[key].values[structureItem.id] += signedValue;
                         }
                       }
                     });
@@ -993,12 +1010,15 @@ export const DREView: React.FC<DREViewProps> = ({
                     if (item.products?.subgroup_id) {
                       const subgroupId = item.products.subgroup_id;
                       const value = parseFloat(item.total_price) || 0;
+                      const productFunctionType = item.products.function_type || 'debit';
                       const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
                       if (structureItem && value !== 0) {
                         if (!groupedData[key].values[structureItem.id]) {
                           groupedData[key].values[structureItem.id] = 0;
                         }
-                        groupedData[key].values[structureItem.id] += value;
+                        // Aplicar function_type: debit = negativo, credit = positivo
+                        const signedValue = productFunctionType === 'debit' ? -value : value;
+                        groupedData[key].values[structureItem.id] += signedValue;
                       }
                     }
                   });
