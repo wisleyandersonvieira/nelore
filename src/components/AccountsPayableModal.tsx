@@ -1214,7 +1214,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       let query = supabase
         .from("products")
         .select("id, name, code")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("function_type", "debit");
 
       // Se estiver no modo funcionário, filtrar por grupo do parâmetro FUNCIONÁRIOS
       if (isEmployeeMode) {
