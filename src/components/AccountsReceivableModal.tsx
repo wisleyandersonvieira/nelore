@@ -439,12 +439,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       // Load existing attachments
       const { data: accountFullData } = await supabase
         .from("accounts_receivable")
-        .select("attachments")
+        .select("*")
         .eq("id", account.id)
         .single();
 
-      if (accountFullData?.attachments) {
-        setExistingAttachments(accountFullData.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}>);
+      if (accountFullData && (accountFullData as any).attachments) {
+        setExistingAttachments((accountFullData as any).attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}>);
       } else {
         setExistingAttachments([]);
       }
@@ -914,21 +914,23 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         }
 
         // Update existing account
+        const updateData: any = {
+          creditor_id: creditorId,
+          description: `Conta a Receber - ${documentType} ${documentNumber}`,
+          document_type: documentType,
+          document_number: documentNumber,
+          issue_date: issueDate,
+          due_date: dueDate,
+          data_competencia: dataCompetencia,
+          amount: totalAmount,
+          notes,
+          status: "pending",
+          attachments: allAttachments.length > 0 ? allAttachments : null,
+        };
+
         const { error } = await supabase
           .from("accounts_receivable")
-          .update({
-            creditor_id: creditorId,
-            description: `Conta a Receber - ${documentType} ${documentNumber}`,
-            document_type: documentType,
-            document_number: documentNumber,
-            issue_date: issueDate,
-            due_date: dueDate,
-            data_competencia: dataCompetencia,
-            amount: totalAmount,
-            notes,
-            status: "pending",
-            attachments: allAttachments.length > 0 ? allAttachments : null,
-          })
+          .update(updateData)
           .eq("id", editingAccount.id);
 
         if (error) throw error;
@@ -973,24 +975,26 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           uploadedAttachments = await uploadAttachments(items[0]?.store_id || 'default');
         }
 
+        const insertData: any = {
+          creditor_id: creditorId,
+          description: `Conta a Receber - ${documentType} ${documentNumber}`,
+          document_type: documentType,
+          document_number: documentNumber,
+          issue_date: issueDate,
+          due_date: dueDate,
+          data_competencia: dataCompetencia,
+          amount: totalAmount,
+          notes,
+          status: "pending",
+          store_id: items[0]?.store_id,
+          account_id: null, // Será definido quando receber o pagamento
+          created_by: user.id,
+          attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null,
+        };
+
         const { data: accountData, error } = await supabase
           .from("accounts_receivable")
-          .insert({
-            creditor_id: creditorId,
-            description: `Conta a Receber - ${documentType} ${documentNumber}`,
-            document_type: documentType,
-            document_number: documentNumber,
-            issue_date: issueDate,
-            due_date: dueDate,
-            data_competencia: dataCompetencia,
-            amount: totalAmount,
-            notes,
-            status: "pending",
-            store_id: items[0]?.store_id,
-            account_id: null, // Será definido quando receber o pagamento
-            created_by: user.id,
-            attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null,
-          })
+          .insert(insertData)
           .select()
           .single();
 
