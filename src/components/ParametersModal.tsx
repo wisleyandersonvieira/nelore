@@ -9,6 +9,7 @@ import { SubgroupParameterModal } from "./SubgroupParameterModal";
 import { GrupoParameterModal } from "./GrupoParameterModal";
 import { FaturamentoParameterModal } from "./FaturamentoParameterModal";
 import { AcrescimoParameterModal } from "./AcrescimoParameterModal";
+import { DescontoParameterModal } from "./DescontoParameterModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ParametersModalProps {
@@ -37,6 +38,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
   const [groupParameterOpen, setGroupParameterOpen] = useState(false);
   const [faturamentoParameterOpen, setFaturamentoParameterOpen] = useState(false);
   const [acrescimoParameterOpen, setAcrescimoParameterOpen] = useState(false);
+  const [descontoParameterOpen, setDescontoParameterOpen] = useState(false);
   const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string; groupId?: string; groupName?: string }>>({});
 
   // Parâmetros padrão do sistema
@@ -53,11 +55,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
     {
       id: 'desconto',
       name: 'Desconto',
-      description: 'Configurar produto para descontos nas contas',
+      description: 'Configurar produtos para descontos (Contas a Pagar e Contas a Receber)',
       type: 'desconto',
       category: 'product',
-      productId: configuredParameters['desconto']?.productId,
-      productName: configuredParameters['desconto']?.productName,
+      productId: configuredParameters['desconto_pagar']?.productId,
+      productName: configuredParameters['desconto_pagar']?.productName,
     },
     {
       id: 'sorvete',
@@ -108,7 +110,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
     if (open) {
       loadConfiguredParameters();
     }
-  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen, acrescimoParameterOpen]);
+  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen, acrescimoParameterOpen, descontoParameterOpen]);
 
   const loadConfiguredParameters = async () => {
     try {
@@ -116,7 +118,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       const { data: productParams, error: productError } = await supabase
         .from('system_parameters')
         .select('parameter_key, product_id, products!inner(name)')
-        .in('parameter_key', ['acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber'])
+        .in('parameter_key', ['acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber', 'desconto_pagar', 'desconto_receber'])
         .not('product_id', 'is', null);
 
       if (productError) throw productError;
@@ -173,9 +175,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
 
   const handleParameterClick = (parameter: Parameter) => {
     setSelectedParameter(parameter);
-    // Para acréscimos, abrir o modal específico com dois produtos
+    // Para acréscimos e descontos, abrir o modal específico com dois produtos
     if (parameter.id === 'acrescimo') {
       setAcrescimoParameterOpen(true);
+    } else if (parameter.id === 'desconto') {
+      setDescontoParameterOpen(true);
     } else if (parameter.category === 'product') {
       setProductParameterOpen(true);
     } else if (parameter.category === 'subgroup') {
@@ -281,7 +285,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                             <Settings className="h-3 w-3 mr-1" />
                             Configurar
                           </Button>
-                          {configuredParam && parameter.id !== 'acrescimo' && (
+                          {configuredParam && parameter.id !== 'acrescimo' && parameter.id !== 'desconto' && (
                             <Badge variant="default" className="text-xs">
                               {parameter.category === 'product' 
                                 ? `Produto: ${configuredParam.productName}`
@@ -302,6 +306,20 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                             {configuredParameters['acrescimo_receber']?.productName && (
                               <Badge variant="outline" className="text-xs justify-start">
                                 Receber: {configuredParameters['acrescimo_receber'].productName}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {parameter.id === 'desconto' && (
+                          <div className="flex flex-col gap-1">
+                            {configuredParameters['desconto_pagar']?.productName && (
+                              <Badge variant="outline" className="text-xs justify-start">
+                                Pagar: {configuredParameters['desconto_pagar'].productName}
+                              </Badge>
+                            )}
+                            {configuredParameters['desconto_receber']?.productName && (
+                              <Badge variant="outline" className="text-xs justify-start">
+                                Receber: {configuredParameters['desconto_receber'].productName}
                               </Badge>
                             )}
                           </div>
@@ -362,6 +380,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       <AcrescimoParameterModal
         open={acrescimoParameterOpen}
         onOpenChange={setAcrescimoParameterOpen}
+      />
+
+      <DescontoParameterModal
+        open={descontoParameterOpen}
+        onOpenChange={setDescontoParameterOpen}
       />
 
       <FaturamentoParameterModal
