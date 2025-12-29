@@ -89,28 +89,69 @@ const ReceivedAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch paid accounts with creditors and stores
+      // Fetch accounts with creditors, stores, installments and items with products
       const { data: allAccounts, error } = await supabase
         .from("accounts_receivable")
         .select(`
           *,
           creditors(id, name),
-          stores(id, name)
+          stores(id, name),
+          accounts_receivable_installments(*),
+          accounts_receivable_items(
+            id,
+            product_id,
+            quantity,
+            unit_price,
+            total_price,
+            products(id, name)
+          )
         `) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      // Filter for paid accounts only
+      // Fetch payments data
+      const { data: paymentsData } = await supabase
+        .from("accounts_receivable_payments")
+        .select(`*`);
+
+      // Create a map of payments by installment_id
+      const paymentsByInstallmentId: { [key: string]: any } = {};
+      (paymentsData || []).forEach((payment: any) => {
+        paymentsByInstallmentId[payment.installment_id] = payment;
+      });
+
+      // Filter for paid or partial accounts and expand installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        if (account.status !== 'paid') return;
+        // Include both 'paid' and 'partial' status - we want to show paid installments
+        if (account.status !== 'paid' && account.status !== 'partial') return;
         
-        if (account.payment_date) {
-          // Single payment
+        if (account.accounts_receivable_installments && account.accounts_receivable_installments.length > 0) {
+          // Has installments - create one row per paid installment
+          account.accounts_receivable_installments.forEach((installment: any) => {
+            if (installment.payment_date) { // Only paid installments
+              const payment = paymentsByInstallmentId[installment.id];
+              accountsData.push({
+                ...account,
+                due_date: installment.due_date,
+                amount: installment.amount,
+                payment_date: installment.payment_date,
+                installment_number: installment.installment_number,
+                total_installments: account.accounts_receivable_installments.length,
+                installment_id: installment.id,
+                interest_amount: payment?.interest_amount || 0,
+                discount_amount: payment?.discount_amount || 0
+              });
+            }
+          });
+        } else if (account.payment_date) {
+          // No installments - single payment
           accountsData.push({
             ...account,
             installment_number: 1,
-            total_installments: 1
+            total_installments: 1,
+            interest_amount: 0,
+            discount_amount: 0
           });
         }
       });
@@ -195,6 +236,21 @@ const ReceivedAccountsReport = () => {
     setAccounts([]);
   };
 
+  // Helper function to get the title based on document type and number
+  const getAccountTitle = (account: any) => {
+    const docType = account.document_type || '';
+    const docNumber = account.document_number || '';
+    
+    if (docType && docNumber) {
+      return `${docType} ${docNumber}`;
+    } else if (docType) {
+      return docType;
+    } else if (docNumber) {
+      return docNumber;
+    }
+    return account.description || 'N/A';
+  };
+
   const exportToPDF = () => {
     const doc = new jsPDF();
     
@@ -230,7 +286,7 @@ const ReceivedAccountsReport = () => {
     
     // Table data
     const tableData = accounts.map(account => [
-      account.description,
+      getAccountTitle(account),
       account.creditors?.name || "N/A",
       account.stores?.name || "N/A",
       new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -282,7 +338,7 @@ const ReceivedAccountsReport = () => {
 
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
-      Título: account.description,
+      Título: getAccountTitle(account),
       Credor: account.creditors?.name || "N/A",
       Loja: account.stores?.name || "N/A",
       Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -477,7 +533,7 @@ const ReceivedAccountsReport = () => {
                 <TableBody>
                   {accounts.map((account, index) => (
                     <TableRow key={`${account.id}-${index}`}>
-                      <TableCell>{account.description}</TableCell>
+                      <TableCell>{getAccountTitle(account)}</TableCell>
                       <TableCell>{account.creditors?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
