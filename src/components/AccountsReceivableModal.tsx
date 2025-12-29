@@ -2608,9 +2608,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                     )}
                                   </div>
                                   <p className="text-sm text-muted-foreground">
-                                    Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                                    Vencimento: {new Date(installment.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
                                     {isPaid && installment.payment_date && (
-                                      <span> - Recebida em: {new Date(installment.payment_date).toLocaleDateString('pt-BR')}</span>
+                                      <span> - Recebida em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
                                     )}
                                   </p>
                                   {isPaid && installment.payment_account_name && (
