@@ -1968,11 +1968,13 @@ export type Database = {
           cost_price: number | null
           created_at: string
           description: string | null
+          function_type: string | null
           group_id: string | null
           id: string
           is_active: boolean
           is_blocked: boolean
           name: string
+          product_type: string | null
           subgroup_id: string | null
           unit_id: string | null
           unit_price: number | null
@@ -1985,11 +1987,13 @@ export type Database = {
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          function_type?: string | null
           group_id?: string | null
           id?: string
           is_active?: boolean
           is_blocked?: boolean
           name: string
+          product_type?: string | null
           subgroup_id?: string | null
           unit_id?: string | null
           unit_price?: number | null
@@ -2002,11 +2006,13 @@ export type Database = {
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          function_type?: string | null
           group_id?: string | null
           id?: string
           is_active?: boolean
           is_blocked?: boolean
           name?: string
+          product_type?: string | null
           subgroup_id?: string | null
           unit_id?: string | null
           unit_price?: number | null
