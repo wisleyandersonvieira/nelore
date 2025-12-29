@@ -18,13 +18,15 @@ interface ProductSearchModalProps {
   onOpenChange: (open: boolean) => void;
   onSelectProduct: (product: Product) => void;
   isEmployeeMode?: boolean;
+  functionType?: "credit" | "debit";
 }
 
 export function ProductSearchModal({ 
   open, 
   onOpenChange, 
   onSelectProduct,
-  isEmployeeMode = false
+  isEmployeeMode = false,
+  functionType = "debit"
 }: ProductSearchModalProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -37,7 +39,7 @@ export function ProductSearchModal({
     if (open) {
       fetchProducts();
     }
-  }, [open, isEmployeeMode]);
+  }, [open, isEmployeeMode, functionType]);
 
   useEffect(() => {
     filterProducts();
@@ -50,7 +52,7 @@ export function ProductSearchModal({
         .from("products")
         .select("id, name, code")
         .eq("is_active", true)
-        .eq("function_type", "debit");
+        .eq("function_type", functionType);
 
       // Se estiver no modo funcionário, filtrar por grupo do parâmetro FUNCIONÁRIOS
       if (isEmployeeMode) {
