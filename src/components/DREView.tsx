@@ -455,11 +455,72 @@ export const DREView: React.FC<DREViewProps> = ({
         }
       }
 
-      // Buscar contas a receber (somente para regime de competência)
+      // Buscar contas a receber
       let accountsReceivableData: any[] = [];
       let arError = null;
 
-      if (!isCashRegime) {
+      if (isCashRegime) {
+        // Para regime de caixa: buscar contas recebidas (com ou sem parcelas)
+
+        // 1. Buscar parcelas recebidas no ano selecionado
+        const {
+          data: receivedInstallments,
+          error: arInstallmentsError
+        } = await supabase.from('accounts_receivable_installments').select('account_receivable_id, payment_date, amount, installment_number').not('payment_date', 'is', null).gte('payment_date', `${selectedYear}-01-01`).lte('payment_date', `${selectedYear}-12-31`);
+        if (arInstallmentsError) throw arInstallmentsError;
+
+        // 2. Buscar contas recebidas à vista (status = paid e payment_date no ano)
+        const {
+          data: receivedAccounts,
+          error: receivedAccountsError
+        } = await supabase.from('accounts_receivable').select('id, payment_date').eq('status', 'paid').not('payment_date', 'is', null).gte('payment_date', `${selectedYear}-01-01`).lte('payment_date', `${selectedYear}-12-31`).in('store_id', selectedStores);
+        if (receivedAccountsError) throw receivedAccountsError;
+
+        // Combinar IDs de contas com parcelas recebidas e contas recebidas à vista
+        const accountReceivableIdsFromInstallments = [...new Set(receivedInstallments?.map(inst => inst.account_receivable_id) || [])];
+        const accountReceivableIdsFromDirectPayment = receivedAccounts?.map(acc => acc.id) || [];
+        const accountReceivableIds = [...new Set([...accountReceivableIdsFromInstallments, ...accountReceivableIdsFromDirectPayment])];
+
+        if (accountReceivableIds.length > 0) {
+          const {
+            data,
+            error
+          } = await supabase.from('accounts_receivable').select(`
+              id,
+              store_id,
+              total_amount,
+              status,
+              payment_date,
+              data_competencia,
+              accounts_receivable_items (
+                id,
+                product_id,
+                quantity,
+                unit_price,
+                total_price,
+                products (
+                  id,
+                  name,
+                  subgroup_id,
+                  function_type
+                )
+              ),
+              accounts_receivable_installments (
+                id,
+                installment_number,
+                due_date,
+                amount,
+                payment_date
+              ),
+              stores (name)
+            `).in('id', accountReceivableIds).in('store_id', selectedStores).in('status', ['paid', 'partial']);
+          accountsReceivableData = data || [];
+          arError = error;
+        } else {
+          accountsReceivableData = [];
+          arError = null;
+        }
+      } else {
         // Para regime de competência: buscar por data de competência
         const {
           data,
@@ -492,8 +553,8 @@ export const DREView: React.FC<DREViewProps> = ({
           `).in('store_id', selectedStores).gte('data_competencia', `${selectedYear}-01-01`).lte('data_competencia', `${selectedYear}-12-31`);
         accountsReceivableData = data || [];
         arError = error;
-        if (arError) throw arError;
       }
+      if (arError) throw arError;
 
       // Verificar se existem dados para as lojas selecionadas
       const cashControlByStore = cashControlData?.reduce((acc: Record<string, number>, item: any) => {
@@ -948,20 +1009,27 @@ export const DREView: React.FC<DREViewProps> = ({
         }
       });
 
-      // Processar contas a receber (RECEITAS - regime de competência)
-      if (!isCashRegime && accountsReceivableData && accountsReceivableData.length > 0) {
+      // Processar contas a receber (RECEITAS)
+      if (accountsReceivableData && accountsReceivableData.length > 0) {
         accountsReceivableData.forEach((account: any) => {
-          // Para regime de competência: usar data_competencia
-          const items = account.accounts_receivable_items || [];
-          
-          if (items.length > 0 && account.data_competencia) {
-            const {
-              month,
-              year
-            } = getMonthAndYearFromDate(account.data_competencia);
+          if (isCashRegime) {
+            // Para regime de caixa: processar baseado nas parcelas recebidas OU pagamento à vista
 
-            // Verificar se o mês está selecionado
-            if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
+            // Verificar se é pagamento à vista (sem parcelas)
+            const hasInstallments = account.accounts_receivable_installments && account.accounts_receivable_installments.length > 0;
+            
+            if (!hasInstallments && account.status === 'paid' && account.payment_date) {
+              // Conta recebida à vista - processar o valor total
+              const {
+                month,
+                year
+              } = getMonthAndYearFromDate(account.payment_date);
+
+              // Verificar se o mês está selecionado
+              if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+                return;
+              }
+
               const storeId = account.store_id;
               const storeName = account.stores?.name || 'Loja sem nome';
               const key = `${storeId}-${month}`;
@@ -977,16 +1045,17 @@ export const DREView: React.FC<DREViewProps> = ({
                 };
               }
 
-              items.forEach((item: any) => {
+              // Para pagamento à vista, lançar o valor total de cada item
+              account.accounts_receivable_items?.forEach((item: any) => {
                 if (item.products?.subgroup_id) {
                   const subgroupId = item.products.subgroup_id;
                   const value = parseFloat(item.total_price) || 0;
                   // Contas a receber são crédito por natureza
-                  // O function_type do produto define se é positivo (credit) ou negativo (debit)
                   const productFunctionType = item.products.function_type || 'credit';
 
                   // Encontrar o item da estrutura que corresponde a este subgrupo
                   const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+
                   if (structureItem && value !== 0) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
@@ -997,6 +1066,132 @@ export const DREView: React.FC<DREViewProps> = ({
                   }
                 }
               });
+              return; // Já processou, não precisa processar parcelas
+            }
+
+            // Processar parcelas recebidas
+            const receivedInstallments = account.accounts_receivable_installments?.filter((installment: any) => 
+              installment.payment_date !== null && installment.payment_date !== undefined
+            ) || [];
+
+            // Se não houver parcelas recebidas, não processar esta conta
+            if (receivedInstallments.length === 0) {
+              return;
+            }
+
+            // Calcular o valor base da conta para proporção correta
+            const normalItems = account.accounts_receivable_items || [];
+            const baseAccountAmount = normalItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
+
+            // Calcular o total de parcelas para saber a proporção de cada uma
+            const totalInstallments = account.accounts_receivable_installments?.length || 1;
+
+            if (baseAccountAmount === 0) {
+              console.warn('Conta a receber sem itens:', account.id);
+              return;
+            }
+
+            // Processar cada parcela recebida
+            receivedInstallments.forEach((installment: any) => {
+              const {
+                month,
+                year
+              } = getMonthAndYearFromDate(installment.payment_date);
+
+              // Verificar se o mês está selecionado
+              if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+                return;
+              }
+
+              const storeId = account.store_id;
+              const storeName = account.stores?.name || 'Loja sem nome';
+              const key = `${storeId}-${month}`;
+
+              // Inicializar se não existir
+              if (!groupedData[key]) {
+                groupedData[key] = {
+                  month,
+                  year: parseInt(selectedYear),
+                  store_id: storeId,
+                  store_name: storeName,
+                  values: {}
+                };
+              }
+
+              // Calcular o valor proporcional ao pagamento da parcela
+              const installmentAmount = parseFloat(installment.amount) || 0;
+              const proportionFactor = installmentAmount / baseAccountAmount;
+
+              // Processar itens proporcionalmente
+              normalItems.forEach((item: any) => {
+                if (item.products?.subgroup_id) {
+                  const subgroupId = item.products.subgroup_id;
+                  const itemValue = parseFloat(item.total_price) || 0;
+                  const proportionalValue = itemValue * proportionFactor;
+                  const productFunctionType = item.products.function_type || 'credit';
+
+                  // Encontrar o item da estrutura que corresponde a este subgrupo
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+
+                  if (structureItem && proportionalValue !== 0) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    // Crédito = positivo, Débito = negativo
+                    const signedValue = productFunctionType === 'credit' ? proportionalValue : -proportionalValue;
+                    groupedData[key].values[structureItem.id] += signedValue;
+                  }
+                }
+              });
+            });
+          } else {
+            // Para regime de competência: usar data_competencia
+            const items = account.accounts_receivable_items || [];
+            
+            if (items.length > 0 && account.data_competencia) {
+              const {
+                month,
+                year
+              } = getMonthAndYearFromDate(account.data_competencia);
+
+              // Verificar se o mês está selecionado
+              if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
+                const storeId = account.store_id;
+                const storeName = account.stores?.name || 'Loja sem nome';
+                const key = `${storeId}-${month}`;
+
+                // Inicializar se não existir
+                if (!groupedData[key]) {
+                  groupedData[key] = {
+                    month,
+                    year: parseInt(selectedYear),
+                    store_id: storeId,
+                    store_name: storeName,
+                    values: {}
+                  };
+                }
+
+                items.forEach((item: any) => {
+                  if (item.products?.subgroup_id) {
+                    const subgroupId = item.products.subgroup_id;
+                    const value = parseFloat(item.total_price) || 0;
+                    // Contas a receber são crédito por natureza
+                    // O function_type do produto define se é positivo (credit) ou negativo (debit)
+                    const productFunctionType = item.products.function_type || 'credit';
+
+                    // Encontrar o item da estrutura que corresponde a este subgrupo
+                    const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                    if (structureItem && value !== 0) {
+                      if (!groupedData[key].values[structureItem.id]) {
+                        groupedData[key].values[structureItem.id] = 0;
+                      }
+                      // Crédito = positivo, Débito = negativo
+                      const signedValue = productFunctionType === 'credit' ? value : -value;
+                      groupedData[key].values[structureItem.id] += signedValue;
+                    }
+                  }
+                });
+              }
             }
           }
         });
