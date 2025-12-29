@@ -81,7 +81,14 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
         .order("code");
 
       if (productsError) throw productsError;
-      setProducts(productsData || []);
+      
+      // Sort products by code numerically (ascending)
+      const sortedProducts = (productsData || []).sort((a, b) => {
+        const codeA = parseInt(a.code || "0", 10);
+        const codeB = parseInt(b.code || "0", 10);
+        return codeA - codeB;
+      });
+      setProducts(sortedProducts);
 
       // Fetch groups for filters
       const { data: groupsData } = await supabase
