@@ -1870,9 +1870,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="view">Visualizar</TabsTrigger>
+            <TabsTrigger value="view">Visualizar Contas</TabsTrigger>
             <TabsTrigger value="create" disabled={!canEdit}>
-              {isEditing ? "Editar" : "Criar"}
+              {isEditing ? "Editar Conta" : "Cadastrar Conta"}
             </TabsTrigger>
           </TabsList>
 
