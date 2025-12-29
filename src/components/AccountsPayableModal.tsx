@@ -947,6 +947,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             }
           }
 
+          // Delete payment record from accounts_payable_payments
+          const { error: deletePaymentError } = await supabase
+            .from("accounts_payable_payments")
+            .delete()
+            .eq("installment_id", installmentId);
+
+          if (deletePaymentError) throw deletePaymentError;
+
           // Update installment payment_date to null
           const { error: updateInstallmentError } = await supabase
             .from("accounts_payable_installments")
@@ -1015,6 +1023,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             return;
           }
         }
+
+        // Delete all payment records for this account
+        const { error: deletePaymentsError } = await supabase
+          .from("accounts_payable_payments")
+          .delete()
+          .eq("account_payable_id", accountId);
+
+        if (deletePaymentsError) throw deletePaymentsError;
 
         const { error: updateError } = await supabase
           .from("accounts_payable")
