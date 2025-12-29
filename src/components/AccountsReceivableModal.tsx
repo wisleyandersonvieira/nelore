@@ -459,10 +459,71 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     }
   };
 
-  const handleViewAccount = (account: AccountReceivable) => {
+  const handleViewAccount = async (account: AccountReceivable) => {
     setViewOnlyAccount(account);
     setIsViewOnly(true);
     setActiveTab("create");
+    
+    // Load form data
+    setDocumentType(account.document_type || "");
+    setDocumentNumber(account.document_number || "");
+    setIssueDate(account.issue_date || "");
+    setDueDate(account.due_date || "");
+    setDataCompetencia((account as any).data_competencia || "");
+    setNotes(account.notes || "");
+    
+    // Load creditor id
+    try {
+      const { data: accountFullData } = await supabase
+        .from("accounts_receivable")
+        .select("*, creditors(id, name)")
+        .eq("id", account.id)
+        .single();
+
+      if (accountFullData) {
+        setCreditorId(accountFullData.creditor_id || "");
+        
+        // Load existing attachments
+        if ((accountFullData as any).attachments) {
+          setExistingAttachments((accountFullData as any).attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}>);
+        } else {
+          setExistingAttachments([]);
+        }
+      }
+      setAttachments([]);
+      
+      // Load items
+      const { data: itemsData, error } = await supabase
+        .from("accounts_receivable_items")
+        .select(`
+          *,
+          products(name),
+          stores(name)
+        `)
+        .eq("account_receivable_id", account.id);
+
+      if (error) throw error;
+
+      const formattedItems = (itemsData || []).map((item: any) => ({
+        id: item.id,
+        product_id: item.product_id,
+        product_name: item.products?.name || "",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        store_id: item.store_id,
+        store_name: item.stores?.name || "",
+      }));
+
+      setItems(formattedItems);
+    } catch (error) {
+      console.error("Error loading account data:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar dados da conta",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleReversePayment = (account: AccountReceivable) => {
