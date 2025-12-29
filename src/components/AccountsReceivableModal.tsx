@@ -1214,33 +1214,36 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   };
 
   const handleSave = async () => {
-    if (!creditorId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios do formulário",
-        variant: "destructive",
-      });
-      return;
-    }
+    // If attachment only edit, skip validation of other fields
+    if (!isAttachmentOnlyEdit) {
+      if (!creditorId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
+        toast({
+          title: "Erro",
+          description: "Preencha todos os campos obrigatórios do formulário",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (items.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Adicione pelo menos um item na aba Itens",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (items.length === 0) {
+        toast({
+          title: "Erro",
+          description: "Adicione pelo menos um item na aba Itens",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    // Validar se o período de competência não está bloqueado
-    const competenceValidation = await validateAccountsReceivablePeriod.competencia(dataCompetencia);
-    if (competenceValidation.blocked) {
-      toast({
-        title: "Período Bloqueado",
-        description: competenceValidation.message,
-        variant: "destructive",
-      });
-      return;
+      // Validar se o período de competência não está bloqueado
+      const competenceValidation = await validateAccountsReceivablePeriod.competencia(dataCompetencia);
+      if (competenceValidation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: competenceValidation.message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setLoading(true);
@@ -1255,75 +1258,92 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           allAttachments = [...allAttachments, ...uploadedFiles];
         }
 
-        // Update existing account
-        const updateData: any = {
-          creditor_id: creditorId,
-          description: `Conta a Receber - ${documentType} ${documentNumber}`,
-          document_type: documentType,
-          document_number: documentNumber,
-          issue_date: issueDate,
-          due_date: dueDate,
-          data_competencia: dataCompetencia,
-          amount: totalAmount,
-          notes,
-          status: "pending",
-          attachments: allAttachments.length > 0 ? allAttachments : null,
-        };
+        // If attachment only edit, only update attachments
+        if (isAttachmentOnlyEdit) {
+          const { error } = await supabase
+            .from("accounts_receivable")
+            .update({
+              attachments: allAttachments.length > 0 ? allAttachments : null,
+            })
+            .eq("id", editingAccount.id);
 
-        const { error } = await supabase
-          .from("accounts_receivable")
-          .update(updateData)
-          .eq("id", editingAccount.id);
+          if (error) throw error;
 
-        if (error) throw error;
+          toast({
+            title: "Sucesso",
+            description: "Anexos atualizados com sucesso",
+          });
+        } else {
+          // Full update - Update existing account
+          const updateData: any = {
+            creditor_id: creditorId,
+            description: `Conta a Receber - ${documentType} ${documentNumber}`,
+            document_type: documentType,
+            document_number: documentNumber,
+            issue_date: issueDate,
+            due_date: dueDate,
+            data_competencia: dataCompetencia,
+            amount: totalAmount,
+            notes,
+            status: "pending",
+            attachments: allAttachments.length > 0 ? allAttachments : null,
+          };
 
-        // Delete existing items
-        await supabase
-          .from("accounts_receivable_items")
-          .delete()
-          .eq("account_receivable_id", editingAccount.id);
+          const { error } = await supabase
+            .from("accounts_receivable")
+            .update(updateData)
+            .eq("id", editingAccount.id);
 
-        // Insert new items
-        const itemsToInsert = items.map(item => ({
-          account_receivable_id: editingAccount.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          store_id: item.store_id,
-        }));
+          if (error) throw error;
 
-        const { error: itemsError } = await supabase
-          .from("accounts_receivable_items")
-          .insert(itemsToInsert);
+          // Delete existing items
+          await supabase
+            .from("accounts_receivable_items")
+            .delete()
+            .eq("account_receivable_id", editingAccount.id);
 
-        if (itemsError) throw itemsError;
-
-        // Delete existing installments and insert new ones if configured
-        await supabase
-          .from("accounts_receivable_installments")
-          .delete()
-          .eq("account_receivable_id", editingAccount.id);
-
-        if (installments.length > 0) {
-          const installmentsToInsert = installments.map(inst => ({
+          // Insert new items
+          const itemsToInsert = items.map(item => ({
             account_receivable_id: editingAccount.id,
-            installment_number: inst.installment_number,
-            due_date: inst.due_date,
-            amount: inst.amount,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            store_id: item.store_id,
           }));
 
-          const { error: installmentsError } = await supabase
+          const { error: itemsError } = await supabase
+            .from("accounts_receivable_items")
+            .insert(itemsToInsert);
+
+          if (itemsError) throw itemsError;
+
+          // Delete existing installments and insert new ones if configured
+          await supabase
             .from("accounts_receivable_installments")
-            .insert(installmentsToInsert);
+            .delete()
+            .eq("account_receivable_id", editingAccount.id);
 
-          if (installmentsError) throw installmentsError;
+          if (installments.length > 0) {
+            const installmentsToInsert = installments.map(inst => ({
+              account_receivable_id: editingAccount.id,
+              installment_number: inst.installment_number,
+              due_date: inst.due_date,
+              amount: inst.amount,
+            }));
+
+            const { error: installmentsError } = await supabase
+              .from("accounts_receivable_installments")
+              .insert(installmentsToInsert);
+
+            if (installmentsError) throw installmentsError;
+          }
+
+          toast({
+            title: "Sucesso",
+            description: "Conta a receber atualizada com sucesso",
+          });
         }
-
-        toast({
-          title: "Sucesso",
-          description: "Conta a receber atualizada com sucesso",
-        });
       } else {
         // Create new account
         const { data: { user } } = await supabase.auth.getUser();
