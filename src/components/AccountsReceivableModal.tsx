@@ -77,6 +77,15 @@ interface Installment {
   installment_number: number;
   due_date: string;
   amount: number;
+  payment_date?: string | null;
+}
+
+interface DBInstallment {
+  id: string;
+  installment_number: number;
+  due_date: string;
+  amount: number;
+  payment_date: string | null;
 }
 
 const documentTypes = [
@@ -106,6 +115,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [paymentDate, setPaymentDate] = useState("");
   const [surcharge, setSurcharge] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
+  
+  // Installments from database for payment
+  const [dbInstallments, setDbInstallments] = useState<DBInstallment[]>([]);
+  const [selectedInstallmentId, setSelectedInstallmentId] = useState<string>("");
 
   // Function to convert date input to local timezone format - prevents timezone issues
   const formatDateForDatabase = (dateString: string): string => {
@@ -390,6 +403,31 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setPaymentDate("");
     setSurcharge(0);
     setDiscount(0);
+    setSelectedInstallmentId("");
+    
+    // Fetch installments from database
+    try {
+      const { data: installmentsData, error } = await supabase
+        .from("accounts_receivable_installments")
+        .select("*")
+        .eq("account_receivable_id", account.id)
+        .order("installment_number", { ascending: true });
+      
+      if (error) throw error;
+      
+      // Filter only pending installments (no payment_date)
+      const pendingInstallments = (installmentsData || []).filter(inst => !inst.payment_date);
+      setDbInstallments(pendingInstallments);
+      
+      // If only one installment, auto-select it
+      if (pendingInstallments.length === 1) {
+        setSelectedInstallmentId(pendingInstallments[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching installments:", error);
+      setDbInstallments([]);
+    }
+    
     setShowPaymentModal(true);
   };
 
@@ -1125,6 +1163,27 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         if (itemsError) throw itemsError;
 
+        // Delete existing installments and insert new ones if configured
+        await supabase
+          .from("accounts_receivable_installments")
+          .delete()
+          .eq("account_receivable_id", editingAccount.id);
+
+        if (installments.length > 0) {
+          const installmentsToInsert = installments.map(inst => ({
+            account_receivable_id: editingAccount.id,
+            installment_number: inst.installment_number,
+            due_date: inst.due_date,
+            amount: inst.amount,
+          }));
+
+          const { error: installmentsError } = await supabase
+            .from("accounts_receivable_installments")
+            .insert(installmentsToInsert);
+
+          if (installmentsError) throw installmentsError;
+        }
+
         toast({
           title: "Sucesso",
           description: "Conta a receber atualizada com sucesso",
@@ -1184,6 +1243,22 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         if (itemsError) throw itemsError;
 
+        // Insert installments if configured
+        if (installments.length > 0) {
+          const installmentsToInsert = installments.map(inst => ({
+            account_receivable_id: accountData.id,
+            installment_number: inst.installment_number,
+            due_date: inst.due_date,
+            amount: inst.amount,
+          }));
+
+          const { error: installmentsError } = await supabase
+            .from("accounts_receivable_installments")
+            .insert(installmentsToInsert);
+
+          if (installmentsError) throw installmentsError;
+        }
+
         toast({
           title: "Sucesso",
           description: "Conta a receber criada com sucesso",
@@ -1236,6 +1311,16 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       return;
     }
 
+    // If there are installments but none selected
+    if (dbInstallments.length > 0 && !selectedInstallmentId) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma parcela para receber",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validar se o período de recebimento não está bloqueado
     const paymentValidation = await validateAccountsReceivablePeriod.pagamento(paymentDate);
     if (paymentValidation.blocked) {
@@ -1255,19 +1340,58 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         throw new Error("Usuário não autenticado");
       }
 
-      const finalAmount = paymentAccount.amount + surcharge - discount;
+      // Get the amount to process
+      const selectedInstallment = dbInstallments.find(i => i.id === selectedInstallmentId);
+      const baseAmount = selectedInstallment ? selectedInstallment.amount : paymentAccount.amount;
+      const finalAmount = baseAmount + surcharge - discount;
 
-      // Update account status
-      const { error: updateError } = await supabase
-        .from("accounts_receivable")
-        .update({
-          status: "paid",
-          payment_date: formatDateForDatabase(paymentDate),
-          amount: finalAmount,
-        })
-        .eq("id", paymentAccount.id);
+      // If processing an installment
+      if (selectedInstallment) {
+        // Update installment payment date
+        const { error: installmentError } = await supabase
+          .from("accounts_receivable_installments")
+          .update({
+            payment_date: formatDateForDatabase(paymentDate)
+          })
+          .eq("id", selectedInstallment.id);
 
-      if (updateError) throw updateError;
+        if (installmentError) throw installmentError;
+
+        // Check if all installments are paid
+        const { data: allInstallments, error: fetchError } = await supabase
+          .from("accounts_receivable_installments")
+          .select("*")
+          .eq("account_receivable_id", paymentAccount.id);
+
+        if (fetchError) throw fetchError;
+
+        const allPaid = allInstallments?.every(inst => 
+          inst.id === selectedInstallment.id || inst.payment_date !== null
+        );
+
+        // Update account status
+        const { error: updateError } = await supabase
+          .from("accounts_receivable")
+          .update({
+            status: allPaid ? "paid" : "partial",
+            payment_date: allPaid ? formatDateForDatabase(paymentDate) : null,
+          })
+          .eq("id", paymentAccount.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // No installments, update account directly
+        const { error: updateError } = await supabase
+          .from("accounts_receivable")
+          .update({
+            status: "paid",
+            payment_date: formatDateForDatabase(paymentDate),
+            amount: finalAmount,
+          })
+          .eq("id", paymentAccount.id);
+
+        if (updateError) throw updateError;
+      }
 
       // Create financial transaction
       const { error: transactionError } = await supabase
@@ -1278,7 +1402,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           transaction_type: "entrada",
           amount: finalAmount,
           transaction_date: formatDateForDatabase(paymentDate),
-          description: `Recebimento - ${paymentAccount.description}`,
+          description: selectedInstallment 
+            ? `Recebimento Parcela ${selectedInstallment.installment_number} - ${paymentAccount.description}`
+            : `Recebimento - ${paymentAccount.description}`,
           reference_id: paymentAccount.id,
           reference_type: "accounts_receivable",
           created_by: user.id,
@@ -1288,11 +1414,15 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       toast({
         title: "Sucesso",
-        description: "Recebimento processado com sucesso",
+        description: selectedInstallment 
+          ? `Parcela ${selectedInstallment.installment_number} recebida com sucesso`
+          : "Recebimento processado com sucesso",
       });
 
       setShowPaymentModal(false);
       setPaymentAccount(null);
+      setDbInstallments([]);
+      setSelectedInstallmentId("");
       
       // Refresh data
       if (paymentShowFilteredData) {
@@ -2032,7 +2162,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         {/* Payment Modal */}
         {showPaymentModal && paymentAccount && (
           <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Processar Recebimento</DialogTitle>
               </DialogHeader>
@@ -2046,36 +2176,95 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                     Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-lg font-semibold text-primary">
-                    Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
+                    Valor Total: R$ {Number(paymentAccount.amount).toFixed(2)}
                   </p>
                 </div>
 
-                <div>
-                  <Label>Acréscimo</Label>
-                  <Input
-                    type="number"
-                    value={surcharge}
-                    onChange={(e) => setSurcharge(Number(e.target.value))}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
+                {/* Installments Selection */}
+                {dbInstallments.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Selecione a Parcela *</Label>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12"></TableHead>
+                          <TableHead>Parcela</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead>Valor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dbInstallments.map((installment) => (
+                          <TableRow 
+                            key={installment.id}
+                            className={selectedInstallmentId === installment.id ? "bg-primary/10" : "cursor-pointer hover:bg-muted"}
+                            onClick={() => setSelectedInstallmentId(installment.id)}
+                          >
+                            <TableCell>
+                              <input
+                                type="radio"
+                                name="installment"
+                                checked={selectedInstallmentId === installment.id}
+                                onChange={() => setSelectedInstallmentId(installment.id)}
+                                className="w-4 h-4"
+                              />
+                            </TableCell>
+                            <TableCell>{installment.installment_number}ª parcela</TableCell>
+                            <TableCell>
+                              {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>R$ {Number(installment.amount).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
 
-                <div>
-                  <Label>Desconto</Label>
-                  <Input
-                    type="number"
-                    value={discount}
-                    onChange={(e) => setDiscount(Number(e.target.value))}
-                    min="0"
-                    step="0.01"
-                  />
+                {/* Show selected installment value */}
+                {selectedInstallmentId && (
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <p className="font-medium">
+                      Valor da Parcela Selecionada: R$ {
+                        dbInstallments.find(i => i.id === selectedInstallmentId)?.amount.toFixed(2) || '0.00'
+                      }
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Acréscimo</Label>
+                    <Input
+                      type="number"
+                      value={surcharge}
+                      onChange={(e) => setSurcharge(Number(e.target.value))}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Desconto</Label>
+                    <Input
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(Number(e.target.value))}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <Label>Valor Final</Label>
                   <Input 
-                    value={`R$ ${(paymentAccount.amount + surcharge - discount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    value={`R$ ${(
+                      (selectedInstallmentId 
+                        ? (dbInstallments.find(i => i.id === selectedInstallmentId)?.amount || 0)
+                        : paymentAccount.amount
+                      ) + surcharge - discount
+                    ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                     disabled 
                   />
                 </div>
@@ -2106,7 +2295,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </div>
 
                 <div className="flex gap-2">
-                  <Button onClick={handlePayment} disabled={loading}>
+                  <Button onClick={handlePayment} disabled={loading || (dbInstallments.length > 0 && !selectedInstallmentId)}>
                     {loading ? "Processando..." : "Confirmar Recebimento"}
                   </Button>
                   <Button variant="outline" onClick={() => setShowPaymentModal(false)}>

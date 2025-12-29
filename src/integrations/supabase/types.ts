@@ -428,6 +428,47 @@ export type Database = {
           },
         ]
       }
+      accounts_receivable_installments: {
+        Row: {
+          account_receivable_id: string
+          amount: number
+          created_at: string
+          due_date: string
+          id: string
+          installment_number: number
+          payment_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_receivable_id: string
+          amount: number
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_number: number
+          payment_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_receivable_id?: string
+          amount?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          payment_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_installments_account_receivable_id_fkey"
+            columns: ["account_receivable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_receivable_items: {
         Row: {
           account_receivable_id: string
