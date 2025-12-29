@@ -87,6 +87,7 @@ interface DBInstallment {
   due_date: string;
   amount: number;
   payment_date: string | null;
+  payment_account_name?: string;
 }
 
 const documentTypes = [
@@ -431,11 +432,42 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       
       if (error) throw error;
       
+      // For paid installments, fetch the payment account info
+      const installmentsWithAccountInfo = await Promise.all(
+        (installmentsData || []).map(async (inst) => {
+          if (inst.payment_date) {
+            // Fetch payment info for this installment
+            const { data: paymentData } = await supabase
+              .from("accounts_receivable_payments")
+              .select("payment_account_id, payment_account_type")
+              .eq("installment_id", inst.id)
+              .maybeSingle();
+            
+            if (paymentData?.payment_account_id) {
+              // Fetch account name based on type
+              const { data: accountData } = await supabase
+                .from("current_accounts")
+                .select("name, bank, account_number")
+                .eq("id", paymentData.payment_account_id)
+                .maybeSingle();
+              
+              if (accountData) {
+                return {
+                  ...inst,
+                  payment_account_name: `${accountData.name} - ${accountData.bank} (${accountData.account_number})`
+                };
+              }
+            }
+          }
+          return inst;
+        })
+      );
+      
       // Store all installments for display
-      setAllInstallments(installmentsData || []);
+      setAllInstallments(installmentsWithAccountInfo);
       
       // Filter only pending installments (no payment_date)
-      const pendingInstallments = (installmentsData || []).filter(inst => !inst.payment_date);
+      const pendingInstallments = installmentsWithAccountInfo.filter(inst => !inst.payment_date);
       setDbInstallments(pendingInstallments);
       
       // If only one pending installment, auto-select it
@@ -628,7 +660,37 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .order("installment_number");
 
       if (error) throw error;
-      setReverseInstallments(installmentsData || []);
+      
+      // For paid installments, fetch the payment account info
+      const installmentsWithAccountInfo = await Promise.all(
+        (installmentsData || []).map(async (inst) => {
+          // Fetch payment info for this installment
+          const { data: paymentData } = await supabase
+            .from("accounts_receivable_payments")
+            .select("payment_account_id, payment_account_type")
+            .eq("installment_id", inst.id)
+            .maybeSingle();
+          
+          if (paymentData?.payment_account_id) {
+            // Fetch account name based on type
+            const { data: accountData } = await supabase
+              .from("current_accounts")
+              .select("name, bank, account_number")
+              .eq("id", paymentData.payment_account_id)
+              .maybeSingle();
+            
+            if (accountData) {
+              return {
+                ...inst,
+                payment_account_name: `${accountData.name} - ${accountData.bank} (${accountData.account_number})`
+              };
+            }
+          }
+          return inst;
+        })
+      );
+      
+      setReverseInstallments(installmentsWithAccountInfo);
     } catch (error) {
       console.error("Error fetching paid installments:", error);
       setReverseInstallments([]);
@@ -2551,6 +2613,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                       <span> - Recebida em: {new Date(installment.payment_date).toLocaleDateString('pt-BR')}</span>
                                     )}
                                   </p>
+                                  {isPaid && installment.payment_account_name && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Conta: {installment.payment_account_name}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                               <span className="font-semibold text-lg">
@@ -2765,6 +2832,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                   </span>
                                 )}
                               </p>
+                              {installment.payment_account_name && (
+                                <p className="text-sm text-muted-foreground">
+                                  Conta: {installment.payment_account_name}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
