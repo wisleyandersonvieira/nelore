@@ -90,10 +90,23 @@ const PeriodicObligationModal = ({
 
     setUploading(true);
     try {
+      // Get store_id for RLS-compliant file path
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Usuário não autenticado");
+      
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('store_id')
+        .eq('id', userData.user.id)
+        .single();
+      
+      if (!profileData?.store_id) throw new Error("Loja não encontrada");
+      
       // Keep original filename with timestamp prefix to avoid collisions
       const timestamp = Date.now();
       const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fileName = `${employeeId}/${obligationId}/${timestamp}_${sanitizedFileName}`;
+      // Use store_id as the first path segment for RLS compliance
+      const fileName = `${profileData.store_id}/${employeeId}/${obligationId}/${timestamp}_${sanitizedFileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("obligation-attachments")

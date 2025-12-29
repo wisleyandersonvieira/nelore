@@ -454,7 +454,8 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
 
       const fileExtension = file.name.split('.').pop();
       const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const filePath = `${user.id}/${fileName}`;
+      // Use storeId prop as the first path segment for RLS compliance
+      const filePath = `${storeId}/${user.id}/${fileName}`;
       
       // Determinar contentType correto
       let contentType = file.type;

@@ -1526,10 +1526,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     const uploadedFiles: Array<{name: string, url: string, size: number}> = [];
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error("Usuário não autenticado");
+    
+    // Use defaultStore as the first path segment for RLS compliance
+    if (!defaultStore) throw new Error("Loja não selecionada");
 
     for (const file of attachments) {
       const sanitizedName = sanitizeFileName(file.name);
-      const fileName = `${user.id}/${accountId}/${Date.now()}_${sanitizedName}`;
+      const fileName = `${defaultStore}/${accountId}/${Date.now()}_${sanitizedName}`;
       
       console.log(`📎 Fazendo upload do arquivo: ${file.name} -> ${fileName}`);
       

@@ -84,12 +84,25 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
 
     setUploading(true);
     try {
+      // Get store_id for RLS-compliant file path
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Usuário não autenticado");
+      
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('store_id')
+        .eq('id', userData.user.id)
+        .single();
+      
+      if (!profileData?.store_id) throw new Error("Loja não encontrada");
+      
       const newAttachments: { name: string; url: string }[] = [];
 
       for (const file of Array.from(files)) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `obligations/${fileName}`;
+        // Use store_id as the first path segment for RLS compliance
+        const filePath = `${profileData.store_id}/obligations/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('obligation-attachments')

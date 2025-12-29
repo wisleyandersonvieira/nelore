@@ -319,9 +319,9 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
         setCompletions(prev => [...prev, data]);
       }
 
-      // Upload file to storage
+      // Upload file to storage with store_id as first path segment for RLS compliance
       const fileExt = file.name.split('.').pop();
-      const fileName = `${completionId}/${Date.now()}.${fileExt}`;
+      const fileName = `${storeId}/${completionId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("obligation-attachments")

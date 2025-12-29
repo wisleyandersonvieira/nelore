@@ -521,8 +521,8 @@ export function LinkToAccountsPayableModal({
               continue;
             }
 
-            // Upload to new location for accounts payable
-            const newFileName = `${user.id}/${payable.id}/${Date.now()}_${sanitizeFileName(att.originalName)}`;
+            // Upload to new location for accounts payable with storeId as first segment for RLS compliance
+            const newFileName = `${storeId}/${payable.id}/${Date.now()}_${sanitizeFileName(att.originalName)}`;
             
             const { error: uploadError } = await supabase.storage
               .from("account-documents")
