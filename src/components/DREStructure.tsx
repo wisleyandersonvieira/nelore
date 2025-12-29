@@ -426,17 +426,21 @@ export const DREStructure: React.FC = () => {
                               {['sum_line', 'initial_stock', 'final_stock'].includes(item.item_type) && <span className="text-muted-foreground">-</span>}
                            </TableCell>
                           <TableCell>
-                            <Select value={item.operation_type} onValueChange={(value: 'credit' | 'debit') => updateItem(index, {
-                        operation_type: value
-                      })}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="credit">Crédito</SelectItem>
-                                <SelectItem value="debit">Débito</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {['initial_stock', 'final_stock'].includes(item.item_type) ? (
+                              <Select value={item.operation_type} onValueChange={(value: 'credit' | 'debit') => updateItem(index, {
+                                operation_type: value
+                              })}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="credit">Crédito</SelectItem>
+                                  <SelectItem value="debit">Débito</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-muted-foreground">Automático</span>
+                            )}
                           </TableCell>
                           <TableCell>{item.position_order}</TableCell>
                           <TableCell>
