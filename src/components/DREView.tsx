@@ -1292,38 +1292,74 @@ export const DREView: React.FC<DREViewProps> = ({
                 }
               });
 
-              // Processar juros/descontos - dividir pelo número de parcelas recebidas
-              interestDiscountItems.forEach((item: any) => {
-                if (item.products?.subgroup_id) {
-                  const subgroupId = item.products.subgroup_id;
-                  // Dividir o valor do juros/desconto pelo número de parcelas recebidas
-                  const dividedValue = (parseFloat(item.total_price) || 0) / totalReceivedInstallments;
-                  
-                  // Verificar se é item de desconto do contas a receber
-                  const isDescontoReceber = item.product_id === descontoReceberProductId;
-                  
-                  const productFunctionType = item.products.function_type || 'credit';
-
-                  // Encontrar o item da estrutura que corresponde a este subgrupo
-                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
-
-                  if (structureItem && dividedValue !== 0) {
-                    if (!groupedData[key].values[structureItem.id]) {
-                      groupedData[key].values[structureItem.id] = 0;
+              // Processar juros/descontos usando a tabela accounts_receivable_payments
+              // para obter o valor exato por parcela (igual ao contas a pagar)
+              const paymentRecord = arPaymentsByInstallmentId[installment.id];
+              
+              if (paymentRecord) {
+                // Processar juros (acréscimo) se houver
+                if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoReceberProductId) {
+                  const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoReceberProductId);
+                  if (interestItem?.products?.subgroup_id) {
+                    const subgroupId = interestItem.products.subgroup_id;
+                    const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                    if (structureItem) {
+                      if (!groupedData[key].values[structureItem.id]) {
+                        groupedData[key].values[structureItem.id] = 0;
+                      }
+                      // Acréscimo em contas a receber: credit = positivo (receita extra)
+                      const productFunctionType = interestItem.products.function_type || 'credit';
+                      const signedValue = productFunctionType === 'credit' ? paymentRecord.interest_amount : -paymentRecord.interest_amount;
+                      groupedData[key].values[structureItem.id] += signedValue;
                     }
-                    
-                    let signedValue: number;
-                    if (isDescontoReceber) {
-                      // Desconto no recebimento é sempre débito (reduz receita)
-                      signedValue = -Math.abs(dividedValue);
-                    } else {
-                      // Acréscimo (juros recebido) = crédito = positivo
-                      signedValue = productFunctionType === 'credit' ? dividedValue : -dividedValue;
-                    }
-                    groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
-              });
+
+                // Processar desconto se houver
+                if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoReceberProductId) {
+                  const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoReceberProductId);
+                  if (discountItem?.products?.subgroup_id) {
+                    const subgroupId = discountItem.products.subgroup_id;
+                    const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                    if (structureItem) {
+                      if (!groupedData[key].values[structureItem.id]) {
+                        groupedData[key].values[structureItem.id] = 0;
+                      }
+                      // Desconto em contas a receber: sempre débito (reduz a receita)
+                      const signedValue = -Math.abs(paymentRecord.discount_amount);
+                      groupedData[key].values[structureItem.id] += signedValue;
+                    }
+                  }
+                }
+              } else {
+                // Fallback para lógica legada (pagamentos anteriores à nova tabela)
+                // Dividir o valor do juros/desconto pelo número de parcelas recebidas
+                interestDiscountItems.forEach((item: any) => {
+                  if (item.products?.subgroup_id) {
+                    const subgroupId = item.products.subgroup_id;
+                    const dividedValue = (parseFloat(item.total_price) || 0) / totalReceivedInstallments;
+                    
+                    const isDescontoReceber = item.product_id === descontoReceberProductId;
+                    const productFunctionType = item.products.function_type || 'credit';
+
+                    const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+
+                    if (structureItem && dividedValue !== 0) {
+                      if (!groupedData[key].values[structureItem.id]) {
+                        groupedData[key].values[structureItem.id] = 0;
+                      }
+                      
+                      let signedValue: number;
+                      if (isDescontoReceber) {
+                        signedValue = -Math.abs(dividedValue);
+                      } else {
+                        signedValue = productFunctionType === 'credit' ? dividedValue : -dividedValue;
+                      }
+                      groupedData[key].values[structureItem.id] += signedValue;
+                    }
+                  }
+                });
+              }
             });
           } else {
             // Para regime de competência: usar data_competencia para itens normais
