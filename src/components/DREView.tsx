@@ -243,22 +243,32 @@ export const DREView: React.FC<DREViewProps> = ({
     }
     setLoading(true);
     try {
-      // Buscar parâmetros de faturamento configurados
+      // Buscar parâmetros de faturamento configurados (incluindo os novos parâmetros separados de acréscimo)
       const {
         data: faturamentoParams,
         error: paramsError
-      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto']);
+      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber']);
       if (paramsError) throw paramsError;
 
       // Criar mapeamento de parâmetros para subgrupos
       const faturamentoMapping: Record<string, string> = {};
-      // IDs dos produtos de acréscimo e desconto (juros)
+      // IDs dos produtos de acréscimo e desconto (juros) - agora separados por módulo
       let acrescimoProductId: string | null = null;
+      let acrescimoPagarProductId: string | null = null;
+      let acrescimoReceberProductId: string | null = null;
       let descontoProductId: string | null = null;
       faturamentoParams?.forEach(param => {
         if (param.subgroup_id) {
           faturamentoMapping[param.parameter_key] = param.subgroup_id;
         }
+        // Parâmetros específicos têm prioridade
+        if (param.parameter_key === 'acrescimo_pagar' && param.product_id) {
+          acrescimoPagarProductId = param.product_id;
+        }
+        if (param.parameter_key === 'acrescimo_receber' && param.product_id) {
+          acrescimoReceberProductId = param.product_id;
+        }
+        // Fallback para parâmetro legado
         if (param.parameter_key === 'acrescimo' && param.product_id) {
           acrescimoProductId = param.product_id;
         }
@@ -266,6 +276,14 @@ export const DREView: React.FC<DREViewProps> = ({
           descontoProductId = param.product_id;
         }
       });
+      
+      // Se os parâmetros específicos não estiverem configurados, usar o legado
+      if (!acrescimoPagarProductId) {
+        acrescimoPagarProductId = acrescimoProductId;
+      }
+      if (!acrescimoReceberProductId) {
+        acrescimoReceberProductId = acrescimoProductId;
+      }
 
       // Buscar dados do controle de caixa
       const {
