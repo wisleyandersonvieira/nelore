@@ -733,6 +733,38 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
     setLoading(true);
     try {
+      // Validate period block for each selected installment
+      if (reverseInstallments.length > 0) {
+        for (const installmentId of selectedReverseInstallments) {
+          const installment = reverseInstallments.find(i => i.id === installmentId);
+          if (installment?.payment_date) {
+            const periodValidation = await validateAccountsReceivablePeriod.pagamento(installment.payment_date);
+            if (periodValidation.blocked) {
+              toast({
+                title: "Período Bloqueado",
+                description: periodValidation.message || "O período está bloqueado para estornos.",
+                variant: "destructive",
+              });
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } else {
+        // No installments - check the account payment_date
+        if (reverseAccount?.payment_date) {
+          const periodValidation = await validateAccountsReceivablePeriod.pagamento(reverseAccount.payment_date);
+          if (periodValidation.blocked) {
+            toast({
+              title: "Período Bloqueado",
+              description: periodValidation.message || "O período está bloqueado para estornos.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+        }
+      }
       if (reverseInstallments.length > 0) {
         // Delete payment records from accounts_receivable_payments for selected installments
         for (const installmentId of selectedReverseInstallments) {
