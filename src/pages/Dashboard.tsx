@@ -102,8 +102,8 @@ const Dashboard = () => {
     },
     {
       id: "produtos",
-      title: "Produtos",
-      description: "Cadastro e gestão de produtos",
+      title: "Produtos/Serviços",
+      description: "Cadastro e gestão de produtos e serviços",
       icon: Package,
       color: "bg-purple-500",
     },
