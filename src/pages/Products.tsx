@@ -28,98 +28,97 @@ export default function Products() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6 relative pb-24">
-      <div className="flex items-center gap-3">
-        <Package className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Produtos</h1>
-          <p className="text-muted-foreground">Gerencie o cadastro de produtos</p>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
+          <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-primary">Produtos</h1>
+            <p className="text-sm text-muted-foreground">Gerencie o cadastro de produtos</p>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <Tabs value={effectiveTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="inline-flex h-12 w-full items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
-          {canEdit && (
-            <TabsTrigger value="register" className="flex items-center gap-2 flex-1">
-              <Plus className="h-4 w-4" />
-              Cadastrar Produto
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <Tabs value={effectiveTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="inline-flex h-12 w-full items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+            {canEdit && (
+              <TabsTrigger value="register" className="flex items-center gap-2 flex-1">
+                <Plus className="h-4 w-4" />
+                Cadastrar Produto
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="list" className="flex items-center gap-2 flex-1">
+              <Package className="h-4 w-4" />
+              Produtos Cadastrados
             </TabsTrigger>
-          )}
-          <TabsTrigger value="list" className="flex items-center gap-2 flex-1">
-            <Package className="h-4 w-4" />
-            Produtos Cadastrados
-          </TabsTrigger>
-          <TabsTrigger value="units" className="flex items-center gap-2 flex-1">
-            <Ruler className="h-4 w-4" />
-            Unidades de Medida
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger value="units" className="flex items-center gap-2 flex-1">
+              <Ruler className="h-4 w-4" />
+              Unidades de Medida
+            </TabsTrigger>
+          </TabsList>
 
-        {canEdit && (
-          <TabsContent value="register" className="space-y-4">
+          {canEdit && (
+            <TabsContent value="register" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{editingProduct ? 'Editar' : 'Cadastrar Novo'} Produto</CardTitle>
+                  <CardDescription>
+                    {editingProduct ? 'Edite os dados do produto.' : 'Preencha os dados do produto. O código será gerado automaticamente.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ProductForm 
+                    onUnitsModalOpen={() => setUnitsModalOpen(true)}
+                    editingProduct={editingProduct}
+                    onSaveSuccess={() => {
+                      setEditingProduct(null);
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          <TabsContent value="list" className="space-y-4">
+            <ProductList 
+              onEditProduct={canEdit ? (product) => {
+                setEditingProduct(product);
+                setActiveTab("register");
+              } : undefined}
+              canEdit={canEdit}
+              canDelete={canDelete}
+            />
+          </TabsContent>
+
+          <TabsContent value="units" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>{editingProduct ? 'Editar' : 'Cadastrar Novo'} Produto</CardTitle>
+                <CardTitle>Unidades de Medida</CardTitle>
                 <CardDescription>
-                  {editingProduct ? 'Edite os dados do produto.' : 'Preencha os dados do produto. O código será gerado automaticamente.'}
+                  {canEdit 
+                    ? 'Gerencie as unidades de medida disponíveis para os produtos'
+                    : 'Visualize as unidades de medida disponíveis para os produtos'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ProductForm 
-                  onUnitsModalOpen={() => setUnitsModalOpen(true)}
-                  editingProduct={editingProduct}
-                  onSaveSuccess={() => {
-                    setEditingProduct(null);
-                  }}
+                <UnitsModal 
+                  open={unitsModalOpen} 
+                  onOpenChange={setUnitsModalOpen} 
+                  inlineMode={true}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                 />
               </CardContent>
             </Card>
           </TabsContent>
-        )}
-
-        <TabsContent value="list" className="space-y-4">
-          <ProductList 
-            onEditProduct={canEdit ? (product) => {
-              setEditingProduct(product);
-              setActiveTab("register");
-            } : undefined}
-            canEdit={canEdit}
-            canDelete={canDelete}
-          />
-        </TabsContent>
-
-        <TabsContent value="units" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Unidades de Medida</CardTitle>
-              <CardDescription>
-                {canEdit 
-                  ? 'Gerencie as unidades de medida disponíveis para os produtos'
-                  : 'Visualize as unidades de medida disponíveis para os produtos'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UnitsModal 
-                open={unitsModalOpen} 
-                onOpenChange={setUnitsModalOpen} 
-                inlineMode={true}
-                canEdit={canEdit}
-                canDelete={canDelete}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Botão Voltar ao Menu */}
-      <Button
-        onClick={() => navigate('/dashboard')}
-        className="fixed bottom-6 right-6 z-50"
-        size="lg"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Voltar ao Menu
-      </Button>
+        </Tabs>
+      </main>
     </div>
   );
 }
