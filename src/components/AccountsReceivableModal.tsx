@@ -71,6 +71,7 @@ interface AccountReceivable {
   created_at: string;
   payment_date?: string;
   attachments?: any;
+  last_payment_date?: string;
 }
 
 interface Installment {
@@ -388,7 +389,28 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const { data, error } = await query;
 
       if (error) throw error;
-      setAccountsReceivable(data || []);
+      
+      // For each account, fetch the last payment date from installments
+      const accountsWithLastPayment = await Promise.all(
+        (data || []).map(async (account) => {
+          // First try to get the last paid installment
+          const { data: lastInstallment } = await supabase
+            .from("accounts_receivable_installments")
+            .select("payment_date")
+            .eq("account_receivable_id", account.id)
+            .not("payment_date", "is", null)
+            .order("payment_date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          return {
+            ...account,
+            last_payment_date: lastInstallment?.payment_date || account.payment_date
+          };
+        })
+      );
+      
+      setAccountsReceivable(accountsWithLastPayment);
       setShowFilteredData(true);
     } catch (error) {
       console.error("Error fetching filtered accounts receivable:", error);
@@ -1963,8 +1985,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             </span>
                           </TableCell>
                           <TableCell>
-                            {account.payment_date 
-                              ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR")
+                            {account.last_payment_date 
+                              ? new Date(account.last_payment_date + 'T00:00:00').toLocaleDateString("pt-BR")
                               : "-"}
                           </TableCell>
                           <TableCell>
