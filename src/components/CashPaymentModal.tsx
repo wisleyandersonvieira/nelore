@@ -308,11 +308,22 @@ export function CashPaymentModal({
       }
 
       if (discount > 0) {
-        const { data: discountParam } = await supabase
+        // Primeiro tenta buscar o parâmetro específico para contas a pagar
+        let { data: discountParam } = await supabase
           .from("system_parameters")
           .select("product_id, products!inner(id, name, code)")
-          .eq("parameter_key", "desconto")
+          .eq("parameter_key", "desconto_pagar")
           .single();
+        
+        // Se não encontrar, usa o parâmetro legado
+        if (!discountParam) {
+          const { data: legacyParam } = await supabase
+            .from("system_parameters")
+            .select("product_id, products!inner(id, name, code)")
+            .eq("parameter_key", "desconto")
+            .single();
+          discountParam = legacyParam;
+        }
         
         if (discountParam?.products) {
           await supabase

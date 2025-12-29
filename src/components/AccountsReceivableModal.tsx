@@ -1938,10 +1938,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       }
       
       if (discount > 0) {
+        // Usar o parâmetro específico para contas a receber
         const { data: discountParam } = await supabase
           .from("system_parameters")
           .select("product_id, products!inner(id, name, code)")
-          .eq("parameter_key", "desconto")
+          .eq("parameter_key", "desconto_receber")
           .single();
         discountProduct = discountParam?.products;
       }

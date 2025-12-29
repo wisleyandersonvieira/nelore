@@ -247,7 +247,7 @@ export const DREView: React.FC<DREViewProps> = ({
       const {
         data: faturamentoParams,
         error: paramsError
-      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber']);
+      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber', 'desconto_pagar', 'desconto_receber']);
       if (paramsError) throw paramsError;
 
       // Criar mapeamento de parâmetros para subgrupos
@@ -257,6 +257,8 @@ export const DREView: React.FC<DREViewProps> = ({
       let acrescimoPagarProductId: string | null = null;
       let acrescimoReceberProductId: string | null = null;
       let descontoProductId: string | null = null;
+      let descontoPagarProductId: string | null = null;
+      let descontoReceberProductId: string | null = null;
       faturamentoParams?.forEach(param => {
         if (param.subgroup_id) {
           faturamentoMapping[param.parameter_key] = param.subgroup_id;
@@ -272,6 +274,13 @@ export const DREView: React.FC<DREViewProps> = ({
         if (param.parameter_key === 'acrescimo' && param.product_id) {
           acrescimoProductId = param.product_id;
         }
+        if (param.parameter_key === 'desconto_pagar' && param.product_id) {
+          descontoPagarProductId = param.product_id;
+        }
+        if (param.parameter_key === 'desconto_receber' && param.product_id) {
+          descontoReceberProductId = param.product_id;
+        }
+        // Fallback para parâmetro legado
         if (param.parameter_key === 'desconto' && param.product_id) {
           descontoProductId = param.product_id;
         }
@@ -283,6 +292,12 @@ export const DREView: React.FC<DREViewProps> = ({
       }
       if (!acrescimoReceberProductId) {
         acrescimoReceberProductId = acrescimoProductId;
+      }
+      if (!descontoPagarProductId) {
+        descontoPagarProductId = descontoProductId;
+      }
+      if (!descontoReceberProductId) {
+        descontoReceberProductId = descontoProductId;
       }
 
       // Buscar dados do controle de caixa
