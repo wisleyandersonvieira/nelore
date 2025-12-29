@@ -118,6 +118,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   
   // Installments from database for payment
   const [dbInstallments, setDbInstallments] = useState<DBInstallment[]>([]);
+  const [allInstallments, setAllInstallments] = useState<DBInstallment[]>([]);
   const [selectedInstallmentId, setSelectedInstallmentId] = useState<string>("");
 
   // Function to convert date input to local timezone format - prevents timezone issues
@@ -405,7 +406,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setDiscount(0);
     setSelectedInstallmentId("");
     
-    // Fetch installments from database
+    // Fetch all installments from database
     try {
       const { data: installmentsData, error } = await supabase
         .from("accounts_receivable_installments")
@@ -415,17 +416,21 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       
       if (error) throw error;
       
+      // Store all installments for display
+      setAllInstallments(installmentsData || []);
+      
       // Filter only pending installments (no payment_date)
       const pendingInstallments = (installmentsData || []).filter(inst => !inst.payment_date);
       setDbInstallments(pendingInstallments);
       
-      // If only one installment, auto-select it
+      // If only one pending installment, auto-select it
       if (pendingInstallments.length === 1) {
         setSelectedInstallmentId(pendingInstallments[0].id);
       }
     } catch (error) {
       console.error("Error fetching installments:", error);
       setDbInstallments([]);
+      setAllInstallments([]);
     }
     
     setShowPaymentModal(true);
@@ -2162,118 +2167,88 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         {/* Payment Modal */}
         {showPaymentModal && paymentAccount && (
           <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Processar Recebimento</DialogTitle>
+                <DialogTitle>Receber Conta</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="font-medium">{paymentAccount.description}</p>
-                  <p className="text-sm text-muted-foreground">
+                {/* Header with account info - gray background */}
+                <div className="p-4 bg-gray-400 text-white rounded-lg">
+                  <p className="font-medium">{paymentAccount.document_type} {paymentAccount.document_number}</p>
+                  <p className="text-sm">
                     Credor: {paymentAccount.creditors?.name || '-'}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm">
                     Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
                   </p>
-                  <p className="text-lg font-semibold text-primary">
-                    Valor Total: R$ {Number(paymentAccount.amount).toFixed(2)}
+                  <p className="text-lg font-semibold text-green-400 mt-1">
+                    Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
                   </p>
                 </div>
 
                 {/* Installments Selection */}
-                {dbInstallments.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Selecione a Parcela *</Label>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12"></TableHead>
-                          <TableHead>Parcela</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead>Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {dbInstallments.map((installment) => (
-                          <TableRow 
+                {allInstallments.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="font-semibold">Selecione as parcelas para receber:</p>
+                    <div className="space-y-2 border rounded-lg p-3">
+                      {allInstallments.map((installment) => {
+                        const isPaid = !!installment.payment_date;
+                        const isSelected = selectedInstallmentId === installment.id;
+                        
+                        return (
+                          <div
                             key={installment.id}
-                            className={selectedInstallmentId === installment.id ? "bg-primary/10" : "cursor-pointer hover:bg-muted"}
-                            onClick={() => setSelectedInstallmentId(installment.id)}
+                            className={`p-3 rounded-lg border ${
+                              isPaid 
+                                ? 'bg-green-50 border-green-200' 
+                                : isSelected 
+                                  ? 'bg-primary/10 border-primary' 
+                                  : 'bg-white border-gray-200 cursor-pointer hover:border-gray-300'
+                            }`}
+                            onClick={() => !isPaid && setSelectedInstallmentId(installment.id)}
                           >
-                            <TableCell>
-                              <input
-                                type="radio"
-                                name="installment"
-                                checked={selectedInstallmentId === installment.id}
-                                onChange={() => setSelectedInstallmentId(installment.id)}
-                                className="w-4 h-4"
-                              />
-                            </TableCell>
-                            <TableCell>{installment.installment_number}ª parcela</TableCell>
-                            <TableCell>
-                              {new Date(installment.due_date).toLocaleDateString('pt-BR')}
-                            </TableCell>
-                            <TableCell>R$ {Number(installment.amount).toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {!isPaid && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => setSelectedInstallmentId(isSelected ? "" : installment.id)}
+                                    className="w-4 h-4 rounded border-gray-300"
+                                  />
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">Parcela {installment.installment_number}</span>
+                                    {isPaid && (
+                                      <span className="text-green-600 text-sm font-medium">(RECEBIDA)</span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                                    {isPaid && installment.payment_date && (
+                                      <span> - Recebida em: {new Date(installment.payment_date).toLocaleDateString('pt-BR')}</span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="font-semibold text-lg">
+                                R$ {Number(installment.amount).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                {/* Show selected installment value */}
-                {selectedInstallmentId && (
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <p className="font-medium">
-                      Valor da Parcela Selecionada: R$ {
-                        dbInstallments.find(i => i.id === selectedInstallmentId)?.amount.toFixed(2) || '0.00'
-                      }
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Acréscimo</Label>
-                    <Input
-                      type="number"
-                      value={surcharge}
-                      onChange={(e) => setSurcharge(Number(e.target.value))}
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Desconto</Label>
-                    <Input
-                      type="number"
-                      value={discount}
-                      onChange={(e) => setDiscount(Number(e.target.value))}
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
+                {/* Account selection */}
                 <div>
-                  <Label>Valor Final</Label>
-                  <Input 
-                    value={`R$ ${(
-                      (selectedInstallmentId 
-                        ? (dbInstallments.find(i => i.id === selectedInstallmentId)?.amount || 0)
-                        : paymentAccount.amount
-                      ) + surcharge - discount
-                    ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    disabled 
-                  />
-                </div>
-
-                <div>
-                  <Label>Conta Corrente *</Label>
+                  <Label>Conta para Recebimento *</Label>
                   <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecionar conta" />
+                      <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
                       {currentAccounts.map((account) => (
@@ -2285,8 +2260,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   </Select>
                 </div>
 
+                {/* Payment date */}
                 <div>
-                  <Label>Data Recebimento *</Label>
+                  <Label>Data de Recebimento *</Label>
                   <Input
                     type="date"
                     value={paymentDate}
@@ -2294,12 +2270,52 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   />
                 </div>
 
-                <div className="flex gap-2">
-                  <Button onClick={handlePayment} disabled={loading || (dbInstallments.length > 0 && !selectedInstallmentId)}>
-                    {loading ? "Processando..." : "Confirmar Recebimento"}
-                  </Button>
+                {/* Surcharge and Discount side by side */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Acréscimo (R$)</Label>
+                    <Input
+                      type="number"
+                      value={surcharge}
+                      onChange={(e) => setSurcharge(Number(e.target.value))}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <Label>Desconto (R$)</Label>
+                    <Input
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(Number(e.target.value))}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                {/* Final value footer */}
+                <div className="p-4 bg-primary/20 rounded-lg text-center">
+                  <p className="text-lg font-bold">
+                    Valor Final: R$ {(
+                      (selectedInstallmentId 
+                        ? (allInstallments.find(i => i.id === selectedInstallmentId)?.amount || 0)
+                        : paymentAccount.amount
+                      ) + surcharge - discount
+                    ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
                     Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handlePayment} 
+                    disabled={loading || (allInstallments.length > 0 && !selectedInstallmentId)}
+                  >
+                    {loading ? "Processando..." : "Confirmar Recebimento"}
                   </Button>
                 </div>
               </div>
