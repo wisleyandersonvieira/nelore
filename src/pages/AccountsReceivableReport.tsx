@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Download, Filter, FileDown, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Filter, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -33,10 +32,6 @@ const AccountsReceivableReport = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  
-  // Reversal modal states
-  const [showReverseModal, setShowReverseModal] = useState(false);
-  const [reverseAccount, setReverseAccount] = useState<any>(null);
 
   useEffect(() => {
     fetchCreditors();
@@ -94,26 +89,44 @@ const AccountsReceivableReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch accounts with creditors, stores and installments
+      // Fetch accounts with creditors, stores and installments - only pending or partial
       const { data: allAccounts, error } = await supabase
         .from("accounts_receivable")
         .select(`
           *,
           creditors(id, name),
-          stores(id, name)
-        `) as { data: any[] | null; error: any };
+          stores(id, name),
+          accounts_receivable_installments(*)
+        `)
+        .in('status', ['pending', 'partial']) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      // Include all accounts, not just unpaid ones
+      // Expand installments - show only pending installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        // For now, assume single payment (no installments implemented in receivables)
-        accountsData.push({
-          ...account,
-          installment_number: 1,
-          total_installments: 1
-        });
+        if (account.accounts_receivable_installments && account.accounts_receivable_installments.length > 0) {
+          // Has installments - create one row per pending installment
+          account.accounts_receivable_installments.forEach((installment: any) => {
+            if (!installment.payment_date) { // Only pending installments
+              accountsData.push({
+                ...account,
+                due_date: installment.due_date,
+                amount: installment.amount,
+                installment_number: installment.installment_number,
+                total_installments: account.accounts_receivable_installments.length,
+                installment_id: installment.id
+              });
+            }
+          });
+        } else if (account.status === 'pending') {
+          // No installments - single payment
+          accountsData.push({
+            ...account,
+            installment_number: 1,
+            total_installments: 1
+          });
+        }
       });
 
       // Apply client-side filtering for all filters
@@ -231,7 +244,7 @@ const AccountsReceivableReport = () => {
     
     // Table data
     const tableData = accounts.map(account => [
-      account.description,
+      getAccountTitle(account),
       account.creditors?.name || "N/A",
       account.stores?.name || "N/A",
       new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -282,7 +295,7 @@ const AccountsReceivableReport = () => {
 
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
-      Título: account.description,
+      Título: getAccountTitle(account),
       Credor: account.creditors?.name || "N/A",
       Loja: account.stores?.name || "N/A",
       Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -296,93 +309,19 @@ const AccountsReceivableReport = () => {
     XLSX.writeFile(wb, "contas-a-receber.xlsx");
   };
 
-  const handleReversePayment = (account: any) => {
-    setReverseAccount(account);
-    setShowReverseModal(true);
-  };
-
-  const performReversePayment = async (accountId: string) => {
-    setLoading(true);
-    try {
-      // Update the account status back to pending and clear payment_date
-      const { error } = await supabase
-        .from("accounts_receivable")
-        .update({ 
-          status: 'pending',
-          payment_date: null 
-        })
-        .eq("id", accountId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Recebimento estornado com sucesso",
-      });
-
-      handleSearch(); // Refresh data
-      setShowReverseModal(false);
-      setReverseAccount(null);
-    } catch (error) {
-      console.error("Error reversing payment:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao estornar recebimento",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  // Helper function to get the title based on document type and number
+  const getAccountTitle = (account: any) => {
+    const docType = account.document_type || '';
+    const docNumber = account.document_number || '';
+    
+    if (docType && docNumber) {
+      return `${docType} ${docNumber}`;
+    } else if (docType) {
+      return docType;
+    } else if (docNumber) {
+      return docNumber;
     }
-  };
-
-  const handleDeleteAccount = async (accountId: string, status: string) => {
-    if (status === 'paid' || status === 'partial') {
-      toast({
-        title: "Ação não permitida",
-        description: "Não é possível excluir uma conta paga ou parcialmente paga. Estorne o recebimento primeiro.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!confirm("Tem certeza que deseja excluir esta conta a receber?")) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Delete items first (foreign key constraint)
-      const { error: itemsError } = await supabase
-        .from("accounts_receivable_items")
-        .delete()
-        .eq("account_receivable_id", accountId);
-
-      if (itemsError) throw itemsError;
-
-      // Delete the account
-      const { error: accountError } = await supabase
-        .from("accounts_receivable")
-        .delete()
-        .eq("id", accountId);
-
-      if (accountError) throw accountError;
-
-      toast({
-        title: "Sucesso",
-        description: "Conta a receber excluída com sucesso",
-      });
-
-      handleSearch(); // Refresh data
-    } catch (error) {
-      console.error("Error deleting account:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao excluir conta a receber",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    return account.description || 'N/A';
   };
 
   return (
@@ -559,13 +498,12 @@ const AccountsReceivableReport = () => {
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Parcelas</TableHead>
-                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {accounts.map((account, index) => (
                     <TableRow key={`${account.id}-${index}`}>
-                      <TableCell>{account.description}</TableCell>
+                      <TableCell>{getAccountTitle(account)}</TableCell>
                       <TableCell>{account.creditors?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
@@ -575,106 +513,28 @@ const AccountsReceivableReport = () => {
                           currency: "BRL"
                         }) || "N/A"}
                       </TableCell>
-                       <TableCell>
-                         {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
-                       </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            {account.status === 'paid' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReversePayment(account)}
-                                disabled={loading}
-                                title="Estornar recebimento"
-                              >
-                                <RefreshCw className="h-4 w-4" />
-                              </Button>
-                            )}
-                            
-                            {account.status === 'pending' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteAccount(account.id, account.status)}
-                                disabled={loading}
-                                title="Excluir conta"
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                      <TableCell>
+                        {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
+                      </TableCell>
                     </TableRow>
                   ))}
-                   {/* Total Row */}
-                   <TableRow className="border-t-2 font-bold bg-muted/50">
-                     <TableCell colSpan={5} className="text-right">Total:</TableCell>
-                     <TableCell>
-                       {accounts.reduce((sum, account) => sum + (account.amount || 0), 0).toLocaleString("pt-BR", {
-                         style: "currency",
-                         currency: "BRL"
-                       })}
-                     </TableCell>
-                     <TableCell>{accounts.length} parcela(s)</TableCell>
-                     <TableCell></TableCell>
-                   </TableRow>
+                  {/* Total Row */}
+                  <TableRow className="border-t-2 font-bold bg-muted/50">
+                    <TableCell colSpan={4} className="text-right">Total:</TableCell>
+                    <TableCell>
+                      {accounts.reduce((sum, account) => sum + (account.amount || 0), 0).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}
+                    </TableCell>
+                    <TableCell>{accounts.length} parcela(s)</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         )}
       </main>
-
-      {/* Modal de Estorno */}
-      <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Estornar Recebimento</DialogTitle>
-          </DialogHeader>
-          
-          {reverseAccount && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="font-medium">{reverseAccount.description}</p>
-                <p className="text-sm text-muted-foreground">
-                  Credor: {reverseAccount.creditors?.name || '-'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Loja: {reverseAccount.stores?.name || '-'}
-                </p>
-                <p className="text-lg font-semibold text-primary">
-                  Valor: {reverseAccount.amount?.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL"
-                  })}
-                </p>
-              </div>
-
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 font-medium">Atenção!</p>
-                <p className="text-yellow-700 text-sm mt-1">
-                  Ao confirmar o estorno, esta conta voltará para o status "pendente" e poderá ser recebida novamente.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowReverseModal(false)}>
-                  Cancelar
-                </Button>
-                <Button 
-                  onClick={() => performReversePayment(reverseAccount.id)} 
-                  disabled={loading}
-                  variant="destructive"
-                >
-                  {loading ? "Processando..." : "Confirmar Estorno"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
