@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Paperclip, Loader2 } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Paperclip, Loader2, Search } from "lucide-react";
+import { ProductSearchModal } from "./ProductSearchModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateAccountsReceivablePeriod } from "@/utils/periodValidation";
@@ -213,6 +214,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [selectedStore, setSelectedStore] = useState("");
   const [defaultStore, setDefaultStore] = useState("");
+  
+  // Product search
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [showProductSearch, setShowProductSearch] = useState(false);
 
   // File upload fields
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -971,6 +977,25 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setProducts(data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
+    }
+  };
+
+  // Filtered product list for combobox
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
+
+  const handleProductSelect = (product: Product) => {
+    setSelectedProduct(product.id);
+    setProductSearchTerm(product.name);
+    setShowProductDropdown(false);
+  };
+
+  const handleProductSearchChange = (value: string) => {
+    setProductSearchTerm(value);
+    setShowProductDropdown(value.trim().length > 0 && filteredProducts.length > 0);
+    if (value.trim().length === 0) {
+      setSelectedProduct("");
     }
   };
 
@@ -2529,18 +2554,41 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="space-y-2">
                             <Label>Produto *</Label>
-                            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecionar produto" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {products.map((product) => (
-                                  <SelectItem key={product.id} value={product.id}>
-                                    {product.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="relative">
+                              <Input
+                                value={productSearchTerm}
+                                onChange={(e) => handleProductSearchChange(e.target.value)}
+                                onFocus={() => setShowProductDropdown(productSearchTerm.trim().length > 0 && filteredProducts.length > 0)}
+                                onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
+                                placeholder="Digite para buscar..."
+                                className="pr-10"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowProductSearch(true)}
+                                className="absolute right-0 top-0 h-full px-3"
+                              >
+                                <Search className="h-4 w-4" />
+                              </Button>
+                              
+                              {showProductDropdown && filteredProducts.length > 0 && (
+                                <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                                  {filteredProducts.slice(0, 5).map((product) => (
+                                    <div
+                                      key={product.id}
+                                      className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                                      onMouseDown={() => handleProductSelect(product)}
+                                    >
+                                      <div className="font-medium">
+                                        {product.code ? `${product.code} - ` : ""}{product.name}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           <div className="space-y-2">
@@ -3136,6 +3184,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Product Search Modal */}
+      <ProductSearchModal
+        open={showProductSearch}
+        onOpenChange={setShowProductSearch}
+        onSelectProduct={(product) => handleProductSelect(product)}
+        functionType="credit"
+      />
     </Dialog>
   );
 }
