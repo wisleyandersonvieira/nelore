@@ -1683,6 +1683,51 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       return;
     }
 
+    // Verificar se a conta está vinculada às lojas dos itens
+    try {
+      // Buscar itens da conta a receber para obter as lojas
+      const { data: accountItems, error: itemsError } = await supabase
+        .from("accounts_receivable_items")
+        .select("store_id")
+        .eq("account_receivable_id", paymentAccount.id);
+
+      if (itemsError) throw itemsError;
+
+      // Se houver itens com lojas, validar
+      if (accountItems && accountItems.length > 0) {
+        // Buscar quais lojas estão vinculadas à conta corrente selecionada
+        const { data: accountStores, error: storesError } = await supabase
+          .from("current_account_stores")
+          .select("store_id")
+          .eq("account_id", selectedAccountId);
+
+        if (storesError) throw storesError;
+
+        // Verificar se todas as lojas dos itens estão permitidas na conta
+        const itemStoreIds = [...new Set(accountItems.map(item => item.store_id))];
+        const allowedStoreIds = accountStores?.map(store => store.store_id) || [];
+
+        const unauthorizedStores = itemStoreIds.filter(storeId => !allowedStoreIds.includes(storeId));
+
+        if (unauthorizedStores.length > 0) {
+          toast({
+            title: "Conta não autorizada",
+            description: "A conta corrente selecionada não está vinculada a todas as lojas dos itens desta conta a receber.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("❌ Erro ao validar conta:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao validar a conta selecionada",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
