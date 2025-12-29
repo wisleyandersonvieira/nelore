@@ -352,7 +352,8 @@ export const DREView: React.FC<DREViewProps> = ({
                 products (
                   id,
                   name,
-                  subgroup_id
+                  subgroup_id,
+                  function_type
                 )
               ),
               accounts_payable_installments (
@@ -389,7 +390,8 @@ export const DREView: React.FC<DREViewProps> = ({
               products (
                 id,
                 name,
-                subgroup_id
+                subgroup_id,
+                function_type
               )
             ),
             accounts_payable_installments (
@@ -430,7 +432,8 @@ export const DREView: React.FC<DREViewProps> = ({
                 products (
                   id,
                   name,
-                  subgroup_id
+                  subgroup_id,
+                  function_type
                 )
               ),
               accounts_payable_installments (
@@ -450,6 +453,46 @@ export const DREView: React.FC<DREViewProps> = ({
             accountsPayableData = [...accountsPayableData, ...additionalAccounts];
           }
         }
+      }
+
+      // Buscar contas a receber (somente para regime de competência)
+      let accountsReceivableData: any[] = [];
+      let arError = null;
+
+      if (!isCashRegime) {
+        // Para regime de competência: buscar por data de competência
+        const {
+          data,
+          error
+        } = await supabase.from('accounts_receivable').select(`
+            id,
+            store_id,
+            data_competencia,
+            payment_date,
+            accounts_receivable_items (
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              products (
+                id,
+                name,
+                subgroup_id,
+                function_type
+              )
+            ),
+            accounts_receivable_installments (
+              id,
+              installment_number,
+              due_date,
+              amount,
+              payment_date
+            ),
+            stores (name)
+          `).in('store_id', selectedStores).gte('data_competencia', `${selectedYear}-01-01`).lte('data_competencia', `${selectedYear}-12-31`);
+        accountsReceivableData = data || [];
+        arError = error;
+        if (arError) throw arError;
       }
 
       // Verificar se existem dados para as lojas selecionadas
@@ -566,16 +609,19 @@ export const DREView: React.FC<DREViewProps> = ({
               if (item.products?.subgroup_id) {
                 const subgroupId = item.products.subgroup_id;
                 const value = parseFloat(item.total_price) || 0;
+                // Contas a pagar são débito por natureza
+                const productFunctionType = item.products.function_type || 'debit';
 
                 // Encontrar o item da estrutura que corresponde a este subgrupo
                 const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
 
-                // Considerar valores positivos e negativos (descontos são negativos)
                 if (structureItem && value !== 0) {
                   if (!groupedData[key].values[structureItem.id]) {
                     groupedData[key].values[structureItem.id] = 0;
                   }
-                  groupedData[key].values[structureItem.id] += value;
+                  // Débito = negativo, Crédito = positivo
+                  const signedValue = productFunctionType === 'debit' ? -value : value;
+                  groupedData[key].values[structureItem.id] += signedValue;
                 }
               }
             });
@@ -645,6 +691,8 @@ export const DREView: React.FC<DREViewProps> = ({
                 const subgroupId = item.products.subgroup_id;
                 // Calcular o valor proporcional baseado na parcela paga
                 const proportionalValue = (parseFloat(item.total_price) || 0) * installmentProportion;
+                // Contas a pagar são débito por natureza
+                const productFunctionType = item.products.function_type || 'debit';
 
                 // Encontrar o item da estrutura que corresponde a este subgrupo
                 const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
@@ -652,7 +700,9 @@ export const DREView: React.FC<DREViewProps> = ({
                   if (!groupedData[key].values[structureItem.id]) {
                     groupedData[key].values[structureItem.id] = 0;
                   }
-                  groupedData[key].values[structureItem.id] += proportionalValue;
+                  // Débito = negativo, Crédito = positivo
+                  const signedValue = productFunctionType === 'debit' ? -proportionalValue : proportionalValue;
+                  groupedData[key].values[structureItem.id] += signedValue;
                 }
               }
             });
@@ -750,14 +800,19 @@ export const DREView: React.FC<DREViewProps> = ({
                 if (item.products?.subgroup_id) {
                   const subgroupId = item.products.subgroup_id;
                   const value = parseFloat(item.total_price) || 0;
+                  // Contas a pagar são débito por natureza
+                  // O function_type do produto define o sinal do valor
+                  const productFunctionType = item.products.function_type || 'debit';
 
                   // Encontrar o item da estrutura que corresponde a este subgrupo
                   const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
-                  if (structureItem) {
+                  if (structureItem && value !== 0) {
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
-                    groupedData[key].values[structureItem.id] += value;
+                    // Débito = negativo, Crédito = positivo
+                    const signedValue = productFunctionType === 'debit' ? -value : value;
+                    groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
               });
@@ -893,6 +948,60 @@ export const DREView: React.FC<DREViewProps> = ({
         }
       });
 
+      // Processar contas a receber (RECEITAS - regime de competência)
+      if (!isCashRegime && accountsReceivableData && accountsReceivableData.length > 0) {
+        accountsReceivableData.forEach((account: any) => {
+          // Para regime de competência: usar data_competencia
+          const items = account.accounts_receivable_items || [];
+          
+          if (items.length > 0 && account.data_competencia) {
+            const {
+              month,
+              year
+            } = getMonthAndYearFromDate(account.data_competencia);
+
+            // Verificar se o mês está selecionado
+            if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
+              const storeId = account.store_id;
+              const storeName = account.stores?.name || 'Loja sem nome';
+              const key = `${storeId}-${month}`;
+
+              // Inicializar se não existir
+              if (!groupedData[key]) {
+                groupedData[key] = {
+                  month,
+                  year: parseInt(selectedYear),
+                  store_id: storeId,
+                  store_name: storeName,
+                  values: {}
+                };
+              }
+
+              items.forEach((item: any) => {
+                if (item.products?.subgroup_id) {
+                  const subgroupId = item.products.subgroup_id;
+                  const value = parseFloat(item.total_price) || 0;
+                  // Contas a receber são crédito por natureza
+                  // O function_type do produto define se é positivo (credit) ou negativo (debit)
+                  const productFunctionType = item.products.function_type || 'credit';
+
+                  // Encontrar o item da estrutura que corresponde a este subgrupo
+                  const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                  if (structureItem && value !== 0) {
+                    if (!groupedData[key].values[structureItem.id]) {
+                      groupedData[key].values[structureItem.id] = 0;
+                    }
+                    // Crédito = positivo, Débito = negativo
+                    const signedValue = productFunctionType === 'credit' ? value : -value;
+                    groupedData[key].values[structureItem.id] += signedValue;
+                  }
+                }
+              });
+            }
+          }
+        });
+      }
+
       // Buscar dados de estoque para itens de estoque inicial e final
       await loadStockData(groupedData);
 
@@ -993,11 +1102,15 @@ export const DREView: React.FC<DREViewProps> = ({
     return itemsInGroup.reduce((total, item) => {
       let value = 0;
       if (item.item_type === 'subgroup') {
+        // Subgrupos: o valor já vem com o sinal correto (baseado no function_type do produto)
         value = data.values[item.id] || 0;
+        return total + value;
       } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
+        // Estoques: aplicar operation_type da estrutura
         value = calculateStockTotal(item.id, data);
+        return total + (item.operation_type === 'credit' ? value : -value);
       }
-      return total + (item.operation_type === 'credit' ? value : -value);
+      return total;
     }, 0);
   };
   const calculateSumLineTotal = (sumLineId: string, data: DREData): number => {
@@ -1008,7 +1121,12 @@ export const DREView: React.FC<DREViewProps> = ({
     // Sum all subgroups and stock items that are above this sum line
     const itemsAbove = structureItems.slice(0, currentSumLineIndex);
     return itemsAbove.reduce((total, item) => {
-      if (item.item_type === 'subgroup' || item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
+      if (item.item_type === 'subgroup') {
+        // Subgrupos: o valor já vem com o sinal correto (baseado no function_type do produto)
+        const value = data.values[item.id] || 0;
+        return total + value;
+      } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
+        // Estoques: aplicar operation_type da estrutura
         const value = data.values[item.id] || 0;
         return total + (item.operation_type === 'credit' ? value : -value);
       }
