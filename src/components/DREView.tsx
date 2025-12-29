@@ -1103,6 +1103,11 @@ export const DREView: React.FC<DREViewProps> = ({
                 if (item.products?.subgroup_id) {
                   const subgroupId = item.products.subgroup_id;
                   const value = parseFloat(item.total_price) || 0;
+                  
+                  // Verificar se é item de desconto do contas a receber
+                  // Desconto dado no recebimento = reduz a receita = débito (negativo)
+                  const isDescontoReceber = item.product_id === descontoReceberProductId;
+                  
                   // Contas a receber são crédito por natureza
                   const productFunctionType = item.products.function_type || 'credit';
 
@@ -1113,8 +1118,15 @@ export const DREView: React.FC<DREViewProps> = ({
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
-                    // Crédito = positivo, Débito = negativo
-                    const signedValue = productFunctionType === 'credit' ? value : -value;
+                    
+                    let signedValue: number;
+                    if (isDescontoReceber) {
+                      // Desconto no recebimento é sempre débito (reduz receita)
+                      signedValue = -Math.abs(value);
+                    } else {
+                      // Crédito = positivo, Débito = negativo
+                      signedValue = productFunctionType === 'credit' ? value : -value;
+                    }
                     groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
@@ -1181,6 +1193,11 @@ export const DREView: React.FC<DREViewProps> = ({
                   const subgroupId = item.products.subgroup_id;
                   const itemValue = parseFloat(item.total_price) || 0;
                   const proportionalValue = itemValue * proportionFactor;
+                  
+                  // Verificar se é item de desconto do contas a receber
+                  // Desconto dado no recebimento = reduz a receita = débito (negativo)
+                  const isDescontoReceber = item.product_id === descontoReceberProductId;
+                  
                   const productFunctionType = item.products.function_type || 'credit';
 
                   // Encontrar o item da estrutura que corresponde a este subgrupo
@@ -1190,8 +1207,15 @@ export const DREView: React.FC<DREViewProps> = ({
                     if (!groupedData[key].values[structureItem.id]) {
                       groupedData[key].values[structureItem.id] = 0;
                     }
-                    // Crédito = positivo, Débito = negativo
-                    const signedValue = productFunctionType === 'credit' ? proportionalValue : -proportionalValue;
+                    
+                    let signedValue: number;
+                    if (isDescontoReceber) {
+                      // Desconto no recebimento é sempre débito (reduz receita)
+                      signedValue = -Math.abs(proportionalValue);
+                    } else {
+                      // Crédito = positivo, Débito = negativo
+                      signedValue = productFunctionType === 'credit' ? proportionalValue : -proportionalValue;
+                    }
                     groupedData[key].values[structureItem.id] += signedValue;
                   }
                 }
@@ -1228,6 +1252,11 @@ export const DREView: React.FC<DREViewProps> = ({
                   if (item.products?.subgroup_id) {
                     const subgroupId = item.products.subgroup_id;
                     const value = parseFloat(item.total_price) || 0;
+                    
+                    // Verificar se é item de desconto do contas a receber
+                    // Desconto dado no recebimento = reduz a receita = débito (negativo)
+                    const isDescontoReceber = item.product_id === descontoReceberProductId;
+                    
                     // Contas a receber são crédito por natureza
                     // O function_type do produto define se é positivo (credit) ou negativo (debit)
                     const productFunctionType = item.products.function_type || 'credit';
@@ -1238,8 +1267,15 @@ export const DREView: React.FC<DREViewProps> = ({
                       if (!groupedData[key].values[structureItem.id]) {
                         groupedData[key].values[structureItem.id] = 0;
                       }
-                      // Crédito = positivo, Débito = negativo
-                      const signedValue = productFunctionType === 'credit' ? value : -value;
+                      
+                      let signedValue: number;
+                      if (isDescontoReceber) {
+                        // Desconto no recebimento é sempre débito (reduz receita)
+                        signedValue = -Math.abs(value);
+                      } else {
+                        // Crédito = positivo, Débito = negativo
+                        signedValue = productFunctionType === 'credit' ? value : -value;
+                      }
                       groupedData[key].values[structureItem.id] += signedValue;
                     }
                   }
