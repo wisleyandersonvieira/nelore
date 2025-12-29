@@ -72,6 +72,7 @@ interface AccountReceivable {
   payment_date?: string;
   attachments?: any;
   last_payment_date?: string;
+  data_competencia?: string | null;
 }
 
 interface Installment {
@@ -860,7 +861,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     }
   };
 
-  const handleDeleteAccount = async (accountId: string, status: string) => {
+  const handleDeleteAccount = async (accountId: string, status: string, dataCompetencia: string | null) => {
     if (status === 'paid' || status === 'partial') {
       toast({
         title: "Ação não permitida",
@@ -868,6 +869,19 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         variant: "destructive",
       });
       return;
+    }
+
+    // Validate period block by competency
+    if (dataCompetencia) {
+      const periodValidation = await validateAccountsReceivablePeriod.competencia(dataCompetencia);
+      if (periodValidation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: periodValidation.message || "O período de competência está bloqueado. Não é possível excluir esta conta.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (!confirm("Tem certeza que deseja excluir esta conta a receber?")) {
@@ -2069,7 +2083,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => handleDeleteAccount(account.id, account.status)}
+                                      onClick={() => handleDeleteAccount(account.id, account.status, account.data_competencia)}
                                       disabled={loading}
                                       title="Excluir conta"
                                       className="text-red-600 hover:text-red-700"
