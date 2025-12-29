@@ -1701,7 +1701,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                      <Edit className="h-4 w-4" />
                                    </Button>
                                    
-                                   {account.status === 'paid' && (
+                                   {(account.status === 'paid' || account.status === 'partial') && (
                                      <Button
                                        size="sm"
                                        variant="outline"
@@ -1713,29 +1713,30 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                      </Button>
                                    )}
                                    
+                                    {(account.status === 'pending' || account.status === 'partial') && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openPaymentModal(account)}
+                                        disabled={loading}
+                                        title="Receber conta"
+                                        className="text-green-600 hover:text-green-700"
+                                      >
+                                        <DollarSign className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    
                                     {account.status === 'pending' && (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => openPaymentModal(account)}
-                                          disabled={loading}
-                                          title="Receber conta"
-                                          className="text-green-600 hover:text-green-700"
-                                        >
-                                          <DollarSign className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleDeleteAccount(account.id, account.status)}
-                                          disabled={loading}
-                                          title="Excluir conta"
-                                          className="text-red-600 hover:text-red-700"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDeleteAccount(account.id, account.status)}
+                                        disabled={loading}
+                                        title="Excluir conta"
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
                                     )}
                                  </>
                                )}
