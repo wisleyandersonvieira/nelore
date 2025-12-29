@@ -1214,12 +1214,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="view">Visualizar</TabsTrigger>
             <TabsTrigger value="create" disabled={!canEdit}>
               {isEditing ? "Editar" : "Criar"}
             </TabsTrigger>
-            <TabsTrigger value="payment" disabled={!canEdit}>Recebimento</TabsTrigger>
           </TabsList>
 
           <TabsContent value="view" className="space-y-4">
@@ -1388,18 +1387,30 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                      </Button>
                                    )}
                                    
-                                   {account.status === 'pending' && (
-                                     <Button
-                                       size="sm"
-                                       variant="outline"
-                                       onClick={() => handleDeleteAccount(account.id, account.status)}
-                                       disabled={loading}
-                                       title="Excluir conta"
-                                       className="text-red-600 hover:text-red-700"
-                                     >
-                                       <Trash2 className="h-4 w-4" />
-                                     </Button>
-                                   )}
+                                    {account.status === 'pending' && (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => openPaymentModal(account)}
+                                          disabled={loading}
+                                          title="Receber conta"
+                                          className="text-green-600 hover:text-green-700"
+                                        >
+                                          <DollarSign className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleDeleteAccount(account.id, account.status)}
+                                          disabled={loading}
+                                          title="Excluir conta"
+                                          className="text-red-600 hover:text-red-700"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                    )}
                                  </>
                                )}
                              </div>
@@ -1797,124 +1808,6 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             </div>
           </TabsContent>
 
-          <TabsContent value="payment" className="space-y-4">
-            {/* Payment Filter Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Filtros para Recebimento</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Credor</Label>
-                    <Select value={paymentFilterCreditor} onValueChange={setPaymentFilterCreditor}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar credor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {creditors.map((creditor) => (
-                          <SelectItem key={creditor.id} value={creditor.id}>
-                            {creditor.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Loja</Label>
-                    <Select value={paymentFilterStore} onValueChange={setPaymentFilterStore}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar loja" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
-                        {stores.map((store) => (
-                          <SelectItem key={store.id} value={store.id}>
-                            {store.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Vencimento (De)</Label>
-                    <Input
-                      type="date"
-                      value={paymentFilterDueDateFrom}
-                      onChange={(e) => setPaymentFilterDueDateFrom(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label>Vencimento (Até)</Label>
-                    <Input
-                      type="date"
-                      value={paymentFilterDueDateTo}
-                      onChange={(e) => setPaymentFilterDueDateTo(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={fetchFilteredPaymentAccounts}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Filtrar
-                  </Button>
-                  <Button variant="outline" onClick={clearPaymentFilters}>
-                    Limpar Filtros
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Results Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Contas para Recebimento {paymentShowFilteredData && `(${accountsReceivable.length})`}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Credor</TableHead>
-                        <TableHead>Loja</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Vencimento</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {accountsReceivable.map((account) => (
-                        <TableRow key={account.id}>
-                          <TableCell>{account.description}</TableCell>
-                          <TableCell>{account.creditors?.name || "N/A"}</TableCell>
-                          <TableCell>{account.stores?.name || "N/A"}</TableCell>
-                          <TableCell>
-                            R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => openPaymentModal(account)}
-                            >
-                              <DollarSign className="h-4 w-4 mr-2" />
-                              Receber
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
         {/* Modal de Parcelas */}
