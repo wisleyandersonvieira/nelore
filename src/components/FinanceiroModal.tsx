@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, TrendingUp, ArrowLeftRight, Shield, Lock } from "lucide-react";
+import { CreditCard, ArrowLeftRight, Shield, Lock } from "lucide-react";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -9,7 +9,6 @@ interface FinanceiroModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAccountsPayableOpen: () => void;
-  onAccountsReceivableOpen: () => void;
   onTransfersOpen: () => void;
   onPeriodControlOpen: () => void;
 }
@@ -18,7 +17,6 @@ export const FinanceiroModal = ({
   open, 
   onOpenChange, 
   onAccountsPayableOpen, 
-  onAccountsReceivableOpen,
   onTransfersOpen,
   onPeriodControlOpen
 }: FinanceiroModalProps) => {
@@ -35,18 +33,6 @@ export const FinanceiroModal = ({
       onClick: () => {
         onOpenChange(false);
         onAccountsPayableOpen();
-      }
-    },
-    {
-      id: "contas-receber", 
-      title: "Contas a Receber",
-      description: "Controle de recebimentos e clientes",
-      icon: TrendingUp,
-      color: "bg-green-500",
-      requiresAdmin: false,
-      onClick: () => {
-        onOpenChange(false);
-        onAccountsReceivableOpen();
       }
     },
     {
@@ -94,7 +80,7 @@ export const FinanceiroModal = ({
         </DialogHeader>
         
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="h-full flex flex-col">
                 <CardHeader className="pb-3 flex-1">
@@ -117,7 +103,7 @@ export const FinanceiroModal = ({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {visibleModules.map((module) => {
               const IconComponent = module.icon;
               return (

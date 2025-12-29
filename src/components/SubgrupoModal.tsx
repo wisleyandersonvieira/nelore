@@ -236,24 +236,6 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
           return;
         }
 
-        // Verificar se alguma conta está vinculada a contas a receber
-        const { data: receivables, error: receivablesError } = await supabase
-          .from("accounts_receivable")
-          .select("id")
-          .in("account_id", chartAccounts.map(c => c.id))
-          .limit(1);
-
-        if (receivablesError) throw receivablesError;
-
-        if (receivables && receivables.length > 0) {
-          toast({
-            variant: "destructive",
-            title: "Exclusão não permitida",
-            description: "Este subgrupo possui contas a receber vinculadas e não pode ser excluído.",
-          });
-          setLoading(false);
-          return;
-        }
       }
 
       // Verificar se existem produtos vinculados ao subgrupo
