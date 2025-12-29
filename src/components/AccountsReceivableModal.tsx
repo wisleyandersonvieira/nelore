@@ -186,6 +186,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [selectedStore, setSelectedStore] = useState("");
   const [defaultStore, setDefaultStore] = useState("");
 
+  // File upload fields
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url?: string, path?: string, size?: number, type?: string}>>([]);
+
   useEffect(() => {
     if (open) {
       fetchCreditors();
@@ -220,6 +224,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setIsRealEdit(false);
       setIsViewOnly(false);
       setViewOnlyAccount(null);
+      setAttachments([]);
+      setExistingAttachments([]);
     }
   }, [open, activeTab]);
 
@@ -430,6 +436,19 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setItems(formattedItems);
       setNoteRecorded(true);
 
+      // Load existing attachments
+      const { data: accountFullData } = await supabase
+        .from("accounts_receivable")
+        .select("attachments")
+        .eq("id", account.id)
+        .single();
+
+      if (accountFullData?.attachments) {
+        setExistingAttachments(accountFullData.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}>);
+      } else {
+        setExistingAttachments([]);
+      }
+      setAttachments([]);
     } catch (error) {
       console.error("Error loading account items:", error);
       toast({
@@ -594,6 +613,140 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     }
   };
 
+  // File upload functions
+  const uploadAttachments = async (storeId: string): Promise<Array<{name: string, url: string, size: number}>> => {
+    if (attachments.length === 0) return [];
+
+    const uploadedFiles: Array<{name: string, url: string, size: number}> = [];
+
+    for (const file of attachments) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${storeId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error('❌ Erro no upload:', error);
+        throw error;
+      }
+
+      console.log(`✅ Upload realizado: ${fileName}`);
+
+      uploadedFiles.push({
+        name: file.name,
+        url: fileName,
+        size: file.size
+      });
+    }
+
+    return uploadedFiles;
+  };
+
+  const downloadFile = async (filePath: string | undefined, fileName: string) => {
+    try {
+      if (!filePath) {
+        console.error('❌ Erro no download: filePath é undefined');
+        toast({
+          title: "Erro",
+          description: "Caminho do arquivo não encontrado",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('📥 Iniciando download do arquivo:', filePath);
+      
+      if (filePath.startsWith('http')) {
+        try {
+          const response = await fetch(filePath);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName || filePath.split('/').pop() || 'arquivo';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast({
+            title: "Sucesso",
+            description: "Download realizado com sucesso",
+          });
+        } catch (fetchError) {
+          console.error('Erro no fetch:', fetchError);
+          const link = document.createElement('a');
+          link.href = filePath;
+          link.download = fileName || filePath.split('/').pop() || 'arquivo';
+          link.click();
+        }
+        return;
+      }
+      
+      const { data, error } = await supabase.storage
+        .from('account-documents')
+        .createSignedUrl(filePath, 3600);
+
+      if (error) {
+        console.error('❌ Erro ao criar URL assinada:', error);
+        throw error;
+      }
+
+      if (!data?.signedUrl) {
+        throw new Error('URL assinada não foi gerada');
+      }
+
+      const response = await fetch(data.signedUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Sucesso",
+        description: "Download realizado com sucesso",
+      });
+
+    } catch (error) {
+      console.error('Erro ao baixar arquivo:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao baixar o arquivo",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      setAttachments([...attachments, ...Array.from(files)]);
+    }
+    event.target.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = (index: number) => {
+    setExistingAttachments(existingAttachments.filter((_, i) => i !== index));
+  };
+
   const addItem = () => {
     if (!selectedProduct || !selectedStore || quantity <= 0 || unitPrice <= 0) {
       toast({
@@ -753,6 +906,13 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const totalAmount = getTotalAmount();
 
       if (isEditing && editingAccount) {
+        // Upload new attachments
+        let allAttachments = [...existingAttachments];
+        if (attachments.length > 0) {
+          const uploadedFiles = await uploadAttachments(items[0]?.store_id || 'default');
+          allAttachments = [...allAttachments, ...uploadedFiles];
+        }
+
         // Update existing account
         const { error } = await supabase
           .from("accounts_receivable")
@@ -767,6 +927,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             amount: totalAmount,
             notes,
             status: "pending",
+            attachments: allAttachments.length > 0 ? allAttachments : null,
           })
           .eq("id", editingAccount.id);
 
@@ -806,6 +967,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           throw new Error("Usuário não autenticado");
         }
 
+        // Upload attachments for new account
+        let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
+        if (attachments.length > 0) {
+          uploadedAttachments = await uploadAttachments(items[0]?.store_id || 'default');
+        }
+
         const { data: accountData, error } = await supabase
           .from("accounts_receivable")
           .insert({
@@ -822,6 +989,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             store_id: items[0]?.store_id,
             account_id: null, // Será definido quando receber o pagamento
             created_by: user.id,
+            attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null,
           })
           .select()
           .single();
@@ -863,6 +1031,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setInstallments([]);
       setIsEditing(false);
       setEditingAccount(null);
+      setAttachments([]);
+      setExistingAttachments([]);
       setActiveTab("view");
       
       // Refresh list
@@ -1281,6 +1451,86 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       disabled={isViewOnly}
                     />
                   </div>
+
+                  {/* Seção de Anexos */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Anexos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {!isViewOnly && (
+                        <div>
+                          <input
+                            type="file"
+                            id="file-upload-receivable"
+                            multiple
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('file-upload-receivable')?.click()}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Anexar Arquivo
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Arquivos novos */}
+                      {attachments.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Novos Anexos</Label>
+                          {attachments.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
+                              <span className="text-sm truncate">{file.name}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeAttachment(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Arquivos existentes */}
+                      {existingAttachments.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Anexos Salvos</Label>
+                          {existingAttachments.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
+                              <span className="text-sm truncate">{file.name}</span>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => downloadFile(file.url || file.path, file.name)}
+                                >
+                                  <FileDown className="h-4 w-4" />
+                                </Button>
+                                {!isViewOnly && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => removeExistingAttachment(index)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="items" className="space-y-4">
