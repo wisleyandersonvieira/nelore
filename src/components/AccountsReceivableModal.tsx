@@ -42,6 +42,7 @@ interface CurrentAccount {
   name: string;
   bank: string;
   account_number: string;
+  account_type: 'current' | 'cash' | 'card' | 'delivery';
 }
 
 interface ReceivableItem {
@@ -970,16 +971,92 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
   const fetchCurrentAccounts = async () => {
     try {
-      const { data, error } = await supabase
+      const accounts: CurrentAccount[] = [];
+
+      // Buscar contas correntes
+      const { data: currentAccountsData, error: currentAccountsError } = await supabase
         .from("current_accounts")
         .select("id, name, bank, account_number")
         .eq("is_active", true)
         .order("name");
 
-      if (error) throw error;
-      setCurrentAccounts(data || []);
+      if (currentAccountsError) throw currentAccountsError;
+      
+      if (currentAccountsData) {
+        currentAccountsData.forEach(account => {
+          accounts.push({
+            ...account,
+            account_type: 'current'
+          });
+        });
+      }
+
+      // Buscar contas caixa
+      const { data: cashAccountsData, error: cashAccountsError } = await supabase
+        .from("cash_accounts")
+        .select("id, name, bank, account_number")
+        .eq("is_active", true)
+        .order("name");
+
+      if (cashAccountsError) throw cashAccountsError;
+      
+      if (cashAccountsData) {
+        cashAccountsData.forEach(account => {
+          accounts.push({
+            id: account.id,
+            name: account.name,
+            bank: account.bank || 'N/A',
+            account_number: account.account_number || 'N/A',
+            account_type: 'cash'
+          });
+        });
+      }
+
+      // Buscar contas cartão
+      const { data: cardAccountsData, error: cardAccountsError } = await supabase
+        .from("card_accounts")
+        .select("id, name, bank, account_number")
+        .eq("is_active", true)
+        .order("name");
+
+      if (cardAccountsError) throw cardAccountsError;
+      
+      if (cardAccountsData) {
+        cardAccountsData.forEach(account => {
+          accounts.push({
+            ...account,
+            account_type: 'card'
+          });
+        });
+      }
+
+      // Buscar contas delivery
+      const { data: deliveryAccountsData, error: deliveryAccountsError } = await supabase
+        .from("delivery_accounts")
+        .select("id, name, contact_person, phone, email")
+        .eq("is_active", true)
+        .order("name");
+
+      if (deliveryAccountsError) throw deliveryAccountsError;
+      
+      if (deliveryAccountsData) {
+        deliveryAccountsData.forEach(account => {
+          accounts.push({
+            id: account.id,
+            name: account.name,
+            bank: account.contact_person || 'N/A',
+            account_number: account.phone || 'N/A',
+            account_type: 'delivery'
+          });
+        });
+      }
+
+      // Ordenar por nome
+      accounts.sort((a, b) => a.name.localeCompare(b.name));
+      
+      setCurrentAccounts(accounts);
     } catch (error) {
-      console.error("Error fetching current accounts:", error);
+      console.error("Error fetching accounts:", error);
     }
   };
 
@@ -1695,11 +1772,50 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       // Se houver itens com lojas, validar
       if (accountItems && accountItems.length > 0) {
-        // Buscar quais lojas estão vinculadas à conta corrente selecionada
-        const { data: accountStores, error: storesError } = await supabase
-          .from("current_account_stores")
-          .select("store_id")
-          .eq("account_id", selectedAccountId);
+        // Determinar o tipo de conta selecionada
+        const selectedAccount = currentAccounts.find(acc => acc.id === selectedAccountId);
+        if (!selectedAccount) {
+          toast({
+            title: "Erro",
+            description: "Conta selecionada não encontrada",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Buscar quais lojas estão vinculadas à conta selecionada
+        let accountStores;
+        let storesError;
+        
+        if (selectedAccount.account_type === 'current') {
+          const result = await supabase
+            .from("current_account_stores")
+            .select("store_id")
+            .eq("account_id", selectedAccountId);
+          accountStores = result.data;
+          storesError = result.error;
+        } else if (selectedAccount.account_type === 'cash') {
+          const result = await supabase
+            .from("cash_account_stores")
+            .select("store_id")
+            .eq("account_id", selectedAccountId);
+          accountStores = result.data;
+          storesError = result.error;
+        } else if (selectedAccount.account_type === 'card') {
+          const result = await supabase
+            .from("card_account_stores")
+            .select("store_id")
+            .eq("account_id", selectedAccountId);
+          accountStores = result.data;
+          storesError = result.error;
+        } else if (selectedAccount.account_type === 'delivery') {
+          const result = await supabase
+            .from("delivery_account_stores")
+            .select("store_id")
+            .eq("account_id", selectedAccountId);
+          accountStores = result.data;
+          storesError = result.error;
+        }
 
         if (storesError) throw storesError;
 
@@ -1710,9 +1826,13 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         const unauthorizedStores = itemStoreIds.filter(storeId => !allowedStoreIds.includes(storeId));
 
         if (unauthorizedStores.length > 0) {
+          const accountTypeName = selectedAccount.account_type === 'current' ? 'conta corrente' : 
+                                 selectedAccount.account_type === 'cash' ? 'conta caixa' : 
+                                 selectedAccount.account_type === 'card' ? 'conta cartão' :
+                                 selectedAccount.account_type === 'delivery' ? 'conta delivery' : 'conta';
           toast({
             title: "Conta não autorizada",
-            description: "A conta corrente selecionada não está vinculada a todas as lojas dos itens desta conta a receber.",
+            description: `A ${accountTypeName} selecionada não está vinculada a todas as lojas dos itens desta conta a receber.`,
             variant: "destructive",
           });
           return;
@@ -1735,6 +1855,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       if (!user) {
         throw new Error("Usuário não autenticado");
       }
+
+      // Obter o tipo da conta selecionada
+      const selectedAccount = currentAccounts.find(acc => acc.id === selectedAccountId);
 
       // Upload payment attachments if any
       let uploadedPaymentAttachments: any[] = [];
@@ -1769,7 +1892,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             interest_amount: surcharge,
             discount_amount: discount,
             payment_account_id: selectedAccountId,
-            payment_account_type: 'current_account',
+            payment_account_type: selectedAccount?.account_type || 'current',
             created_by: user.id,
           });
 
@@ -1835,7 +1958,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             interest_amount: surcharge,
             discount_amount: discount,
             payment_account_id: selectedAccountId,
-            payment_account_type: 'current_account',
+            payment_account_type: selectedAccount?.account_type || 'current',
             created_by: user.id,
           });
 
@@ -2752,11 +2875,17 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {currentAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name} - {account.bank}
-                        </SelectItem>
-                      ))}
+                      {currentAccounts.map((account) => {
+                        const accountTypeLabel = account.account_type === 'current' ? '[Conta Corrente]' : 
+                                                account.account_type === 'cash' ? '[Caixa]' : 
+                                                account.account_type === 'card' ? '[Cartão]' :
+                                                account.account_type === 'delivery' ? '[Delivery]' : '';
+                        return (
+                          <SelectItem key={account.id} value={account.id}>
+                            {accountTypeLabel} {account.name} - {account.bank}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
