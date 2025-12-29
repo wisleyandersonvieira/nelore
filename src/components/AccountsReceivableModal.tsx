@@ -1871,9 +1871,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             <span className={`px-2 py-1 rounded text-xs ${
                               account.status === "paid" 
                                 ? "bg-green-100 text-green-800" 
+                                : account.status === "partial"
+                                ? "bg-blue-100 text-blue-800"
                                 : "bg-yellow-100 text-yellow-800"
                             }`}>
-                              {account.status === "paid" ? "Recebido" : "Pendente"}
+                              {account.status === "paid" ? "Recebido" : account.status === "partial" ? "Parcial" : "Pendente"}
                             </span>
                           </TableCell>
                            <TableCell>
