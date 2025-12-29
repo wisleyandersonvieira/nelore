@@ -777,6 +777,15 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
           if (deletePaymentError) throw deletePaymentError;
 
+          // Delete financial transaction for this installment
+          const { error: deleteTransactionError } = await supabase
+            .from("financial_transactions")
+            .delete()
+            .eq("reference_id", installmentId)
+            .eq("reference_type", "accounts_receivable_installments");
+
+          if (deleteTransactionError) throw deleteTransactionError;
+
           // Update installment to remove payment_date
           const { error: installmentError } = await supabase
             .from("accounts_receivable_installments")
@@ -828,6 +837,15 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           .eq("account_receivable_id", accountId);
 
         if (deletePaymentsError) throw deletePaymentsError;
+
+        // Delete financial transaction for this account (integral payment)
+        const { error: deleteTransactionError } = await supabase
+          .from("financial_transactions")
+          .delete()
+          .eq("reference_id", accountId)
+          .eq("reference_type", "accounts_receivable");
+
+        if (deleteTransactionError) throw deleteTransactionError;
 
         const { error } = await supabase
           .from("accounts_receivable")
@@ -1990,8 +2008,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           description: selectedInstallment 
             ? `Recebimento Parcela ${selectedInstallment.installment_number} - ${paymentAccount.description}`
             : `Recebimento - ${paymentAccount.description}`,
-          reference_id: paymentAccount.id,
-          reference_type: "accounts_receivable",
+          reference_id: selectedInstallment ? selectedInstallment.id : paymentAccount.id,
+          reference_type: selectedInstallment ? "accounts_receivable_installments" : "accounts_receivable",
           created_by: user.id,
         });
 
