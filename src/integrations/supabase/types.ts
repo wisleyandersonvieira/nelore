@@ -524,6 +524,89 @@ export type Database = {
           },
         ]
       }
+      accounts_receivable_payments: {
+        Row: {
+          account_receivable_id: string
+          amount_paid: number
+          created_at: string
+          created_by: string
+          discount_amount: number
+          discount_product_id: string | null
+          id: string
+          installment_id: string
+          interest_amount: number
+          interest_product_id: string | null
+          notes: string | null
+          payment_account_id: string | null
+          payment_account_type: string | null
+          payment_date: string
+          updated_at: string
+        }
+        Insert: {
+          account_receivable_id: string
+          amount_paid?: number
+          created_at?: string
+          created_by: string
+          discount_amount?: number
+          discount_product_id?: string | null
+          id?: string
+          installment_id: string
+          interest_amount?: number
+          interest_product_id?: string | null
+          notes?: string | null
+          payment_account_id?: string | null
+          payment_account_type?: string | null
+          payment_date: string
+          updated_at?: string
+        }
+        Update: {
+          account_receivable_id?: string
+          amount_paid?: number
+          created_at?: string
+          created_by?: string
+          discount_amount?: number
+          discount_product_id?: string | null
+          id?: string
+          installment_id?: string
+          interest_amount?: number
+          interest_product_id?: string | null
+          notes?: string | null
+          payment_account_id?: string | null
+          payment_account_type?: string | null
+          payment_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_payments_account_receivable_id_fkey"
+            columns: ["account_receivable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_payments_discount_product_id_fkey"
+            columns: ["discount_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_payments_interest_product_id_fkey"
+            columns: ["interest_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_account_stores: {
         Row: {
           account_id: string

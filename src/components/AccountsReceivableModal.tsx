@@ -613,8 +613,16 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setLoading(true);
     try {
       if (reverseInstallments.length > 0) {
-        // Update selected installments to remove payment_date
+        // Delete payment records from accounts_receivable_payments for selected installments
         for (const installmentId of selectedReverseInstallments) {
+          const { error: deletePaymentError } = await supabase
+            .from("accounts_receivable_payments")
+            .delete()
+            .eq("installment_id", installmentId);
+
+          if (deletePaymentError) throw deletePaymentError;
+
+          // Update installment to remove payment_date
           const { error: installmentError } = await supabase
             .from("accounts_receivable_installments")
             .update({ payment_date: null })
@@ -658,7 +666,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         if (error) throw error;
       } else {
-        // No installments - just update the account directly
+        // No installments - delete all payment records and update account
+        const { error: deletePaymentsError } = await supabase
+          .from("accounts_receivable_payments")
+          .delete()
+          .eq("account_receivable_id", accountId);
+
+        if (deletePaymentsError) throw deletePaymentsError;
+
         const { error } = await supabase
           .from("accounts_receivable")
           .update({ 
@@ -1511,6 +1526,23 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       // If processing an installment
       if (selectedInstallment) {
+        // Register payment in accounts_receivable_payments table
+        const { error: paymentRecordError } = await supabase
+          .from("accounts_receivable_payments")
+          .insert({
+            installment_id: selectedInstallment.id,
+            account_receivable_id: paymentAccount.id,
+            payment_date: formatDateForDatabase(paymentDate),
+            amount_paid: baseAmount,
+            interest_amount: surcharge,
+            discount_amount: discount,
+            payment_account_id: selectedAccountId,
+            payment_account_type: 'current_account',
+            created_by: user.id,
+          });
+
+        if (paymentRecordError) throw paymentRecordError;
+
         // Update installment payment date
         const { error: installmentError } = await supabase
           .from("accounts_receivable_installments")
@@ -1545,7 +1577,39 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         if (updateError) throw updateError;
       } else {
-        // No installments, update account directly
+        // No installments - create a single installment record first
+        const { data: newInstallment, error: createInstallmentError } = await supabase
+          .from("accounts_receivable_installments")
+          .insert({
+            account_receivable_id: paymentAccount.id,
+            installment_number: 1,
+            due_date: paymentAccount.due_date,
+            amount: paymentAccount.amount,
+            payment_date: formatDateForDatabase(paymentDate),
+          })
+          .select()
+          .single();
+
+        if (createInstallmentError) throw createInstallmentError;
+
+        // Register payment in accounts_receivable_payments table
+        const { error: paymentRecordError } = await supabase
+          .from("accounts_receivable_payments")
+          .insert({
+            installment_id: newInstallment.id,
+            account_receivable_id: paymentAccount.id,
+            payment_date: formatDateForDatabase(paymentDate),
+            amount_paid: paymentAccount.amount,
+            interest_amount: surcharge,
+            discount_amount: discount,
+            payment_account_id: selectedAccountId,
+            payment_account_type: 'current_account',
+            created_by: user.id,
+          });
+
+        if (paymentRecordError) throw paymentRecordError;
+
+        // Update account directly
         const { error: updateError } = await supabase
           .from("accounts_receivable")
           .update({
