@@ -634,22 +634,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
-  const handleRecordNote = () => {
-    if (!creditorId || !issueDate || !dueDate || !dataCompetencia) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios (Credor, Data Emissão, Data Vencimento, Data Competência)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setNoteRecorded(true);
-    toast({
-      title: "Sucesso",
-      description: "Nota gravada! Agora adicione os itens.",
-    });
-  };
+  // Função handleRecordNote removida - não é mais necessária com a nova estrutura de abas
 
   const generateInstallments = () => {
     if (numberOfInstallments < 1 || numberOfInstallments > 12) {
@@ -722,7 +707,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   };
 
   const openInstallmentsModal = () => {
-    if (getTotalAmount() <= 0) {
+    if (items.length === 0 || getTotalAmount() <= 0) {
       toast({
         title: "Erro",
         description: "Adicione itens antes de configurar as parcelas",
@@ -734,10 +719,19 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   };
 
   const handleSave = async () => {
-    if (!creditorId || items.length === 0 || !issueDate || !dueDate || !dataCompetencia) {
+    if (!creditorId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatórios (incluindo data de competência) e adicione pelo menos um item",
+        description: "Preencha todos os campos obrigatórios do formulário",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um item na aba Itens",
         variant: "destructive",
       });
       return;
@@ -1185,280 +1179,306 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           </TabsContent>
 
           <TabsContent value="create" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Credor *</Label>
-                <Select 
-                  value={creditorId} 
-                  onValueChange={setCreditorId}
-                  disabled={isViewOnly}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar credor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {creditors.map((creditor) => (
-                      <SelectItem key={creditor.id} value={creditor.id}>
-                        {creditor.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Tipo Documento</Label>
-                <Select 
-                  value={documentType} 
-                  onValueChange={setDocumentType}
-                  disabled={isViewOnly}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Número Documento</Label>
-                <Input
-                  value={documentNumber}
-                  onChange={(e) => setDocumentNumber(e.target.value)}
-                  placeholder="Número do documento"
-                  disabled={isViewOnly}
-                />
-              </div>
-
-              <div>
-                <Label>Data Emissão *</Label>
-                <Input
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                  disabled={isViewOnly}
-                />
-              </div>
-
-              <div>
-                <Label>Data Vencimento *</Label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  disabled={isViewOnly}
-                />
-              </div>
-
-              <div>
-                <Label>Data Competência *</Label>
-                <Input
-                  type="date"
-                  value={dataCompetencia}
-                  onChange={(e) => setDataCompetencia(e.target.value)}
-                  disabled={isViewOnly}
-                />
-              </div>
-
-              <div>
-                <Label>Loja Padrão</Label>
-                <Select 
-                  value={defaultStore} 
-                  onValueChange={(value) => {
-                    setDefaultStore(value);
-                    setSelectedStore(value);
-                  }}
-                  disabled={isViewOnly}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar loja padrão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stores.map((store) => (
-                      <SelectItem key={store.id} value={store.id}>
-                        {store.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observações adicionais"
-                disabled={isViewOnly}
-              />
-            </div>
-
-            {!isViewOnly && (
-              <Tabs defaultValue="items" className="w-full">
-                <TabsList className="grid w-full grid-cols-1">
-                  <TabsTrigger value="items">Itens</TabsTrigger>
+            <div className="space-y-6">
+              <Tabs defaultValue="form" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="form">Formulário</TabsTrigger>
+                  <TabsTrigger value="items">Itens ({items.length})</TabsTrigger>
                 </TabsList>
-                
-                <TabsContent value="items" className="space-y-4">
-                  {!noteRecorded ? (
-                    <div className="text-center p-8 bg-muted rounded-lg">
-                      <p className="text-muted-foreground mb-4">
-                        Preencha os dados principais e clique em "Gravar Nota" para adicionar itens
-                      </p>
+
+                <TabsContent value="form" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Credor *</Label>
+                      <Select 
+                        value={creditorId} 
+                        onValueChange={setCreditorId}
+                        disabled={isViewOnly}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar credor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {creditors.map((creditor) => (
+                            <SelectItem key={creditor.id} value={creditor.id}>
+                              {creditor.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                          <Label>Produto *</Label>
-                          <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+
+                    <div className="space-y-2">
+                      <Label>Tipo Documento *</Label>
+                      <Select 
+                        value={documentType} 
+                        onValueChange={setDocumentType}
+                        disabled={isViewOnly}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {documentTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Número Documento *</Label>
+                      <Input
+                        value={documentNumber}
+                        onChange={(e) => setDocumentNumber(e.target.value)}
+                        placeholder="Número do documento"
+                        disabled={isViewOnly}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Data Emissão *</Label>
+                      <Input
+                        type="date"
+                        value={issueDate}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                        disabled={isViewOnly}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Data Vencimento *</Label>
+                      <Input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        disabled={isViewOnly}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Data Competência *</Label>
+                      <Input
+                        type="date"
+                        value={dataCompetencia}
+                        onChange={(e) => setDataCompetencia(e.target.value)}
+                        disabled={isViewOnly}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Observações</Label>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Observações adicionais"
+                      rows={3}
+                      disabled={isViewOnly}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="items" className="space-y-4">
+                  {/* Seção de Loja Padrão */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Loja Padrão (Opcional)</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Selecione uma loja padrão para aplicar automaticamente a todos os itens.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-4 items-end">
+                        <div className="flex-1 space-y-2">
+                          <Label>Loja Padrão</Label>
+                          <Select 
+                            value={defaultStore} 
+                            onValueChange={(value) => {
+                              setDefaultStore(value);
+                              setSelectedStore(value);
+                            }}
+                            disabled={isViewOnly}
+                          >
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecionar produto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.id}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Quantidade *</Label>
-                          <Input
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => setQuantity(Number(e.target.value))}
-                            min="0.01"
-                            step="0.01"
-                          />
-                        </div>
-
-                        <div>
-                          <Label>Preço Unitário *</Label>
-                          <Input
-                            type="number"
-                            value={unitPrice}
-                            onChange={(e) => setUnitPrice(Number(e.target.value))}
-                            min="0.01"
-                            step="0.01"
-                          />
-                        </div>
-
-                        <div>
-                          <Label>Loja *</Label>
-                          <Select value={selectedStore} onValueChange={setSelectedStore}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecionar loja" />
+                              <SelectValue placeholder="Nenhuma loja padrão selecionada" />
                             </SelectTrigger>
                             <SelectContent>
                               {stores.map((store) => (
                                 <SelectItem key={store.id} value={store.id}>
-                                  {store.name}
+                                  {store.code} - {store.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
 
-                      <Button onClick={addItem}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Adicionar Item
-                      </Button>
+                  {/* Adicionar Item */}
+                  {!isViewOnly && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Adicionar Item</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <Label>Produto *</Label>
+                            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecionar produto" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
 
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Produto</TableHead>
-                            <TableHead>Quantidade</TableHead>
-                            <TableHead>Valor Unit.</TableHead>
-                            <TableHead>Total</TableHead>
-                            <TableHead>Loja</TableHead>
-                            <TableHead>Ações</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {items.map((item, index) => (
-                            <TableRow key={index}>
-                              <TableCell>{item.product_name}</TableCell>
-                              <TableCell>{item.quantity}</TableCell>
-                              <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
-                              <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
-                              <TableCell>{item.store_name}</TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeItem(index)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          <div className="space-y-2">
+                            <Label>Quantidade *</Label>
+                            <Input
+                              type="number"
+                              value={quantity}
+                              onChange={(e) => setQuantity(Number(e.target.value))}
+                              min="0.01"
+                              step="0.01"
+                            />
+                          </div>
 
-                      {items.length > 0 && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Total Geral</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-2xl font-bold text-primary">
-                              R$ {getTotalAmount().toFixed(2)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </>
+                          <div className="space-y-2">
+                            <Label>Preço Unitário *</Label>
+                            <Input
+                              type="number"
+                              value={unitPrice}
+                              onChange={(e) => setUnitPrice(Number(e.target.value))}
+                              min="0.01"
+                              step="0.01"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Loja *</Label>
+                            <Select value={selectedStore} onValueChange={setSelectedStore}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecionar loja" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {stores.map((store) => (
+                                  <SelectItem key={store.id} value={store.id}>
+                                    {store.code} - {store.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <Button onClick={addItem} className="mt-4">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Item
+                        </Button>
+                      </CardContent>
+                    </Card>
                   )}
+
+                  {/* Lista de Itens */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Itens da Conta</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {items.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          Nenhum item adicionado
+                        </div>
+                      ) : (
+                        <>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Produto</TableHead>
+                                <TableHead>Quantidade</TableHead>
+                                <TableHead>Valor Unit.</TableHead>
+                                <TableHead>Total</TableHead>
+                                <TableHead>Loja</TableHead>
+                                {!isViewOnly && <TableHead>Ações</TableHead>}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {items.map((item, index) => (
+                                <TableRow key={index}>
+                                  <TableCell>{item.product_name}</TableCell>
+                                  <TableCell>{item.quantity}</TableCell>
+                                  <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
+                                  <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
+                                  <TableCell>{item.store_name}</TableCell>
+                                  {!isViewOnly && (
+                                    <TableCell>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => removeItem(index)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+
+                          <div className="mt-4 p-4 bg-muted rounded-lg">
+                            <div className="flex justify-between items-center">
+                              <span className="text-lg font-medium">Total Geral:</span>
+                              <span className="text-2xl font-bold text-primary">
+                                R$ {getTotalAmount().toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </Tabs>
-            )}
 
-            <div className="flex justify-end gap-2 pt-4">
-              {isViewOnly ? (
-                <Button variant="outline" onClick={() => {
-                  setIsViewOnly(false);
-                  setViewOnlyAccount(null);
-                  setActiveTab("view");
-                }}>
-                  Voltar
-                </Button>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>
-                    Cancelar
+              {/* Botões de Ação */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                {isViewOnly ? (
+                  <Button variant="outline" onClick={() => {
+                    setIsViewOnly(false);
+                    setViewOnlyAccount(null);
+                    setActiveTab("view");
+                  }}>
+                    Voltar
                   </Button>
-                  
-                  {!noteRecorded ? (
-                    <Button onClick={handleRecordNote} disabled={loading}>
-                      Gravar Nota
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      Cancelar
                     </Button>
-                   ) : (
-                    <>
-                      <Button variant="outline" onClick={openInstallmentsModal}>
-                        Parcelas {installments.length > 0 && `(${installments.length})`}
-                      </Button>
-                      
-                      <Button onClick={handleSave} disabled={loading}>
-                        {loading ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </>
-                  )}
-                </>
-              )}
+                    
+                    <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                      Parcelas {installments.length > 0 && `(${installments.length})`}
+                    </Button>
+                    
+                    <Button onClick={handleSave} disabled={loading || items.length === 0}>
+                      {loading ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </TabsContent>
 
