@@ -181,6 +181,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [editingAccount, setEditingAccount] = useState<AccountReceivable | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isRealEdit, setIsRealEdit] = useState(false);
+  const [isAttachmentOnlyEdit, setIsAttachmentOnlyEdit] = useState(false);
 
   // View-only mode
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -244,6 +245,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setEditingAccount(null);
       setIsEditing(false);
       setIsRealEdit(false);
+      setIsAttachmentOnlyEdit(false);
       setIsViewOnly(false);
       setViewOnlyAccount(null);
       setAttachments([]);
@@ -446,6 +448,33 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
   const handleEditAccount = async (account: AccountReceivable) => {
     console.log('Editing account:', account);
+    
+    // Check if account has any payments
+    try {
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("accounts_receivable_payments")
+        .select("id")
+        .eq("account_receivable_id", account.id)
+        .limit(1);
+
+      if (paymentsError) throw paymentsError;
+
+      const hasPayments = paymentsData && paymentsData.length > 0;
+      
+      if (hasPayments) {
+        toast({
+          title: "Atenção",
+          description: "Esta conta possui recebimentos realizados. Apenas upload de arquivos será permitido.",
+        });
+        setIsAttachmentOnlyEdit(true);
+      } else {
+        setIsAttachmentOnlyEdit(false);
+      }
+    } catch (error) {
+      console.error("Error checking payments:", error);
+      setIsAttachmentOnlyEdit(false);
+    }
+    
     setEditingAccount(account);
     setIsEditing(true);
     setIsRealEdit(true);
@@ -1902,13 +1931,19 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </TabsList>
 
                 <TabsContent value="form" className="space-y-4">
+                  {isAttachmentOnlyEdit && (
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">
+                      <strong>Atenção:</strong> Esta conta possui recebimentos realizados. Apenas upload de arquivos é permitido.
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Credor *</Label>
                       <Select 
                         value={creditorId} 
                         onValueChange={setCreditorId}
-                        disabled={isViewOnly}
+                        disabled={isViewOnly || isAttachmentOnlyEdit}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecionar credor" />
@@ -1928,7 +1963,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       <Select 
                         value={documentType} 
                         onValueChange={setDocumentType}
-                        disabled={isViewOnly}
+                        disabled={isViewOnly || isAttachmentOnlyEdit}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecionar tipo" />
@@ -1951,7 +1986,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         value={documentNumber}
                         onChange={(e) => setDocumentNumber(e.target.value)}
                         placeholder="Número do documento"
-                        disabled={isViewOnly}
+                        disabled={isViewOnly || isAttachmentOnlyEdit}
                       />
                     </div>
 
@@ -1961,7 +1996,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         type="date"
                         value={issueDate}
                         onChange={(e) => setIssueDate(e.target.value)}
-                        disabled={isViewOnly}
+                        disabled={isViewOnly || isAttachmentOnlyEdit}
                       />
                     </div>
 
@@ -1971,7 +2006,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         type="date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        disabled={isViewOnly}
+                        disabled={isViewOnly || isAttachmentOnlyEdit}
                       />
                     </div>
 
@@ -1981,7 +2016,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         type="date"
                         value={dataCompetencia}
                         onChange={(e) => setDataCompetencia(e.target.value)}
-                        disabled={isViewOnly}
+                        disabled={isViewOnly || isAttachmentOnlyEdit}
                       />
                     </div>
                   </div>
@@ -1993,7 +2028,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Observações adicionais"
                       rows={3}
-                      disabled={isViewOnly}
+                      disabled={isViewOnly || isAttachmentOnlyEdit}
                     />
                   </div>
 
@@ -2116,7 +2151,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   </Card>
 
                   {/* Adicionar Item */}
-                  {!isViewOnly && (
+                  {!isViewOnly && !isAttachmentOnlyEdit && (
                     <Card>
                       <CardHeader>
                         <CardTitle>Adicionar Item</CardTitle>
@@ -2206,7 +2241,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 <TableHead>Valor Unit.</TableHead>
                                 <TableHead>Total</TableHead>
                                 <TableHead>Loja</TableHead>
-                                {!isViewOnly && <TableHead>Ações</TableHead>}
+                                {!isViewOnly && !isAttachmentOnlyEdit && <TableHead>Ações</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2217,7 +2252,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                   <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
                                   <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
                                   <TableCell>{item.store_name}</TableCell>
-                                  {!isViewOnly && (
+                                  {!isViewOnly && !isAttachmentOnlyEdit && (
                                     <TableCell>
                                       <Button
                                         variant="outline"
@@ -2260,16 +2295,23 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   </Button>
                 ) : isEditing ? (
                   <>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" onClick={() => {
+                      setIsEditing(false);
+                      setEditingAccount(null);
+                      setIsAttachmentOnlyEdit(false);
+                      setActiveTab("view");
+                    }}>
                       Cancelar
                     </Button>
                     
-                    <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
-                      Parcelas {installments.length > 0 && `(${installments.length})`}
-                    </Button>
+                    {!isAttachmentOnlyEdit && (
+                      <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                        Parcelas {installments.length > 0 && `(${installments.length})`}
+                      </Button>
+                    )}
                     
                     <Button onClick={handleSave} disabled={loading || items.length === 0}>
-                      {loading ? "Salvando..." : "Salvar"}
+                      {loading ? "Salvando..." : isAttachmentOnlyEdit ? "Salvar Anexos" : "Salvar"}
                     </Button>
                   </>
                 ) : !noteRecorded ? (
