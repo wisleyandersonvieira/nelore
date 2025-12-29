@@ -8,7 +8,7 @@ const Index = () => {
           <h1 className="text-6xl font-bold text-primary">Gela Boca</h1>
           <h2 className="text-2xl font-semibold text-foreground">Sistema Financeiro para Sorveterias</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Controle completo das suas finanças com gestão de caixa, contas a pagar e receber, 
+            Controle completo das suas finanças com gestão de caixa, contas a pagar, 
             relatórios detalhados e controle de acesso por loja.
           </p>
         </div>

@@ -19,7 +19,6 @@ import {
   FileBarChart
 } from "lucide-react";
 import { AccountsPayableModal } from "@/components/AccountsPayableModal";
-import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
 import { CashControlModal } from "@/components/CashControlModal";
 import { FinanceiroModal } from "@/components/FinanceiroModal";
 import { TransfersModal } from "@/components/TransfersModal";
@@ -30,7 +29,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
-  const [accountsReceivableOpen, setAccountsReceivableOpen] = useState(false);
+  
   const [cashControlOpen, setCashControlOpen] = useState(false);
   const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const [funcionariosOpen, setFuncionariosOpen] = useState(false);
@@ -89,7 +88,7 @@ const Dashboard = () => {
     {
       id: "financeiro",
       title: "Financeiro",
-      description: "Contas a pagar e receber",
+      description: "Contas a pagar e transferências",
       icon: CreditCard,
       color: "bg-emerald-500",
     },
@@ -221,7 +220,6 @@ const Dashboard = () => {
           open={financeiroOpen}
           onOpenChange={setFinanceiroOpen}
           onAccountsPayableOpen={() => setAccountsPayableOpen(true)}
-          onAccountsReceivableOpen={() => setAccountsReceivableOpen(true)}
           onTransfersOpen={() => setTransfersOpen(true)}
           onPeriodControlOpen={() => setPeriodControlOpen(true)}
         />
@@ -234,12 +232,6 @@ const Dashboard = () => {
         />
       )}
       
-      {accountsReceivableOpen && (
-        <AccountsReceivableModal 
-          open={accountsReceivableOpen} 
-          onOpenChange={setAccountsReceivableOpen} 
-        />
-      )}
 
       {transfersOpen && (
         <TransfersModal

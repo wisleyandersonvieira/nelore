@@ -24,7 +24,7 @@ const MODULES = [
   { id: 'financeiro', name: 'Financeiro', description: 'Gestão financeira geral' },
   { id: 'caixa', name: 'Caixa', description: 'Controle de caixa' },
   { id: 'contas_pagar', name: 'Contas a Pagar', description: 'Gestão de contas a pagar' },
-  { id: 'contas_receber', name: 'Contas a Receber', description: 'Gestão de contas a receber' },
+  
   { id: 'relatorios', name: 'Relatórios', description: 'Visualização de relatórios' },
   { id: 'dre', name: 'DRE', description: 'Demonstrativo de Resultado do Exercício' },
   { id: 'configuracoes', name: 'Configurações', description: 'Configurações do sistema' }
