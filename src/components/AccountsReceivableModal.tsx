@@ -151,6 +151,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   // Reverse payment modal state  
   const [showReverseModal, setShowReverseModal] = useState(false);
   const [reverseAccount, setReverseAccount] = useState<AccountReceivable | null>(null);
+  const [reverseInstallments, setReverseInstallments] = useState<DBInstallment[]>([]);
+  const [selectedReverseInstallments, setSelectedReverseInstallments] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Filter fields
@@ -575,33 +577,109 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     }
   };
 
-  const handleReversePayment = (account: AccountReceivable) => {
+  const handleReversePayment = async (account: AccountReceivable) => {
     setReverseAccount(account);
+    setSelectedReverseInstallments([]);
+    
+    // Fetch paid installments for this account
+    try {
+      const { data: installmentsData, error } = await supabase
+        .from("accounts_receivable_installments")
+        .select("*")
+        .eq("account_receivable_id", account.id)
+        .not("payment_date", "is", null)
+        .order("installment_number");
+
+      if (error) throw error;
+      setReverseInstallments(installmentsData || []);
+    } catch (error) {
+      console.error("Error fetching paid installments:", error);
+      setReverseInstallments([]);
+    }
+    
     setShowReverseModal(true);
   };
 
   const performReversePayment = async (accountId: string) => {
+    if (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0) {
+      toast({
+        title: "Atenção",
+        description: "Selecione pelo menos uma parcela para estornar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Update the account status back to pending and clear payment_date
-      const { error } = await supabase
-        .from("accounts_receivable")
-        .update({ 
-          status: 'pending',
-          payment_date: null 
-        })
-        .eq("id", accountId);
+      if (reverseInstallments.length > 0) {
+        // Update selected installments to remove payment_date
+        for (const installmentId of selectedReverseInstallments) {
+          const { error: installmentError } = await supabase
+            .from("accounts_receivable_installments")
+            .update({ payment_date: null })
+            .eq("id", installmentId);
 
-      if (error) throw error;
+          if (installmentError) throw installmentError;
+        }
+
+        // Check if there are any remaining paid installments
+        const { data: remainingPaid, error: checkError } = await supabase
+          .from("accounts_receivable_installments")
+          .select("id")
+          .eq("account_receivable_id", accountId)
+          .not("payment_date", "is", null);
+
+        if (checkError) throw checkError;
+
+        // Check if there are any pending installments
+        const { data: pendingInstallments, error: pendingError } = await supabase
+          .from("accounts_receivable_installments")
+          .select("id")
+          .eq("account_receivable_id", accountId)
+          .is("payment_date", null);
+
+        if (pendingError) throw pendingError;
+
+        // Determine new status
+        let newStatus = 'pending';
+        if (remainingPaid && remainingPaid.length > 0) {
+          newStatus = pendingInstallments && pendingInstallments.length > 0 ? 'partial' : 'paid';
+        }
+
+        // Update account status
+        const { error } = await supabase
+          .from("accounts_receivable")
+          .update({ 
+            status: newStatus,
+            payment_date: newStatus === 'pending' ? null : undefined
+          })
+          .eq("id", accountId);
+
+        if (error) throw error;
+      } else {
+        // No installments - just update the account directly
+        const { error } = await supabase
+          .from("accounts_receivable")
+          .update({ 
+            status: 'pending',
+            payment_date: null 
+          })
+          .eq("id", accountId);
+
+        if (error) throw error;
+      }
 
       toast({
         title: "Sucesso",
         description: "Recebimento estornado com sucesso",
       });
 
-      fetchFilteredAccountsReceivable(); // Refresh data
+      fetchFilteredAccountsReceivable();
       setShowReverseModal(false);
       setReverseAccount(null);
+      setReverseInstallments([]);
+      setSelectedReverseInstallments([]);
     } catch (error) {
       console.error("Error reversing payment:", error);
       toast({
@@ -2495,10 +2573,59 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </p>
               </div>
 
+              {reverseInstallments.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold">Selecione as parcelas para estornar:</h3>
+                  <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <div className="space-y-2">
+                      {reverseInstallments.map((installment) => (
+                        <div key={installment.id} className="flex items-center justify-between p-3 border rounded bg-green-50 border-green-200">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              id={`reverse-${installment.id}`}
+                              checked={selectedReverseInstallments.includes(installment.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedReverseInstallments([...selectedReverseInstallments, installment.id]);
+                                } else {
+                                  setSelectedReverseInstallments(selectedReverseInstallments.filter(id => id !== installment.id));
+                                }
+                              }}
+                              className="h-4 w-4"
+                            />
+                            <div>
+                              <p className="font-medium">
+                                Parcela {installment.installment_number}
+                                <span className="ml-2 text-green-600 text-sm">(RECEBIDA)</span>
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Vencimento: {new Date(installment.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                {installment.payment_date && (
+                                  <span className="ml-2">
+                                    - Recebida em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">R$ {Number(installment.amount).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-yellow-800 font-medium">Atenção!</p>
                 <p className="text-yellow-700 text-sm mt-1">
-                  Ao confirmar o estorno, esta conta voltará para o status "pendente" e poderá ser recebida novamente.
+                  {reverseInstallments.length > 0 
+                    ? "Ao confirmar o estorno, as parcelas selecionadas voltarão para o status pendente e poderão ser recebidas novamente."
+                    : "Ao confirmar o estorno, esta conta voltará para o status \"pendente\" e poderá ser recebida novamente."
+                  }
                 </p>
               </div>
 
@@ -2508,7 +2635,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </Button>
                 <Button 
                   onClick={() => performReversePayment(reverseAccount.id)} 
-                  disabled={loading}
+                  disabled={loading || (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0)}
                   variant="destructive"
                 >
                   {loading ? "Processando..." : "Confirmar Estorno"}
