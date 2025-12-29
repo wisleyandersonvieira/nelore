@@ -488,6 +488,31 @@ export const DREView: React.FC<DREViewProps> = ({
         }
       }
 
+      // Buscar registros de pagamentos de contas a receber (para juros/descontos corretos)
+      const {
+        data: arPaymentsData,
+        error: arPaymentsError
+      } = await supabase.from('accounts_receivable_payments').select(`
+          id,
+          installment_id,
+          account_receivable_id,
+          payment_date,
+          amount_paid,
+          interest_amount,
+          discount_amount,
+          interest_product_id,
+          discount_product_id
+        `).gte('payment_date', `${selectedYear}-01-01`).lte('payment_date', `${selectedYear}-12-31`);
+      if (arPaymentsError) {
+        console.warn('Erro ao buscar AR payments:', arPaymentsError);
+      }
+
+      // Criar mapa de pagamentos de contas a receber por installment_id
+      const arPaymentsByInstallmentId: Record<string, any> = {};
+      arPaymentsData?.forEach(payment => {
+        arPaymentsByInstallmentId[payment.installment_id] = payment;
+      });
+
       // Buscar contas a receber
       let accountsReceivableData: any[] = [];
       let arError = null;
@@ -586,6 +611,54 @@ export const DREView: React.FC<DREViewProps> = ({
           `).in('store_id', selectedStores).gte('data_competencia', `${selectedYear}-01-01`).lte('data_competencia', `${selectedYear}-12-31`);
         accountsReceivableData = data || [];
         arError = error;
+
+        // Para competência: também precisamos buscar juros/descontos de contas cuja 
+        // competência pode estar em outro ano, mas o pagamento foi feito no ano selecionado
+        // Buscar IDs das contas que têm pagamentos no ano selecionado
+        const arAccountIdsFromPayments = [...new Set(arPaymentsData?.map(p => p.account_receivable_id) || [])];
+
+        // Filtrar apenas IDs que não estão já nos dados buscados
+        const existingArAccountIds = new Set(accountsReceivableData.map((a: any) => a.id));
+        const missingArAccountIds = arAccountIdsFromPayments.filter(id => !existingArAccountIds.has(id));
+        if (missingArAccountIds.length > 0) {
+          // Buscar contas adicionais que têm pagamentos no ano mas competência em outro ano
+          const {
+            data: additionalArAccounts,
+            error: additionalArError
+          } = await supabase.from('accounts_receivable').select(`
+              id,
+              store_id,
+              data_competencia,
+              payment_date,
+              accounts_receivable_items (
+                product_id,
+                quantity,
+                unit_price,
+                total_price,
+                products (
+                  id,
+                  name,
+                  subgroup_id,
+                  function_type
+                )
+              ),
+              accounts_receivable_installments (
+                id,
+                installment_number,
+                due_date,
+                amount,
+                payment_date
+              ),
+              stores (name)
+            `).in('id', missingArAccountIds).in('store_id', selectedStores);
+          if (!additionalArError && additionalArAccounts) {
+            // Marcar essas contas para processar APENAS juros/descontos, não itens normais
+            additionalArAccounts.forEach((acc: any) => {
+              acc._onlyInterestDiscount = true;
+            });
+            accountsReceivableData = [...accountsReceivableData, ...additionalArAccounts];
+          }
+        }
       }
       if (arError) throw arError;
 
@@ -1253,10 +1326,20 @@ export const DREView: React.FC<DREViewProps> = ({
               });
             });
           } else {
-            // Para regime de competência: usar data_competencia
-            const items = account.accounts_receivable_items || [];
-            
-            if (items.length > 0 && account.data_competencia) {
+            // Para regime de competência: usar data_competencia para itens normais
+            // mas data de pagamento para juros/descontos (acréscimos/descontos)
+
+            // Separar itens normais de itens de juros/desconto
+            const normalItems = account.accounts_receivable_items?.filter((item: any) => 
+              item.product_id !== acrescimoReceberProductId && item.product_id !== descontoReceberProductId
+            ) || [];
+            const interestDiscountItems = account.accounts_receivable_items?.filter((item: any) => 
+              item.product_id === acrescimoReceberProductId || item.product_id === descontoReceberProductId
+            ) || [];
+
+            // Processar itens normais pela data de competência
+            // MAS apenas se a conta não for marcada para processar apenas juros/descontos
+            if (normalItems.length > 0 && !account._onlyInterestDiscount) {
               const {
                 month,
                 year
@@ -1279,17 +1362,11 @@ export const DREView: React.FC<DREViewProps> = ({
                   };
                 }
 
-                items.forEach((item: any) => {
+                normalItems.forEach((item: any) => {
                   if (item.products?.subgroup_id) {
                     const subgroupId = item.products.subgroup_id;
                     const value = parseFloat(item.total_price) || 0;
-                    
-                    // Verificar se é item de desconto do contas a receber
-                    // Desconto dado no recebimento = reduz a receita = débito (negativo)
-                    const isDescontoReceber = item.product_id === descontoReceberProductId;
-                    
                     // Contas a receber são crédito por natureza
-                    // O function_type do produto define se é positivo (credit) ou negativo (debit)
                     const productFunctionType = item.products.function_type || 'credit';
 
                     // Encontrar o item da estrutura que corresponde a este subgrupo
@@ -1298,19 +1375,172 @@ export const DREView: React.FC<DREViewProps> = ({
                       if (!groupedData[key].values[structureItem.id]) {
                         groupedData[key].values[structureItem.id] = 0;
                       }
-                      
-                      let signedValue: number;
-                      if (isDescontoReceber) {
-                        // Desconto no recebimento é sempre débito (reduz receita)
-                        signedValue = -Math.abs(value);
-                      } else {
-                        // Crédito = positivo, Débito = negativo
-                        signedValue = productFunctionType === 'credit' ? value : -value;
-                      }
+                      // Crédito = positivo, Débito = negativo
+                      const signedValue = productFunctionType === 'credit' ? value : -value;
                       groupedData[key].values[structureItem.id] += signedValue;
                     }
                   }
                 });
+              }
+            }
+
+            // Processar juros/descontos pela data de pagamento
+            // Se houver parcelas, usar payment_date de cada parcela paga
+            // Se não houver parcelas, usar payment_date da conta principal
+            if (interestDiscountItems.length > 0) {
+              const hasInstallments = account.accounts_receivable_installments && account.accounts_receivable_installments.length > 0;
+              
+              if (hasInstallments) {
+                // Parcelas: processar juros/descontos na data de pagamento de cada parcela paga
+                const paidInstallments = account.accounts_receivable_installments?.filter(
+                  (installment: any) => installment.payment_date !== null && installment.payment_date !== undefined
+                ) || [];
+                const totalPaidInstallments = paidInstallments.length;
+
+                if (totalPaidInstallments > 0) {
+                  paidInstallments.forEach((installment: any) => {
+                    const {
+                      month,
+                      year
+                    } = getMonthAndYearFromDate(installment.payment_date);
+
+                    // Verificar se o mês está selecionado
+                    if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+                      return;
+                    }
+
+                    const storeId = account.store_id;
+                    const storeName = account.stores?.name || 'Loja sem nome';
+                    const key = `${storeId}-${month}`;
+
+                    // Inicializar se não existir
+                    if (!groupedData[key]) {
+                      groupedData[key] = {
+                        month,
+                        year: parseInt(selectedYear),
+                        store_id: storeId,
+                        store_name: storeName,
+                        values: {}
+                      };
+                    }
+
+                    // Usar dados da tabela accounts_receivable_payments
+                    const paymentRecord = arPaymentsByInstallmentId[installment.id];
+                    if (paymentRecord) {
+                      // Processar juros (acréscimo) se houver
+                      if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoReceberProductId) {
+                        const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoReceberProductId);
+                        if (interestItem?.products?.subgroup_id) {
+                          const subgroupId = interestItem.products.subgroup_id;
+                          const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                          if (structureItem) {
+                            if (!groupedData[key].values[structureItem.id]) {
+                              groupedData[key].values[structureItem.id] = 0;
+                            }
+                            // Acréscimo em contas a receber: credit = positivo (receita extra)
+                            const productFunctionType = interestItem.products.function_type || 'credit';
+                            const signedValue = productFunctionType === 'credit' ? paymentRecord.interest_amount : -paymentRecord.interest_amount;
+                            groupedData[key].values[structureItem.id] += signedValue;
+                          }
+                        }
+                      }
+
+                      // Processar desconto se houver
+                      if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoReceberProductId) {
+                        const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoReceberProductId);
+                        if (discountItem?.products?.subgroup_id) {
+                          const subgroupId = discountItem.products.subgroup_id;
+                          const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                          if (structureItem) {
+                            if (!groupedData[key].values[structureItem.id]) {
+                              groupedData[key].values[structureItem.id] = 0;
+                            }
+                            // Desconto em contas a receber: sempre débito (reduz a receita)
+                            const signedValue = -Math.abs(paymentRecord.discount_amount);
+                            groupedData[key].values[structureItem.id] += signedValue;
+                          }
+                        }
+                      }
+                    } else {
+                      // Fallback para lógica legada (pagamentos anteriores à nova tabela)
+                      interestDiscountItems.forEach((item: any) => {
+                        if (item.products?.subgroup_id) {
+                          const subgroupId = item.products.subgroup_id;
+                          const dividedValue = (parseFloat(item.total_price) || 0) / totalPaidInstallments;
+                          const productFunctionType = item.products.function_type || 'credit';
+
+                          const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                          if (structureItem && dividedValue !== 0) {
+                            if (!groupedData[key].values[structureItem.id]) {
+                              groupedData[key].values[structureItem.id] = 0;
+                            }
+                            
+                            let signedValue: number;
+                            // Desconto em contas a receber = débito (negativo)
+                            if (item.product_id === descontoReceberProductId) {
+                              signedValue = -Math.abs(dividedValue);
+                            } else {
+                              // Acréscimo: aplicar function_type
+                              signedValue = productFunctionType === 'credit' ? dividedValue : -dividedValue;
+                            }
+                            groupedData[key].values[structureItem.id] += signedValue;
+                          }
+                        }
+                      });
+                    }
+                  });
+                }
+              } else {
+                // Sem parcelas: usar payment_date da conta principal
+                if (account.payment_date) {
+                  const {
+                    month,
+                    year
+                  } = getMonthAndYearFromDate(account.payment_date);
+
+                  // Verificar se o mês está selecionado
+                  if (selectedMonths.includes(month.toString()) && year === parseInt(selectedYear)) {
+                    const storeId = account.store_id;
+                    const storeName = account.stores?.name || 'Loja sem nome';
+                    const key = `${storeId}-${month}`;
+
+                    // Inicializar se não existir
+                    if (!groupedData[key]) {
+                      groupedData[key] = {
+                        month,
+                        year: parseInt(selectedYear),
+                        store_id: storeId,
+                        store_name: storeName,
+                        values: {}
+                      };
+                    }
+
+                    interestDiscountItems.forEach((item: any) => {
+                      if (item.products?.subgroup_id) {
+                        const subgroupId = item.products.subgroup_id;
+                        const value = parseFloat(item.total_price) || 0;
+                        const productFunctionType = item.products.function_type || 'credit';
+
+                        const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
+                        if (structureItem && value !== 0) {
+                          if (!groupedData[key].values[structureItem.id]) {
+                            groupedData[key].values[structureItem.id] = 0;
+                          }
+                          
+                          let signedValue: number;
+                          // Desconto em contas a receber = débito (negativo)
+                          if (item.product_id === descontoReceberProductId) {
+                            signedValue = -Math.abs(value);
+                          } else {
+                            // Acréscimo: aplicar function_type
+                            signedValue = productFunctionType === 'credit' ? value : -value;
+                          }
+                          groupedData[key].values[structureItem.id] += signedValue;
+                        }
+                      }
+                    });
+                  }
+                }
               }
             }
           }
