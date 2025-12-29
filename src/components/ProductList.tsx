@@ -25,6 +25,8 @@ interface Product {
   unit?: { name: string; symbol: string };
   cost_price?: number;
   barcode?: string;
+  product_type?: string;
+  function_type?: string;
 }
 
 interface Group {
@@ -71,7 +73,7 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
         .from("products")
         .select(`
           id, code, name, description, is_active, is_blocked, barcode, cost_price,
-          group_id, subgroup_id, unit_id,
+          group_id, subgroup_id, unit_id, product_type, function_type,
           group:account_groups!group_id(name),
           subgroup:account_groups!subgroup_id(name),
           unit:units_of_measure!unit_id(name, symbol)
