@@ -1846,26 +1846,29 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Descrição</TableHead>
+                        <TableHead>Documento</TableHead>
                         <TableHead>Credor</TableHead>
-                        <TableHead>Loja</TableHead>
-                        <TableHead>Valor</TableHead>
                         <TableHead>Vencimento</TableHead>
+                        <TableHead>Valor</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Data Recebimento</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {accountsReceivable.map((account) => (
                         <TableRow key={account.id}>
-                          <TableCell>{account.description}</TableCell>
-                          <TableCell>{account.creditors?.name || "N/A"}</TableCell>
-                          <TableCell>{account.stores?.name || "N/A"}</TableCell>
                           <TableCell>
-                            R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            {account.document_type && account.document_number 
+                              ? `${account.document_type} ${account.document_number}` 
+                              : account.description}
                           </TableCell>
+                          <TableCell>{account.creditors?.name || "N/A"}</TableCell>
                           <TableCell>
                             {new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}
+                          </TableCell>
+                          <TableCell>
+                            R$ {account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded text-xs ${
@@ -1878,66 +1881,71 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               {account.status === "paid" ? "Recebido" : account.status === "partial" ? "Parcial" : "Pendente"}
                             </span>
                           </TableCell>
-                           <TableCell>
-                             <div className="flex gap-2">
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleViewAccount(account)}
-                               >
-                                 <Eye className="h-4 w-4" />
-                               </Button>
-                               {canEdit && (
-                                 <>
-                                   <Button
-                                     size="sm"
-                                     variant="outline"
-                                     onClick={() => handleEditAccount(account)}
-                                   >
-                                     <Edit className="h-4 w-4" />
-                                   </Button>
-                                   
-                                   {(account.status === 'paid' || account.status === 'partial') && (
-                                     <Button
-                                       size="sm"
-                                       variant="outline"
-                                       onClick={() => handleReversePayment(account)}
-                                       disabled={loading}
-                                       title="Estornar recebimento"
-                                     >
-                                       <RefreshCw className="h-4 w-4" />
-                                     </Button>
-                                   )}
-                                   
-                                    {(account.status === 'pending' || account.status === 'partial') && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => openPaymentModal(account)}
-                                        disabled={loading}
-                                        title="Receber conta"
-                                        className="text-green-600 hover:text-green-700"
-                                      >
-                                        <DollarSign className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    
-                                    {account.status === 'pending' && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDeleteAccount(account.id, account.status)}
-                                        disabled={loading}
-                                        title="Excluir conta"
-                                        className="text-red-600 hover:text-red-700"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                 </>
-                               )}
-                             </div>
-                           </TableCell>
+                          <TableCell>
+                            {account.payment_date 
+                              ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleViewAccount(account)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {canEdit && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleEditAccount(account)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  
+                                  {(account.status === 'paid' || account.status === 'partial') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleReversePayment(account)}
+                                      disabled={loading}
+                                      title="Estornar recebimento"
+                                    >
+                                      <RefreshCw className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  
+                                  {(account.status === 'pending' || account.status === 'partial') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openPaymentModal(account)}
+                                      disabled={loading}
+                                      title="Receber conta"
+                                      className="text-green-600 hover:text-green-700"
+                                    >
+                                      <DollarSign className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  
+                                  {account.status === 'pending' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDeleteAccount(account.id, account.status)}
+                                      disabled={loading}
+                                      title="Excluir conta"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
