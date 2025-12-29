@@ -4065,7 +4065,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         <TableHead>Valor Unit.</TableHead>
                         <TableHead>Total</TableHead>
                         <TableHead>Loja</TableHead>
-                        <TableHead>Ações</TableHead>
+                        {!isViewOnly && <TableHead>Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -4076,15 +4076,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
                           <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
                           <TableCell>{item.store_name}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeItem(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                          {!isViewOnly && (
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeItem(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
