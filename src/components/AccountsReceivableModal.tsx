@@ -1928,10 +1928,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       let discountProduct: any = null;
       
       if (surcharge > 0) {
+        // Usar o parâmetro específico para contas a receber
         const { data: surchargeParam } = await supabase
           .from("system_parameters")
           .select("product_id, products!inner(id, name, code)")
-          .eq("parameter_key", "acrescimo")
+          .eq("parameter_key", "acrescimo_receber")
           .single();
         surchargeProduct = surchargeParam?.products;
       }

@@ -276,11 +276,22 @@ export function CashPaymentModal({
 
       // Buscar produtos configurados para acréscimo e desconto
       if (surcharge > 0) {
-        const { data: surchargeParam } = await supabase
+        // Primeiro tenta buscar o parâmetro específico para contas a pagar
+        let { data: surchargeParam } = await supabase
           .from("system_parameters")
           .select("product_id, products!inner(id, name, code)")
-          .eq("parameter_key", "acrescimo")
+          .eq("parameter_key", "acrescimo_pagar")
           .single();
+        
+        // Se não encontrar, usa o parâmetro legado
+        if (!surchargeParam) {
+          const { data: legacyParam } = await supabase
+            .from("system_parameters")
+            .select("product_id, products!inner(id, name, code)")
+            .eq("parameter_key", "acrescimo")
+            .single();
+          surchargeParam = legacyParam;
+        }
         
         if (surchargeParam?.products) {
           await supabase

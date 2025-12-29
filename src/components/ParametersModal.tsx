@@ -8,6 +8,7 @@ import { ProductParameterModal } from "./ProductParameterModal";
 import { SubgroupParameterModal } from "./SubgroupParameterModal";
 import { GrupoParameterModal } from "./GrupoParameterModal";
 import { FaturamentoParameterModal } from "./FaturamentoParameterModal";
+import { AcrescimoParameterModal } from "./AcrescimoParameterModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ParametersModalProps {
@@ -35,6 +36,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
   const [subgroupParameterOpen, setSubgroupParameterOpen] = useState(false);
   const [groupParameterOpen, setGroupParameterOpen] = useState(false);
   const [faturamentoParameterOpen, setFaturamentoParameterOpen] = useState(false);
+  const [acrescimoParameterOpen, setAcrescimoParameterOpen] = useState(false);
   const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string; groupId?: string; groupName?: string }>>({});
 
   // Parâmetros padrão do sistema
@@ -42,11 +44,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
     {
       id: 'acrescimo',
       name: 'Acréscimos',
-      description: 'Configurar produto para acréscimos nas contas',
+      description: 'Configurar produtos para acréscimos (Contas a Pagar e Contas a Receber)',
       type: 'acrescimo',
       category: 'product',
-      productId: configuredParameters['acrescimo']?.productId,
-      productName: configuredParameters['acrescimo']?.productName,
+      productId: configuredParameters['acrescimo_pagar']?.productId,
+      productName: configuredParameters['acrescimo_pagar']?.productName,
     },
     {
       id: 'desconto',
@@ -106,15 +108,15 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
     if (open) {
       loadConfiguredParameters();
     }
-  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen]);
+  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen, acrescimoParameterOpen]);
 
   const loadConfiguredParameters = async () => {
     try {
-      // Buscar parâmetros com produtos
+      // Buscar parâmetros com produtos (incluindo os novos parâmetros separados)
       const { data: productParams, error: productError } = await supabase
         .from('system_parameters')
         .select('parameter_key, product_id, products!inner(name)')
-        .in('parameter_key', ['acrescimo', 'desconto'])
+        .in('parameter_key', ['acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber'])
         .not('product_id', 'is', null);
 
       if (productError) throw productError;
@@ -171,7 +173,10 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
 
   const handleParameterClick = (parameter: Parameter) => {
     setSelectedParameter(parameter);
-    if (parameter.category === 'product') {
+    // Para acréscimos, abrir o modal específico com dois produtos
+    if (parameter.id === 'acrescimo') {
+      setAcrescimoParameterOpen(true);
+    } else if (parameter.category === 'product') {
       setProductParameterOpen(true);
     } else if (parameter.category === 'subgroup') {
       setSubgroupParameterOpen(true);
@@ -270,20 +275,36 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                       <CardDescription className="text-sm mb-3">
                         {parameter.description}
                       </CardDescription>
-                      <div className="flex justify-between items-center">
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <Settings className="h-3 w-3 mr-1" />
-                          Configurar
-                        </Button>
-                        {configuredParam && (
-                          <Badge variant="default" className="text-xs">
-                            {parameter.category === 'product' 
-                              ? `Produto: ${configuredParam.productName}`
-                              : parameter.category === 'subgroup'
-                              ? `Subgrupo: ${configuredParam.subgroupName}`
-                              : `Grupo: ${configuredParam.groupName}`
-                            }
-                          </Badge>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <Button size="sm" variant="outline" className="text-xs">
+                            <Settings className="h-3 w-3 mr-1" />
+                            Configurar
+                          </Button>
+                          {configuredParam && parameter.id !== 'acrescimo' && (
+                            <Badge variant="default" className="text-xs">
+                              {parameter.category === 'product' 
+                                ? `Produto: ${configuredParam.productName}`
+                                : parameter.category === 'subgroup'
+                                ? `Subgrupo: ${configuredParam.subgroupName}`
+                                : `Grupo: ${configuredParam.groupName}`
+                              }
+                            </Badge>
+                          )}
+                        </div>
+                        {parameter.id === 'acrescimo' && (
+                          <div className="flex flex-col gap-1">
+                            {configuredParameters['acrescimo_pagar']?.productName && (
+                              <Badge variant="outline" className="text-xs justify-start">
+                                Pagar: {configuredParameters['acrescimo_pagar'].productName}
+                              </Badge>
+                            )}
+                            {configuredParameters['acrescimo_receber']?.productName && (
+                              <Badge variant="outline" className="text-xs justify-start">
+                                Receber: {configuredParameters['acrescimo_receber'].productName}
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </div>
                     </CardContent>
@@ -336,6 +357,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
           type: selectedParameter.type as 'funcionarios',
           category: selectedParameter.category
         } : null}
+      />
+
+      <AcrescimoParameterModal
+        open={acrescimoParameterOpen}
+        onOpenChange={setAcrescimoParameterOpen}
       />
 
       <FaturamentoParameterModal
