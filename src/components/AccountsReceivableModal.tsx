@@ -964,6 +964,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .from("products")
         .select("id, name, code")
         .eq("is_active", true)
+        .eq("function_type", "credit")
         .order("name");
 
       if (error) throw error;
