@@ -164,6 +164,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [filterCurrentAccount, setFilterCurrentAccount] = useState("");
   const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [showFilteredData, setShowFilteredData] = useState(false);
 
   // Payment tab filters
@@ -377,6 +378,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       if (filterDueDateTo) {
         query = query.lte("due_date", filterDueDateTo);
       }
+      if (filterStatus && filterStatus !== "all" && filterStatus !== "") {
+        query = query.eq("status", filterStatus);
+      }
 
       query = query.order("created_at", { ascending: false });
 
@@ -404,6 +408,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setFilterCurrentAccount("");
     setFilterDueDateFrom("");
     setFilterDueDateTo("");
+    setFilterStatus("all");
     setAccountsReceivable([]);
     setShowFilteredData(false);
   };
@@ -1820,6 +1825,20 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       value={filterDueDateTo}
                       onChange={(e) => setFilterDueDateTo(e.target.value)}
                     />
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="partial">Parcial</SelectItem>
+                        <SelectItem value="paid">Recebido</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex gap-2">
