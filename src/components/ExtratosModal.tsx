@@ -349,6 +349,23 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                 saldoDiaAnterior -= transaction.amount; // Saída
               }
             }
+
+            // Buscar contas a receber recebidas até o dia anterior
+            const { data: receivableTransactionsAnteriores } = await supabase
+              .from('financial_transactions')
+              .select('amount')
+              .eq('store_id', selectedStore)
+              .eq('account_id', selectedAccount)
+              .in('reference_type', ['accounts_receivable', 'accounts_receivable_installments'])
+              .eq('transaction_type', 'entrada')
+              .gte('transaction_date', format(inicialDate, 'yyyy-MM-dd'))
+              .lte('transaction_date', format(dayBefore, 'yyyy-MM-dd'));
+
+            if (receivableTransactionsAnteriores) {
+              for (const transaction of receivableTransactionsAnteriores) {
+                saldoDiaAnterior += transaction.amount; // Entrada
+              }
+            }
           }
 
           // Buscar fechamentos de caixa até o dia anterior para conta caixa específica
@@ -590,13 +607,119 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         }
       }
 
-      // 4. Buscar contas a receber (entradas) - DESABILITADO - Tabela não existe
-      // TODO: Implementar quando a tabela accounts_receivable_installments for criada
-      /*
-      if (account.type === 'current' || account.type === 'cash') {
-        // Código comentado até tabela ser criada
+      // 4. Buscar contas a receber (entradas) - Para contas que podem receber pagamentos
+      if (account.type === 'current' || account.type === 'cash' || account.type === 'card') {
+        // 4.1. Buscar recebimentos usando financial_transactions
+        const { data: receivableTransactions } = await supabase
+          .from('financial_transactions')
+          .select(`
+            id,
+            amount,
+            transaction_date,
+            description,
+            reference_id,
+            reference_type
+          `)
+          .eq('store_id', selectedStore)
+          .eq('account_id', selectedAccount)
+          .in('reference_type', ['accounts_receivable', 'accounts_receivable_installments'])
+          .eq('transaction_type', 'entrada')
+          .gte('transaction_date', format(startDate, 'yyyy-MM-dd'))
+          .lte('transaction_date', format(endDate, 'yyyy-MM-dd'));
+
+        if (receivableTransactions && receivableTransactions.length > 0) {
+          for (const transaction of receivableTransactions) {
+            let isValidTransaction = false;
+            let documentNumber = '';
+            let installmentInfo = '';
+            let description = transaction.description || 'Recebimento de Conta';
+
+            // Se for uma parcela, verificar se ainda está paga
+            if (transaction.reference_type === 'accounts_receivable_installments') {
+              const { data: installmentData } = await supabase
+                .from('accounts_receivable_installments')
+                .select(`
+                  installment_number,
+                  payment_date,
+                  account_receivable_id,
+                  accounts_receivable!inner (
+                    document_number,
+                    description,
+                    creditor_id,
+                    creditors (
+                      name
+                    )
+                  )
+                `)
+                .eq('id', transaction.reference_id)
+                .maybeSingle();
+
+              // Só incluir se a parcela ainda tem payment_date E a data de pagamento corresponde à data da transação
+              if (installmentData && installmentData.payment_date !== null && 
+                  installmentData.payment_date === transaction.transaction_date) {
+                isValidTransaction = true;
+                documentNumber = installmentData.accounts_receivable?.document_number || '';
+                
+                // Verificar se tem credor associado
+                const creditorName = installmentData.accounts_receivable?.creditors?.name || 'Cliente não informado';
+                description = creditorName;
+                
+                // Buscar total de parcelas para mostrar "1/3" formato
+                const { data: totalInstallments } = await supabase
+                  .from('accounts_receivable_installments')
+                  .select('installment_number')
+                  .eq('account_receivable_id', installmentData.account_receivable_id)
+                  .order('installment_number', { ascending: false })
+                  .limit(1);
+
+                const maxInstallment = totalInstallments?.[0]?.installment_number || 1;
+                installmentInfo = `${installmentData.installment_number}/${maxInstallment}`;
+              }
+            } else if (transaction.reference_type === 'accounts_receivable') {
+              // Se for recebimento integral, verificar se ainda está pago
+              const { data: receivableData } = await supabase
+                .from('accounts_receivable')
+                .select(`
+                  document_number, 
+                  description,
+                  payment_date,
+                  status,
+                  creditor_id,
+                  creditors (
+                    name
+                  )
+                `)
+                .eq('id', transaction.reference_id)
+                .maybeSingle();
+
+              // Só incluir se a conta ainda está paga E a data de pagamento corresponde à data da transação
+              if (receivableData && receivableData.payment_date !== null && receivableData.status !== 'pending' &&
+                  receivableData.payment_date === transaction.transaction_date) {
+                isValidTransaction = true;
+                documentNumber = receivableData.document_number || '';
+                
+                const creditorName = receivableData.creditors?.name || 'Cliente não informado';
+                description = creditorName;
+                installmentInfo = 'Integral';
+              }
+            }
+
+            // Só adicionar ao extrato se a transação ainda for válida
+            if (isValidTransaction) {
+              items.push({
+                date: parseISO(transaction.transaction_date + 'T12:00:00'),
+                description: description,
+                number: documentNumber,
+                installment: installmentInfo,
+                entrada: transaction.amount,
+                saida: 0,
+                saldo: 0,
+                type: 'receivable' as const
+              });
+            }
+          }
+        }
       }
-      */
 
       // 5. Buscar fechamentos de caixa para conta caixa específica
       if (account.type === 'cash') {
