@@ -337,6 +337,7 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          attachments: Json | null
           created_at: string
           created_by: string
           creditor_id: string | null
@@ -357,6 +358,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           amount: number
+          attachments?: Json | null
           created_at?: string
           created_by: string
           creditor_id?: string | null
@@ -377,6 +379,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           amount?: number
+          attachments?: Json | null
           created_at?: string
           created_by?: string
           creditor_id?: string | null
