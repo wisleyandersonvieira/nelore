@@ -480,8 +480,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setIsRealEdit(true);
     setActiveTab("create");
     
-    // Load form data
-    setCreditorId(account.creditors ? "" : "");
+    // Load form data - creditor will be loaded from full account data
+    setCreditorId(""); // Will be set after fetching full account data
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
     setIssueDate(account.issue_date || "");
@@ -516,17 +516,20 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setItems(formattedItems);
       setNoteRecorded(true);
 
-      // Load existing attachments
+      // Load existing attachments and creditor_id
       const { data: accountFullData } = await supabase
         .from("accounts_receivable")
-        .select("*")
+        .select("*, creditors(id, name)")
         .eq("id", account.id)
         .single();
 
-      if (accountFullData && (accountFullData as any).attachments) {
-        setExistingAttachments((accountFullData as any).attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}>);
-      } else {
-        setExistingAttachments([]);
+      if (accountFullData) {
+        setCreditorId(accountFullData.creditor_id || "");
+        if ((accountFullData as any).attachments) {
+          setExistingAttachments((accountFullData as any).attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}>);
+        } else {
+          setExistingAttachments([]);
+        }
       }
       setAttachments([]);
     } catch (error) {
