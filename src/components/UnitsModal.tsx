@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Edit, Ban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Unit {
   id: string;
@@ -256,45 +257,49 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
       )}
 
       {/* Lista de Unidades */}
-      <Card className="flex-1 overflow-hidden">
-        <CardHeader>
-          <CardTitle>Unidades Cadastradas</CardTitle>
+      <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <CardHeader className="shrink-0 py-3">
+          <CardTitle>Unidades Cadastradas ({units.length})</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="max-h-[400px] overflow-y-auto">
+        <CardContent className="p-0 flex-1 overflow-hidden flex flex-col min-h-0">
+          {/* Cabeçalho fixo */}
+          <Table>
+            <TableHeader className="bg-card">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[35%] h-8 py-1">Nome</TableHead>
+                <TableHead className="w-[20%] h-8 py-1">Símbolo</TableHead>
+                <TableHead className="w-[20%] h-8 py-1">Status</TableHead>
+                <TableHead className="text-right w-[25%] h-8 py-1">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+          {/* Corpo com scroll */}
+          <ScrollArea className="flex-1">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Símbolo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center">
+                    <TableCell colSpan={4} className="text-center h-10">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : units.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center text-muted-foreground h-10">
                       Nenhuma unidade encontrada
                     </TableCell>
                   </TableRow>
                 ) : (
                   units.map((unit) => (
-                    <TableRow key={unit.id}>
-                      <TableCell className="font-medium">{unit.name}</TableCell>
-                      <TableCell className="font-mono">{unit.symbol}</TableCell>
-                      <TableCell>
-                        <Badge variant={unit.is_active ? "default" : "secondary"}>
+                    <TableRow key={unit.id} className="h-8">
+                      <TableCell className="font-medium py-1 w-[35%]">{unit.name}</TableCell>
+                      <TableCell className="font-mono py-1 w-[20%]">{unit.symbol}</TableCell>
+                      <TableCell className="py-1 w-[20%]">
+                        <Badge variant={unit.is_active ? "default" : "secondary"} className="text-xs">
                           {unit.is_active ? "Ativo" : "Inativo"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-1 w-[25%]">
                         <div className="flex gap-1 justify-end">
                           {canEdit && (
                             <Button
@@ -302,8 +307,9 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleEdit(unit)}
                               title="Editar"
+                              className="h-7 w-7 p-0"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canEdit && (
@@ -312,8 +318,9 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleToggleStatus(unit)}
                               title={unit.is_active ? "Desativar" : "Ativar"}
+                              className="h-7 w-7 p-0"
                             >
-                              <Ban className="h-4 w-4" />
+                              <Ban className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canDelete && (
@@ -322,9 +329,9 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleDelete(unit)}
                               title="Excluir"
-                              className="text-destructive hover:text-destructive"
+                              className="text-destructive hover:text-destructive h-7 w-7 p-0"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
@@ -334,7 +341,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                 )}
               </TableBody>
             </Table>
-          </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>
