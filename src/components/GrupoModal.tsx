@@ -495,7 +495,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                   <TableHeader className="bg-card">
                     <TableRow className="hover:bg-transparent">
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[35%]"
                         onClick={() => handleSort('name')}
                       >
                         <div className="flex items-center">
@@ -504,7 +504,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[30%]"
                         onClick={() => handleSort('account_type')}
                       >
                         <div className="flex items-center">
@@ -512,8 +512,8 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                           {getSortIcon('account_type')}
                         </div>
                       </TableHead>
-                      <TableHead className="h-10 py-2">Status</TableHead>
-                      <TableHead className="text-right h-10 py-2">Ações</TableHead>
+                      <TableHead className="h-10 py-2 w-[15%]">Status</TableHead>
+                      <TableHead className="text-right h-10 py-2 w-[20%]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                 </Table>
@@ -536,14 +536,14 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                   ) : (
                     sortedGrupos.map((grupo) => (
                       <TableRow key={grupo.id} className="h-12">
-                        <TableCell className="font-medium py-2">{grupo.name}</TableCell>
-                        <TableCell className="capitalize py-2">{grupo.account_type}</TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="font-medium py-2 w-[35%]">{grupo.name}</TableCell>
+                        <TableCell className="capitalize py-2 w-[30%]">{grupo.account_type}</TableCell>
+                        <TableCell className="py-2 w-[15%]">
                           <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             Ativo
                           </span>
                         </TableCell>
-                        <TableCell className="text-right py-2">
+                        <TableCell className="text-right py-2 w-[20%]">
                           <div className="flex gap-1 justify-end">
                             {canEdit && (
                               <Button
