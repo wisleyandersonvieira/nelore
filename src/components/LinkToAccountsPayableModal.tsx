@@ -883,7 +883,7 @@ export function LinkToAccountsPayableModal({
                             value={productSearchTerm}
                             onValueChange={setProductSearchTerm}
                           />
-                          <CommandList>
+                          <CommandList className="max-h-[300px] overflow-y-auto">
                             <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                             <CommandGroup>
                               {filteredProducts.slice(0, 50).map((product) => (
