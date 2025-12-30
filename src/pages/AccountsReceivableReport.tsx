@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Filter, FileDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -216,23 +217,11 @@ const AccountsReceivableReport = () => {
     setAccounts([]);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não recebidas", 105, 28, { align: "center" });
-    
-    // Date range info
-    let filterInfo = [];
+  const getFilterInfo = () => {
+    let filterInfo: string[] = [];
     if (filters.due_start || filters.due_end) {
-      const start = filters.due_start ? new Date(filters.due_start).toLocaleDateString("pt-BR") : "Início";
-      const end = filters.due_end ? new Date(filters.due_end).toLocaleDateString("pt-BR") : "Hoje";
+      const start = filters.due_start ? new Date(filters.due_start + 'T00:00:00').toLocaleDateString("pt-BR") : "Início";
+      const end = filters.due_end ? new Date(filters.due_end + 'T00:00:00').toLocaleDateString("pt-BR") : "Hoje";
       filterInfo.push(`Vencimento: ${start} a ${end}`);
     }
     if (filters.creditor_id !== "all") {
@@ -243,6 +232,21 @@ const AccountsReceivableReport = () => {
       const store = stores.find(s => s.id === filters.store_id);
       if (store) filterInfo.push(`Loja: ${store.name}`);
     }
+    return filterInfo;
+  };
+
+  const exportToPDFGeral = () => {
+    const doc = new jsPDF();
+    const filterInfo = getFilterInfo();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas ainda não recebidas", 105, 28, { align: "center" });
     
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
@@ -297,7 +301,225 @@ const AccountsReceivableReport = () => {
       doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
     }
 
-    doc.save("contas-a-receber.pdf");
+    doc.save("contas-a-receber-geral.pdf");
+  };
+
+  const exportToPDFByCreditor = () => {
+    const doc = new jsPDF();
+    const filterInfo = getFilterInfo();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Agrupado por Credor", 105, 28, { align: "center" });
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    // Group accounts by creditor
+    const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
+      const creditorName = account.creditors?.name || "Sem Credor";
+      if (!groups[creditorName]) {
+        groups[creditorName] = [];
+      }
+      groups[creditorName].push(account);
+      return groups;
+    }, {});
+
+    let startY = filterInfo.length > 0 ? 45 : 35;
+    let grandTotal = 0;
+    let grandCount = 0;
+
+    // Sort creditors alphabetically
+    const sortedCreditors = Object.keys(groupedByCreditor).sort();
+
+    sortedCreditors.forEach((creditorName, index) => {
+      const creditorAccounts = groupedByCreditor[creditorName];
+      const creditorTotal = creditorAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
+      grandTotal += creditorTotal;
+      grandCount += creditorAccounts.length;
+
+      // Creditor header
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Credor: ${creditorName}`, 20, startY);
+      startY += 5;
+
+      const tableData = creditorAccounts.map((account: any) => [
+        getAccountTitle(account),
+        account.stores?.name || "N/A",
+        new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+        account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+        account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+      ]);
+
+      // Add subtotal row
+      tableData.push([
+        { content: `Subtotal ${creditorName}`, colSpan: 3, styles: { fontStyle: "bold", halign: "right" } },
+        { content: creditorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+        { content: `${creditorAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+      ]);
+
+      autoTable(doc, {
+        head: [["Título", "Loja", "Vencimento", "Valor", "Parcelas"]],
+        body: tableData,
+        startY: startY,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: "bold"
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // Check if we need a new page
+      if (startY > 250 && index < sortedCreditors.length - 1) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    // Grand total
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcelas)`, 20, startY + 5);
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-receber-por-credor.pdf");
+  };
+
+  const exportToPDFByMonth = () => {
+    const doc = new jsPDF();
+    const filterInfo = getFilterInfo();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Agrupado por Mês de Vencimento", 105, 28, { align: "center" });
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    // Group accounts by month/year
+    const groupedByMonth = accounts.reduce((groups: Record<string, { name: string; accounts: any[] }>, account) => {
+      const date = new Date(account.due_date + 'T00:00:00');
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      if (!groups[monthKey]) {
+        groups[monthKey] = { name: monthName, accounts: [] };
+      }
+      groups[monthKey].accounts.push(account);
+      return groups;
+    }, {});
+
+    let startY = filterInfo.length > 0 ? 45 : 35;
+    let grandTotal = 0;
+    let grandCount = 0;
+
+    // Sort months chronologically
+    const sortedMonths = Object.keys(groupedByMonth).sort();
+
+    sortedMonths.forEach((monthKey, index) => {
+      const monthData = groupedByMonth[monthKey];
+      const monthAccounts = monthData.accounts;
+      const monthTotal = monthAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
+      grandTotal += monthTotal;
+      grandCount += monthAccounts.length;
+
+      // Month header
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Mês: ${monthData.name.charAt(0).toUpperCase() + monthData.name.slice(1)}`, 20, startY);
+      startY += 5;
+
+      const tableData = monthAccounts.map((account: any) => [
+        getAccountTitle(account),
+        account.creditors?.name || "N/A",
+        account.stores?.name || "N/A",
+        new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+        account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+        account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+      ]);
+
+      // Add subtotal row
+      tableData.push([
+        { content: `Subtotal ${monthData.name.charAt(0).toUpperCase() + monthData.name.slice(1)}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
+        { content: monthTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+        { content: `${monthAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+      ]);
+
+      autoTable(doc, {
+        head: [["Título", "Credor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+        body: tableData,
+        startY: startY,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: "bold"
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // Check if we need a new page
+      if (startY > 250 && index < sortedMonths.length - 1) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    // Grand total
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcelas)`, 20, startY + 5);
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-receber-por-mes.pdf");
   };
 
   const exportToExcel = () => {
@@ -484,10 +706,26 @@ const AccountsReceivableReport = () => {
               <div className="flex justify-between items-center">
                 <CardTitle>Contas a Receber ({accounts.length})</CardTitle>
                 <div className="flex gap-2">
-                  <Button onClick={exportToPDF} variant="outline" size="sm">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <FileDown className="h-4 w-4 mr-2" />
+                        PDF
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={exportToPDFGeral}>
+                        Geral
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFByCreditor}>
+                        Por Credor
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFByMonth}>
+                        Por Mês
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button onClick={exportToExcel} variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Excel
