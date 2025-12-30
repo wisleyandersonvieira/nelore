@@ -638,10 +638,6 @@ export function LinkToAccountsPayableModal({
         }
       }
 
-      toast({
-        title: "Sucesso",
-        description: "Conta a pagar criada e vinculada com sucesso",
-      });
 
       // Buscar os dados atualizados da conta a pagar (incluindo anexos copiados)
       const { data: updatedPayable } = await supabase
