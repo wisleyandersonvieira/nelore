@@ -860,8 +860,8 @@ export function LinkToAccountsPayableModal({
             <div className="border rounded-lg p-4">
               <h3 className="font-semibold mb-3">Itens</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-                <div className="md:col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto] gap-3 mb-4 items-end">
+                <div className="min-w-0">
                   <Label>Produto</Label>
                   <div className="flex gap-2">
                     <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
@@ -870,11 +870,13 @@ export function LinkToAccountsPayableModal({
                           variant="outline"
                           role="combobox"
                           aria-expanded={productSearchOpen}
-                          className="w-full justify-between font-normal"
+                          className="w-full justify-between font-normal min-w-0"
                         >
-                          {selectedProductData
-                            ? `${selectedProductData.code ? `${selectedProductData.code} - ` : ''}${selectedProductData.name}`
-                            : "Digite para buscar..."}
+                          <span className="truncate">
+                            {selectedProductData
+                              ? `${selectedProductData.code ? `${selectedProductData.code} - ` : ''}${selectedProductData.name}`
+                              : "Digite para buscar..."}
+                          </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
@@ -915,6 +917,7 @@ export function LinkToAccountsPayableModal({
                     <Button 
                       variant="outline" 
                       size="icon"
+                      className="shrink-0"
                       onClick={() => setShowProductSearch(true)}
                     >
                       <Search className="h-4 w-4" />
