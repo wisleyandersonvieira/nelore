@@ -2186,6 +2186,36 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw new Error("Usuário não autenticado");
 
+      // Validar duplicidade: verificar se já existe título com mesmo número e tipo de documento para o fornecedor
+      if (!isEmployeeMode && supplierId && documentNumber && documentType) {
+        const { data: existingPayable, error: duplicateError } = await supabase
+          .from("accounts_payable")
+          .select("id, issue_date, amount")
+          .eq("supplier_id", supplierId)
+          .eq("document_number", documentNumber)
+          .eq("document_type", documentType)
+          .maybeSingle();
+
+        if (duplicateError) {
+          console.error("Erro ao verificar duplicidade:", duplicateError);
+        }
+
+        if (existingPayable) {
+          const formattedDate = existingPayable.issue_date 
+            ? new Date(existingPayable.issue_date).toLocaleDateString('pt-BR')
+            : 'N/A';
+          const formattedValue = Number(existingPayable.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+          
+          toast({
+            title: "Título duplicado",
+            description: `Já existe um título igual com data de emissão ${formattedDate} e valor ${formattedValue}`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       // Primeiro, criar a conta a pagar
       const userProfile = (await supabase
         .from("profiles")
