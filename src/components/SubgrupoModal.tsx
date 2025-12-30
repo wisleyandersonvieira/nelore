@@ -485,7 +485,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                   <TableHeader className="bg-card">
                     <TableRow className="hover:bg-transparent">
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[35%]"
                         onClick={() => handleSort('name')}
                       >
                         <div className="flex items-center">
@@ -494,7 +494,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[30%]"
                         onClick={() => handleSort('parent')}
                       >
                         <div className="flex items-center">
@@ -502,8 +502,8 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                           {getSortIcon('parent')}
                         </div>
                       </TableHead>
-                      <TableHead className="h-10 py-2">Status</TableHead>
-                      <TableHead className="text-right h-10 py-2">Ações</TableHead>
+                      <TableHead className="h-10 py-2 w-[15%]">Status</TableHead>
+                      <TableHead className="text-right h-10 py-2 w-[20%]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                 </Table>
@@ -526,14 +526,14 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                    ) : (
                      sortedSubgrupos.map((subgrupo) => (
                       <TableRow key={subgrupo.id} className="h-12">
-                        <TableCell className="font-medium py-2">{subgrupo.name}</TableCell>
-                        <TableCell className="py-2">{subgrupo.parent?.name || 'N/A'}</TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="font-medium py-2 w-[35%]">{subgrupo.name}</TableCell>
+                        <TableCell className="py-2 w-[30%]">{subgrupo.parent?.name || 'N/A'}</TableCell>
+                        <TableCell className="py-2 w-[15%]">
                           <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             Ativo
                           </span>
                         </TableCell>
-                        <TableCell className="text-right py-2">
+                        <TableCell className="text-right py-2 w-[20%]">
                           <div className="flex gap-1 justify-end">
                             {canEdit && (
                               <Button
