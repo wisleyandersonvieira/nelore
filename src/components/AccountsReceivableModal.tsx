@@ -1317,6 +1317,36 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         throw new Error("Usuário não autenticado");
       }
 
+      // Validar duplicidade: verificar se já existe título com mesmo número e tipo de documento para o credor
+      if (creditorId && documentNumber && documentType) {
+        const { data: existingReceivable, error: duplicateError } = await supabase
+          .from("accounts_receivable")
+          .select("id, issue_date, amount")
+          .eq("creditor_id", creditorId)
+          .eq("document_number", documentNumber)
+          .eq("document_type", documentType)
+          .maybeSingle();
+
+        if (duplicateError) {
+          console.error("Erro ao verificar duplicidade:", duplicateError);
+        }
+
+        if (existingReceivable) {
+          const formattedDate = existingReceivable.issue_date 
+            ? new Date(existingReceivable.issue_date).toLocaleDateString('pt-BR')
+            : 'N/A';
+          const formattedValue = Number(existingReceivable.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+          
+          toast({
+            title: "Título duplicado",
+            description: `Já existe um título igual com data de emissão ${formattedDate} e valor ${formattedValue}`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       // Upload attachments
       let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
       if (attachments.length > 0) {
