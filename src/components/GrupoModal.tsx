@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Ban, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Edit, Ban, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -33,6 +33,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   const [sortBy, setSortBy] = useState<'name' | 'account_type' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [filterAccountType, setFilterAccountType] = useState<string>("all");
   const [formData, setFormData] = useState({
     name: "",
     account_type: ""
@@ -334,8 +335,10 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   const filteredGrupos = grupos.filter((grupo) => {
     const matchesSearch = searchTerm === "" || 
       grupo.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesAccountType = filterAccountType === "all" || 
+      grupo.account_type === filterAccountType;
     
-    return matchesSearch;
+    return matchesSearch && matchesAccountType;
   });
 
   const sortedGrupos = [...filteredGrupos].sort((a, b) => {
@@ -376,10 +379,23 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>Cadastro de Grupos</DialogTitle>
-          <DialogDescription>
-            Gerencie os grupos de contas financeiras
-          </DialogDescription>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-9"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <div>
+              <DialogTitle className="text-2xl font-bold text-primary">Grupos</DialogTitle>
+              <DialogDescription className="text-base">
+                Gerencie os grupos de contas financeiras
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
@@ -404,6 +420,19 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                 className="h-9"
               />
             </div>
+
+            {/* Filtro por Classe */}
+            <Select value={filterAccountType} onValueChange={setFilterAccountType}>
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Filtrar por classe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as classes</SelectItem>
+                <SelectItem value="receita">Receita</SelectItem>
+                <SelectItem value="despesa">Despesa</SelectItem>
+                <SelectItem value="investimento">Investimento</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Formulário */}
@@ -455,11 +484,11 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
           )}
 
           {/* Lista de Grupos */}
-          <div className="flex-1 border rounded-md overflow-hidden bg-card">
-            <div className="border-b px-4 py-3">
+          <div className="flex-1 flex flex-col border rounded-md overflow-hidden bg-card min-h-0">
+            <div className="border-b px-4 py-3 shrink-0">
               <h3 className="font-semibold">Grupos Cadastrados ({sortedGrupos.length})</h3>
             </div>
-            <ScrollArea className="flex-1 h-[calc(100vh-400px)]">
+            <div className="flex-1 overflow-hidden min-h-0">
               <Table>
                 <TableHeader className="sticky top-0 bg-card border-b shadow-sm z-10">
                   <TableRow className="hover:bg-transparent">
@@ -551,7 +580,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                   )}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
           </div>
         </div>
       </DialogContent>
