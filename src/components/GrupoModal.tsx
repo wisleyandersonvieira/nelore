@@ -489,32 +489,38 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
               <h3 className="font-semibold">Grupos Cadastrados ({sortedGrupos.length})</h3>
             </div>
             <div className="flex-1 overflow-hidden min-h-0">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card border-b shadow-sm z-10">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center">
-                        Nome
-                        {getSortIcon('name')}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
-                      onClick={() => handleSort('account_type')}
-                    >
-                      <div className="flex items-center">
-                        Classe
-                        {getSortIcon('account_type')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="h-10 py-2">Status</TableHead>
-                    <TableHead className="text-right h-10 py-2">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <div className="h-full flex flex-col">
+                {/* Cabeçalho fixo */}
+                <Table>
+                  <TableHeader className="bg-card">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center">
+                          Nome
+                          {getSortIcon('name')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        onClick={() => handleSort('account_type')}
+                      >
+                        <div className="flex items-center">
+                          Classe
+                          {getSortIcon('account_type')}
+                        </div>
+                      </TableHead>
+                      <TableHead className="h-10 py-2">Status</TableHead>
+                      <TableHead className="text-right h-10 py-2">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                </Table>
+                {/* Corpo com scroll */}
+                <ScrollArea className="flex-1">
+                  <Table>
+                    <TableBody>
                   {loading ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center h-20">
@@ -578,8 +584,10 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                       </TableRow>
                     ))
                   )}
-                </TableBody>
-              </Table>
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
             </div>
           </div>
         </div>
