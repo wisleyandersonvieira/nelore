@@ -214,42 +214,41 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
     <div className="space-y-4">
       {/* Filtros */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+        <CardHeader className="py-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Search className="h-4 w-4" />
             Filtros de Busca
           </CardTitle>
-          <CardDescription>
-            Use os filtros abaixo para encontrar produtos específicos
-          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="filter-description">Descrição</Label>
+        <CardContent className="pt-0">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1 flex-1 min-w-[200px]">
+              <Label htmlFor="filter-description" className="text-xs">Descrição</Label>
               <Input
                 id="filter-description"
                 placeholder="Buscar por nome ou descrição"
                 value={filters.description}
                 onChange={(e) => setFilters({ ...filters, description: e.target.value })}
+                className="h-8"
               />
             </div>
             
-            <div className="space-y-2 max-w-[140px]">
-              <Label htmlFor="filter-code">Código</Label>
+            <div className="space-y-1 w-[100px]">
+              <Label htmlFor="filter-code" className="text-xs">Código</Label>
               <Input
                 id="filter-code"
                 placeholder="Código"
                 value={filters.code}
                 onChange={(e) => setFilters({ ...filters, code: e.target.value })}
+                className="h-8"
               />
             </div>
             
-            <div className="space-y-2 max-w-[180px]">
-              <Label htmlFor="filter-group">Grupo</Label>
+            <div className="space-y-1 w-[140px]">
+              <Label htmlFor="filter-group" className="text-xs">Grupo</Label>
               <Select value={filters.group_id} onValueChange={(value) => setFilters({ ...filters, group_id: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os grupos" />
+                <SelectTrigger className="h-8">
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os grupos</SelectItem>
@@ -262,11 +261,11 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
               </Select>
             </div>
             
-            <div className="space-y-2 max-w-[180px]">
-              <Label htmlFor="filter-subgroup">Subgrupo</Label>
+            <div className="space-y-1 w-[140px]">
+              <Label htmlFor="filter-subgroup" className="text-xs">Subgrupo</Label>
               <Select value={filters.subgroup_id} onValueChange={(value) => setFilters({ ...filters, subgroup_id: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os subgrupos" />
+                <SelectTrigger className="h-8">
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os subgrupos</SelectItem>
@@ -278,10 +277,8 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          
-          <div className="flex gap-2 mt-4">
-            <Button variant="outline" onClick={clearFilters}>
+
+            <Button variant="outline" onClick={clearFilters} size="sm" className="h-8">
               Limpar Filtros
             </Button>
           </div>
