@@ -1333,7 +1333,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         if (existingReceivable) {
           const formattedDate = existingReceivable.issue_date 
-            ? new Date(existingReceivable.issue_date).toLocaleDateString('pt-BR')
+            ? new Date(existingReceivable.issue_date + 'T00:00:00').toLocaleDateString('pt-BR')
             : 'N/A';
           const formattedValue = Number(existingReceivable.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
           
