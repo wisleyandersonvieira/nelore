@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Ban, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Edit, Ban, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -365,10 +365,23 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>Cadastro de Subgrupos</DialogTitle>
-          <DialogDescription>
-            Gerencie os subgrupos de contas financeiras
-          </DialogDescription>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-9"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <div>
+              <DialogTitle className="text-2xl font-bold text-primary">Subgrupos</DialogTitle>
+              <DialogDescription className="text-base">
+                Gerencie os subgrupos de contas financeiras
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
@@ -394,24 +407,19 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                   className="h-9"
                 />
               </div>
-              <div className="w-48">
-                <Select
-                  value={filterGroup}
-                  onValueChange={setFilterGroup}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Filtrar por grupo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os grupos</SelectItem>
-                    {grupos.map((grupo) => (
-                      <SelectItem key={grupo.id} value={grupo.id}>
-                        {grupo.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={filterGroup} onValueChange={setFilterGroup}>
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Filtrar por grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os grupos</SelectItem>
+                  {grupos.map((grupo) => (
+                    <SelectItem key={grupo.id} value={grupo.id}>
+                      {grupo.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -466,37 +474,43 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
           )}
 
           {/* Lista de Subgrupos */}
-          <div className="flex-1 border rounded-md overflow-hidden bg-card">
-            <div className="border-b px-4 py-3">
+          <div className="flex-1 flex flex-col border rounded-md overflow-hidden bg-card min-h-0">
+            <div className="border-b px-4 py-3 shrink-0">
               <h3 className="font-semibold">Subgrupos Cadastrados ({sortedSubgrupos.length})</h3>
             </div>
-            <ScrollArea className="flex-1 h-[calc(100vh-400px)]">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card border-b shadow-sm z-10">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center">
-                        Nome
-                        {getSortIcon('name')}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
-                      onClick={() => handleSort('parent')}
-                    >
-                      <div className="flex items-center">
-                        Grupo
-                        {getSortIcon('parent')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="h-10 py-2">Status</TableHead>
-                    <TableHead className="text-right h-10 py-2">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="flex-1 overflow-hidden min-h-0">
+              <div className="h-full flex flex-col">
+                {/* Cabeçalho fixo */}
+                <Table>
+                  <TableHeader className="bg-card">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center">
+                          Nome
+                          {getSortIcon('name')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2"
+                        onClick={() => handleSort('parent')}
+                      >
+                        <div className="flex items-center">
+                          Grupo
+                          {getSortIcon('parent')}
+                        </div>
+                      </TableHead>
+                      <TableHead className="h-10 py-2">Status</TableHead>
+                      <TableHead className="text-right h-10 py-2">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                </Table>
+                {/* Corpo com scroll */}
+                <ScrollArea className="flex-1">
+                  <Table>
+                    <TableBody>
                   {loading ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center h-20">
@@ -560,9 +574,11 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                       </TableRow>
                     ))
                   )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>
