@@ -2202,7 +2202,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         if (existingPayable) {
           const formattedDate = existingPayable.issue_date 
-            ? new Date(existingPayable.issue_date).toLocaleDateString('pt-BR')
+            ? new Date(existingPayable.issue_date + 'T00:00:00').toLocaleDateString('pt-BR')
             : 'N/A';
           const formattedValue = Number(existingPayable.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
           
