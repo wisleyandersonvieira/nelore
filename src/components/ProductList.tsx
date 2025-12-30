@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Edit, Ban, Trash2, Package } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Product {
   id: string;
@@ -234,17 +235,17 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-2 max-w-[140px]">
               <Label htmlFor="filter-code">Código</Label>
               <Input
                 id="filter-code"
-                placeholder="Buscar por código"
+                placeholder="Código"
                 value={filters.code}
                 onChange={(e) => setFilters({ ...filters, code: e.target.value })}
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-2 max-w-[180px]">
               <Label htmlFor="filter-group">Grupo</Label>
               <Select value={filters.group_id} onValueChange={(value) => setFilters({ ...filters, group_id: value })}>
                 <SelectTrigger>
@@ -261,7 +262,7 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
               </Select>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-2 max-w-[180px]">
               <Label htmlFor="filter-subgroup">Subgrupo</Label>
               <Select value={filters.subgroup_id} onValueChange={(value) => setFilters({ ...filters, subgroup_id: value })}>
                 <SelectTrigger>
@@ -288,45 +289,49 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
       </Card>
 
       {/* Lista de Produtos */}
-      <Card>
-        <CardHeader>
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        <CardHeader className="shrink-0 py-3">
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Produtos Cadastrados ({filteredProducts.length})
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="max-h-[600px] overflow-y-auto">
+        <CardContent className="p-0 flex-1 overflow-hidden flex flex-col min-h-0">
+          {/* Cabeçalho fixo */}
+          <Table>
+            <TableHeader className="bg-card">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[8%] h-9 py-1">Código</TableHead>
+                <TableHead className="w-[27%] h-9 py-1">Descrição</TableHead>
+                <TableHead className="w-[15%] h-9 py-1">Grupo</TableHead>
+                <TableHead className="w-[15%] h-9 py-1">Subgrupo</TableHead>
+                <TableHead className="w-[12%] h-9 py-1">Unidade</TableHead>
+                <TableHead className="w-[10%] h-9 py-1">Status</TableHead>
+                <TableHead className="text-right w-[13%] h-9 py-1">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+          {/* Corpo com scroll */}
+          <ScrollArea className="flex-1">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Grupo</TableHead>
-                  <TableHead>Subgrupo</TableHead>
-                  <TableHead>Unidade</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">
+                    <TableCell colSpan={7} className="text-center h-12">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground h-12">
                       Nenhum produto encontrado
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-mono">{product.code}</TableCell>
-                      <TableCell>
+                    <TableRow key={product.id} className="h-10">
+                      <TableCell className="font-mono py-1 w-[8%]">{product.code}</TableCell>
+                      <TableCell className="py-1 w-[27%]">
                         <div>
                           <div className="font-medium">{product.name}</div>
                           {product.description && (
@@ -334,22 +339,22 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{product.group?.name || "-"}</TableCell>
-                      <TableCell>{product.subgroup?.name || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell className="py-1 w-[15%]">{product.group?.name || "-"}</TableCell>
+                      <TableCell className="py-1 w-[15%]">{product.subgroup?.name || "-"}</TableCell>
+                      <TableCell className="py-1 w-[12%]">
                         {product.unit ? `${product.unit.name} (${product.unit.symbol})` : "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1 w-[10%]">
                         <div className="flex gap-1">
-                          <Badge variant={product.is_active ? "default" : "secondary"}>
+                          <Badge variant={product.is_active ? "default" : "secondary"} className="text-xs">
                             {product.is_active ? "Ativo" : "Inativo"}
                           </Badge>
                           {product.is_blocked && (
-                            <Badge variant="destructive">Bloqueado</Badge>
+                            <Badge variant="destructive" className="text-xs">Bloqueado</Badge>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-1 w-[13%]">
                         <div className="flex gap-1 justify-end">
                           {canEdit && (
                             <Button
@@ -361,8 +366,9 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
                                 }
                               }}
                               title="Editar"
+                              className="h-7 w-7 p-0"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canEdit && (
@@ -371,8 +377,9 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
                               size="sm"
                               onClick={() => handleToggleBlock(product)}
                               title={product.is_blocked ? "Desbloquear" : "Bloquear"}
+                              className="h-7 w-7 p-0"
                             >
-                              <Ban className="h-4 w-4" />
+                              <Ban className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {canDelete && (
@@ -381,9 +388,9 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
                               size="sm"
                               onClick={() => handleDelete(product)}
                               title="Excluir"
-                              className="text-destructive hover:text-destructive"
+                              className="text-destructive hover:text-destructive h-7 w-7 p-0"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
@@ -393,7 +400,7 @@ export const ProductList = ({ onEditProduct, canEdit = true, canDelete = true }:
                 )}
               </TableBody>
             </Table>
-          </div>
+          </ScrollArea>
         </CardContent>
       </Card>
 
