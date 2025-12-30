@@ -4097,8 +4097,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         <TableRow key={index}>
                           <TableCell>{item.product_name}</TableCell>
                           <TableCell>{item.quantity}</TableCell>
-                          <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
-                          <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
+                          <TableCell>{item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                          <TableCell>{item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                           <TableCell>{item.store_name}</TableCell>
                           {!isViewOnly && (
                             <TableCell>
@@ -4123,7 +4123,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold text-primary">
-                          R$ {getTotalAmount().toFixed(2)}
+                          {getTotalAmount().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                         </div>
                       </CardContent>
                     </Card>
