@@ -471,6 +471,37 @@ export function LinkToAccountsPayableModal({
       return;
     }
 
+    // Check for duplicate account payable (same supplier, document number and document type)
+    const { data: existingPayable, error: duplicateCheckError } = await supabase
+      .from("accounts_payable")
+      .select("id, issue_date, amount")
+      .eq("supplier_id", supplierId)
+      .eq("document_number", documentNumber)
+      .eq("document_type", documentType)
+      .limit(1)
+      .maybeSingle();
+
+    if (duplicateCheckError) {
+      console.error("Erro ao verificar duplicidade:", duplicateCheckError);
+    }
+
+    if (existingPayable) {
+      const formattedDate = existingPayable.issue_date 
+        ? new Date(existingPayable.issue_date + 'T00:00:00').toLocaleDateString('pt-BR')
+        : 'N/A';
+      const formattedValue = new Intl.NumberFormat('pt-BR', { 
+        style: 'currency', 
+        currency: 'BRL' 
+      }).format(existingPayable.amount || 0);
+      
+      toast({
+        title: "Título Duplicado",
+        description: `Já existe um título igual com data de emissão ${formattedDate} e valor ${formattedValue}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
