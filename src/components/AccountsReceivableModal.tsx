@@ -2758,8 +2758,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 <TableRow key={index}>
                                   <TableCell>{item.product_name}</TableCell>
                                   <TableCell>{item.quantity}</TableCell>
-                                  <TableCell>R$ {item.unit_price.toFixed(2)}</TableCell>
-                                  <TableCell>R$ {item.total_price.toFixed(2)}</TableCell>
+                                  <TableCell>{item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                                  <TableCell>{item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                                   <TableCell>{item.store_name}</TableCell>
                                   {!isViewOnly && !isAttachmentOnlyEdit && (
                                     <TableCell>
@@ -2781,7 +2781,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             <div className="flex justify-between items-center">
                               <span className="text-lg font-medium">Total Geral:</span>
                               <span className="text-2xl font-bold text-primary">
-                                R$ {getTotalAmount().toFixed(2)}
+                                {getTotalAmount().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                               </span>
                             </div>
                           </div>
@@ -2863,7 +2863,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
-                <p className="font-medium">Valor Total: R$ {getTotalAmount().toFixed(2)}</p>
+                <p className="font-medium">Valor Total: {getTotalAmount().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -2922,7 +2922,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   
                   <div className="p-4 bg-primary/10 rounded-lg">
                     <p className="font-semibold">
-                      Total das Parcelas: R$ {installments.reduce((sum, inst) => sum + inst.amount, 0).toFixed(2)}
+                      Total das Parcelas: {installments.reduce((sum, inst) => sum + inst.amount, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </p>
                   </div>
                 </div>
@@ -2960,7 +2960,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                     Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-lg font-semibold text-green-400 mt-1">
-                    Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
+                    Valor Original: {Number(paymentAccount.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </p>
                 </div>
 
@@ -3016,7 +3016,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 </div>
                               </div>
                               <span className="font-semibold text-lg">
-                                R$ {Number(installment.amount).toFixed(2)}
+                                {Number(installment.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                               </span>
                             </div>
                           </div>
@@ -3241,7 +3241,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold">R$ {Number(installment.amount).toFixed(2)}</p>
+                            <p className="font-semibold">{Number(installment.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                           </div>
                         </div>
                       ))}
