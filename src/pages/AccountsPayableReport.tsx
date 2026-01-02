@@ -453,8 +453,51 @@ const AccountsPayableReport = () => {
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
     
     accounts.forEach((account: any) => {
+      // Calculate the installment proportion for parcelado accounts
+      // For installment accounts: proportion = installment_amount / total_title_amount
+      // Interest and discounts are applied fully to each installment
+      
+      let installmentProportion = 1; // Default: full amount (à vista)
+      let interestAmount = 0;
+      let discountAmount = 0;
+      
+      if (account.total_installments > 1) {
+        // This is a parcelado account - calculate proportion
+        // We need to get the original total amount (sum of all installments or total_amount)
+        const originalTotalAmount = account.total_amount || account.amount * account.total_installments;
+        
+        if (originalTotalAmount > 0) {
+          // Get the installment base amount (without interest/discount adjustments from payments)
+          const installmentBaseAmount = originalTotalAmount / account.total_installments;
+          installmentProportion = installmentBaseAmount / originalTotalAmount;
+        }
+        
+        // Check for interest/discount from payments on this specific installment
+        const payments = account.accounts_payable_payments || [];
+        if (payments.length > 0) {
+          payments.forEach((payment: any) => {
+            interestAmount += payment.interest_amount || 0;
+            discountAmount += payment.discount_amount || 0;
+          });
+        }
+      } else {
+        // À vista - check for interest/discount
+        const payments = account.accounts_payable_payments || [];
+        if (payments.length > 0) {
+          payments.forEach((payment: any) => {
+            interestAmount += payment.interest_amount || 0;
+            discountAmount += payment.discount_amount || 0;
+          });
+        }
+      }
+      
       // Process items
       if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
+        // Calculate total of all items to distribute interest/discount proportionally
+        const totalItemsValue = account.accounts_payable_items.reduce(
+          (sum: number, item: any) => sum + (item.total_price || 0), 0
+        );
+        
         account.accounts_payable_items.forEach((item: any) => {
           const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
           const subgroupName = item.products?.account_groups?.name || 'Sem Subgrupo';
@@ -466,13 +509,23 @@ const AccountsPayableReport = () => {
             };
           }
           
+          // Calculate proportional item amount for this installment
+          let itemAmount = (item.total_price || 0) * installmentProportion;
+          
+          // Distribute interest/discount proportionally to items based on their value
+          if (totalItemsValue > 0 && (interestAmount > 0 || discountAmount > 0)) {
+            const itemProportion = (item.total_price || 0) / totalItemsValue;
+            itemAmount += (interestAmount * itemProportion) - (discountAmount * itemProportion);
+          }
+          
           accountsBySubgroup[subgroupId].items.push({
             description: account.description,
             supplierName: account.suppliers?.name || "N/A",
             storeName: account.stores?.name || "N/A",
             dueDate: account.due_date,
-            amount: item.total_price || 0,
-            productName: item.products?.name || "Produto"
+            amount: itemAmount,
+            productName: item.products?.name || "Produto",
+            installmentInfo: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : null
           });
         });
       } else {
@@ -483,13 +536,16 @@ const AccountsPayableReport = () => {
             items: []
           };
         }
+        
+        // For accounts without items, use the already adjusted amount
         accountsBySubgroup['sem-subgrupo'].items.push({
           description: account.description,
           supplierName: account.suppliers?.name || "N/A",
           storeName: account.stores?.name || "N/A",
           dueDate: account.due_date,
           amount: account.amount || 0,
-          productName: null
+          productName: null,
+          installmentInfo: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : null
         });
       }
     });
