@@ -58,6 +58,7 @@ interface BreedingAnimal {
 
 interface BreedingAnimalWithCounts extends BreedingAnimal {
   offspringCount: number;
+  grandchildrenCount: number;
 }
 
 const AnimaisMatrizes = () => {
@@ -113,6 +114,7 @@ const AnimaisMatrizes = () => {
       // Fetch offspring counts for each breeding animal
       const animalsWithCounts: BreedingAnimalWithCounts[] = await Promise.all(
         allAnimals.map(async (animal) => {
+          // Count direct offspring (filhos)
           const { count: sireCount } = await supabase
             .from("animals")
             .select("*", { count: "exact", head: true })
@@ -125,9 +127,34 @@ const AnimaisMatrizes = () => {
             .eq("dam_id", animal.id)
             .eq("is_active", true);
 
+          // Count grandchildren (netos) - animals whose parent (sire or dam) has this animal as parent
+          // First get offspring breeding animals
+          const offspringBreedingIds = allAnimals
+            .filter(ba => ba.sire_id === animal.id || ba.dam_id === animal.id)
+            .map(ba => ba.id);
+
+          let grandchildrenCount = 0;
+          if (offspringBreedingIds.length > 0) {
+            // Count animals that have any of the offspring as parent
+            const { count: grandchildSireCount } = await supabase
+              .from("animals")
+              .select("*", { count: "exact", head: true })
+              .in("sire_id", offspringBreedingIds)
+              .eq("is_active", true);
+
+            const { count: grandchildDamCount } = await supabase
+              .from("animals")
+              .select("*", { count: "exact", head: true })
+              .in("dam_id", offspringBreedingIds)
+              .eq("is_active", true);
+
+            grandchildrenCount = (grandchildSireCount || 0) + (grandchildDamCount || 0);
+          }
+
           return {
             ...animal,
             offspringCount: (sireCount || 0) + (damCount || 0),
+            grandchildrenCount,
           };
         })
       );
@@ -418,19 +445,20 @@ const AnimaisMatrizes = () => {
                 <TableHead>Sexo</TableHead>
                 <TableHead>Registro</TableHead>
                 <TableHead>Animais Filhos Ativos</TableHead>
+                <TableHead>Animais Netos Ativos</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : filteredAnimals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
                     Nenhuma matriz ou genitor encontrado
                   </TableCell>
                 </TableRow>
@@ -441,6 +469,7 @@ const AnimaisMatrizes = () => {
                     <TableCell className="py-2">{getSexLabel(animal.sex)}</TableCell>
                     <TableCell className="py-2">{animal.registration || "-"}</TableCell>
                     <TableCell className="py-2">{animal.offspringCount}</TableCell>
+                    <TableCell className="py-2">{animal.grandchildrenCount}</TableCell>
                     <TableCell className="text-right py-2">
                       <div className="flex justify-end gap-1">
                         <DropdownMenu>
