@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -120,6 +120,7 @@ const AnimaisCadastro = () => {
     birth_date_start: null as Date | null,
     birth_date_end: null as Date | null,
   });
+  const [showFilters, setShowFilters] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -532,7 +533,15 @@ const AnimaisCadastro = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold">Filtros</h2>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className="gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
+            {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
           <Button onClick={() => handleOpenModal("create")} className="gap-2">
             <Plus className="h-4 w-4" />
             Cadastrar Animal
@@ -540,6 +549,7 @@ const AnimaisCadastro = () => {
         </div>
 
         {/* Filters Section */}
+        {showFilters && (
         <div className="bg-card border rounded-lg p-4 mb-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Name filter */}
@@ -775,6 +785,7 @@ const AnimaisCadastro = () => {
             </Button>
           </div>
         </div>
+        )}
 
         {(() => {
           // Apply filters
