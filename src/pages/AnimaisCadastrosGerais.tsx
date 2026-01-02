@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Dog, Tag } from "lucide-react";
+import { ArrowLeft, Dog, Tag, Gavel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -20,6 +20,13 @@ const AnimaisCadastrosGerais = () => {
       icon: Tag,
       color: "bg-teal-500",
       route: "/animais/cadastros-gerais/categorias",
+    },
+    {
+      title: "Leilões",
+      description: "Cadastro de leilões",
+      icon: Gavel,
+      color: "bg-purple-500",
+      route: "/animais/cadastros-gerais/leiloes",
     },
   ];
 
