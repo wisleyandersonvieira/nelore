@@ -275,6 +275,9 @@ export function CashPaymentModal({
       }
 
       // Buscar produtos configurados para acréscimo e desconto
+      let surchargeProductId: string | null = null;
+      let discountProductId: string | null = null;
+
       if (surcharge > 0) {
         // Primeiro tenta buscar o parâmetro específico para contas a pagar
         let { data: surchargeParam } = await supabase
@@ -294,11 +297,12 @@ export function CashPaymentModal({
         }
         
         if (surchargeParam?.products) {
+          surchargeProductId = (surchargeParam.products as any).id;
           await supabase
             .from("accounts_payable_items")
             .insert({
               account_payable_id: accountPayable.id,
-              product_id: (surchargeParam.products as any).id,
+              product_id: surchargeProductId,
               quantity: 1,
               unit_price: surcharge,
               total_price: surcharge,
@@ -326,11 +330,12 @@ export function CashPaymentModal({
         }
         
         if (discountParam?.products) {
+          discountProductId = (discountParam.products as any).id;
           await supabase
             .from("accounts_payable_items")
             .insert({
               account_payable_id: accountPayable.id,
-              product_id: (discountParam.products as any).id,
+              product_id: discountProductId,
               quantity: 1,
               unit_price: -discount,
               total_price: -discount,
@@ -338,6 +343,40 @@ export function CashPaymentModal({
             });
         }
       }
+
+      // Criar parcela única para pagamento à vista
+      const { data: installment, error: installmentError } = await supabase
+        .from("accounts_payable_installments")
+        .insert({
+          account_payable_id: accountPayable.id,
+          installment_number: 1,
+          due_date: paymentDate,
+          amount: baseAmount,
+          payment_date: paymentDate,
+        })
+        .select()
+        .single();
+
+      if (installmentError) throw installmentError;
+
+      // Registrar o pagamento na tabela accounts_payable_payments para o DRE funcionar corretamente
+      const { error: paymentRecordError } = await supabase
+        .from("accounts_payable_payments")
+        .insert({
+          installment_id: installment.id,
+          account_payable_id: accountPayable.id,
+          payment_date: paymentDate,
+          amount_paid: finalAmount,
+          interest_amount: surcharge,
+          discount_amount: discount,
+          interest_product_id: surchargeProductId,
+          discount_product_id: discountProductId,
+          payment_account_id: selectedAccountId,
+          payment_account_type: 'current',
+          created_by: user.id,
+        });
+
+      if (paymentRecordError) throw paymentRecordError;
 
       // Merge new attachments with existing ones
       const existingAttachments = Array.isArray(accountPayable.attachments) ? accountPayable.attachments : [];
