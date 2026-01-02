@@ -9,7 +9,7 @@ const Animais = () => {
   const menus = [
     {
       id: "cadastro",
-      title: "Cadastro",
+      title: "Gestão de Animais",
       description: "Cadastro e gestão de animais",
       icon: ClipboardList,
       color: "bg-green-500",
