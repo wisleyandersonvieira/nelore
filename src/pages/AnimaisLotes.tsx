@@ -30,9 +30,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Plus, Pencil, Trash2, FileText, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface Batch {
   id: string;
@@ -44,9 +53,20 @@ interface Batch {
   updated_at: string;
 }
 
+interface BatchWithCount extends Batch {
+  animalCount: number;
+}
+
+interface Animal {
+  id: string;
+  name: string;
+  code: number;
+  batch_id: string | null;
+}
+
 const AnimaisLotes = () => {
   const navigate = useNavigate();
-  const [batches, setBatches] = useState<Batch[]>([]);
+  const [batches, setBatches] = useState<BatchWithCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -54,6 +74,7 @@ const AnimaisLotes = () => {
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [nextCode, setNextCode] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [storeId, setStoreId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBatches();
@@ -73,6 +94,8 @@ const AnimaisLotes = () => {
         return;
       }
 
+      setStoreId(profile.store_id);
+
       const { data, error } = await supabase
         .from("animal_batches")
         .select("*")
@@ -81,12 +104,29 @@ const AnimaisLotes = () => {
 
       if (error) throw error;
 
-      setBatches(data || []);
-      
+      // Fetch animal counts for each batch
+      const batchesWithCounts: BatchWithCount[] = await Promise.all(
+        (data || []).map(async (batch) => {
+          const { count } = await supabase
+            .from("animals")
+            .select("*", { count: "exact", head: true })
+            .eq("batch_id", batch.id)
+            .eq("is_active", true);
+
+          return {
+            ...batch,
+            animalCount: count || 0,
+          };
+        })
+      );
+
+      setBatches(batchesWithCounts);
+
       // Get next code
-      const { data: nextCodeData } = await supabase
-        .rpc("get_next_animal_batch_code", { store_uuid: profile.store_id });
-      
+      const { data: nextCodeData } = await supabase.rpc("get_next_animal_batch_code", {
+        store_uuid: profile.store_id,
+      });
+
       setNextCode(nextCodeData || 1);
     } catch (error: any) {
       console.error("Error fetching batches:", error);
@@ -220,6 +260,111 @@ const AnimaisLotes = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const fetchAnimalsForBatch = async (batchId: string): Promise<Animal[]> => {
+    const { data, error } = await supabase
+      .from("animals")
+      .select("id, name, code, batch_id")
+      .eq("batch_id", batchId)
+      .eq("is_active", true)
+      .order("code", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching animals:", error);
+      return [];
+    }
+    return data || [];
+  };
+
+  const generatePDFReport = async (batch: BatchWithCount) => {
+    try {
+      const animals = await fetchAnimalsForBatch(batch.id);
+
+      const doc = new jsPDF();
+
+      // Title
+      doc.setFontSize(18);
+      doc.text("Relatório de Lote", 14, 22);
+
+      // Batch info
+      doc.setFontSize(12);
+      doc.text(`Código: ${batch.code}`, 14, 35);
+      doc.text(`Nome: ${batch.name}`, 14, 42);
+      if (batch.description) {
+        doc.text(`Descrição: ${batch.description}`, 14, 49);
+      }
+      doc.text(`Total de Animais: ${batch.animalCount}`, 14, batch.description ? 56 : 49);
+
+      // Animals table
+      if (animals.length > 0) {
+        const startY = batch.description ? 65 : 58;
+        doc.setFontSize(14);
+        doc.text("Animais Vinculados", 14, startY);
+
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [["Código", "Nome"]],
+          body: animals.map((animal) => [animal.code.toString(), animal.name]),
+          theme: "striped",
+          headStyles: { fillColor: [59, 130, 246] },
+        });
+      } else {
+        const startY = batch.description ? 65 : 58;
+        doc.setFontSize(12);
+        doc.text("Nenhum animal vinculado a este lote.", 14, startY);
+      }
+
+      doc.save(`lote_${batch.code}_${batch.name.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Relatório PDF gerado com sucesso!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Erro ao gerar relatório PDF");
+    }
+  };
+
+  const generateExcelReport = async (batch: BatchWithCount) => {
+    try {
+      const animals = await fetchAnimalsForBatch(batch.id);
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+
+      // Batch info data
+      const batchInfo = [
+        ["Relatório de Lote"],
+        [],
+        ["Código", batch.code],
+        ["Nome", batch.name],
+        ["Descrição", batch.description || "-"],
+        ["Total de Animais", batch.animalCount],
+        [],
+        ["Animais Vinculados"],
+        ["Código", "Nome"],
+      ];
+
+      // Add animals data
+      animals.forEach((animal) => {
+        batchInfo.push([animal.code.toString(), animal.name]);
+      });
+
+      if (animals.length === 0) {
+        batchInfo.push(["Nenhum animal vinculado a este lote.", ""]);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(batchInfo);
+
+      // Set column widths
+      ws["!cols"] = [{ wch: 15 }, { wch: 40 }];
+
+      XLSX.utils.book_append_sheet(wb, ws, "Lote");
+
+      XLSX.writeFile(wb, `lote_${batch.code}_${batch.name.replace(/\s+/g, "_")}.xlsx`);
+      toast.success("Relatório Excel gerado com sucesso!");
+    } catch (error) {
+      console.error("Error generating Excel:", error);
+      toast.error("Erro ao gerar relatório Excel");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -259,7 +404,7 @@ const AnimaisLotes = () => {
                   <TableHead>Nome</TableHead>
                   <TableHead className="text-center">Animais</TableHead>
                   <TableHead className="text-right">Peso Total</TableHead>
-                  <TableHead className="w-24 text-center">Ações</TableHead>
+                  <TableHead className="w-32 text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -274,22 +419,35 @@ const AnimaisLotes = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-muted-foreground">-</TableCell>
+                    <TableCell className="text-center">
+                      <span className={batch.animalCount > 0 ? "font-medium" : "text-muted-foreground"}>
+                        {batch.animalCount}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right text-muted-foreground">-</TableCell>
                     <TableCell>
-                      <div className="flex justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenModal(batch)}
-                        >
+                      <div className="flex justify-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Relatório">
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => generatePDFReport(batch)}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => generateExcelReport(batch)}>
+                              <FileSpreadsheet className="h-4 w-4 mr-2" />
+                              Excel
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenModal(batch)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDeleteDialog(batch)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(batch)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -306,9 +464,7 @@ const AnimaisLotes = () => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {selectedBatch ? "Editar Lote" : "Cadastrar Lote"}
-            </DialogTitle>
+            <DialogTitle>{selectedBatch ? "Editar Lote" : "Cadastrar Lote"}</DialogTitle>
             <DialogDescription>
               {selectedBatch
                 ? "Edite as informações do lote"
@@ -365,13 +521,16 @@ const AnimaisLotes = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o lote "{selectedBatch?.name}"? Esta ação
-              não pode ser desfeita.
+              Tem certeza que deseja excluir o lote "{selectedBatch?.name}"? Esta ação não pode ser
+              desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
