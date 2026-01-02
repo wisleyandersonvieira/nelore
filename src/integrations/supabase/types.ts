@@ -721,6 +721,137 @@ export type Database = {
           },
         ]
       }
+      animals: {
+        Row: {
+          auction_id: string | null
+          auction_lot: string | null
+          batch_id: string | null
+          birth_date: string | null
+          breed_id: string | null
+          category_id: string | null
+          code: number
+          cover_photo: string | null
+          created_at: string
+          dam_id: string | null
+          ear_tag: number | null
+          farm_entry_date: string | null
+          first_weighing_date: string | null
+          first_weight: number | null
+          id: string
+          is_active: boolean
+          name: string
+          observations: string | null
+          photos: Json | null
+          registration: string | null
+          sex: string
+          sire_id: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          auction_id?: string | null
+          auction_lot?: string | null
+          batch_id?: string | null
+          birth_date?: string | null
+          breed_id?: string | null
+          category_id?: string | null
+          code: number
+          cover_photo?: string | null
+          created_at?: string
+          dam_id?: string | null
+          ear_tag?: number | null
+          farm_entry_date?: string | null
+          first_weighing_date?: string | null
+          first_weight?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          observations?: string | null
+          photos?: Json | null
+          registration?: string | null
+          sex: string
+          sire_id?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          auction_id?: string | null
+          auction_lot?: string | null
+          batch_id?: string | null
+          birth_date?: string | null
+          breed_id?: string | null
+          category_id?: string | null
+          code?: number
+          cover_photo?: string | null
+          created_at?: string
+          dam_id?: string | null
+          ear_tag?: number | null
+          farm_entry_date?: string | null
+          first_weighing_date?: string | null
+          first_weight?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          observations?: string | null
+          photos?: Json | null
+          registration?: string | null
+          sex?: string
+          sire_id?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animals_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "animal_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_breed_id_fkey"
+            columns: ["breed_id"]
+            isOneToOne: false
+            referencedRelation: "animal_breeds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "animal_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_dam_id_fkey"
+            columns: ["dam_id"]
+            isOneToOne: false
+            referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_sire_id_fkey"
+            columns: ["sire_id"]
+            isOneToOne: false
+            referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       breeding_animals: {
         Row: {
           created_at: string
@@ -2737,6 +2868,7 @@ export type Database = {
         Args: { store_uuid: string }
         Returns: number
       }
+      get_next_animal_code: { Args: { store_uuid: string }; Returns: number }
       get_next_job_function_code: {
         Args: { store_uuid: string }
         Returns: number
