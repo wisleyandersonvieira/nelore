@@ -377,6 +377,99 @@ const AnimaisMatrizes = () => {
     }
   };
 
+  const generateGrandchildrenReport = async (animal: BreedingAnimalWithCounts) => {
+    try {
+      // Get offspring breeding animals (filhos que são reprodutores/matrizes)
+      const offspringBreedingIds = allBreedingAnimals
+        .filter(ba => ba.sire_id === animal.id || ba.dam_id === animal.id)
+        .map(ba => ba.id);
+
+      if (offspringBreedingIds.length === 0) {
+        toast.info("Não há animais netos ativos para este registro.");
+        return;
+      }
+
+      // Get grandchildren animals
+      const { data: grandchildrenSire } = await supabase
+        .from("animals")
+        .select("code, name, ear_tag, sex, sire_id, dam_id")
+        .in("sire_id", offspringBreedingIds)
+        .eq("is_active", true);
+
+      const { data: grandchildrenDam } = await supabase
+        .from("animals")
+        .select("code, name, ear_tag, sex, sire_id, dam_id")
+        .in("dam_id", offspringBreedingIds)
+        .eq("is_active", true);
+
+      // Combine and remove duplicates
+      const allGrandchildren = [...(grandchildrenSire || []), ...(grandchildrenDam || [])];
+      const uniqueGrandchildren = allGrandchildren.filter(
+        (gc, index, self) => index === self.findIndex(t => t.code === gc.code && t.name === gc.name)
+      );
+
+      if (uniqueGrandchildren.length === 0) {
+        toast.info("Não há animais netos ativos para este registro.");
+        return;
+      }
+
+      // Sort by name
+      uniqueGrandchildren.sort((a, b) => a.name.localeCompare(b.name));
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Relatório de Animais Netos", pageWidth / 2, 20, { align: "center" });
+
+      // Parent info
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${animal.sex === "macho" ? "Reprodutor" : "Matriz"}: ${animal.name}`, 14, 35);
+      if (animal.registration) {
+        doc.text(`Registro: ${animal.registration}`, 14, 42);
+      }
+      doc.text(`Total de Netos Ativos: ${uniqueGrandchildren.length}`, 14, animal.registration ? 49 : 42);
+
+      // Get parent names for the table
+      const getParentName = (parentId: string | null) => {
+        if (!parentId) return "-";
+        const parent = allBreedingAnimals.find(ba => ba.id === parentId);
+        return parent?.name || "-";
+      };
+
+      // Table with grandchildren
+      const tableData = uniqueGrandchildren.map((gc) => [
+        gc.code?.toString() || "-",
+        gc.name,
+        gc.ear_tag?.toString() || "-",
+        gc.sex === "macho" ? "Macho" : "Fêmea",
+        getParentName(gc.sire_id),
+        getParentName(gc.dam_id),
+      ]);
+
+      autoTable(doc, {
+        startY: animal.registration ? 55 : 48,
+        head: [["Código", "Nome", "Brinco", "Sexo", "Pai", "Mãe"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: { fillColor: [236, 72, 153] },
+      });
+
+      // Footer with date
+      const today = new Date().toLocaleDateString("pt-BR");
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${today}`, 14, doc.internal.pageSize.getHeight() - 10);
+
+      doc.save(`relatorio_netos_${animal.name.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Relatório gerado com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao gerar relatório: " + error.message);
+    }
+  };
+
   const getSexLabel = (sex: string) => {
     return sex === "macho" ? "Macho" : "Fêmea";
   };
@@ -483,6 +576,9 @@ const AnimaisMatrizes = () => {
                           <DropdownMenuContent align="end" className="bg-background">
                             <DropdownMenuItem onClick={() => generateOffspringReport(animal)}>
                               PDF - Animais Filhos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => generateGrandchildrenReport(animal)}>
+                              PDF - Animais Netos
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
