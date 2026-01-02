@@ -528,7 +528,7 @@ const AnimaisCadastro = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-primary">Cadastro de Animais</h1>
+            <h1 className="text-2xl font-bold text-primary">Gestão de Animais</h1>
             <p className="text-sm text-muted-foreground">Cadastro e gestão de animais</p>
           </div>
         </div>
