@@ -140,6 +140,22 @@ const AnimaisLeiloes = () => {
   };
 
   const handleDelete = async (leilao: Leilao) => {
+    // Check if there are linked animals
+    const { count } = await supabase
+      .from("animals")
+      .select("*", { count: "exact", head: true })
+      .eq("auction_id", leilao.id)
+      .eq("is_active", true);
+
+    if (count && count > 0) {
+      toast({
+        title: "Erro",
+        description: `Não é possível excluir. Existem ${count} animal(is) vinculado(s) a este leilão.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!confirm(`Deseja excluir o leilão "${leilao.name}"?`)) return;
 
     try {

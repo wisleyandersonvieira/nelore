@@ -193,7 +193,23 @@ const AnimaisCategorias = () => {
     }
   };
 
-  const openDeleteDialog = (category: Category) => {
+  const openDeleteDialog = async (category: Category) => {
+    // Check if there are linked animals
+    const { count } = await supabase
+      .from("animals")
+      .select("*", { count: "exact", head: true })
+      .eq("category_id", category.id)
+      .eq("is_active", true);
+
+    if (count && count > 0) {
+      toast({
+        title: "Erro",
+        description: `Não é possível excluir. Existem ${count} animal(is) vinculado(s) a esta categoria.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedCategory(category);
     setIsDeleteDialogOpen(true);
   };

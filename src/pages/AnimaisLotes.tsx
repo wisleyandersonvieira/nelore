@@ -203,7 +203,19 @@ const AnimaisLotes = () => {
     }
   };
 
-  const openDeleteDialog = (batch: Batch) => {
+  const openDeleteDialog = async (batch: Batch) => {
+    // Check if there are linked animals
+    const { count } = await supabase
+      .from("animals")
+      .select("*", { count: "exact", head: true })
+      .eq("batch_id", batch.id)
+      .eq("is_active", true);
+
+    if (count && count > 0) {
+      toast.error(`Não é possível excluir. Existem ${count} animal(is) vinculado(s) a este lote.`);
+      return;
+    }
+
     setSelectedBatch(batch);
     setIsDeleteDialogOpen(true);
   };

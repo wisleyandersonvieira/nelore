@@ -193,7 +193,23 @@ const AnimaisRacas = () => {
     }
   };
 
-  const openDeleteDialog = (breed: Breed) => {
+  const openDeleteDialog = async (breed: Breed) => {
+    // Check if there are linked animals
+    const { count } = await supabase
+      .from("animals")
+      .select("*", { count: "exact", head: true })
+      .eq("breed_id", breed.id)
+      .eq("is_active", true);
+
+    if (count && count > 0) {
+      toast({
+        title: "Erro",
+        description: `Não é possível excluir. Existem ${count} animal(is) vinculado(s) a esta raça.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedBreed(breed);
     setIsDeleteDialogOpen(true);
   };

@@ -203,7 +203,27 @@ const AnimaisMatrizes = () => {
     }
   };
 
-  const openDeleteDialog = (animal: BreedingAnimal) => {
+  const openDeleteDialog = async (animal: BreedingAnimal) => {
+    // Check if there are linked animals
+    const { count: sireCount } = await supabase
+      .from("animals")
+      .select("*", { count: "exact", head: true })
+      .eq("sire_id", animal.id)
+      .eq("is_active", true);
+
+    const { count: damCount } = await supabase
+      .from("animals")
+      .select("*", { count: "exact", head: true })
+      .eq("dam_id", animal.id)
+      .eq("is_active", true);
+
+    const totalLinked = (sireCount || 0) + (damCount || 0);
+
+    if (totalLinked > 0) {
+      toast.error(`Não é possível excluir. Existem ${totalLinked} animal(is) vinculado(s) a esta matriz/genitor.`);
+      return;
+    }
+
     setSelectedAnimal(animal);
     setIsDeleteDialogOpen(true);
   };
