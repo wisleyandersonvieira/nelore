@@ -34,6 +34,7 @@ import AnimaisCadastro from "./pages/AnimaisCadastro";
 import AnimaisLotes from "./pages/AnimaisLotes";
 import AnimaisPesagem from "./pages/AnimaisPesagem";
 import AnimaisVacinacao from "./pages/AnimaisVacinacao";
+import AnimaisMatrizes from "./pages/AnimaisMatrizes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ function App() {
               <Route path="/animais/lotes" element={<AnimaisLotes />} />
               <Route path="/animais/pesagem" element={<AnimaisPesagem />} />
               <Route path="/animais/vacinacao" element={<AnimaisVacinacao />} />
+              <Route path="/animais/matrizes" element={<AnimaisMatrizes />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
