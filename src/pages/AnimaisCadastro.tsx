@@ -157,6 +157,7 @@ const AnimaisCadastro = () => {
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [photoToDelete, setPhotoToDelete] = useState<{ url: string; isCover: boolean } | null>(null);
 
   useEffect(() => {
     fetchAnimals();
@@ -1259,20 +1260,22 @@ const AnimaisCadastro = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Foto de Capa</Label>
                 {formData.cover_photo ? (
                   <div className="relative inline-block">
                     <img
                       src={formData.cover_photo}
                       alt="Cover"
-                      className="w-40 h-40 object-cover rounded border"
+                      className="w-40 h-40 object-cover rounded-t border-t border-l border-r"
                     />
+                    <div className="w-40 bg-primary text-primary-foreground text-center text-sm py-1 rounded-b font-medium">
+                      Foto de Capa
+                    </div>
                     {!isReadOnly && (
                       <Button
                         variant="destructive"
                         size="icon"
                         className="absolute -top-2 -right-2 h-6 w-6"
-                        onClick={() => setFormData({ ...formData, cover_photo: "" })}
+                        onClick={() => setPhotoToDelete({ url: formData.cover_photo, isCover: true })}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1319,7 +1322,7 @@ const AnimaisCadastro = () => {
                           variant="destructive"
                           size="icon"
                           className="absolute -top-2 -right-2 h-5 w-5"
-                          onClick={() => handleRemovePhoto(photo)}
+                          onClick={() => setPhotoToDelete({ url: photo, isCover: false })}
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -1394,6 +1397,36 @@ const AnimaisCadastro = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Photo Delete Dialog */}
+      <AlertDialog open={!!photoToDelete} onOpenChange={(open) => !open && setPhotoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir essa foto?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (photoToDelete) {
+                  if (photoToDelete.isCover) {
+                    setFormData({ ...formData, cover_photo: "" });
+                  } else {
+                    handleRemovePhoto(photoToDelete.url);
+                  }
+                  setPhotoToDelete(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
