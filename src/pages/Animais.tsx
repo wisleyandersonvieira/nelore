@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart } from "lucide-react";
+import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart, Settings } from "lucide-react";
 
 const Animais = () => {
   const navigate = useNavigate();
@@ -46,6 +46,14 @@ const Animais = () => {
       icon: Syringe,
       color: "bg-purple-500",
       route: "/animais/vacinacao",
+    },
+    {
+      id: "cadastros-gerais",
+      title: "Cadastros Gerais",
+      description: "Raças, categorias e outros cadastros",
+      icon: Settings,
+      color: "bg-gray-500",
+      route: "/animais/cadastros-gerais",
     },
   ];
 
