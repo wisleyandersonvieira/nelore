@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Calculator, 
   CreditCard, 
-   
   Users, 
   Store, 
   Package,
@@ -16,7 +15,8 @@ import {
   BarChart3,
   Settings,
   Database,
-  FileBarChart
+  FileBarChart,
+  Beef
 } from "lucide-react";
 import { AccountsPayableModal } from "@/components/AccountsPayableModal";
 import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
@@ -142,6 +142,13 @@ const Dashboard = () => {
       icon: Settings,
       color: "bg-gray-500",
     },
+    {
+      id: "animais",
+      title: "Animais",
+      description: "Cadastro, pesagem e vacinação de animais",
+      icon: Beef,
+      color: "bg-lime-600",
+    },
   ];
 
   return (
@@ -202,6 +209,8 @@ const Dashboard = () => {
                           setFuncionariosOpen(true);
                         } else if (module.id === "caixa") {
                          setCashControlOpen(true);
+                       } else if (module.id === "animais") {
+                         navigate("/animais");
                        }
                      }}
                   >
