@@ -31,6 +31,7 @@ import TurnoverReport from "./pages/TurnoverReport";
 import Extratos from "./pages/Extratos";
 import Animais from "./pages/Animais";
 import AnimaisCadastro from "./pages/AnimaisCadastro";
+import AnimaisLotes from "./pages/AnimaisLotes";
 import AnimaisPesagem from "./pages/AnimaisPesagem";
 import AnimaisVacinacao from "./pages/AnimaisVacinacao";
 
@@ -76,6 +77,7 @@ function App() {
               <Route path="/reports/extratos" element={<Extratos />} />
               <Route path="/animais" element={<Animais />} />
               <Route path="/animais/cadastro" element={<AnimaisCadastro />} />
+              <Route path="/animais/lotes" element={<AnimaisLotes />} />
               <Route path="/animais/pesagem" element={<AnimaisPesagem />} />
               <Route path="/animais/vacinacao" element={<AnimaisVacinacao />} />
               <Route path="*" element={<NotFound />} />
