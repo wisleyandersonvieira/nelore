@@ -94,6 +94,8 @@ interface BreedingAnimal {
   id: string;
   name: string;
   sex: string;
+  sire_id: string | null;
+  dam_id: string | null;
 }
 
 const AnimaisCadastro = () => {
@@ -212,7 +214,7 @@ const AnimaisCadastro = () => {
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("breeding_animals").select("id, name, sex").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
       ]);
 
       setBatches(batchesRes.data || []);
@@ -1142,47 +1144,105 @@ const AnimaisCadastro = () => {
             </TabsContent>
 
             {/* Tab: Genealogia */}
-            <TabsContent value="genealogia" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome do Reprodutor (Pai)</Label>
-                  <Select
-                    value={formData.sire_id}
-                    onValueChange={(value) => setFormData({ ...formData, sire_id: value })}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar reprodutor" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {sires.map((sire) => (
-                        <SelectItem key={sire.id} value={sire.id}>
-                          {sire.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Nome da Matriz (Mãe)</Label>
-                  <Select
-                    value={formData.dam_id}
-                    onValueChange={(value) => setFormData({ ...formData, dam_id: value })}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar matriz" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {dams.map((dam) => (
-                        <SelectItem key={dam.id} value={dam.id}>
-                          {dam.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <TabsContent value="genealogia" className="space-y-6 mt-4">
+              {/* Pais */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2">Pais</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nome do Reprodutor (Pai)</Label>
+                    <Select
+                      value={formData.sire_id}
+                      onValueChange={(value) => setFormData({ ...formData, sire_id: value })}
+                      disabled={isReadOnly}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar reprodutor" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {sires.map((sire) => (
+                          <SelectItem key={sire.id} value={sire.id}>
+                            {sire.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nome da Matriz (Mãe)</Label>
+                    <Select
+                      value={formData.dam_id}
+                      onValueChange={(value) => setFormData({ ...formData, dam_id: value })}
+                      disabled={isReadOnly}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar matriz" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {dams.map((dam) => (
+                          <SelectItem key={dam.id} value={dam.id}>
+                            {dam.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
+
+              {/* Avós - exibição somente leitura */}
+              {(formData.sire_id || formData.dam_id) && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg border-b pb-2">Avós (somente exibição)</h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Avós Paternos */}
+                    {formData.sire_id && (() => {
+                      const selectedSire = sires.find(s => s.id === formData.sire_id);
+                      const sireGrandsire = selectedSire?.sire_id ? [...sires, ...dams].find(a => a.id === selectedSire.sire_id) : null;
+                      const sireGranddam = selectedSire?.dam_id ? [...sires, ...dams].find(a => a.id === selectedSire.dam_id) : null;
+                      
+                      return (
+                        <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                          <h4 className="font-medium text-sm text-muted-foreground">Avós Paternos (Pais do Reprodutor)</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground w-20">Avô:</Label>
+                              <span className="text-sm">{sireGrandsire?.name || "Não informado"}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground w-20">Avó:</Label>
+                              <span className="text-sm">{sireGranddam?.name || "Não informada"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Avós Maternos */}
+                    {formData.dam_id && (() => {
+                      const selectedDam = dams.find(d => d.id === formData.dam_id);
+                      const damGrandsire = selectedDam?.sire_id ? [...sires, ...dams].find(a => a.id === selectedDam.sire_id) : null;
+                      const damGranddam = selectedDam?.dam_id ? [...sires, ...dams].find(a => a.id === selectedDam.dam_id) : null;
+                      
+                      return (
+                        <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                          <h4 className="font-medium text-sm text-muted-foreground">Avós Maternos (Pais da Matriz)</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground w-20">Avô:</Label>
+                              <span className="text-sm">{damGrandsire?.name || "Não informado"}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground w-20">Avó:</Label>
+                              <span className="text-sm">{damGranddam?.name || "Não informada"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Tab: Observações e Fotos */}
