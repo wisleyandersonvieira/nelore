@@ -804,8 +804,8 @@ export const DREView: React.FC<DREViewProps> = ({
           }
 
           // Separar itens normais de itens de juros/desconto
-          const normalItems = account.accounts_payable_items?.filter((item: any) => item.product_id !== acrescimoProductId && item.product_id !== descontoProductId) || [];
-          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => item.product_id === acrescimoProductId || item.product_id === descontoProductId) || [];
+          const normalItems = account.accounts_payable_items?.filter((item: any) => item.product_id !== acrescimoPagarProductId && item.product_id !== descontoPagarProductId) || [];
+          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => item.product_id === acrescimoPagarProductId || item.product_id === descontoPagarProductId) || [];
 
           // Calcular o valor base da conta (sem juros/descontos) para proporção correta
           const baseAccountAmount = normalItems.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0);
@@ -879,9 +879,9 @@ export const DREView: React.FC<DREViewProps> = ({
             const paymentRecord = paymentsByInstallmentId[installment.id];
             if (paymentRecord) {
               // Processar juros (acréscimo) se houver
-              if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoProductId) {
+              if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoPagarProductId) {
                 // Buscar subgrupo do produto de acréscimo
-                const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoProductId);
+                const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoPagarProductId);
                 if (interestItem?.products?.subgroup_id) {
                   const subgroupId = interestItem.products.subgroup_id;
                   const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
@@ -898,9 +898,9 @@ export const DREView: React.FC<DREViewProps> = ({
               }
 
               // Processar desconto se houver
-              if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
+              if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoPagarProductId) {
                 // Buscar subgrupo do produto de desconto
-                const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoProductId);
+                const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoPagarProductId);
                 if (discountItem?.products?.subgroup_id) {
                   const subgroupId = discountItem.products.subgroup_id;
                   const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
@@ -944,8 +944,8 @@ export const DREView: React.FC<DREViewProps> = ({
           // mas data de pagamento para juros/descontos
 
           // Separar itens normais de itens de juros/desconto
-          const normalItems = account.accounts_payable_items?.filter((item: any) => item.product_id !== acrescimoProductId && item.product_id !== descontoProductId) || [];
-          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => item.product_id === acrescimoProductId || item.product_id === descontoProductId) || [];
+          const normalItems = account.accounts_payable_items?.filter((item: any) => item.product_id !== acrescimoPagarProductId && item.product_id !== descontoPagarProductId) || [];
+          const interestDiscountItems = account.accounts_payable_items?.filter((item: any) => item.product_id === acrescimoPagarProductId || item.product_id === descontoPagarProductId) || [];
 
           // Processar itens normais pela data de competência
           // MAS apenas se a conta não for marcada para processar apenas juros/descontos
@@ -1033,8 +1033,8 @@ export const DREView: React.FC<DREViewProps> = ({
                   const paymentRecord = paymentsByInstallmentId[installment.id];
                   if (paymentRecord) {
                     // Processar juros (acréscimo) se houver
-                    if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoProductId) {
-                      const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoProductId);
+                    if (paymentRecord.interest_amount > 0 && paymentRecord.interest_product_id === acrescimoPagarProductId) {
+                      const interestItem = interestDiscountItems.find((item: any) => item.product_id === acrescimoPagarProductId);
                       if (interestItem?.products?.subgroup_id) {
                         const subgroupId = interestItem.products.subgroup_id;
                         const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
@@ -1051,8 +1051,8 @@ export const DREView: React.FC<DREViewProps> = ({
                     }
 
                     // Processar desconto se houver
-                    if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoProductId) {
-                      const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoProductId);
+                    if (paymentRecord.discount_amount > 0 && paymentRecord.discount_product_id === descontoPagarProductId) {
+                      const discountItem = interestDiscountItems.find((item: any) => item.product_id === descontoPagarProductId);
                       if (discountItem?.products?.subgroup_id) {
                         const subgroupId = discountItem.products.subgroup_id;
                         const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === subgroupId);
