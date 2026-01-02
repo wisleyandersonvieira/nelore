@@ -2871,6 +2871,106 @@ export type Database = {
           },
         ]
       }
+      weighing_records: {
+        Row: {
+          animal_id: string
+          created_at: string
+          id: string
+          session_id: string
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          id?: string
+          session_id: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighing_records_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighing_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighing_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighing_sessions: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          observations: string | null
+          store_id: string
+          updated_at: string
+          weighing_type: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          created_by: string
+          date: string
+          id?: string
+          observations?: string | null
+          store_id: string
+          updated_at?: string
+          weighing_type: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          created_by?: string
+          date?: string
+          id?: string
+          observations?: string | null
+          store_id?: string
+          updated_at?: string
+          weighing_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighing_sessions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "animal_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighing_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighing_sessions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
