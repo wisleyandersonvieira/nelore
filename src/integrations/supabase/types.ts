@@ -607,6 +607,44 @@ export type Database = {
           },
         ]
       }
+      animal_batches: {
+        Row: {
+          code: number
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_batches_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_account_stores: {
         Row: {
           account_id: string
@@ -2526,6 +2564,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_animal_batch_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
       get_next_job_function_code: {
         Args: { store_uuid: string }
         Returns: number
