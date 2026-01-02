@@ -342,6 +342,127 @@ const AccountsPayableReport = () => {
     doc.save("contas-a-pagar-resumido.pdf");
   };
 
+  const exportToPDFResumidoPorMes = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas ainda não pagas - Resumido por Mês", 105, 28, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+    
+    // Group accounts by month/year
+    const accountsByMonth: { [key: string]: { monthLabel: string; accounts: any[]; sortKey: string } } = {};
+    
+    accounts.forEach(account => {
+      const dueDate = new Date(account.due_date + 'T00:00:00');
+      const year = dueDate.getFullYear();
+      const month = dueDate.getMonth();
+      const key = `${year}-${String(month).padStart(2, '0')}`;
+      
+      const monthNames = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      ];
+      const monthLabel = `${monthNames[month]} / ${year}`;
+      
+      if (!accountsByMonth[key]) {
+        accountsByMonth[key] = {
+          monthLabel,
+          accounts: [],
+          sortKey: key
+        };
+      }
+      
+      accountsByMonth[key].accounts.push(account);
+    });
+    
+    // Sort by month/year
+    const sortedMonths = Object.values(accountsByMonth).sort((a, b) => 
+      a.sortKey.localeCompare(b.sortKey)
+    );
+    
+    // Build table data with month grouping
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    let totalInstallments = 0;
+    
+    sortedMonths.forEach(monthGroup => {
+      // Month header row
+      tableData.push([
+        { content: monthGroup.monthLabel, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+      ]);
+      
+      // Items for this month
+      let monthTotal = 0;
+      monthGroup.accounts.forEach(account => {
+        tableData.push([
+          account.description,
+          account.suppliers?.name || "N/A",
+          account.stores?.name || "N/A",
+          new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+        ]);
+        monthTotal += account.amount || 0;
+      });
+      
+      // Month subtotal
+      tableData.push([
+        { content: `Subtotal ${monthGroup.monthLabel}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+        { content: monthTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
+        { content: `${monthGroup.accounts.length} parcela(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      ]);
+      
+      grandTotal += monthTotal;
+      totalInstallments += monthGroup.accounts.length;
+    });
+    
+    // Grand total row
+    tableData.push([
+      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 } },
+      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } },
+      { content: `${totalInstallments} parcela(s)`, styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 10, right: 10 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-pagar-resumido-por-mes.pdf");
+  };
+
   const exportToPDFDetalhado = () => {
     const doc = new jsPDF();
     
@@ -802,6 +923,9 @@ const AccountsPayableReport = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>
                         Relatório por Subgrupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFResumidoPorMes}>
+                        Relatório Resumido por Mês
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
