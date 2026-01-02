@@ -391,6 +391,136 @@ const AccountsPayableReport = () => {
     doc.save("contas-a-pagar-detalhado.pdf");
   };
 
+  const exportToPDFPorSubgrupo = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Agrupado por Subgrupo", 105, 28, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    // Group accounts by subgroup
+    const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
+    
+    accounts.forEach((account: any) => {
+      // Process items
+      if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
+        account.accounts_payable_items.forEach((item: any) => {
+          const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
+          const subgroupName = item.products?.account_groups?.name || 'Sem Subgrupo';
+          
+          if (!accountsBySubgroup[subgroupId]) {
+            accountsBySubgroup[subgroupId] = {
+              subgroupName,
+              items: []
+            };
+          }
+          
+          accountsBySubgroup[subgroupId].items.push({
+            description: account.description,
+            supplierName: account.suppliers?.name || "N/A",
+            storeName: account.stores?.name || "N/A",
+            dueDate: account.due_date,
+            amount: item.total_price || 0,
+            productName: item.products?.name || "Produto"
+          });
+        });
+      } else {
+        // No items - add to "Sem Subgrupo"
+        if (!accountsBySubgroup['sem-subgrupo']) {
+          accountsBySubgroup['sem-subgrupo'] = {
+            subgroupName: 'Sem Subgrupo',
+            items: []
+          };
+        }
+        accountsBySubgroup['sem-subgrupo'].items.push({
+          description: account.description,
+          supplierName: account.suppliers?.name || "N/A",
+          storeName: account.stores?.name || "N/A",
+          dueDate: account.due_date,
+          amount: account.amount || 0,
+          productName: null
+        });
+      }
+    });
+
+    // Build table data
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    
+    Object.values(accountsBySubgroup).forEach(group => {
+      // Subgroup header row
+      tableData.push([
+        { content: group.subgroupName, colSpan: 5, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+      ]);
+      
+      // Items for this subgroup
+      let subgroupTotal = 0;
+      group.items.forEach(item => {
+        tableData.push([
+          item.description,
+          item.supplierName,
+          item.storeName,
+          item.dueDate ? new Date(item.dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+          item.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A"
+        ]);
+        subgroupTotal += item.amount || 0;
+      });
+      
+      // Subgroup subtotal
+      tableData.push([
+        { content: `Subtotal ${group.subgroupName}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+        { content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      ]);
+      
+      grandTotal += subgroupTotal;
+    });
+    
+    // Grand total row
+    tableData.push([
+      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 } },
+      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Descrição", "Fornecedor", "Loja", "Vencimento", "Valor"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 10, right: 10 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-pagar-por-subgrupo.pdf");
+  };
+
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: account.description,
@@ -574,6 +704,9 @@ const AccountsPayableReport = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFDetalhado}>
                         Relatório Detalhado
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>
+                        Relatório por Subgrupo
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
