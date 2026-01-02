@@ -532,14 +532,14 @@ const AnimaisMatrizes = () => {
                 <div className="space-y-2">
                   <Label htmlFor="sire_id">Nome do Reprodutor (Pai)</Label>
                   <Select
-                    value={formData.sire_id}
-                    onValueChange={(value) => setFormData({ ...formData, sire_id: value })}
+                    value={formData.sire_id || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, sire_id: value === "_none" ? "" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o reprodutor" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="_none">Nenhum</SelectItem>
                       {availableSires.map((sire) => (
                         <SelectItem key={sire.id} value={sire.id}>
                           {sire.name} {sire.registration ? `(${sire.registration})` : ""}
@@ -551,14 +551,14 @@ const AnimaisMatrizes = () => {
                 <div className="space-y-2">
                   <Label htmlFor="dam_id">Nome da Matriz (Mãe)</Label>
                   <Select
-                    value={formData.dam_id}
-                    onValueChange={(value) => setFormData({ ...formData, dam_id: value })}
+                    value={formData.dam_id || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, dam_id: value === "_none" ? "" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a matriz" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
+                      <SelectItem value="_none">Nenhuma</SelectItem>
                       {availableDams.map((dam) => (
                         <SelectItem key={dam.id} value={dam.id}>
                           {dam.name} {dam.registration ? `(${dam.registration})` : ""}
