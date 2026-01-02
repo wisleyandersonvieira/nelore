@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { IceCream } from "lucide-react";
+import { Beef } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -109,14 +109,14 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <IceCream className="h-12 w-12 text-primary" />
+            <Beef className="h-12 w-12 text-green-700" />
           </div>
-          <CardTitle className="text-2xl">Gela Boca</CardTitle>
-          <CardDescription>Sistema Financeiro para Sorveterias</CardDescription>
+          <CardTitle className="text-2xl text-green-800">Elite Sistemas</CardTitle>
+          <CardDescription className="text-green-600">Sistema para Gestão de Gado de Elite</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
@@ -149,7 +149,7 @@ const Auth = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full bg-green-700 hover:bg-green-800" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
               </form>
@@ -191,7 +191,7 @@ const Auth = () => {
                     minLength={6}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full bg-green-700 hover:bg-green-800" disabled={loading}>
                   {loading ? "Cadastrando..." : "Cadastrar"}
                 </Button>
               </form>
