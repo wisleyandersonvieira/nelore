@@ -113,7 +113,7 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={logo} alt="Elite Sistemas" className="h-16 w-16" />
+            <img src={logo} alt="Elite Sistemas" className="h-32 w-32" />
           </div>
           <CardTitle className="text-2xl text-green-800">Elite Sistemas</CardTitle>
           <CardDescription className="text-green-600">Sistema para Gestão de Gado de Elite</CardDescription>
