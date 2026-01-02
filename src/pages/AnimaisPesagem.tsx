@@ -74,6 +74,8 @@ const AnimaisPesagem = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<WeighingSession[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isAnimalSearchModalOpen, setIsAnimalSearchModalOpen] = useState(false);
+  const [animalSearchFilter, setAnimalSearchFilter] = useState("");
 
   useEffect(() => {
     fetchBatches();
@@ -284,6 +286,23 @@ const AnimaisPesagem = () => {
         (a.ear_tag && a.ear_tag.toString().includes(searchAnimal)))
   );
 
+  const filteredAnimalsForModal = allAnimals.filter(
+    (a) =>
+      !animals.some((added) => added.id === a.id) &&
+      (animalSearchFilter === "" ||
+        a.name.toLowerCase().includes(animalSearchFilter.toLowerCase()) ||
+        a.code.toString().includes(animalSearchFilter) ||
+        (a.ear_tag && a.ear_tag.toString().includes(animalSearchFilter)))
+  );
+
+  const handleAddAnimalFromModal = (animal: Animal) => {
+    if (animals.some((a) => a.id === animal.id)) {
+      toast.error("Animal já adicionado");
+      return;
+    }
+    setAnimals([...animals, { ...animal, weight: "" }]);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -419,14 +438,24 @@ const AnimaisPesagem = () => {
               {weighingType === "avulso" && (
                 <div>
                   <Label>Adicionar Animal</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por código, nome ou brinco..."
-                      value={searchAnimal}
-                      onChange={(e) => setSearchAnimal(e.target.value)}
-                      className="pl-9"
-                    />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder="Buscar por código, nome ou brinco..."
+                        value={searchAnimal}
+                        onChange={(e) => setSearchAnimal(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setAnimalSearchFilter("");
+                        setIsAnimalSearchModalOpen(true);
+                      }}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
                   </div>
                   {searchAnimal && filteredAnimals.length > 0 && (
                     <div className="mt-2 border rounded-md max-h-40 overflow-y-auto">
@@ -524,6 +553,71 @@ const AnimaisPesagem = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de busca de animais */}
+      <Dialog open={isAnimalSearchModalOpen} onOpenChange={setIsAnimalSearchModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Selecionar Animais</DialogTitle>
+          </DialogHeader>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filtrar por código, nome ou brinco..."
+                value={animalSearchFilter}
+                onChange={(e) => setAnimalSearchFilter(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Brinco</TableHead>
+                  <TableHead>Sexo</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAnimalsForModal.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Nenhum animal encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredAnimalsForModal.map((animal) => (
+                    <TableRow key={animal.id}>
+                      <TableCell>{animal.code}</TableCell>
+                      <TableCell>{animal.name}</TableCell>
+                      <TableCell>{animal.ear_tag || "—"}</TableCell>
+                      <TableCell>{animal.sex === "M" ? "Macho" : "Fêmea"}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleAddAnimalFromModal(animal)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button variant="outline" onClick={() => setIsAnimalSearchModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
