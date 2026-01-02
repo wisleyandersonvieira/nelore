@@ -855,35 +855,55 @@ export type Database = {
       breeding_animals: {
         Row: {
           created_at: string
+          dam_id: string | null
           id: string
           is_active: boolean
           name: string
           registration: string | null
           sex: string
+          sire_id: string | null
           store_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          dam_id?: string | null
           id?: string
           is_active?: boolean
           name: string
           registration?: string | null
           sex: string
+          sire_id?: string | null
           store_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          dam_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
           registration?: string | null
           sex?: string
+          sire_id?: string | null
           store_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "breeding_animals_dam_id_fkey"
+            columns: ["dam_id"]
+            isOneToOne: false
+            referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_animals_sire_id_fkey"
+            columns: ["sire_id"]
+            isOneToOne: false
+            referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "breeding_animals_store_id_fkey"
             columns: ["store_id"]

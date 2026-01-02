@@ -33,10 +33,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Plus, Pencil, Trash2, FileText, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface BreedingAnimal {
   id: string;
@@ -44,19 +52,28 @@ interface BreedingAnimal {
   sex: string;
   registration: string | null;
   store_id: string;
+  sire_id: string | null;
+  dam_id: string | null;
+}
+
+interface BreedingAnimalWithCounts extends BreedingAnimal {
+  offspringCount: number;
 }
 
 const AnimaisMatrizes = () => {
   const navigate = useNavigate();
-  const [breedingAnimals, setBreedingAnimals] = useState<BreedingAnimal[]>([]);
+  const [breedingAnimals, setBreedingAnimals] = useState<BreedingAnimalWithCounts[]>([]);
+  const [allBreedingAnimals, setAllBreedingAnimals] = useState<BreedingAnimal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedAnimal, setSelectedAnimal] = useState<BreedingAnimal | null>(null);
+  const [selectedAnimal, setSelectedAnimal] = useState<BreedingAnimalWithCounts | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     sex: "",
     registration: "",
+    sire_id: "",
+    dam_id: "",
   });
   const [filters, setFilters] = useState({
     name: "",
@@ -89,7 +106,33 @@ const AnimaisMatrizes = () => {
         .order("name");
 
       if (error) throw error;
-      setBreedingAnimals(data || []);
+
+      const allAnimals = data || [];
+      setAllBreedingAnimals(allAnimals);
+
+      // Fetch offspring counts for each breeding animal
+      const animalsWithCounts: BreedingAnimalWithCounts[] = await Promise.all(
+        allAnimals.map(async (animal) => {
+          const { count: sireCount } = await supabase
+            .from("animals")
+            .select("*", { count: "exact", head: true })
+            .eq("sire_id", animal.id)
+            .eq("is_active", true);
+
+          const { count: damCount } = await supabase
+            .from("animals")
+            .select("*", { count: "exact", head: true })
+            .eq("dam_id", animal.id)
+            .eq("is_active", true);
+
+          return {
+            ...animal,
+            offspringCount: (sireCount || 0) + (damCount || 0),
+          };
+        })
+      );
+
+      setBreedingAnimals(animalsWithCounts);
     } catch (error: any) {
       toast.error("Erro ao carregar matrizes e genitores: " + error.message);
     } finally {
@@ -97,13 +140,15 @@ const AnimaisMatrizes = () => {
     }
   };
 
-  const handleOpenModal = (animal?: BreedingAnimal) => {
+  const handleOpenModal = (animal?: BreedingAnimalWithCounts) => {
     if (animal) {
       setSelectedAnimal(animal);
       setFormData({
         name: animal.name,
         sex: animal.sex,
         registration: animal.registration || "",
+        sire_id: animal.sire_id || "",
+        dam_id: animal.dam_id || "",
       });
     } else {
       setSelectedAnimal(null);
@@ -111,6 +156,8 @@ const AnimaisMatrizes = () => {
         name: "",
         sex: "",
         registration: "",
+        sire_id: "",
+        dam_id: "",
       });
     }
     setIsModalOpen(true);
@@ -157,6 +204,8 @@ const AnimaisMatrizes = () => {
         name: formData.name.trim(),
         sex: formData.sex,
         registration: formData.registration.trim() || null,
+        sire_id: formData.sire_id || null,
+        dam_id: formData.dam_id || null,
         store_id: profile.store_id,
       };
 
@@ -203,7 +252,7 @@ const AnimaisMatrizes = () => {
     }
   };
 
-  const openDeleteDialog = async (animal: BreedingAnimal) => {
+  const openDeleteDialog = async (animal: BreedingAnimalWithCounts) => {
     // Check if there are linked animals
     const { count: sireCount } = await supabase
       .from("animals")
@@ -228,9 +277,92 @@ const AnimaisMatrizes = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const generateOffspringReport = async (animal: BreedingAnimalWithCounts) => {
+    try {
+      // Fetch offspring based on whether the animal is sire or dam
+      let offspringData: any[] = [];
+
+      if (animal.sex === "macho") {
+        const { data } = await supabase
+          .from("animals")
+          .select("code, name, ear_tag, sex")
+          .eq("sire_id", animal.id)
+          .eq("is_active", true)
+          .order("name");
+        offspringData = data || [];
+      } else {
+        const { data } = await supabase
+          .from("animals")
+          .select("code, name, ear_tag, sex")
+          .eq("dam_id", animal.id)
+          .eq("is_active", true)
+          .order("name");
+        offspringData = data || [];
+      }
+
+      if (offspringData.length === 0) {
+        toast.info("Não há animais filhos ativos para este registro.");
+        return;
+      }
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Relatório de Animais Filhos", pageWidth / 2, 20, { align: "center" });
+
+      // Parent info
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${animal.sex === "macho" ? "Reprodutor" : "Matriz"}: ${animal.name}`, 14, 35);
+      if (animal.registration) {
+        doc.text(`Registro: ${animal.registration}`, 14, 42);
+      }
+      doc.text(`Total de Filhos Ativos: ${offspringData.length}`, 14, animal.registration ? 49 : 42);
+
+      // Table with offspring
+      const tableData = offspringData.map((offspring) => [
+        offspring.code?.toString() || "-",
+        offspring.name,
+        offspring.ear_tag?.toString() || "-",
+        offspring.sex === "macho" ? "Macho" : "Fêmea",
+      ]);
+
+      autoTable(doc, {
+        startY: animal.registration ? 55 : 48,
+        head: [["Código", "Nome", "Brinco", "Sexo"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: { fillColor: [236, 72, 153] },
+      });
+
+      // Footer with date
+      const today = new Date().toLocaleDateString("pt-BR");
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${today}`, 14, doc.internal.pageSize.getHeight() - 10);
+
+      doc.save(`relatorio_filhos_${animal.name.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Relatório gerado com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao gerar relatório: " + error.message);
+    }
+  };
+
   const getSexLabel = (sex: string) => {
     return sex === "macho" ? "Macho" : "Fêmea";
   };
+
+  // Get available sires (males) for dropdown, excluding the current animal being edited
+  const availableSires = allBreedingAnimals.filter(
+    (a) => a.sex === "macho" && (!selectedAnimal || a.id !== selectedAnimal.id)
+  );
+
+  // Get available dams (females) for dropdown, excluding the current animal being edited
+  const availableDams = allBreedingAnimals.filter(
+    (a) => a.sex === "femea" && (!selectedAnimal || a.id !== selectedAnimal.id)
+  );
 
   const filteredAnimals = breedingAnimals.filter((animal) => {
     const matchesName = animal.name.toLowerCase().includes(filters.name.toLowerCase());
@@ -286,20 +418,19 @@ const AnimaisMatrizes = () => {
                 <TableHead>Sexo</TableHead>
                 <TableHead>Registro</TableHead>
                 <TableHead>Animais Filhos Ativos</TableHead>
-                <TableHead>Animais Netos Ativos</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={5} className="text-center py-8">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : filteredAnimals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
                     Nenhuma matriz ou genitor encontrado
                   </TableCell>
                 </TableRow>
@@ -309,10 +440,23 @@ const AnimaisMatrizes = () => {
                     <TableCell className="font-medium py-2">{animal.name}</TableCell>
                     <TableCell className="py-2">{getSexLabel(animal.sex)}</TableCell>
                     <TableCell className="py-2">{animal.registration || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground py-2">-</TableCell>
-                    <TableCell className="text-muted-foreground py-2">-</TableCell>
+                    <TableCell className="py-2">{animal.offspringCount}</TableCell>
                     <TableCell className="text-right py-2">
                       <div className="flex justify-end gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8">
+                              <FileText className="h-3 w-3 mr-1" />
+                              Relatório
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-background">
+                            <DropdownMenuItem onClick={() => generateOffspringReport(animal)}>
+                              PDF - Animais Filhos
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button
                           variant="outline"
                           size="icon"
@@ -340,7 +484,7 @@ const AnimaisMatrizes = () => {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {selectedAnimal ? "Editar Matriz/Genitor" : "Cadastrar Matriz/Genitor"}
@@ -379,6 +523,51 @@ const AnimaisMatrizes = () => {
                 onChange={(e) => setFormData({ ...formData, registration: e.target.value })}
                 placeholder="Número de registro"
               />
+            </div>
+
+            {/* Genealogy Section */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="font-semibold mb-3">Genealogia</h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sire_id">Nome do Reprodutor (Pai)</Label>
+                  <Select
+                    value={formData.sire_id}
+                    onValueChange={(value) => setFormData({ ...formData, sire_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o reprodutor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {availableSires.map((sire) => (
+                        <SelectItem key={sire.id} value={sire.id}>
+                          {sire.name} {sire.registration ? `(${sire.registration})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dam_id">Nome da Matriz (Mãe)</Label>
+                  <Select
+                    value={formData.dam_id}
+                    onValueChange={(value) => setFormData({ ...formData, dam_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a matriz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma</SelectItem>
+                      {availableDams.map((dam) => (
+                        <SelectItem key={dam.id} value={dam.id}>
+                          {dam.name} {dam.registration ? `(${dam.registration})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
