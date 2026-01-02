@@ -98,6 +98,12 @@ const AccountsPayableReport = () => {
           suppliers(id, name),
           stores(id, name),
           accounts_payable_installments(*),
+          accounts_payable_payments(
+            id,
+            installment_id,
+            interest_amount,
+            discount_amount
+          ),
           accounts_payable_items(
             id,
             product_id,
@@ -119,6 +125,21 @@ const AccountsPayableReport = () => {
           // Has installments - create one row per unpaid installment
           account.accounts_payable_installments.forEach((installment: any) => {
             if (!installment.payment_date) { // Only unpaid installments
+              // Check if there are any reversed payments with interest/discount for this installment
+              const installmentPayments = (account.accounts_payable_payments || []).filter(
+                (p: any) => p.installment_id === installment.id
+              );
+              
+              // Sum up all interest and discount from payments (including reversed ones)
+              let totalInterest = 0;
+              let totalDiscount = 0;
+              installmentPayments.forEach((payment: any) => {
+                totalInterest += payment.interest_amount || 0;
+                totalDiscount += payment.discount_amount || 0;
+              });
+              
+              // The installment.amount already reflects the adjusted value from payments
+              // So we use it directly
               accountsData.push({
                 ...account,
                 due_date: installment.due_date,
@@ -131,8 +152,26 @@ const AccountsPayableReport = () => {
           });
         } else {
           // No installments - single payment
+          // Check if there were any reversed payments with adjustments
+          const payments = account.accounts_payable_payments || [];
+          let adjustedAmount = account.amount;
+          
+          if (payments.length > 0) {
+            // Sum up all interest and discount from all payments
+            let totalInterest = 0;
+            let totalDiscount = 0;
+            payments.forEach((payment: any) => {
+              totalInterest += payment.interest_amount || 0;
+              totalDiscount += payment.discount_amount || 0;
+            });
+            
+            // Adjust the amount with interest and discount
+            adjustedAmount = account.amount + totalInterest - totalDiscount;
+          }
+          
           accountsData.push({
             ...account,
+            amount: adjustedAmount,
             installment_number: 1,
             total_installments: 1
           });
