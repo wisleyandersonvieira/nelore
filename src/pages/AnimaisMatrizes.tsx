@@ -58,6 +58,10 @@ const AnimaisMatrizes = () => {
     sex: "",
     registration: "",
   });
+  const [filters, setFilters] = useState({
+    name: "",
+    sex: "",
+  });
 
   useEffect(() => {
     fetchBreedingAnimals();
@@ -208,6 +212,12 @@ const AnimaisMatrizes = () => {
     return sex === "macho" ? "Macho" : "Fêmea";
   };
 
+  const filteredAnimals = breedingAnimals.filter((animal) => {
+    const matchesName = animal.name.toLowerCase().includes(filters.name.toLowerCase());
+    const matchesSex = !filters.sex || filters.sex === "todos" || animal.sex === filters.sex;
+    return matchesName && matchesSex;
+  });
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
@@ -218,11 +228,34 @@ const AnimaisMatrizes = () => {
           <h1 className="text-2xl font-bold text-foreground">Matrizes & Genitores</h1>
         </div>
 
-        <div className="mb-6">
+        <div className="flex flex-wrap items-center gap-4 mb-4">
           <Button onClick={() => handleOpenModal()} className="bg-pink-500 hover:bg-pink-600">
             <Plus className="h-4 w-4 mr-2" />
             Cadastrar
           </Button>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Filtrar por nome"
+              value={filters.name}
+              onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+              className="w-48"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select
+              value={filters.sex}
+              onValueChange={(value) => setFilters({ ...filters, sex: value })}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Filtrar por sexo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="macho">Macho</SelectItem>
+                <SelectItem value="femea">Fêmea</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="bg-card rounded-lg border">
@@ -244,35 +277,37 @@ const AnimaisMatrizes = () => {
                     Carregando...
                   </TableCell>
                 </TableRow>
-              ) : breedingAnimals.length === 0 ? (
+              ) : filteredAnimals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Nenhuma matriz ou genitor cadastrado
+                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                    Nenhuma matriz ou genitor encontrado
                   </TableCell>
                 </TableRow>
               ) : (
-                breedingAnimals.map((animal) => (
-                  <TableRow key={animal.id}>
-                    <TableCell className="font-medium">{animal.name}</TableCell>
-                    <TableCell>{getSexLabel(animal.sex)}</TableCell>
-                    <TableCell>{animal.registration || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">-</TableCell>
-                    <TableCell className="text-muted-foreground">-</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                filteredAnimals.map((animal) => (
+                  <TableRow key={animal.id} className="h-10">
+                    <TableCell className="font-medium py-2">{animal.name}</TableCell>
+                    <TableCell className="py-2">{getSexLabel(animal.sex)}</TableCell>
+                    <TableCell className="py-2">{animal.registration || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground py-2">-</TableCell>
+                    <TableCell className="text-muted-foreground py-2">-</TableCell>
+                    <TableCell className="text-right py-2">
+                      <div className="flex justify-end gap-1">
                         <Button
                           variant="outline"
                           size="icon"
+                          className="h-8 w-8"
                           onClick={() => handleOpenModal(animal)}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3 w-3" />
                         </Button>
                         <Button
                           variant="outline"
                           size="icon"
+                          className="h-8 w-8"
                           onClick={() => openDeleteDialog(animal)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </TableCell>
