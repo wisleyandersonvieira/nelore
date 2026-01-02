@@ -157,8 +157,8 @@ const Dashboard = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-primary">Gela Boca</h1>
-            <p className="text-sm text-muted-foreground">Sistema Financeiro</p>
+            <h1 className="text-2xl font-bold text-green-700">Elite Sistemas</h1>
+            <p className="text-sm text-muted-foreground">Sistema para Gestão de Gado de Elite</p>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm">Olá, {user?.user_metadata?.name || user?.email}</span>
