@@ -257,18 +257,23 @@ const PaidAccountsReport = () => {
           account.accounts_payable_installments.forEach((installment: any) => {
             if (installment.payment_date) { // Only paid installments
               const payment = paymentsByInstallmentId[installment.id];
+              const interestAmount = payment?.interest_amount || 0;
+              const discountAmount = payment?.discount_amount || 0;
+              // Calculate the actual paid amount: original amount + interest - discount
+              const paidAmount = payment?.amount_paid || (installment.amount + interestAmount - discountAmount);
               accountsData.push({
                 ...account,
                 due_date: installment.due_date,
                 amount: installment.amount,
+                paid_amount: paidAmount,
                 payment_date: installment.payment_date,
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_payable_installments.length,
                 installment_id: installment.id,
                 payment_account_id: transactionsByPayable[account.id] || null,
                 // Add interest/discount data from payments table
-                interest_amount: payment?.interest_amount || 0,
-                discount_amount: payment?.discount_amount || 0,
+                interest_amount: interestAmount,
+                discount_amount: discountAmount,
                 interest_product: payment?.interest_product || null,
                 discount_product: payment?.discount_product || null
               });
@@ -280,6 +285,7 @@ const PaidAccountsReport = () => {
             ...account,
             installment_number: 1,
             total_installments: 1,
+            paid_amount: account.amount, // No interest/discount for direct payments
             payment_account_id: transactionsByPayable[account.id] || null,
             interest_amount: 0,
             discount_amount: 0,
@@ -428,12 +434,12 @@ const PaidAccountsReport = () => {
       account.stores?.name || "N/A",
       account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
       account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
-      account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+      (account.paid_amount ?? account.amount)?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
     // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = accounts.reduce((sum, account) => sum + (account.paid_amount ?? account.amount ?? 0), 0);
     
     // Add total row
     tableData.push([
@@ -765,7 +771,7 @@ const PaidAccountsReport = () => {
       Loja: account.stores?.name || "N/A",
       Vencimento: account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
       Pagamento: account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
-      Valor: account.amount || 0,
+      Valor: account.paid_amount ?? account.amount ?? 0,
       Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     }));
 
@@ -999,7 +1005,7 @@ const PaidAccountsReport = () => {
                         {account.payment_date ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A"}
                       </TableCell>
                       <TableCell>
-                        {account.amount?.toLocaleString("pt-BR", {
+                        {(account.paid_amount ?? account.amount)?.toLocaleString("pt-BR", {
                           style: "currency",
                           currency: "BRL"
                         }) || "N/A"}
@@ -1013,7 +1019,7 @@ const PaidAccountsReport = () => {
                   <TableRow className="border-t-2 font-bold bg-muted/50">
                     <TableCell colSpan={5} className="text-right">Total:</TableCell>
                     <TableCell>
-                      {accounts.reduce((sum, account) => sum + (account.amount || 0), 0).toLocaleString("pt-BR", {
+                      {accounts.reduce((sum, account) => sum + (account.paid_amount ?? account.amount ?? 0), 0).toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL"
                       })}
