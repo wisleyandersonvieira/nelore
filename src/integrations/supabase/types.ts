@@ -2052,6 +2052,50 @@ export type Database = {
         }
         Relationships: []
       }
+      leiloes: {
+        Row: {
+          city: string
+          code: number
+          created_at: string
+          date: string
+          id: string
+          is_active: boolean
+          name: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          city: string
+          code: number
+          created_at?: string
+          date: string
+          id?: string
+          is_active?: boolean
+          name: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string
+          code?: number
+          created_at?: string
+          date?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leiloes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       period_blocks: {
         Row: {
           block_type: Database["public"]["Enums"]["block_type"]
@@ -2697,6 +2741,7 @@ export type Database = {
         Args: { store_uuid: string }
         Returns: number
       }
+      get_next_leilao_code: { Args: { store_uuid: string }; Returns: number }
       get_next_product_code: { Args: never; Returns: number }
       get_user_role: {
         Args: never
