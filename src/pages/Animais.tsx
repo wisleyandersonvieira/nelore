@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ClipboardList, Scale, Syringe, Layers } from "lucide-react";
+import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart } from "lucide-react";
 
 const Animais = () => {
   const navigate = useNavigate();
@@ -22,6 +22,14 @@ const Animais = () => {
       icon: Layers,
       color: "bg-orange-500",
       route: "/animais/lotes",
+    },
+    {
+      id: "matrizes",
+      title: "Matrizes & Genitores",
+      description: "Cadastro de matrizes e genitores",
+      icon: Heart,
+      color: "bg-pink-500",
+      route: "/animais/matrizes",
     },
     {
       id: "pesagem",

@@ -645,6 +645,47 @@ export type Database = {
           },
         ]
       }
+      breeding_animals: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          registration: string | null
+          sex: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          registration?: string | null
+          sex: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          registration?: string | null
+          sex?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breeding_animals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_account_stores: {
         Row: {
           account_id: string
