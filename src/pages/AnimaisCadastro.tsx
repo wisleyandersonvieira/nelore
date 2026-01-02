@@ -163,7 +163,6 @@ const AnimaisCadastro = () => {
         .from("animals")
         .select("*")
         .eq("store_id", profile.store_id)
-        .eq("is_active", true)
         .order("code", { ascending: true });
 
       if (error) throw error;
