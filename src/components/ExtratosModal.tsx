@@ -6,11 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, FileText } from "lucide-react";
+import { CalendarIcon, FileText, Download, FileDown } from "lucide-react";
 import { format, subDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface Store {
   id: string;
@@ -895,6 +898,162 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
     }
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const accountName = accounts.find(acc => acc.id === selectedAccount)?.name || '';
+    const periodText = startDate && endDate 
+      ? `${format(startDate, "dd/MM/yyyy")} a ${format(endDate, "dd/MM/yyyy")}` 
+      : '';
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("EXTRATO DE CONTA", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(accountName, 105, 28, { align: "center" });
+    doc.text(`Período: ${periodText}`, 105, 35, { align: "center" });
+    
+    doc.setFontSize(10);
+    doc.text(`Saldo Anterior: ${formatCurrency(saldoAnterior)}`, 20, 45);
+
+    // Table data
+    const tableData = extratoItems.map(item => [
+      format(item.date, 'dd/MM/yyyy'),
+      item.description,
+      item.number || '',
+      item.installment || '',
+      item.entrada > 0 ? formatCurrency(item.entrada) : '-',
+      item.saida > 0 ? formatCurrency(item.saida) : '-',
+      item.saldo < 0 ? `-${formatCurrency(item.saldo)}` : formatCurrency(item.saldo)
+    ]);
+
+    // Calculate totals
+    const totalEntrada = extratoItems.reduce((total, item) => total + item.entrada, 0);
+    const totalSaida = extratoItems.reduce((total, item) => total + item.saida, 0);
+    const saldoFinal = extratoItems.length > 0 ? extratoItems[extratoItems.length - 1].saldo : saldoAnterior;
+    
+    // Add total row
+    tableData.push([
+      { content: "TOTAIS", colSpan: 4, styles: { fontStyle: "bold", halign: "center" } } as any,
+      { content: formatCurrency(totalEntrada), styles: { fontStyle: "bold" } } as any,
+      { content: formatCurrency(totalSaida), styles: { fontStyle: "bold" } } as any,
+      { content: saldoFinal < 0 ? `-${formatCurrency(saldoFinal)}` : formatCurrency(saldoFinal), styles: { fontStyle: "bold" } } as any
+    ]);
+
+    autoTable(doc, {
+      head: [["Data", "Descrição", "Número", "Parcela", "Entrada", "Saída", "Saldo"]],
+      body: tableData,
+      startY: 52,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 25, halign: 'right' },
+        5: { cellWidth: 25, halign: 'right' },
+        6: { cellWidth: 25, halign: 'right' }
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      margin: { left: 10, right: 10 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save(`extrato-${accountName.replace(/\s+/g, '-').toLowerCase()}-${format(startDate!, 'yyyy-MM-dd')}.pdf`);
+    
+    toast({
+      title: "PDF exportado",
+      description: "O extrato foi exportado com sucesso",
+    });
+  };
+
+  const exportToExcel = () => {
+    const accountName = accounts.find(acc => acc.id === selectedAccount)?.name || '';
+    const periodText = startDate && endDate 
+      ? `${format(startDate, "dd/MM/yyyy")} a ${format(endDate, "dd/MM/yyyy")}` 
+      : '';
+
+    // Create data for Excel
+    const excelData = extratoItems.map(item => ({
+      Data: format(item.date, 'dd/MM/yyyy'),
+      Descrição: item.description,
+      Número: item.number || '',
+      Parcela: item.installment || '',
+      Entrada: item.entrada > 0 ? item.entrada : 0,
+      Saída: item.saida > 0 ? item.saida : 0,
+      Saldo: item.saldo
+    }));
+
+    // Add totals row
+    const totalEntrada = extratoItems.reduce((total, item) => total + item.entrada, 0);
+    const totalSaida = extratoItems.reduce((total, item) => total + item.saida, 0);
+    const saldoFinal = extratoItems.length > 0 ? extratoItems[extratoItems.length - 1].saldo : saldoAnterior;
+
+    excelData.push({
+      Data: 'TOTAIS',
+      Descrição: '',
+      Número: '',
+      Parcela: '',
+      Entrada: totalEntrada,
+      Saída: totalSaida,
+      Saldo: saldoFinal
+    });
+
+    // Create workbook and worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // Add header info
+    XLSX.utils.sheet_add_aoa(ws, [
+      [`Extrato de Conta: ${accountName}`],
+      [`Período: ${periodText}`],
+      [`Saldo Anterior: ${formatCurrency(saldoAnterior)}`],
+      []
+    ], { origin: 'A1' });
+
+    // Shift data down
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.e.r; R >= 0; --R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const oldCell = XLSX.utils.encode_cell({ r: R, c: C });
+        const newCell = XLSX.utils.encode_cell({ r: R + 4, c: C });
+        if (ws[oldCell]) {
+          ws[newCell] = ws[oldCell];
+          delete ws[oldCell];
+        }
+      }
+    }
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: range.e.r + 4, c: range.e.c } });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Extrato");
+    XLSX.writeFile(wb, `extrato-${accountName.replace(/\s+/g, '-').toLowerCase()}-${format(startDate!, 'yyyy-MM-dd')}.xlsx`);
+
+    toast({
+      title: "Excel exportado",
+      description: "O extrato foi exportado com sucesso",
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
@@ -1018,9 +1177,21 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
                   {startDate && endDate && ` ${format(startDate, "dd/MM/yyyy", { locale: ptBR })} a ${format(endDate, "dd/MM/yyyy", { locale: ptBR })}`}
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Saldo Anterior</p>
-                <p className="text-lg font-semibold">{formatCurrency(saldoAnterior)}</p>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-2">
+                  <Button onClick={exportToPDF} variant="outline" size="sm">
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF
+                  </Button>
+                  <Button onClick={exportToExcel} variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Saldo Anterior</p>
+                  <p className="text-lg font-semibold">{formatCurrency(saldoAnterior)}</p>
+                </div>
               </div>
             </div>
             
