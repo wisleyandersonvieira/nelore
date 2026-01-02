@@ -128,6 +128,7 @@ const AnimaisCadastro = () => {
     observations: "",
     photos: [] as string[],
     cover_photo: "",
+    is_active: "ativo",
   });
 
   // Dropdown options
@@ -262,6 +263,7 @@ const AnimaisCadastro = () => {
         observations: "",
         photos: [],
         cover_photo: "",
+        is_active: "ativo",
       });
       setSelectedAnimal(null);
     } else if (animal) {
@@ -286,6 +288,7 @@ const AnimaisCadastro = () => {
         observations: animal.observations || "",
         photos: animal.photos || [],
         cover_photo: animal.cover_photo || "",
+        is_active: animal.is_active ? "ativo" : "inativo",
       });
     }
 
@@ -405,6 +408,7 @@ const AnimaisCadastro = () => {
         photos: formData.photos,
         cover_photo: formData.cover_photo || null,
         store_id: profile.store_id,
+        is_active: formData.is_active === "ativo",
       };
 
       if (modalMode === "create") {
@@ -690,6 +694,25 @@ const AnimaisCadastro = () => {
                     <SelectContent className="bg-background z-50">
                       <SelectItem value="femea">Fêmea</SelectItem>
                       <SelectItem value="macho">Macho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Status *</Label>
+                  <Select
+                    value={formData.is_active}
+                    onValueChange={(value) => setFormData({ ...formData, is_active: value })}
+                    disabled={isReadOnly}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="inativo">Inativo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
