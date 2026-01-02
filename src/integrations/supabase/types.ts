@@ -645,6 +645,82 @@ export type Database = {
           },
         ]
       }
+      animal_breeds: {
+        Row: {
+          code: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_breeds_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      animal_categories: {
+        Row: {
+          code: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_categories_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       breeding_animals: {
         Row: {
           created_at: string
@@ -2606,6 +2682,14 @@ export type Database = {
     }
     Functions: {
       get_next_animal_batch_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
+      get_next_animal_breed_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
+      get_next_animal_category_code: {
         Args: { store_uuid: string }
         Returns: number
       }
