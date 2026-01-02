@@ -107,6 +107,20 @@ const AnimaisCadastro = () => {
   const [animalToDelete, setAnimalToDelete] = useState<Animal | null>(null);
   const [activeTab, setActiveTab] = useState("dados");
 
+  // Filter state
+  const [filters, setFilters] = useState({
+    name: "",
+    status: "ambos",
+    sex: "",
+    breed_id: "",
+    dam_id: "",
+    sire_id: "",
+    auction_id: "",
+    category_id: "",
+    birth_date_start: null as Date | null,
+    birth_date_end: null as Date | null,
+  });
+
   // Form data
   const [formData, setFormData] = useState({
     code: 0,
@@ -517,18 +531,298 @@ const AnimaisCadastro = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-semibold">Filtros</h2>
           <Button onClick={() => handleOpenModal("create")} className="gap-2">
             <Plus className="h-4 w-4" />
             Cadastrar Animal
           </Button>
         </div>
 
-        {loading ? (
-          <p className="text-center text-muted-foreground">Carregando...</p>
-        ) : animals.length === 0 ? (
-          <p className="text-center text-muted-foreground">Nenhum animal cadastrado.</p>
-        ) : (
+        {/* Filters Section */}
+        <div className="bg-card border rounded-lg p-4 mb-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Name filter */}
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input
+                value={filters.name}
+                onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                placeholder="Buscar por nome..."
+              />
+            </div>
+
+            {/* Status filter */}
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={filters.status}
+                onValueChange={(value) => setFilters({ ...filters, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar status" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="ambos">Ambos</SelectItem>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="inativo">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sex filter */}
+            <div className="space-y-2">
+              <Label>Sexo</Label>
+              <Select
+                value={filters.sex || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, sex: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar sexo" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todos</SelectItem>
+                  <SelectItem value="macho">Macho</SelectItem>
+                  <SelectItem value="femea">Fêmea</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Breed filter */}
+            <div className="space-y-2">
+              <Label>Raça</Label>
+              <Select
+                value={filters.breed_id || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, breed_id: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar raça" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todas</SelectItem>
+                  {breeds.map((breed) => (
+                    <SelectItem key={breed.id} value={breed.id}>
+                      {breed.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dam filter */}
+            <div className="space-y-2">
+              <Label>Nome Mãe</Label>
+              <Select
+                value={filters.dam_id || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, dam_id: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar mãe" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todas</SelectItem>
+                  {dams.map((dam) => (
+                    <SelectItem key={dam.id} value={dam.id}>
+                      {dam.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sire filter */}
+            <div className="space-y-2">
+              <Label>Nome Pai</Label>
+              <Select
+                value={filters.sire_id || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, sire_id: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar pai" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todos</SelectItem>
+                  {sires.map((sire) => (
+                    <SelectItem key={sire.id} value={sire.id}>
+                      {sire.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Auction filter */}
+            <div className="space-y-2">
+              <Label>Leilão</Label>
+              <Select
+                value={filters.auction_id || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, auction_id: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar leilão" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todos</SelectItem>
+                  {auctions.map((auction) => (
+                    <SelectItem key={auction.id} value={auction.id}>
+                      {auction.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Category filter */}
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select
+                value={filters.category_id || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, category_id: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar categoria" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todas</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Birth date start */}
+            <div className="space-y-2">
+              <Label>Data Nasc. Inicial</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !filters.birth_date_start && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.birth_date_start
+                      ? format(filters.birth_date_start, "dd/MM/yyyy", { locale: ptBR })
+                      : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.birth_date_start || undefined}
+                    onSelect={(date) => setFilters({ ...filters, birth_date_start: date || null })}
+                    locale={ptBR}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Birth date end */}
+            <div className="space-y-2">
+              <Label>Data Nasc. Final</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !filters.birth_date_end && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.birth_date_end
+                      ? format(filters.birth_date_end, "dd/MM/yyyy", { locale: ptBR })
+                      : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filters.birth_date_end || undefined}
+                    onSelect={(date) => setFilters({ ...filters, birth_date_end: date || null })}
+                    locale={ptBR}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Clear filters button */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setFilters({
+                name: "",
+                status: "ambos",
+                sex: "",
+                breed_id: "",
+                dam_id: "",
+                sire_id: "",
+                auction_id: "",
+                category_id: "",
+                birth_date_start: null,
+                birth_date_end: null,
+              })}
+            >
+              Limpar Filtros
+            </Button>
+          </div>
+        </div>
+
+        {(() => {
+          // Apply filters
+          const filteredAnimals = animals.filter((animal) => {
+            // Name filter
+            if (filters.name && !animal.name.toLowerCase().includes(filters.name.toLowerCase())) {
+              return false;
+            }
+            // Status filter
+            if (filters.status === "ativo" && !animal.is_active) return false;
+            if (filters.status === "inativo" && animal.is_active) return false;
+            // Sex filter
+            if (filters.sex && animal.sex !== filters.sex) return false;
+            // Breed filter
+            if (filters.breed_id && animal.breed_id !== filters.breed_id) return false;
+            // Dam filter
+            if (filters.dam_id && animal.dam_id !== filters.dam_id) return false;
+            // Sire filter
+            if (filters.sire_id && animal.sire_id !== filters.sire_id) return false;
+            // Auction filter
+            if (filters.auction_id && animal.auction_id !== filters.auction_id) return false;
+            // Category filter
+            if (filters.category_id && animal.category_id !== filters.category_id) return false;
+            // Birth date range filter
+            if (filters.birth_date_start && animal.birth_date) {
+              const birthDate = new Date(animal.birth_date);
+              if (birthDate < filters.birth_date_start) return false;
+            }
+            if (filters.birth_date_end && animal.birth_date) {
+              const birthDate = new Date(animal.birth_date);
+              if (birthDate > filters.birth_date_end) return false;
+            }
+            return true;
+          });
+
+          if (loading) {
+            return <p className="text-center text-muted-foreground">Carregando...</p>;
+          }
+          
+          if (animals.length === 0) {
+            return <p className="text-center text-muted-foreground">Nenhum animal cadastrado.</p>;
+          }
+          
+          if (filteredAnimals.length === 0) {
+            return <p className="text-center text-muted-foreground">Nenhum animal encontrado com os filtros selecionados.</p>;
+          }
+
+          return (
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
@@ -539,12 +833,13 @@ const AnimaisCadastro = () => {
                   <TableHead>Brinco</TableHead>
                   <TableHead>Sexo</TableHead>
                   <TableHead>Raça</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="w-32">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {animals.map((animal) => (
-                  <TableRow key={animal.id}>
+                {filteredAnimals.map((animal) => (
+                  <TableRow key={animal.id} className={!animal.is_active ? "opacity-60" : ""}>
                     <TableCell className="font-medium">{animal.code}</TableCell>
                     <TableCell>
                       {animal.cover_photo ? (
@@ -564,6 +859,16 @@ const AnimaisCadastro = () => {
                     <TableCell>{animal.sex === "macho" ? "Macho" : "Fêmea"}</TableCell>
                     <TableCell>
                       {breeds.find((b) => b.id === animal.breed_id)?.name || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        animal.is_active 
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                      )}>
+                        {animal.is_active ? "Ativo" : "Inativo"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -595,7 +900,8 @@ const AnimaisCadastro = () => {
               </TableBody>
             </Table>
           </div>
-        )}
+          );
+        })()}
       </main>
 
       {/* Modal */}
