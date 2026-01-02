@@ -7,13 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Download, FileSpreadsheet, Search } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Calendar, Download, FileSpreadsheet, Search, ChevronDown, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 interface PayableAccount {
@@ -239,13 +240,172 @@ const AccountsPayableReports = () => {
       account.document_number || "N/A",
     ]);
 
-    (pdf as any).autoTable({
+    autoTable(pdf, {
       head: [["Descrição", "Fornecedor", "Loja", "Valor", "Vencimento", "Pagamento", "Status", "Documento"]],
       body: tableData,
       startY: 30,
     });
 
     pdf.save(`${title.toLowerCase().replace(/\s+/g, "-")}.pdf`);
+  };
+
+  const exportToPDFPorSubgrupo = async (data: PayableAccount[], title: string) => {
+    // Fetch accounts with items and products including subgroup info
+    const accountIds = data.map(acc => acc.id);
+    
+    if (accountIds.length === 0) {
+      toast({
+        title: "Aviso",
+        description: "Nenhuma conta para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data: accountsWithItems } = await supabase
+      .from("accounts_payable")
+      .select(`
+        *,
+        suppliers(name),
+        stores(name),
+        accounts_payable_items(
+          id,
+          product_id,
+          quantity,
+          unit_price,
+          total_price,
+          products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+        )
+      `)
+      .in("id", accountIds);
+
+    if (!accountsWithItems) return;
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(title.toUpperCase(), 105, 15, { align: "center" });
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Agrupado por Subgrupo", 105, 22, { align: "center" });
+
+    // Group accounts by subgroup
+    const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
+    
+    accountsWithItems.forEach((account: any) => {
+      // Process items
+      if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
+        account.accounts_payable_items.forEach((item: any) => {
+          const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
+          const subgroupName = item.products?.account_groups?.name || 'Sem Subgrupo';
+          
+          if (!accountsBySubgroup[subgroupId]) {
+            accountsBySubgroup[subgroupId] = {
+              subgroupName,
+              items: []
+            };
+          }
+          
+          accountsBySubgroup[subgroupId].items.push({
+            description: account.description,
+            supplierName: account.suppliers?.name || "N/A",
+            storeName: account.stores?.name || "N/A",
+            dueDate: account.due_date,
+            paymentDate: account.payment_date,
+            amount: item.total_price || 0,
+            productName: item.products?.name || "Produto"
+          });
+        });
+      } else {
+        // No items - add to "Sem Subgrupo"
+        if (!accountsBySubgroup['sem-subgrupo']) {
+          accountsBySubgroup['sem-subgrupo'] = {
+            subgroupName: 'Sem Subgrupo',
+            items: []
+          };
+        }
+        accountsBySubgroup['sem-subgrupo'].items.push({
+          description: account.description,
+          supplierName: account.suppliers?.name || "N/A",
+          storeName: account.stores?.name || "N/A",
+          dueDate: account.due_date,
+          paymentDate: account.payment_date,
+          amount: account.amount || 0,
+          productName: null
+        });
+      }
+    });
+
+    // Build table data
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    let totalItems = 0;
+    
+    Object.values(accountsBySubgroup).forEach(group => {
+      // Subgroup header row
+      tableData.push([
+        { content: group.subgroupName, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+      ]);
+      
+      // Items for this subgroup
+      let subgroupTotal = 0;
+      group.items.forEach(item => {
+        tableData.push([
+          item.description,
+          item.supplierName,
+          item.storeName,
+          item.dueDate ? format(parseISO(item.dueDate), "dd/MM/yyyy") : "N/A",
+          item.paymentDate ? format(parseISO(item.paymentDate), "dd/MM/yyyy") : "N/A",
+          item.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A"
+        ]);
+        subgroupTotal += item.amount || 0;
+        totalItems++;
+      });
+      
+      // Subgroup subtotal
+      tableData.push([
+        { content: `Subtotal ${group.subgroupName}`, colSpan: 5, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+        { content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      ]);
+      
+      grandTotal += subgroupTotal;
+    });
+    
+    // Grand total row
+    tableData.push([
+      { content: "TOTAL GERAL", colSpan: 5, styles: { fontStyle: "bold", halign: "right", fillColor: [59, 130, 246], textColor: 255 } },
+      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [59, 130, 246], textColor: 255 } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Descrição", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor"]],
+      body: tableData,
+      startY: 28,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 10, right: 10 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save(`${title.toLowerCase().replace(/\s+/g, "-")}-por-subgrupo.pdf`);
   };
 
   const exportToExcel = (data: PayableAccount[], title: string) => {
@@ -445,15 +605,23 @@ const AccountsPayableReports = () => {
                   <CardDescription>Contas ainda não pagas</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToPDF(pendingAccounts, "Relatório de Contas a Pagar")}
-                    disabled={pendingAccounts.length === 0}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    PDF
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={pendingAccounts.length === 0}>
+                        <FileDown className="h-4 w-4 mr-2" />
+                        PDF
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => exportToPDF(pendingAccounts, "Relatório de Contas a Pagar")}>
+                        Relatório Resumido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportToPDFPorSubgrupo(pendingAccounts, "Relatório de Contas a Pagar")}>
+                        Relatório por Subgrupo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     variant="outline"
                     size="sm"
@@ -487,15 +655,23 @@ const AccountsPayableReports = () => {
                   <CardDescription>Contas já quitadas</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToPDF(paidAccounts, "Relatório de Contas Pagas")}
-                    disabled={paidAccounts.length === 0}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    PDF
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={paidAccounts.length === 0}>
+                        <FileDown className="h-4 w-4 mr-2" />
+                        PDF
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => exportToPDF(paidAccounts, "Relatório de Contas Pagas")}>
+                        Relatório Resumido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportToPDFPorSubgrupo(paidAccounts, "Relatório de Contas Pagas")}>
+                        Relatório por Subgrupo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     variant="outline"
                     size="sm"
