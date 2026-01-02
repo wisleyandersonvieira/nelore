@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ClipboardList, Scale, Syringe } from "lucide-react";
+import { ArrowLeft, ClipboardList, Scale, Syringe, Layers } from "lucide-react";
 
 const Animais = () => {
   const navigate = useNavigate();
@@ -14,6 +14,14 @@ const Animais = () => {
       icon: ClipboardList,
       color: "bg-green-500",
       route: "/animais/cadastro",
+    },
+    {
+      id: "lotes",
+      title: "Lotes",
+      description: "Gestão de lotes de animais",
+      icon: Layers,
+      color: "bg-orange-500",
+      route: "/animais/lotes",
     },
     {
       id: "pesagem",
