@@ -7,7 +7,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Beef } from "lucide-react";
+
+const CowHead = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <ellipse cx="12" cy="14" rx="7" ry="6" />
+    <ellipse cx="12" cy="16" rx="3" ry="2" />
+    <circle cx="9" cy="12" r="1" fill="currentColor" />
+    <circle cx="15" cy="12" r="1" fill="currentColor" />
+    <path d="M5 10 C3 8, 2 5, 4 4" />
+    <path d="M19 10 C21 8, 22 5, 20 4" />
+    <ellipse cx="4" cy="4" rx="1.5" ry="1" />
+    <ellipse cx="20" cy="4" rx="1.5" ry="1" />
+  </svg>
+);
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -113,7 +133,7 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <Beef className="h-12 w-12 text-green-700" />
+            <CowHead className="h-12 w-12 text-green-700" />
           </div>
           <CardTitle className="text-2xl text-green-800">Elite Sistemas</CardTitle>
           <CardDescription className="text-green-600">Sistema para Gestão de Gado de Elite</CardDescription>
