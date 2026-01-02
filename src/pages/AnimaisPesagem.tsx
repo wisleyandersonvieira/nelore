@@ -26,10 +26,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Plus, Search, X, Scale } from "lucide-react";
+import { ArrowLeft, Plus, Search, X, Scale, Eye, Pencil, Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Batch {
   id: string;
@@ -56,7 +61,22 @@ interface WeighingSession {
   observations: string | null;
   batch_id: string | null;
   created_at: string;
-  animal_batches?: { name: string } | null;
+  animal_batches?: { name: string; code: number } | null;
+  animal_count?: number;
+  total_weight?: number;
+}
+
+interface WeighingRecord {
+  id: string;
+  animal_id: string;
+  weight: number;
+  animals: {
+    id: string;
+    code: number;
+    name: string;
+    ear_tag: number | null;
+    sex: string;
+  };
 }
 
 const AnimaisPesagem = () => {
@@ -76,6 +96,19 @@ const AnimaisPesagem = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isAnimalSearchModalOpen, setIsAnimalSearchModalOpen] = useState(false);
   const [animalSearchFilter, setAnimalSearchFilter] = useState("");
+  
+  // Filters
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterAnimalName, setFilterAnimalName] = useState("");
+  const [filterBatchCode, setFilterBatchCode] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
+  // View/Edit modal
+  const [viewSession, setViewSession] = useState<WeighingSession | null>(null);
+  const [viewRecords, setViewRecords] = useState<WeighingRecord[]>([]);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     fetchBatches();
@@ -129,7 +162,7 @@ const AnimaisPesagem = () => {
 
     if (!profile?.store_id) return;
 
-    const { data } = await supabase
+    const { data: sessionsData } = await supabase
       .from("weighing_sessions")
       .select(`
         id,
@@ -138,13 +171,161 @@ const AnimaisPesagem = () => {
         observations,
         batch_id,
         created_at,
-        animal_batches (name)
+        animal_batches (name, code)
       `)
       .eq("store_id", profile.store_id)
       .order("date", { ascending: false });
 
-    if (data) setSessions(data);
+    if (sessionsData) {
+      // Fetch weighing records for each session to get counts and totals
+      const sessionsWithStats = await Promise.all(
+        sessionsData.map(async (session) => {
+          const { data: records } = await supabase
+            .from("weighing_records")
+            .select("weight, animal_id")
+            .eq("session_id", session.id);
+
+          const animalCount = records?.length || 0;
+          const totalWeight = records?.reduce((sum, r) => sum + (Number(r.weight) || 0), 0) || 0;
+
+          return {
+            ...session,
+            animal_count: animalCount,
+            total_weight: totalWeight,
+          };
+        })
+      );
+
+      setSessions(sessionsWithStats);
+    }
   };
+
+  const handleViewSession = async (session: WeighingSession) => {
+    setViewSession(session);
+    setIsEditMode(false);
+
+    const { data: records } = await supabase
+      .from("weighing_records")
+      .select(`
+        id,
+        animal_id,
+        weight,
+        animals (id, code, name, ear_tag, sex)
+      `)
+      .eq("session_id", session.id);
+
+    if (records) {
+      setViewRecords(records as WeighingRecord[]);
+    }
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditSession = async (session: WeighingSession) => {
+    setViewSession(session);
+    setIsEditMode(true);
+
+    const { data: records } = await supabase
+      .from("weighing_records")
+      .select(`
+        id,
+        animal_id,
+        weight,
+        animals (id, code, name, ear_tag, sex)
+      `)
+      .eq("session_id", session.id);
+
+    if (records) {
+      setViewRecords(records as WeighingRecord[]);
+    }
+    setIsViewModalOpen(true);
+  };
+
+  const handleUpdateWeights = async () => {
+    if (!viewSession) return;
+
+    setIsLoading(true);
+    try {
+      for (const record of viewRecords) {
+        await supabase
+          .from("weighing_records")
+          .update({ weight: record.weight })
+          .eq("id", record.id);
+      }
+      toast.success("Pesos atualizados com sucesso!");
+      setIsViewModalOpen(false);
+      fetchSessions();
+    } catch (error: any) {
+      toast.error("Erro ao atualizar pesos: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRecordWeightChange = (recordId: string, weight: string) => {
+    setViewRecords(
+      viewRecords.map((r) =>
+        r.id === recordId ? { ...r, weight: parseFloat(weight) || 0 } : r
+      )
+    );
+  };
+
+  // Filter sessions
+  const filteredSessions = sessions.filter((session) => {
+    // Date filter
+    if (filterStartDate && session.date < filterStartDate) return false;
+    if (filterEndDate && session.date > filterEndDate) return false;
+
+    // Batch filter
+    if (filterBatchCode && session.animal_batches) {
+      if (!session.animal_batches.code.toString().includes(filterBatchCode)) {
+        return false;
+      }
+    } else if (filterBatchCode && !session.animal_batches) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // For animal name filter, we need async check but for simplicity, store filtered IDs
+  const [animalFilteredSessionIds, setAnimalFilteredSessionIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const filterByAnimal = async () => {
+      if (!filterAnimalName) {
+        setAnimalFilteredSessionIds([]);
+        return;
+      }
+
+      const { data: matchingAnimals } = await supabase
+        .from("animals")
+        .select("id")
+        .ilike("name", `%${filterAnimalName}%`);
+
+      if (!matchingAnimals || matchingAnimals.length === 0) {
+        setAnimalFilteredSessionIds([]);
+        return;
+      }
+
+      const animalIds = matchingAnimals.map((a) => a.id);
+
+      const { data: records } = await supabase
+        .from("weighing_records")
+        .select("session_id")
+        .in("animal_id", animalIds);
+
+      if (records) {
+        const sessionIds = [...new Set(records.map((r) => r.session_id))];
+        setAnimalFilteredSessionIds(sessionIds);
+      }
+    };
+
+    filterByAnimal();
+  }, [filterAnimalName]);
+
+  const displayedSessions = filterAnimalName
+    ? filteredSessions.filter((s) => animalFilteredSessionIds.includes(s.id))
+    : filteredSessions;
 
   const handleCreateSession = async () => {
     if (!date || !weighingType) {
@@ -324,36 +505,147 @@ const AnimaisPesagem = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Filters */}
+        <Card className="mb-6">
+          <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtros
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="filter-start-date">Data Inicial</Label>
+                    <Input
+                      id="filter-start-date"
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="filter-end-date">Data Final</Label>
+                    <Input
+                      id="filter-end-date"
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="filter-animal">Nome do Animal</Label>
+                    <Input
+                      id="filter-animal"
+                      placeholder="Buscar por nome..."
+                      value={filterAnimalName}
+                      onChange={(e) => setFilterAnimalName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="filter-batch">Número do Lote</Label>
+                    <Input
+                      id="filter-batch"
+                      placeholder="Código do lote..."
+                      value={filterBatchCode}
+                      onChange={(e) => setFilterBatchCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFilterStartDate("");
+                      setFilterEndDate("");
+                      setFilterAnimalName("");
+                      setFilterBatchCode("");
+                    }}
+                  >
+                    Limpar Filtros
+                  </Button>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
+        {/* Sessions Table */}
         {sessions.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             <Scale className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>Nenhuma pesagem cadastrada.</p>
             <p className="text-sm">Clique em "Cadastrar Pesagem" para começar.</p>
           </div>
-        ) : (
-          <div className="grid gap-4">
-            {sessions.map((session) => (
-              <Card key={session.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    <span>
-                      {format(new Date(session.date + "T00:00:00"), "dd/MM/yyyy")}
-                    </span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {session.weighing_type === "lote"
-                        ? `Lote: ${session.animal_batches?.name || "—"}`
-                        : "Avulso"}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                {session.observations && (
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-muted-foreground">{session.observations}</p>
-                  </CardContent>
-                )}
-              </Card>
-            ))}
+        ) : displayedSessions.length === 0 ? (
+          <div className="text-center text-muted-foreground py-12">
+            <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Nenhuma pesagem encontrada com os filtros aplicados.</p>
           </div>
+        ) : (
+          <Card>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-center">Qtd. Animais</TableHead>
+                    <TableHead className="text-right">Peso Total (kg)</TableHead>
+                    <TableHead>Lote</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedSessions.map((session) => (
+                    <TableRow key={session.id}>
+                      <TableCell>
+                        {format(new Date(session.date + "T00:00:00"), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {session.animal_count || 0}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(session.total_weight || 0).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        {session.weighing_type === "lote" && session.animal_batches
+                          ? `${session.animal_batches.code} - ${session.animal_batches.name}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewSession(session)}
+                            title="Visualizar"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditSession(session)}
+                            title="Editar"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
         )}
       </main>
 
@@ -618,6 +910,122 @@ const AnimaisPesagem = () => {
               Fechar
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de visualização/edição de pesagem */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditMode ? "Editar Pesagem" : "Visualizar Pesagem"}
+              {viewSession && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  - {format(new Date(viewSession.date + "T00:00:00"), "dd/MM/yyyy")}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewSession && (
+            <div className="space-y-4">
+              <div className="flex gap-4 text-sm text-muted-foreground">
+                <span>
+                  <strong>Tipo:</strong>{" "}
+                  {viewSession.weighing_type === "lote" ? "Lote" : "Avulso"}
+                </span>
+                {viewSession.weighing_type === "lote" && viewSession.animal_batches && (
+                  <span>
+                    <strong>Lote:</strong> {viewSession.animal_batches.code} -{" "}
+                    {viewSession.animal_batches.name}
+                  </span>
+                )}
+                {viewSession.observations && (
+                  <span>
+                    <strong>Obs:</strong> {viewSession.observations}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto border rounded-md max-h-[50vh]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Brinco</TableHead>
+                      <TableHead>Sexo</TableHead>
+                      <TableHead className="w-32 text-right">Peso (kg)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewRecords.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          Nenhum registro de peso encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      viewRecords.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.animals.code}</TableCell>
+                          <TableCell>{record.animals.name}</TableCell>
+                          <TableCell>{record.animals.ear_tag || "—"}</TableCell>
+                          <TableCell>
+                            {record.animals.sex === "M" ? "Macho" : "Fêmea"}
+                          </TableCell>
+                          <TableCell>
+                            {isEditMode ? (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={record.weight}
+                                onChange={(e) =>
+                                  handleRecordWeightChange(record.id, e.target.value)
+                                }
+                                className="w-full text-right"
+                              />
+                            ) : (
+                              <span className="block text-right">
+                                {record.weight.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  <strong>Total:</strong>{" "}
+                  {viewRecords
+                    .reduce((sum, r) => sum + (Number(r.weight) || 0), 0)
+                    .toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                  kg ({viewRecords.length} animais)
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                    {isEditMode ? "Cancelar" : "Fechar"}
+                  </Button>
+                  {isEditMode && (
+                    <Button onClick={handleUpdateWeights} disabled={isLoading}>
+                      {isLoading ? "Salvando..." : "Salvar Alterações"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
