@@ -54,11 +54,11 @@ const Cadastros = () => {
         });
         return;
       }
-      if (menuId === 'lojas') {
+      if (menuId === 'fazendas') {
         toast({
           variant: "destructive",
           title: "Acesso negado",
-          description: "Você não tem permissão para acessar Lojas.",
+          description: "Você não tem permissão para acessar Fazendas.",
         });
         return;
       }
@@ -84,12 +84,12 @@ const Cadastros = () => {
     onClick: () => handleMenuClick("credores", () => setCreditorsModalOpen(true)),
     restricted: false
   }, {
-    id: "lojas",
-    title: "Lojas",
-    description: "Cadastro e gestão de lojas",
+    id: "fazendas",
+    title: "Fazendas",
+    description: "Cadastro e gestão de fazendas",
     icon: Store,
     color: "bg-pink-500",
-    onClick: () => handleMenuClick("lojas", () => setStoresModalOpen(true)),
+    onClick: () => handleMenuClick("fazendas", () => setStoresModalOpen(true)),
     restricted: !canAccessStores
   }, {
     id: "grupos",
