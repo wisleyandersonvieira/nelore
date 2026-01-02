@@ -29,6 +29,10 @@ import AccountsReceivableReport from "./pages/AccountsReceivableReport";
 import ReceivedAccountsReport from "./pages/ReceivedAccountsReport";
 import TurnoverReport from "./pages/TurnoverReport";
 import Extratos from "./pages/Extratos";
+import Animais from "./pages/Animais";
+import AnimaisCadastro from "./pages/AnimaisCadastro";
+import AnimaisPesagem from "./pages/AnimaisPesagem";
+import AnimaisVacinacao from "./pages/AnimaisVacinacao";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +74,10 @@ function App() {
               <Route path="/reports/accounts-receivable/received" element={<ReceivedAccountsReport />} />
               <Route path="/reports/turnover" element={<TurnoverReport />} />
               <Route path="/reports/extratos" element={<Extratos />} />
+              <Route path="/animais" element={<Animais />} />
+              <Route path="/animais/cadastro" element={<AnimaisCadastro />} />
+              <Route path="/animais/pesagem" element={<AnimaisPesagem />} />
+              <Route path="/animais/vacinacao" element={<AnimaisVacinacao />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
