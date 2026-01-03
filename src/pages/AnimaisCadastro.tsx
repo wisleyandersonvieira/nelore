@@ -98,6 +98,15 @@ interface BreedingAnimal {
   dam_id: string | null;
 }
 
+interface WeighingRecord {
+  date: string;
+  weight: number;
+}
+
+interface WeighingWithGMD extends WeighingRecord {
+  gmd: number | null;
+}
+
 const AnimaisCadastro = () => {
   const navigate = useNavigate();
   const [animals, setAnimals] = useState<Animal[]>([]);
@@ -158,6 +167,8 @@ const AnimaisCadastro = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState<{ url: string; isCover: boolean } | null>(null);
+  const [animalWeighings, setAnimalWeighings] = useState<WeighingWithGMD[]>([]);
+  const [loadingWeighings, setLoadingWeighings] = useState(false);
 
   useEffect(() => {
     fetchAnimals();
@@ -254,9 +265,74 @@ const AnimaisCadastro = () => {
     }
   };
 
+  const fetchAnimalWeighings = async (animalId: string, firstWeighingDate: string | null, firstWeight: number | null) => {
+    setLoadingWeighings(true);
+    try {
+      // Fetch weighing records for this animal
+      const { data: records, error } = await supabase
+        .from("weighing_records")
+        .select(`
+          weight,
+          weighing_sessions!inner (date)
+        `)
+        .eq("animal_id", animalId)
+        .not("weight", "is", null);
+
+      if (error) throw error;
+
+      // Build list of weighings including first weight if exists
+      const weighings: WeighingRecord[] = [];
+
+      // Add first weighing from animal registration
+      if (firstWeighingDate && firstWeight) {
+        weighings.push({
+          date: firstWeighingDate,
+          weight: firstWeight,
+        });
+      }
+
+      // Add weighings from weighing_records
+      if (records) {
+        records.forEach((record: any) => {
+          if (record.weight && record.weighing_sessions?.date) {
+            weighings.push({
+              date: record.weighing_sessions.date,
+              weight: Number(record.weight),
+            });
+          }
+        });
+      }
+
+      // Sort by date ascending
+      weighings.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Calculate GMD for each weighing
+      const weighingsWithGMD: WeighingWithGMD[] = weighings.map((w, index) => {
+        if (index === 0) {
+          return { ...w, gmd: null };
+        }
+        const prevWeighing = weighings[index - 1];
+        const daysDiff = Math.round(
+          (new Date(w.date).getTime() - new Date(prevWeighing.date).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const weightDiff = w.weight - prevWeighing.weight;
+        const gmd = daysDiff > 0 ? weightDiff / daysDiff : null;
+        return { ...w, gmd };
+      });
+
+      setAnimalWeighings(weighingsWithGMD);
+    } catch (error) {
+      console.error("Error fetching animal weighings:", error);
+      setAnimalWeighings([]);
+    } finally {
+      setLoadingWeighings(false);
+    }
+  };
+
   const handleOpenModal = async (mode: "view" | "edit" | "create", animal?: Animal) => {
     setModalMode(mode);
     setActiveTab("dados");
+    setAnimalWeighings([]);
 
     if (mode === "create") {
       const nextCode = await getNextCode();
@@ -285,6 +361,8 @@ const AnimaisCadastro = () => {
       setSelectedAnimal(null);
     } else if (animal) {
       setSelectedAnimal(animal);
+      // Fetch weighings for this animal
+      fetchAnimalWeighings(animal.id, animal.first_weighing_date, animal.first_weight);
       setFormData({
         code: animal.code,
         name: animal.name,
@@ -932,9 +1010,10 @@ const AnimaisCadastro = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
+              <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
               <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
@@ -1354,6 +1433,51 @@ const AnimaisCadastro = () => {
                   )}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Tab: Pesagem */}
+            <TabsContent value="pesagem" className="space-y-4 mt-4">
+              {loadingWeighings ? (
+                <p className="text-center text-muted-foreground py-8">Carregando pesagens...</p>
+              ) : animalWeighings.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Nenhuma pesagem registrada para este animal.</p>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Peso (kg)</TableHead>
+                        <TableHead className="text-right">GMD (kg/dia)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {animalWeighings.map((weighing, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            {format(new Date(weighing.date), "dd/MM/yyyy", { locale: ptBR })}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {weighing.weight.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {weighing.gmd !== null ? (
+                              <span className={cn(
+                                "font-medium",
+                                weighing.gmd >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                              )}>
+                                {weighing.gmd >= 0 ? "+" : ""}{weighing.gmd.toFixed(3)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </TabsContent>
 
             {/* Tab: Financeiro (disabled) */}
