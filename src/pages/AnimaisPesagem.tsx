@@ -188,7 +188,7 @@ const AnimaisPesagem = () => {
         animal_batches (name, code)
       `)
       .eq("store_id", profile.store_id)
-      .order("date", { ascending: false });
+      .order("date", { ascending: true });
 
     if (sessionsData) {
       // Fetch all weighing records for all sessions in one query
