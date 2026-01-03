@@ -1455,7 +1455,7 @@ const AnimaisCadastro = () => {
                       {animalWeighings.map((weighing, index) => (
                         <TableRow key={index}>
                           <TableCell>
-                            {format(new Date(weighing.date), "dd/MM/yyyy", { locale: ptBR })}
+                            {format(new Date(weighing.date + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })}
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {weighing.weight.toFixed(2)}
