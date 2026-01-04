@@ -944,6 +944,18 @@ const AnimaisCadastro = () => {
             // Status filter
             if (filters.status === "ativo" && !animal.is_active) return false;
             if (filters.status === "inativo" && animal.is_active) return false;
+            // Farm filter
+            if (filters.farm) {
+              const dashIndex = filters.farm.indexOf("-");
+              if (dashIndex > 0) {
+                const filterType = filters.farm.substring(0, dashIndex);
+                const filterId = filters.farm.substring(dashIndex + 1);
+                const animalFarmType = filterType === "own" ? "own" : "third_party";
+                if (animal.farm_id !== filterId || animal.farm_type !== animalFarmType) {
+                  return false;
+                }
+              }
+            }
             // Sex filter
             if (filters.sex && animal.sex !== filters.sex) return false;
             // Breed filter
