@@ -2694,6 +2694,53 @@ export type Database = {
           },
         ]
       }
+      third_party_farms: {
+        Row: {
+          city: string | null
+          code: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          owner: string | null
+          phone: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          code: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          owner?: string | null
+          phone?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          code?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner?: string | null
+          phone?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "third_party_farms_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transfers: {
         Row: {
           amount: number
@@ -2995,6 +3042,10 @@ export type Database = {
       }
       get_next_leilao_code: { Args: { store_uuid: string }; Returns: number }
       get_next_product_code: { Args: never; Returns: number }
+      get_next_third_party_farm_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
       get_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
