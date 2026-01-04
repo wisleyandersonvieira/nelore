@@ -735,6 +735,8 @@ export type Database = {
           dam_id: string | null
           ear_tag: number | null
           farm_entry_date: string | null
+          farm_id: string | null
+          farm_type: string | null
           first_weighing_date: string | null
           first_weight: number | null
           id: string
@@ -761,6 +763,8 @@ export type Database = {
           dam_id?: string | null
           ear_tag?: number | null
           farm_entry_date?: string | null
+          farm_id?: string | null
+          farm_type?: string | null
           first_weighing_date?: string | null
           first_weight?: number | null
           id?: string
@@ -787,6 +791,8 @@ export type Database = {
           dam_id?: string | null
           ear_tag?: number | null
           farm_entry_date?: string | null
+          farm_id?: string | null
+          farm_type?: string | null
           first_weighing_date?: string | null
           first_weight?: number | null
           id?: string
