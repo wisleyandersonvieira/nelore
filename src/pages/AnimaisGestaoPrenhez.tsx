@@ -1002,14 +1002,14 @@ const AnimaisGestaoPrenhez = () => {
               <div>
                 <Label>Filtrar por Categoria</Label>
                 <Select
-                  value={recipientCategoryFilter}
-                  onValueChange={setRecipientCategoryFilter}
+                  value={recipientCategoryFilter || "all"}
+                  onValueChange={(value) => setRecipientCategoryFilter(value === "all" ? "" : value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todas as categorias" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as categorias</SelectItem>
+                    <SelectItem value="all">Todas as categorias</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
