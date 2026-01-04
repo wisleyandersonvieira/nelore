@@ -38,7 +38,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search } from "lucide-react";
+import { DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -70,6 +71,7 @@ interface Animal {
   is_active: boolean;
   farm_id: string | null;
   farm_type: string | null;
+  recipient_id: string | null;
 }
 
 interface Batch {
@@ -159,7 +161,14 @@ const AnimaisCadastro = () => {
     cover_photo: "",
     is_active: "ativo",
     farm: "",
+    recipient_id: "",
   });
+
+  // Recipient search state
+  const [recipientSearchOpen, setRecipientSearchOpen] = useState(false);
+  const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
+  const [recipientCategoryFilter, setRecipientCategoryFilter] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState<Animal | null>(null);
 
   // Dropdown options
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -368,12 +377,21 @@ const AnimaisCadastro = () => {
         cover_photo: "",
         is_active: "ativo",
         farm: "",
+        recipient_id: "",
       });
       setSelectedAnimal(null);
+      setSelectedRecipient(null);
     } else if (animal) {
       setSelectedAnimal(animal);
       // Fetch weighings for this animal
       fetchAnimalWeighings(animal.id, animal.first_weighing_date, animal.first_weight);
+      // Set recipient if exists
+      if (animal.recipient_id) {
+        const recipient = animals.find(a => a.id === animal.recipient_id);
+        setSelectedRecipient(recipient || null);
+      } else {
+        setSelectedRecipient(null);
+      }
       setFormData({
         code: animal.code,
         name: animal.name,
@@ -396,6 +414,7 @@ const AnimaisCadastro = () => {
         cover_photo: animal.cover_photo || "",
         is_active: animal.is_active ? "ativo" : "inativo",
         farm: animal.farm_id && animal.farm_type ? `${animal.farm_type === "own" ? "own" : "third"}-${animal.farm_id}` : "",
+        recipient_id: animal.recipient_id || "",
       });
     }
 
@@ -530,6 +549,7 @@ const AnimaisCadastro = () => {
         is_active: formData.is_active === "ativo",
         farm_id: farmId,
         farm_type: farmType,
+        recipient_id: formData.recipient_id || null,
       };
 
       if (modalMode === "create") {
@@ -1337,6 +1357,43 @@ const AnimaisCadastro = () => {
                   />
                 </div>
               </div>
+
+              {/* Receptora field */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Receptora</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={selectedRecipient ? `${selectedRecipient.code} - ${selectedRecipient.name}` : ""}
+                      placeholder="Selecione uma receptora..."
+                      disabled
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setRecipientSearchOpen(true)}
+                      disabled={isReadOnly}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                    {selectedRecipient && !isReadOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRecipient(null);
+                          setFormData({ ...formData, recipient_id: "" });
+                        }}
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             {/* Tab: Genealogia */}
@@ -1672,6 +1729,122 @@ const AnimaisCadastro = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Recipient Search Modal */}
+      <Dialog open={recipientSearchOpen} onOpenChange={setRecipientSearchOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Buscar Receptora</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Buscar por Nome ou Brinco</Label>
+                <Input
+                  placeholder="Digite o nome ou brinco..."
+                  value={recipientSearchTerm}
+                  onChange={(e) => setRecipientSearchTerm(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Filtrar por Categoria</Label>
+                <Select
+                  value={recipientCategoryFilter || "all"}
+                  onValueChange={(value) => setRecipientCategoryFilter(value === "all" ? "" : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as categorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as categorias</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Brinco</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {animals
+                    .filter((animal) => {
+                      // Exclude current animal being edited
+                      if (selectedAnimal && animal.id === selectedAnimal.id) return false;
+                      const searchLower = recipientSearchTerm.toLowerCase();
+                      const matchesSearch =
+                        animal.name.toLowerCase().includes(searchLower) ||
+                        animal.code.toString().includes(searchLower) ||
+                        (animal.ear_tag && animal.ear_tag.toString().includes(searchLower));
+                      const matchesCategory = !recipientCategoryFilter || animal.category_id === recipientCategoryFilter;
+                      return matchesSearch && matchesCategory;
+                    })
+                    .length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        Nenhum animal encontrado.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    animals
+                      .filter((animal) => {
+                        if (selectedAnimal && animal.id === selectedAnimal.id) return false;
+                        const searchLower = recipientSearchTerm.toLowerCase();
+                        const matchesSearch =
+                          animal.name.toLowerCase().includes(searchLower) ||
+                          animal.code.toString().includes(searchLower) ||
+                          (animal.ear_tag && animal.ear_tag.toString().includes(searchLower));
+                        const matchesCategory = !recipientCategoryFilter || animal.category_id === recipientCategoryFilter;
+                        return matchesSearch && matchesCategory;
+                      })
+                      .map((animal) => (
+                        <TableRow key={animal.id}>
+                          <TableCell>{animal.code}</TableCell>
+                          <TableCell>{animal.name}</TableCell>
+                          <TableCell>{animal.ear_tag || "-"}</TableCell>
+                          <TableCell>{categories.find(c => c.id === animal.category_id)?.name || "-"}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRecipient(animal);
+                                setFormData({ ...formData, recipient_id: animal.id });
+                                setRecipientSearchOpen(false);
+                                setRecipientSearchTerm("");
+                                setRecipientCategoryFilter("");
+                              }}
+                            >
+                              Selecionar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecipientSearchOpen(false)}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

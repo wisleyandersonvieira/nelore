@@ -744,6 +744,7 @@ export type Database = {
           name: string
           observations: string | null
           photos: Json | null
+          recipient_id: string | null
           registration: string | null
           sex: string
           sire_id: string | null
@@ -772,6 +773,7 @@ export type Database = {
           name: string
           observations?: string | null
           photos?: Json | null
+          recipient_id?: string | null
           registration?: string | null
           sex: string
           sire_id?: string | null
@@ -800,6 +802,7 @@ export type Database = {
           name?: string
           observations?: string | null
           photos?: Json | null
+          recipient_id?: string | null
           registration?: string | null
           sex?: string
           sire_id?: string | null
@@ -840,6 +843,13 @@ export type Database = {
             columns: ["dam_id"]
             isOneToOne: false
             referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
             referencedColumns: ["id"]
           },
           {
