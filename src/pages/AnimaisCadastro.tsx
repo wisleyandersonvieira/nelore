@@ -122,6 +122,7 @@ const AnimaisCadastro = () => {
   const [filters, setFilters] = useState({
     name: "",
     status: "ambos",
+    farm: "",
     sex: "",
     breed_id: "",
     dam_id: "",
@@ -164,6 +165,8 @@ const AnimaisCadastro = () => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
+  const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
+  const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState<{ url: string; isCover: boolean } | null>(null);
@@ -221,12 +224,14 @@ const AnimaisCadastro = () => {
       if (!profile?.store_id) return;
 
       // Fetch all dropdown data in parallel
-      const [batchesRes, breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes] = await Promise.all([
+      const [batchesRes, breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes] = await Promise.all([
         supabase.from("animal_batches").select("id, name").eq("store_id", profile.store_id),
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("stores").select("id, name"),
+        supabase.from("third_party_farms").select("id, name").eq("is_active", true),
       ]);
 
       setBatches(batchesRes.data || []);
@@ -235,6 +240,8 @@ const AnimaisCadastro = () => {
       setAuctions(auctionsRes.data || []);
       setSires((breedingAnimalsRes.data || []).filter(a => a.sex === "macho"));
       setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea"));
+      setOwnFarms(storesRes.data || []);
+      setThirdPartyFarms(thirdPartyFarmsRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -661,6 +668,45 @@ const AnimaisCadastro = () => {
               </Select>
             </div>
 
+            {/* Farm filter */}
+            <div className="space-y-2">
+              <Label>Fazenda</Label>
+              <Select
+                value={filters.farm || "_all"}
+                onValueChange={(value) => setFilters({ ...filters, farm: value === "_all" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar fazenda" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="_all">Todas</SelectItem>
+                  {ownFarms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Fazendas Próprias</div>
+                      {ownFarms.map((farm) => (
+                        <SelectItem key={`own-${farm.id}`} value={`own-${farm.id}`}>
+                          {farm.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  {ownFarms.length > 0 && thirdPartyFarms.length > 0 && (
+                    <div className="my-1 border-t border-border" />
+                  )}
+                  {thirdPartyFarms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Fazendas Terceiras</div>
+                      {thirdPartyFarms.map((farm) => (
+                        <SelectItem key={`third-${farm.id}`} value={`third-${farm.id}`}>
+                          {farm.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Sex filter */}
             <div className="space-y-2">
               <Label>Sexo</Label>
@@ -852,6 +898,7 @@ const AnimaisCadastro = () => {
               onClick={() => setFilters({
                 name: "",
                 status: "ambos",
+                farm: "",
                 sex: "",
                 breed_id: "",
                 dam_id: "",
