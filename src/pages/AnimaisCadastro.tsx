@@ -68,6 +68,8 @@ interface Animal {
   cover_photo: string | null;
   store_id: string;
   is_active: boolean;
+  farm_id: string | null;
+  farm_type: string | null;
 }
 
 interface Batch {
@@ -156,6 +158,7 @@ const AnimaisCadastro = () => {
     photos: [] as string[],
     cover_photo: "",
     is_active: "ativo",
+    farm: "",
   });
 
   // Dropdown options
@@ -364,6 +367,7 @@ const AnimaisCadastro = () => {
         photos: [],
         cover_photo: "",
         is_active: "ativo",
+        farm: "",
       });
       setSelectedAnimal(null);
     } else if (animal) {
@@ -391,6 +395,7 @@ const AnimaisCadastro = () => {
         photos: animal.photos || [],
         cover_photo: animal.cover_photo || "",
         is_active: animal.is_active ? "ativo" : "inativo",
+        farm: animal.farm_id && animal.farm_type ? `${animal.farm_type === "own" ? "own" : "third"}-${animal.farm_id}` : "",
       });
     }
 
@@ -490,6 +495,15 @@ const AnimaisCadastro = () => {
         return;
       }
 
+      // Parse farm value
+      let farmId: string | null = null;
+      let farmType: string | null = null;
+      if (formData.farm) {
+        const [type, id] = formData.farm.split("-");
+        farmId = id;
+        farmType = type === "own" ? "own" : "third_party";
+      }
+
       const animalData = {
         name: formData.name.trim(),
         registration: formData.registration || null,
@@ -511,6 +525,8 @@ const AnimaisCadastro = () => {
         cover_photo: formData.cover_photo || null,
         store_id: profile.store_id,
         is_active: formData.is_active === "ativo",
+        farm_id: farmId,
+        farm_type: farmType,
       };
 
       if (modalMode === "create") {
@@ -1158,6 +1174,44 @@ const AnimaisCadastro = () => {
                     <SelectContent className="bg-background z-50">
                       <SelectItem value="ativo">Ativo</SelectItem>
                       <SelectItem value="inativo">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Fazenda</Label>
+                  <Select
+                    value={formData.farm || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, farm: value === "_none" ? "" : value })}
+                    disabled={isReadOnly}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar fazenda" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="_none">Nenhuma</SelectItem>
+                      {ownFarms.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Fazendas Próprias</div>
+                          {ownFarms.map((farm) => (
+                            <SelectItem key={`own-${farm.id}`} value={`own-${farm.id}`}>
+                              {farm.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {ownFarms.length > 0 && thirdPartyFarms.length > 0 && (
+                        <div className="my-1 border-t border-border" />
+                      )}
+                      {thirdPartyFarms.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Fazendas Terceiras</div>
+                          {thirdPartyFarms.map((farm) => (
+                            <SelectItem key={`third-${farm.id}`} value={`third-${farm.id}`}>
+                              {farm.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
