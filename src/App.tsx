@@ -40,6 +40,7 @@ import AnimaisRacas from "./pages/AnimaisRacas";
 import AnimaisCategorias from "./pages/AnimaisCategorias";
 import AnimaisLeiloes from "./pages/AnimaisLeiloes";
 import AnimaisFazendasTerceiras from "./pages/AnimaisFazendasTerceiras";
+import AnimaisGestaoPrenhez from "./pages/AnimaisGestaoPrenhez";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +88,7 @@ function App() {
               <Route path="/animais/pesagem" element={<AnimaisPesagem />} />
               <Route path="/animais/vacinacao" element={<AnimaisVacinacao />} />
               <Route path="/animais/matrizes" element={<AnimaisMatrizes />} />
+              <Route path="/animais/prenhez" element={<AnimaisGestaoPrenhez />} />
               <Route path="/animais/cadastros-gerais" element={<AnimaisCadastrosGerais />} />
               <Route path="/animais/cadastros-gerais/racas" element={<AnimaisRacas />} />
               <Route path="/animais/cadastros-gerais/categorias" element={<AnimaisCategorias />} />
