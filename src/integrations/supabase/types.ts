@@ -2704,7 +2704,7 @@ export type Database = {
           name: string
           owner: string | null
           phone: string | null
-          store_id: string
+          store_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2716,7 +2716,7 @@ export type Database = {
           name: string
           owner?: string | null
           phone?: string | null
-          store_id: string
+          store_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2728,7 +2728,7 @@ export type Database = {
           name?: string
           owner?: string | null
           phone?: string | null
-          store_id?: string
+          store_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3042,10 +3042,9 @@ export type Database = {
       }
       get_next_leilao_code: { Args: { store_uuid: string }; Returns: number }
       get_next_product_code: { Args: never; Returns: number }
-      get_next_third_party_farm_code: {
-        Args: { store_uuid: string }
-        Returns: number
-      }
+      get_next_third_party_farm_code:
+        | { Args: never; Returns: number }
+        | { Args: { store_uuid: string }; Returns: number }
       get_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]

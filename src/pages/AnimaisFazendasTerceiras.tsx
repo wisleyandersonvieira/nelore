@@ -40,7 +40,6 @@ interface ThirdPartyFarm {
   owner: string | null;
   phone: string | null;
   is_active: boolean;
-  store_id: string;
 }
 
 const AnimaisFazendasTerceiras = () => {
@@ -61,24 +60,9 @@ const AnimaisFazendasTerceiras = () => {
 
   const fetchFarms = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .single();
-
-      if (!profile?.store_id) {
-        toast({
-          title: "Erro",
-          description: "Loja não encontrada",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { data, error } = await supabase
         .from("third_party_farms")
-        .select("*")
-        .eq("store_id", profile.store_id)
+        .select("id, code, name, city, owner, phone, is_active")
         .eq("is_active", true)
         .order("code", { ascending: true });
 
@@ -112,24 +96,16 @@ const AnimaisFazendasTerceiras = () => {
     } else {
       setSelectedFarm(null);
       try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("store_id")
-          .single();
-
-        if (profile?.store_id) {
-          const { data: nextCode } = await supabase.rpc(
-            "get_next_third_party_farm_code",
-            { store_uuid: profile.store_id }
-          );
-          setFormData({
-            code: nextCode || 1,
-            name: "",
-            city: "",
-            owner: "",
-            phone: "",
-          });
-        }
+        const { data: nextCode } = await supabase.rpc(
+          "get_next_third_party_farm_code"
+        );
+        setFormData({
+          code: nextCode || 1,
+          name: "",
+          city: "",
+          owner: "",
+          phone: "",
+        });
       } catch (error) {
         setFormData({
           code: 1,
@@ -154,20 +130,6 @@ const AnimaisFazendasTerceiras = () => {
     }
 
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .single();
-
-      if (!profile?.store_id) {
-        toast({
-          title: "Erro",
-          description: "Loja não encontrada",
-          variant: "destructive",
-        });
-        return;
-      }
-
       if (selectedFarm) {
         const { error } = await supabase
           .from("third_party_farms")
@@ -191,7 +153,6 @@ const AnimaisFazendasTerceiras = () => {
           city: formData.city.trim() || null,
           owner: formData.owner.trim() || null,
           phone: formData.phone.trim() || null,
-          store_id: profile.store_id,
         });
 
         if (error) throw error;
