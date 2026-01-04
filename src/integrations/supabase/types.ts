@@ -2303,6 +2303,7 @@ export type Database = {
           farm_type: string | null
           id: string
           name: string
+          recipient_id: string | null
           sex: string
           sire_id: string | null
           status: string
@@ -2322,6 +2323,7 @@ export type Database = {
           farm_type?: string | null
           id?: string
           name: string
+          recipient_id?: string | null
           sex: string
           sire_id?: string | null
           status?: string
@@ -2341,6 +2343,7 @@ export type Database = {
           farm_type?: string | null
           id?: string
           name?: string
+          recipient_id?: string | null
           sex?: string
           sire_id?: string | null
           status?: string
@@ -2374,6 +2377,13 @@ export type Database = {
             columns: ["dam_id"]
             isOneToOne: false
             referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_management_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
             referencedColumns: ["id"]
           },
           {
