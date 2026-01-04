@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -37,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -58,6 +59,7 @@ interface PregnancyRecord {
   dam_id: string | null;
   farm_id: string | null;
   farm_type: string | null;
+  recipient_id: string | null;
   status: string;
   store_id: string;
 }
@@ -85,6 +87,14 @@ interface BreedingAnimal {
   dam_id: string | null;
 }
 
+interface Animal {
+  id: string;
+  code: number;
+  name: string;
+  ear_tag: number | null;
+  category_id: string | null;
+}
+
 const AnimaisGestaoPrenhez = () => {
   const navigate = useNavigate();
   const [records, setRecords] = useState<PregnancyRecord[]>([]);
@@ -96,8 +106,16 @@ const AnimaisGestaoPrenhez = () => {
   const [recordToDelete, setRecordToDelete] = useState<PregnancyRecord | null>(null);
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   const [recordToFinalize, setRecordToFinalize] = useState<PregnancyRecord | null>(null);
+  const [finalizeBirthDate, setFinalizeBirthDate] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
+
+  // Recipient search modal state
+  const [recipientSearchOpen, setRecipientSearchOpen] = useState(false);
+  const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
+  const [recipientCategoryFilter, setRecipientCategoryFilter] = useState("");
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState<Animal | null>(null);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -112,6 +130,7 @@ const AnimaisGestaoPrenhez = () => {
     sire_id: "",
     dam_id: "",
     farm: "",
+    recipient_id: "",
   });
 
   // Dropdown options
@@ -176,13 +195,14 @@ const AnimaisGestaoPrenhez = () => {
       if (!profile?.store_id) return;
 
       // Fetch all dropdown data in parallel
-      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes] = await Promise.all([
+      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, animalsRes] = await Promise.all([
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
+        supabase.from("animals").select("id, code, name, ear_tag, category_id").eq("store_id", profile.store_id).eq("is_active", true),
       ]);
 
       setBreeds(breedsRes.data || []);
@@ -192,6 +212,7 @@ const AnimaisGestaoPrenhez = () => {
       setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea"));
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
+      setAnimals(animalsRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -226,8 +247,10 @@ const AnimaisGestaoPrenhez = () => {
         sire_id: "",
         dam_id: "",
         farm: "",
+        recipient_id: "",
       });
       setSelectedRecord(null);
+      setSelectedRecipient(null);
     } else if (record) {
       setSelectedRecord(record);
       let farmValue = "";
@@ -246,7 +269,15 @@ const AnimaisGestaoPrenhez = () => {
         sire_id: record.sire_id || "",
         dam_id: record.dam_id || "",
         farm: farmValue,
+        recipient_id: record.recipient_id || "",
       });
+      // Find the recipient animal if exists
+      if (record.recipient_id) {
+        const recipient = animals.find(a => a.id === record.recipient_id);
+        setSelectedRecipient(recipient || null);
+      } else {
+        setSelectedRecipient(null);
+      }
     }
     setModalOpen(true);
   };
@@ -308,6 +339,7 @@ const AnimaisGestaoPrenhez = () => {
         dam_id: formData.dam_id || null,
         farm_id: farmId,
         farm_type: farmType,
+        recipient_id: formData.recipient_id || null,
         store_id: profile.store_id,
       };
 
@@ -358,8 +390,21 @@ const AnimaisGestaoPrenhez = () => {
     }
   };
 
+  const handleOpenFinalizeDialog = (record: PregnancyRecord) => {
+    setRecordToFinalize(record);
+    setFinalizeBirthDate(record.expected_birth_month ? new Date(record.expected_birth_month) : null);
+    setFinalizeDialogOpen(true);
+  };
+
   const handleFinalize = async () => {
-    if (!recordToFinalize || !storeId) return;
+    if (!recordToFinalize || !storeId || !finalizeBirthDate) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe a data de nascimento do animal.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       // Get next animal code
@@ -380,7 +425,7 @@ const AnimaisGestaoPrenhez = () => {
         dam_id: recordToFinalize.dam_id,
         farm_id: recordToFinalize.farm_id,
         farm_type: recordToFinalize.farm_type,
-        birth_date: recordToFinalize.expected_birth_month,
+        birth_date: format(finalizeBirthDate, "yyyy-MM-dd"),
         store_id: storeId,
         is_active: true,
       };
@@ -402,6 +447,7 @@ const AnimaisGestaoPrenhez = () => {
 
       setFinalizeDialogOpen(false);
       setRecordToFinalize(null);
+      setFinalizeBirthDate(null);
       fetchRecords();
       navigate("/animais/cadastro");
     } catch (error) {
@@ -427,14 +473,10 @@ const AnimaisGestaoPrenhez = () => {
     return thirdPartyFarms.find((f) => f.id === farmId)?.name || "-";
   };
 
-  const getSireName = (sireId: string | null) => {
-    if (!sireId) return "-";
-    return sires.find((s) => s.id === sireId)?.name || "-";
-  };
-
-  const getDamName = (damId: string | null) => {
-    if (!damId) return "-";
-    return dams.find((d) => d.id === damId)?.name || "-";
+  const getRecipientName = (recipientId: string | null) => {
+    if (!recipientId) return "-";
+    const animal = animals.find((a) => a.id === recipientId);
+    return animal ? `${animal.code} - ${animal.name}` : "-";
   };
 
   const getCategoryName = (categoryId: string | null) => {
@@ -442,9 +484,23 @@ const AnimaisGestaoPrenhez = () => {
     return categories.find((c) => c.id === categoryId)?.name || "-";
   };
 
-  const getAuctionName = (auctionId: string | null) => {
-    if (!auctionId) return "-";
-    return auctions.find((a) => a.id === auctionId)?.name || "-";
+  // Filter animals for recipient search
+  const filteredAnimals = animals.filter((animal) => {
+    const searchLower = recipientSearchTerm.toLowerCase();
+    const matchesSearch =
+      animal.name.toLowerCase().includes(searchLower) ||
+      animal.code.toString().includes(searchLower) ||
+      (animal.ear_tag && animal.ear_tag.toString().includes(searchLower));
+    const matchesCategory = !recipientCategoryFilter || animal.category_id === recipientCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleSelectRecipient = (animal: Animal) => {
+    setSelectedRecipient(animal);
+    setFormData({ ...formData, recipient_id: animal.id });
+    setRecipientSearchOpen(false);
+    setRecipientSearchTerm("");
+    setRecipientCategoryFilter("");
   };
 
   return (
@@ -550,10 +606,7 @@ const AnimaisGestaoPrenhez = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => {
-                                  setRecordToFinalize(record);
-                                  setFinalizeDialogOpen(true);
-                                }}
+                                onClick={() => handleOpenFinalizeDialog(record)}
                                 title="Finalizar"
                                 className="text-green-600 hover:text-green-700"
                               >
@@ -765,6 +818,43 @@ const AnimaisGestaoPrenhez = () => {
                   />
                 </div>
               </div>
+
+              {/* Receptora field */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <Label>Receptora</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={selectedRecipient ? `${selectedRecipient.code} - ${selectedRecipient.name}` : ""}
+                      placeholder="Selecione uma receptora..."
+                      disabled
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setRecipientSearchOpen(true)}
+                      disabled={modalMode === "view"}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                    {selectedRecipient && modalMode !== "view" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRecipient(null);
+                          setFormData({ ...formData, recipient_id: "" });
+                        }}
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="genealogia" className="space-y-6 mt-4">
@@ -892,6 +982,93 @@ const AnimaisGestaoPrenhez = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Recipient Search Modal */}
+      <Dialog open={recipientSearchOpen} onOpenChange={setRecipientSearchOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Buscar Receptora</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Buscar por Nome ou Brinco</Label>
+                <Input
+                  placeholder="Digite o nome ou brinco..."
+                  value={recipientSearchTerm}
+                  onChange={(e) => setRecipientSearchTerm(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Filtrar por Categoria</Label>
+                <Select
+                  value={recipientCategoryFilter}
+                  onValueChange={setRecipientCategoryFilter}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as categorias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todas as categorias</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Brinco</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAnimals.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        Nenhum animal encontrado.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredAnimals.map((animal) => (
+                      <TableRow key={animal.id}>
+                        <TableCell>{animal.code}</TableCell>
+                        <TableCell>{animal.name}</TableCell>
+                        <TableCell>{animal.ear_tag || "-"}</TableCell>
+                        <TableCell>{getCategoryName(animal.category_id)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSelectRecipient(animal)}
+                          >
+                            Selecionar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecipientSearchOpen(false)}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -908,24 +1085,58 @@ const AnimaisGestaoPrenhez = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Finalize Dialog */}
-      <AlertDialog open={finalizeDialogOpen} onOpenChange={setFinalizeDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Finalizar registro</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Finalize Dialog with Birth Date */}
+      <Dialog open={finalizeDialogOpen} onOpenChange={setFinalizeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Finalizar Registro de Prenhez</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
               Ao finalizar, um novo animal será criado no cadastro de animais com os dados deste registro de prenhez.
-              <br />
-              <br />
-              Deseja continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleFinalize}>Finalizar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </p>
+            
+            <div className="space-y-2">
+              <Label>Data de Nascimento *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !finalizeBirthDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {finalizeBirthDate
+                      ? format(finalizeBirthDate, "dd/MM/yyyy", { locale: ptBR })
+                      : "Selecione a data de nascimento..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={finalizeBirthDate || undefined}
+                    onSelect={(date) => setFinalizeBirthDate(date || null)}
+                    locale={ptBR}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFinalizeDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleFinalize} disabled={!finalizeBirthDate}>
+              Finalizar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
