@@ -495,13 +495,16 @@ const AnimaisCadastro = () => {
         return;
       }
 
-      // Parse farm value
+      // Parse farm value (format: "own-uuid" or "third-uuid")
       let farmId: string | null = null;
       let farmType: string | null = null;
       if (formData.farm) {
-        const [type, id] = formData.farm.split("-");
-        farmId = id;
-        farmType = type === "own" ? "own" : "third_party";
+        const dashIndex = formData.farm.indexOf("-");
+        if (dashIndex > 0) {
+          const type = formData.farm.substring(0, dashIndex);
+          farmId = formData.farm.substring(dashIndex + 1);
+          farmType = type === "own" ? "own" : "third_party";
+        }
       }
 
       const animalData = {
