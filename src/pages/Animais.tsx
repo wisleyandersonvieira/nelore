@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart, Settings, Baby } from "lucide-react";
+import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart, Settings, Baby, Droplets } from "lucide-react";
 
 const Animais = () => {
   const navigate = useNavigate();
@@ -38,6 +38,14 @@ const Animais = () => {
       icon: Baby,
       color: "bg-rose-500",
       route: "/animais/prenhez",
+    },
+    {
+      id: "aspiracoes",
+      title: "Gestão de Aspirações",
+      description: "Acompanhamento de aspirações",
+      icon: Droplets,
+      color: "bg-cyan-500",
+      route: "/animais/aspiracoes",
     },
     {
       id: "pesagem",

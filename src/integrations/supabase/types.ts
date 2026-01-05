@@ -868,6 +868,96 @@ export type Database = {
           },
         ]
       }
+      aspiration_management: {
+        Row: {
+          auction_id: string | null
+          auction_lot: string | null
+          breed_id: string | null
+          category_id: string | null
+          code: number
+          created_at: string
+          dam_id: string | null
+          expected_aspiration_month: string | null
+          farm_id: string | null
+          farm_type: string | null
+          id: string
+          name: string
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          auction_id?: string | null
+          auction_lot?: string | null
+          breed_id?: string | null
+          category_id?: string | null
+          code: number
+          created_at?: string
+          dam_id?: string | null
+          expected_aspiration_month?: string | null
+          farm_id?: string | null
+          farm_type?: string | null
+          id?: string
+          name: string
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          auction_id?: string | null
+          auction_lot?: string | null
+          breed_id?: string | null
+          category_id?: string | null
+          code?: number
+          created_at?: string
+          dam_id?: string | null
+          expected_aspiration_month?: string | null
+          farm_id?: string | null
+          farm_type?: string | null
+          id?: string
+          name?: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aspiration_management_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_management_breed_id_fkey"
+            columns: ["breed_id"]
+            isOneToOne: false
+            referencedRelation: "animal_breeds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_management_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "animal_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_management_dam_id_fkey"
+            columns: ["dam_id"]
+            isOneToOne: false
+            referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_management_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       breeding_animals: {
         Row: {
           created_at: string
