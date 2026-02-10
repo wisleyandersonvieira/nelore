@@ -978,6 +978,190 @@ export type Database = {
           },
         ]
       }
+      bank_ofx_imports: {
+        Row: {
+          account_id: string
+          account_type: string
+          created_at: string
+          end_date: string | null
+          error_message: string | null
+          file_hash: string
+          file_name: string
+          id: string
+          imported_at: string
+          imported_by: string
+          matrix_id: string
+          start_date: string | null
+          status: string
+          total_transactions: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_type: string
+          created_at?: string
+          end_date?: string | null
+          error_message?: string | null
+          file_hash: string
+          file_name: string
+          id?: string
+          imported_at?: string
+          imported_by: string
+          matrix_id: string
+          start_date?: string | null
+          status?: string
+          total_transactions?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_type?: string
+          created_at?: string
+          end_date?: string | null
+          error_message?: string | null
+          file_hash?: string
+          file_name?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string
+          matrix_id?: string
+          start_date?: string | null
+          status?: string
+          total_transactions?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bank_ofx_transactions: {
+        Row: {
+          account_id: string
+          account_type: string
+          amount: number
+          created_at: string
+          fitid: string
+          id: string
+          import_id: string
+          is_reconciled: boolean
+          matrix_id: string
+          memo: string | null
+          name: string | null
+          posted_at: string
+          raw_payload: Json | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          refnum: string | null
+          trntype: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_type: string
+          amount: number
+          created_at?: string
+          fitid: string
+          id?: string
+          import_id: string
+          is_reconciled?: boolean
+          matrix_id: string
+          memo?: string | null
+          name?: string | null
+          posted_at: string
+          raw_payload?: Json | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          refnum?: string | null
+          trntype: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_type?: string
+          amount?: number
+          created_at?: string
+          fitid?: string
+          id?: string
+          import_id?: string
+          is_reconciled?: boolean
+          matrix_id?: string
+          memo?: string | null
+          name?: string | null
+          posted_at?: string
+          raw_payload?: Json | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          refnum?: string | null
+          trntype?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_ofx_transactions_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_ofx_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_reconciliations: {
+        Row: {
+          account_id: string
+          account_type: string
+          created_at: string
+          created_by: string
+          id: string
+          internal_id: string | null
+          internal_table: string | null
+          internal_type: string
+          match_score: number | null
+          matched_rule: string
+          matrix_id: string
+          notes: string | null
+          ofx_transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_type: string
+          created_at?: string
+          created_by: string
+          id?: string
+          internal_id?: string | null
+          internal_table?: string | null
+          internal_type: string
+          match_score?: number | null
+          matched_rule: string
+          matrix_id: string
+          notes?: string | null
+          ofx_transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_type?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          internal_id?: string | null
+          internal_table?: string | null
+          internal_type?: string
+          match_score?: number | null
+          matched_rule?: string
+          matrix_id?: string
+          notes?: string | null
+          ofx_transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliations_ofx_transaction_id_fkey"
+            columns: ["ofx_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_ofx_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           authorized_group_users: string[] | null
@@ -1559,8 +1743,11 @@ export type Database = {
           expense_type: string
           id: string
           is_disabled: boolean
+          is_paid: boolean
           issue_date: string
           linked_account_payable_id: string | null
+          notes: string | null
+          payment_date: string | null
           reference_month: number
           reference_year: number
           store_id: string
@@ -1579,8 +1766,11 @@ export type Database = {
           expense_type: string
           id?: string
           is_disabled?: boolean
+          is_paid?: boolean
           issue_date: string
           linked_account_payable_id?: string | null
+          notes?: string | null
+          payment_date?: string | null
           reference_month?: number
           reference_year?: number
           store_id: string
@@ -1599,8 +1789,11 @@ export type Database = {
           expense_type?: string
           id?: string
           is_disabled?: boolean
+          is_paid?: boolean
           issue_date?: string
           linked_account_payable_id?: string | null
+          notes?: string | null
+          payment_date?: string | null
           reference_month?: number
           reference_year?: number
           store_id?: string
@@ -2110,6 +2303,7 @@ export type Database = {
       }
       dre_structures: {
         Row: {
+          brand_id: string
           created_at: string
           created_by: string
           id: string
@@ -2118,6 +2312,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_id: string
           created_at?: string
           created_by: string
           id?: string
@@ -2126,6 +2321,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_id?: string
           created_at?: string
           created_by?: string
           id?: string
@@ -2134,6 +2330,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "dre_structures_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dre_structures_created_by_fkey"
             columns: ["created_by"]
@@ -2247,6 +2450,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          matrix_id: string
           name: string
           recurrence_months: number | null
           recurrence_type: string
@@ -2258,6 +2462,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id: string
           name: string
           recurrence_months?: number | null
           recurrence_type?: string
@@ -2269,13 +2474,22 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string
           name?: string
           recurrence_months?: number | null
           recurrence_type?: string
           store_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employee_obligations_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employees: {
         Row: {
@@ -2458,6 +2672,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          matrix_id: string
           name: string
           store_id: string
           updated_at: string
@@ -2469,6 +2684,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          matrix_id: string
           name: string
           store_id: string
           updated_at?: string
@@ -2480,11 +2696,20 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string
           name?: string
           store_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_functions_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leiloes: {
         Row: {
@@ -2707,8 +2932,9 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          matrix_id: string
           month: number
-          store_id: string
+          store_id: string | null
           updated_at: string
           year: number
         }
@@ -2718,8 +2944,9 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          matrix_id: string
           month: number
-          store_id: string
+          store_id?: string | null
           updated_at?: string
           year: number
         }
@@ -2729,12 +2956,21 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          matrix_id?: string
           month?: number
-          store_id?: string
+          store_id?: string | null
           updated_at?: string
           year?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "period_blocks_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pregnancy_management: {
         Row: {
@@ -3061,6 +3297,82 @@ export type Database = {
           },
         ]
       }
+      service_orders: {
+        Row: {
+          attachments: Json | null
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          nf_number: string | null
+          os_date: string
+          os_number: string
+          registration_date: string
+          status: string
+          store_id: string
+          supplier_id: string | null
+          updated_at: string
+          updated_by: string | null
+          value: number | null
+        }
+        Insert: {
+          attachments?: Json | null
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          nf_number?: string | null
+          os_date: string
+          os_number: string
+          registration_date?: string
+          status?: string
+          store_id: string
+          supplier_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value?: number | null
+        }
+        Update: {
+          attachments?: Json | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          nf_number?: string | null
+          os_date?: string
+          os_number?: string
+          registration_date?: string
+          status?: string
+          store_id?: string
+          supplier_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_control: {
         Row: {
           created_at: string
@@ -3288,6 +3600,7 @@ export type Database = {
           phone: string | null
           state: string | null
           store_id: string | null
+          trade_name: string | null
           updated_at: string
         }
         Insert: {
@@ -3304,6 +3617,7 @@ export type Database = {
           phone?: string | null
           state?: string | null
           store_id?: string | null
+          trade_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -3320,6 +3634,7 @@ export type Database = {
           phone?: string | null
           state?: string | null
           store_id?: string | null
+          trade_name?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3344,6 +3659,7 @@ export type Database = {
           created_at: string
           group_id: string | null
           id: string
+          matrix_id: string
           parameter_key: string
           product_id: string | null
           subgroup_id: string | null
@@ -3353,6 +3669,7 @@ export type Database = {
           created_at?: string
           group_id?: string | null
           id?: string
+          matrix_id: string
           parameter_key: string
           product_id?: string | null
           subgroup_id?: string | null
@@ -3362,6 +3679,7 @@ export type Database = {
           created_at?: string
           group_id?: string | null
           id?: string
+          matrix_id?: string
           parameter_key?: string
           product_id?: string | null
           subgroup_id?: string | null
@@ -3373,6 +3691,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_parameters_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
             referencedColumns: ["id"]
           },
           {
@@ -3530,6 +3855,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          matrix_id: string
           name: string
           position_order: number
           updated_at: string
@@ -3538,6 +3864,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          matrix_id: string
           name: string
           position_order?: number
           updated_at?: string
@@ -3546,11 +3873,20 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          matrix_id?: string
           name?: string
           position_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "task_columns_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_comments: {
         Row: {
@@ -4070,6 +4406,7 @@ export type Database = {
           name: string
         }[]
       }
+      get_current_user_matrix_id: { Args: never; Returns: string }
       get_next_animal_batch_code: {
         Args: { store_uuid: string }
         Returns: number
@@ -4110,6 +4447,8 @@ export type Database = {
       }
       get_user_store_id: { Args: never; Returns: string }
       has_cadastros_write_permission: { Args: never; Returns: boolean }
+      is_master_user: { Args: never; Returns: boolean }
+      is_matriz_profile_user: { Args: never; Returns: boolean }
       is_matriz_user: { Args: never; Returns: boolean }
       store_in_user_matrix: {
         Args: { target_store_id: string }

@@ -1,6 +1,6 @@
 // Update this page (the content is just a fallback if you fail to update the page)
 
-import boardTextLogo from "@/assets/board-sistemas-text-logo.png";
+import boardLogo from "@/assets/logo.png";
 const Index = () => {
   return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="text-center space-y-8 max-w-4xl mx-auto px-4">

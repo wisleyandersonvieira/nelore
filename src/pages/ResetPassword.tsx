@@ -6,8 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import boardLogo from "@/assets/board-sistemas-logo.png";
-import boardTextLogo from "@/assets/board-sistemas-text-logo.png";
+import boardLogo from "@/assets/logo.png";
 import { Eye, EyeOff } from "lucide-react";
 
 const ResetPassword = () => {
@@ -94,10 +93,7 @@ const ResetPassword = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={boardLogo} alt="Board Sistemas" className="h-16 w-16" />
-          </div>
-          <div className="flex justify-center">
-            <img src={boardTextLogo} alt="Board Sistemas" className="h-12" />
+            <img src={boardLogo} alt="Board Sistemas" className="h-16" />
           </div>
           <CardTitle className="mt-4">Redefinir Senha</CardTitle>
           <CardDescription>Digite sua nova senha</CardDescription>
