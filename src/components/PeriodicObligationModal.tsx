@@ -100,13 +100,27 @@ const PeriodicObligationModal = ({
         .eq('id', userData.user.id)
         .single();
       
-      if (!profileData?.store_id) throw new Error("Loja não encontrada");
+      let storeId = profileData?.store_id;
+
+      // Se não tiver store_id no profile, buscar de user_stores
+      if (!storeId) {
+        const { data: userStoresData } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', userData.user.id)
+          .limit(1)
+          .single();
+        
+        storeId = userStoresData?.store_id;
+      }
+      
+      if (!storeId) throw new Error("Loja não encontrada. Verifique se você tem uma loja atribuída.");
       
       // Keep original filename with timestamp prefix to avoid collisions
       const timestamp = Date.now();
       const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       // Use store_id as the first path segment for RLS compliance
-      const fileName = `${profileData.store_id}/${employeeId}/${obligationId}/${timestamp}_${sanitizedFileName}`;
+      const fileName = `${storeId}/${employeeId}/${obligationId}/${timestamp}_${sanitizedFileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("obligation-attachments")
@@ -255,7 +269,7 @@ const PeriodicObligationModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{obligationName}</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -265,7 +279,7 @@ const PeriodicObligationModal = ({
 
         <div className="space-y-4">
           {!showForm ? (
-            <Button onClick={() => setShowForm(true)} className="w-full">
+            <Button onClick={() => setShowForm(true)} size="sm" className="w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Nova Movimentação
             </Button>
@@ -346,17 +360,17 @@ const PeriodicObligationModal = ({
               Nenhuma movimentação cadastrada
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[60px]">Seq</TableHead>
-                  <TableHead>Data Cadastro</TableHead>
-                  <TableHead>Data Vencimento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Nome do Anexo</TableHead>
-                  <TableHead>Anexo</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px] text-center">Seq</TableHead>
+                    <TableHead className="w-[100px]">Cadastro</TableHead>
+                    <TableHead className="w-[100px]">Vencimento</TableHead>
+                    <TableHead className="w-[90px]">Status</TableHead>
+                    <TableHead className="min-w-[150px]">Anexo</TableHead>
+                    <TableHead className="w-[70px] text-center">Ações</TableHead>
+                  </TableRow>
               </TableHeader>
               <TableBody>
                 {entries.map((entry, index) => {
@@ -406,57 +420,63 @@ const PeriodicObligationModal = ({
                   // Calculate sequence number (oldest = 1, newest = total)
                   const sequenceNumber = entries.length - index;
                   
-                  return (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-medium text-center">
-                        {sequenceNumber}
-                      </TableCell>
-                      <TableCell>
-                        {format(parseLocalDate(entry.completed_at), "dd/MM/yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        {entry.due_date 
-                          ? format(parseLocalDate(entry.due_date), "dd/MM/yyyy")
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={status.variant} className={status.className}>
-                          {status.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate" title={fileName || undefined}>
-                        {fileName || <span className="text-muted-foreground">-</span>}
-                      </TableCell>
-                      <TableCell>
-                        {entry.attachment_url ? (
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell className="font-medium text-center">
+                          {sequenceNumber}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {format(parseLocalDate(entry.completed_at), "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {entry.due_date 
+                            ? format(parseLocalDate(entry.due_date), "dd/MM/yyyy")
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={status.variant} className={`${status.className} text-xs`}>
+                            {status.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[180px]">
+                          <div className="flex items-center gap-1">
+                            {entry.attachment_url ? (
+                              <>
+                                <span className="truncate text-sm" title={fileName || undefined}>
+                                  {fileName}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleViewAttachment(entry.attachment_url!)}
+                                  className="text-primary h-7 w-7 flex-shrink-0"
+                                  title="Ver anexo"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewAttachment(entry.attachment_url!)}
-                            className="text-primary"
+                            size="icon"
+                            onClick={() => handleDelete(entry.id)}
+                            className="text-destructive hover:text-destructive h-7 w-7"
+                            title="Excluir"
                           >
-                            <Eye className="w-4 h-4 mr-1" />
-                            Ver
+                            <Trash2 className="w-4 h-4" />
                           </Button>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(entry.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
+                        </TableCell>
+                      </TableRow>
+                    );
                 })}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       </DialogContent>

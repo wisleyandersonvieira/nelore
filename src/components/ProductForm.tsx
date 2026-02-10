@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2 } from "lucide-react";
 import { ProductSupplierCodes } from "./ProductSupplierCodes";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface Unit {
   id: string;
@@ -47,6 +48,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   const [subgroups, setSubgroups] = useState<Group[]>([]);
   const [nextCode, setNextCode] = useState<string>("");
   const [supplierCodes, setSupplierCodes] = useState<any[]>([]);
+  const [currentProductId, setCurrentProductId] = useState<string | undefined>(undefined);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -58,56 +60,76 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     product_type: "product" as "product" | "service",
     function_type: "debit" as "credit" | "debit"
   });
-  const [formKey, setFormKey] = useState(0); // Key para forçar re-render
   const { toast } = useToast();
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [previousGroupId, setPreviousGroupId] = useState<string | undefined>(undefined);
+  
+  // Hook para obter matriz do usuário logado
+  const { matrixId, matrixName, matrixCode, isLoading: matrixLoading } = useUserMatrix();
+  const [userBrandId, setUserBrandId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
+    if (matrixId) {
+      fetchUserBrandId();
+    }
+  }, [matrixId]);
 
-  // Limpar e carregar dados do produto para edição
   useEffect(() => {
+    if (userBrandId !== null) {
+      fetchInitialData();
+    }
+  }, [userBrandId]);
+
+  // Carregar dados do produto para edição - só após dados iniciais carregados
+  useEffect(() => {
+    if (!initialDataLoaded) return;
+    
     if (editingProduct) {
       loadProductData(editingProduct);
     } else {
       resetForm();
     }
-  }, [editingProduct]);
+  }, [editingProduct, initialDataLoaded]);
 
   const loadProductData = async (product: any) => {
     console.log("Carregando dados do produto:", product);
     
-    // Forçar re-render incrementando a key
-    setFormKey(prev => prev + 1);
+    // Definir o ID do produto
+    setCurrentProductId(product.id);
     
     // Se tem grupo, buscar subgrupos primeiro
     if (product.group_id) {
-      await fetchSubgroups(product.group_id);
+      const { data } = await supabase
+        .from("account_groups")
+        .select("id, name")
+        .eq("parent_id", product.group_id)
+        .order("name");
+      setSubgroups(data || []);
+    } else {
+      setSubgroups([]);
     }
     
-    // Definir os dados do formulário após um pequeno delay para garantir que os subgrupos foram carregados
-    setTimeout(() => {
-      const newFormData = {
-        name: product.name || "",
-        description: product.description || "",
-        unit_id: product.unit_id || undefined,
-        group_id: product.group_id || undefined,
-        subgroup_id: product.subgroup_id || undefined,
-        barcode: product.barcode || "",
-        cost_price: product.cost_price?.toString() || "",
-        product_type: (product.product_type || "product") as "product" | "service",
-        function_type: (product.function_type || "debit") as "credit" | "debit"
-      };
-      
-      setFormData(newFormData);
-      console.log("Dados carregados:", newFormData);
-    }, 100);
+    // Definir os dados do formulário diretamente (como SuppliersModal faz)
+    setFormData({
+      name: product.name || "",
+      description: product.description || "",
+      unit_id: product.unit_id || undefined,
+      group_id: product.group_id || undefined,
+      subgroup_id: product.subgroup_id || undefined,
+      barcode: product.barcode || "",
+      cost_price: product.cost_price?.toString() || "",
+      product_type: (product.product_type || "product") as "product" | "service",
+      function_type: (product.function_type || "debit") as "credit" | "debit"
+    });
     
+    // Guardar o group_id atual para comparação no useEffect
+    setPreviousGroupId(product.group_id || undefined);
     setNextCode(product.code);
+    console.log("Dados carregados para produto:", product.id);
   };
 
   const resetForm = async () => {
-    setFormKey(prev => prev + 1); // Forçar re-render
+    setCurrentProductId(undefined);
     setFormData({
       name: "",
       description: "",
@@ -120,6 +142,8 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
       function_type: "debit"
     });
     setSubgroups([]);
+    setSupplierCodes([]);
+    setPreviousGroupId(undefined);
     
     try {
       const { data: codeData } = await supabase.rpc('get_next_product_code');
@@ -143,14 +167,42 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
     }
   };
 
+  // Só buscar subgrupos quando o usuário MUDA o grupo manualmente (não durante load)
   useEffect(() => {
+    // Se o group_id atual é igual ao previous, não fazer nada (evita reset durante load)
+    if (formData.group_id === previousGroupId) return;
+    
+    // Atualizar o previousGroupId
+    setPreviousGroupId(formData.group_id);
+    
     if (formData.group_id) {
       fetchSubgroups(formData.group_id);
+      // Resetar subgroup_id quando grupo muda manualmente
+      setFormData(prev => ({ ...prev, subgroup_id: undefined }));
     } else {
       setSubgroups([]);
       setFormData(prev => ({ ...prev, subgroup_id: undefined }));
     }
   }, [formData.group_id]);
+
+  const fetchUserBrandId = async () => {
+    try {
+      // Buscar o brand_id da matriz do usuário
+      const { data: matrixData, error } = await supabase
+        .from("matrices")
+        .select("brand_id")
+        .eq("id", matrixId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error fetching matrix brand:", error);
+      }
+      setUserBrandId(matrixData?.brand_id || null);
+    } catch (error) {
+      console.error("Error fetching user brand:", error);
+      setUserBrandId(null);
+    }
+  };
 
   const fetchInitialData = async () => {
     try {
@@ -162,15 +214,25 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         .order("name");
       setUnits(unitsData || []);
 
-      // Fetch groups (parent_id is null)
-      const { data: groupsData } = await supabase
+      // Fetch groups filtered by user's brand
+      let groupsQuery = supabase
         .from("account_groups")
         .select("id, name")
         .is("parent_id", null)
         .order("name");
+      
+      if (userBrandId) {
+        groupsQuery = groupsQuery.eq("brand_id", userBrandId);
+      }
+      
+      const { data: groupsData } = await groupsQuery;
       setGroups(groupsData || []);
+      
+      // Marcar que dados iniciais foram carregados
+      setInitialDataLoaded(true);
     } catch (error) {
       console.error("Error fetching initial data:", error);
+      setInitialDataLoaded(true); // Marcar mesmo com erro para não bloquear
     }
   };
 
@@ -201,9 +263,27 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
 
     setLoading(true);
     try {
-      const productData = {
+      // Verificar se já existe produto com o mesmo nome
+      const { data: existingProduct } = await supabase
+        .from("products")
+        .select("id, name")
+        .ilike("name", formData.name.trim())
+        .maybeSingle();
+      
+      // Se encontrou produto com mesmo nome e não é o produto sendo editado
+      if (existingProduct && existingProduct.id !== editingProduct?.id) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Já existe um produto cadastrado com este nome.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const productData: any = {
         code: nextCode,
-        name: formData.name,
+        name: formData.name.trim(),
         description: formData.description || null,
         unit_id: formData.unit_id || null,
         group_id: formData.group_id || null,
@@ -214,6 +294,11 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
         function_type: formData.function_type,
         is_active: true
       };
+      
+      // Adicionar matrix_id apenas para novos produtos
+      if (!editingProduct && matrixId) {
+        productData.matrix_id = matrixId;
+      }
 
       let error;
       
@@ -317,9 +402,21 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
   };
 
   return (
-    <div key={formKey}>
+    <div>
       <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Matriz (readonly) */}
+        <div className="space-y-2">
+          <Label htmlFor="matrix">Matriz</Label>
+          <Input
+            id="matrix"
+            value={matrixLoading ? "Carregando..." : (matrixCode ? `${matrixCode} - ${matrixName}` : "Não definida")}
+            readOnly
+            disabled
+            className="bg-muted"
+          />
+        </div>
+
         {/* Código (readonly) */}
         <div className="space-y-2">
           <Label htmlFor="code">Código</Label>
@@ -479,7 +576,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
 
       {/* Códigos dos Fornecedores */}
       <ProductSupplierCodes 
-        productId={editingProduct?.id}
+        productId={currentProductId}
         onCodesChange={setSupplierCodes}
       />
 

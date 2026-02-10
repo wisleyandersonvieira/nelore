@@ -16,24 +16,53 @@ interface ProfileModalProps {
 }
 
 const MODULES = [
-  { id: 'cadastros', name: 'Cadastros', description: 'Acesso ao módulo de cadastros gerais' },
-  { id: 'produtos', name: 'Produtos', description: 'Cadastro e gestão de produtos' },
-  { id: 'fornecedores', name: 'Fornecedores', description: 'Cadastro e gestão de fornecedores' },
-  { id: 'usuarios', name: 'Usuários', description: 'Gestão de usuários e permissões' },
-  { id: 'lojas', name: 'Lojas', description: 'Cadastro e gestão de lojas' },
-  { id: 'financeiro', name: 'Financeiro', description: 'Gestão financeira geral' },
-  { id: 'caixa', name: 'Caixa', description: 'Controle de caixa' },
-  { id: 'contas_pagar', name: 'Contas a Pagar', description: 'Gestão de contas a pagar' },
-  { id: 'contas_receber', name: 'Contas a Receber', description: 'Gestão de contas a receber' },
-  { id: 'relatorios', name: 'Relatórios', description: 'Visualização de relatórios' },
-  { id: 'dre', name: 'DRE', description: 'Demonstrativo de Resultado do Exercício' },
-  { id: 'configuracoes', name: 'Configurações', description: 'Configurações do sistema' }
+  { id: "cadastros", name: "Cadastros", description: "Acesso ao módulo de cadastros gerais" },
+  {
+    id: "usuarios",
+    name: "Usuários",
+    description: "Gestão de usuários e permissões (Cadastro e edição permitida somente para usuário Matriz)",
+  },
+  { id: "financeiro", name: "Financeiro", description: "Gestão financeira geral (inclui contas a pagar e receber)" },
+  { id: "caixa", name: "Caixa", description: "Controle de caixa" },
+  { id: "estoque", name: "Estoque", description: "Controle e gestão de estoque" },
+  { id: "funcionarios", name: "Funcionários", description: "Gestão de funcionários", permissionType: "employee" },
+  { id: "relatorios", name: "Relatórios", description: "Visualização de relatórios" },
+  {
+    id: "dre",
+    name: "DRE",
+    description: "Demonstrativo de Resultado do Exercício (Edição permitida somente para usuário Matriz)",
+  },
+  {
+    id: "configuracoes",
+    name: "Configurações",
+    description: "Configurações do sistema (Edição permitida somente para usuário Matriz",
+  },
+  {
+    id: "assistente_ia",
+    name: "Assistente de IA",
+    description: "Acesso ao assistente de inteligência artificial",
+    isSpecial: true,
+  },
 ];
 
 const PERMISSIONS = [
-  { id: 'read', name: 'Visualizar', description: 'Apenas visualização' },
-  { id: 'write', name: 'Editar', description: 'Criar, editar e visualizar' },
-  { id: 'admin', name: 'Administrar', description: 'Controle total do módulo' }
+  { id: "disabled", name: "Inabilitar", description: "Módulo não visível para o usuário" },
+  { id: "read", name: "Visualizar", description: "Apenas visualização" },
+  { id: "write", name: "Editar", description: "Criar, editar e visualizar" },
+  { id: "admin", name: "Administrar", description: "Controle total do módulo" },
+];
+
+// Permissões específicas para o módulo Assistente de IA (apenas inabilitar ou administrar)
+const AI_PERMISSIONS = [
+  { id: "disabled", name: "Inabilitar", description: "Módulo não visível para o usuário" },
+  { id: "admin", name: "Administrar", description: "Acesso completo ao assistente de IA" },
+];
+
+// Permissões para o módulo Funcionários (sem opção administrar)
+const EMPLOYEE_PERMISSIONS = [
+  { id: "disabled", name: "Inabilitar", description: "Módulo não visível para o usuário" },
+  { id: "read", name: "Visualizar", description: "Apenas visualização" },
+  { id: "write", name: "Editar", description: "Criar, editar e visualizar" },
 ];
 
 export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: ProfileModalProps) {
@@ -46,7 +75,7 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
     if (editingProfile) {
       setName(editingProfile.name || "");
       setDescription(editingProfile.description || "");
-      
+
       // Load existing permissions
       const existingPermissions: Record<string, string> = {};
       editingProfile.profile_permissions?.forEach((perm: any) => {
@@ -61,9 +90,9 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
   }, [editingProfile, isOpen]);
 
   const handlePermissionChange = (moduleId: string, permission: string) => {
-    setPermissions(prev => ({
+    setPermissions((prev) => ({
       ...prev,
-      [moduleId]: prev[moduleId] === permission ? '' : permission
+      [moduleId]: prev[moduleId] === permission ? "" : permission,
     }));
   };
 
@@ -81,28 +110,25 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
       if (editingProfile) {
         // Update existing profile
         const { error: updateError } = await supabase
-          .from('user_profiles')
+          .from("user_profiles")
           .update({
             name: name.trim(),
-            description: description.trim()
+            description: description.trim(),
           })
-          .eq('id', editingProfile.id);
+          .eq("id", editingProfile.id);
 
         if (updateError) throw updateError;
         profileId = editingProfile.id;
 
         // Delete existing permissions
-        await supabase
-          .from('profile_permissions')
-          .delete()
-          .eq('profile_id', profileId);
+        await supabase.from("profile_permissions").delete().eq("profile_id", profileId);
       } else {
         // Create new profile
         const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
+          .from("user_profiles")
           .insert({
             name: name.trim(),
-            description: description.trim()
+            description: description.trim(),
           })
           .select()
           .single();
@@ -117,13 +143,11 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
         .map(([moduleId, permission]) => ({
           profile_id: profileId,
           module: moduleId,
-          permission: permission as 'read' | 'write' | 'admin'
+          permission: permission as "read" | "write" | "admin",
         }));
 
       if (permissionRecords.length > 0) {
-        const { error: permissionsError } = await supabase
-          .from('profile_permissions')
-          .insert(permissionRecords);
+        const { error: permissionsError } = await supabase.from("profile_permissions").insert(permissionRecords);
 
         if (permissionsError) throw permissionsError;
       }
@@ -132,7 +156,7 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('Error saving profile:', error);
+      console.error("Error saving profile:", error);
       toast.error(error.message || "Erro ao salvar perfil");
     } finally {
       setLoading(false);
@@ -143,9 +167,7 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {editingProfile ? "Editar Perfil" : "Novo Perfil"}
-          </DialogTitle>
+          <DialogTitle>{editingProfile ? "Editar Perfil" : "Novo Perfil"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -176,32 +198,42 @@ export function ProfileModal({ isOpen, onClose, onSuccess, editingProfile }: Pro
           <div>
             <h3 className="text-lg font-semibold mb-4">Permissões por Módulo</h3>
             <div className="space-y-4">
-              {MODULES.map((module) => (
-                <div key={module.id} className="border rounded-lg p-4">
-                  <div className="mb-3">
-                    <h4 className="font-medium">{module.name}</h4>
-                    <p className="text-sm text-muted-foreground">{module.description}</p>
+              {MODULES.map((module) => {
+                // Usar permissões específicas para cada tipo de módulo
+                let modulePermissions = PERMISSIONS;
+                if ((module as any).isSpecial) {
+                  modulePermissions = AI_PERMISSIONS;
+                } else if ((module as any).permissionType === "employee") {
+                  modulePermissions = EMPLOYEE_PERMISSIONS;
+                }
+
+                return (
+                  <div key={module.id} className="border rounded-lg p-4">
+                    <div className="mb-3">
+                      <h4 className="font-medium">{module.name}</h4>
+                      <p className="text-sm text-muted-foreground">{module.description}</p>
+                    </div>
+
+                    <div className="flex gap-4 flex-wrap">
+                      {modulePermissions.map((permission) => (
+                        <div key={permission.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`${module.id}-${permission.id}`}
+                            checked={permissions[module.id] === permission.id}
+                            onCheckedChange={() => handlePermissionChange(module.id, permission.id)}
+                          />
+                          <Label
+                            htmlFor={`${module.id}-${permission.id}`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {permission.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-4">
-                    {PERMISSIONS.map((permission) => (
-                      <div key={permission.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`${module.id}-${permission.id}`}
-                          checked={permissions[module.id] === permission.id}
-                          onCheckedChange={() => handlePermissionChange(module.id, permission.id)}
-                        />
-                        <Label 
-                          htmlFor={`${module.id}-${permission.id}`}
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {permission.name}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

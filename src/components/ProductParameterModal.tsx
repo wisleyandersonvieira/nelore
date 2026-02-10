@@ -3,11 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUp, ArrowDown, Package, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface ProductParameterModalProps {
   open: boolean;
@@ -33,6 +34,7 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
   const [currentProductId, setCurrentProductId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { matrixId } = useUserMatrix();
 
   useEffect(() => {
     if (open && parameter) {
@@ -91,7 +93,7 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
   };
 
   const handleSave = async () => {
-    if (!parameter || !selectedProductId) {
+    if (!parameter || !selectedProductId || !matrixId) {
       toast({
         title: "Erro",
         description: "Selecione um produto para continuar",
@@ -125,7 +127,8 @@ export const ProductParameterModal = ({ open, onOpenChange, parameter }: Product
           .from('system_parameters')
           .insert({
             parameter_key: parameter.id,
-            product_id: selectedProductId
+            product_id: selectedProductId,
+            matrix_id: matrixId
           });
 
         if (insertError) throw insertError;
