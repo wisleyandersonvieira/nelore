@@ -40,6 +40,15 @@ export function useFinanceiroPermissions() {
 
         if (userPermissions && userPermissions.length > 0) {
           const permissions = userPermissions.map(p => p.permission);
+          
+          // Check for disabled permission first
+          if (permissions.includes('disabled')) {
+            console.log('Financeiro: User permission is disabled');
+            setPermissionLevel('none');
+            setLoading(false);
+            return;
+          }
+          
           if (permissions.includes('admin')) {
             setPermissionLevel('admin');
             setLoading(false);
@@ -67,6 +76,15 @@ export function useFinanceiroPermissions() {
 
           if (profilePermissions && profilePermissions.length > 0) {
             const permissions = profilePermissions.map(p => p.permission);
+            
+            // Check for disabled permission first
+            if (permissions.includes('disabled')) {
+              console.log('Financeiro: Setting permission to NONE (disabled)');
+              setPermissionLevel('none');
+              setLoading(false);
+              return;
+            }
+            
             if (permissions.includes('admin')) {
               setPermissionLevel('admin');
               setLoading(false);

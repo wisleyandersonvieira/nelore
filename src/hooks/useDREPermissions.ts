@@ -46,8 +46,23 @@ export const useDREPermissions = () => {
             .eq('module', 'dre');
 
           if (profilePermissions && profilePermissions.length > 0) {
-            const permission = profilePermissions[0].permission;
-            setPermissionLevel(permission as PermissionLevel);
+            const perms = profilePermissions.map(p => p.permission);
+            
+            // Check if disabled - user should not see the module
+            if (perms.includes('disabled')) {
+              setPermissionLevel('none');
+              setIsLoading(false);
+              return;
+            }
+            if (perms.includes('admin')) {
+              setPermissionLevel('admin');
+            } else if (perms.includes('write')) {
+              setPermissionLevel('write');
+            } else if (perms.includes('read')) {
+              setPermissionLevel('read');
+            } else {
+              setPermissionLevel('none');
+            }
             setIsLoading(false);
             return;
           }
@@ -61,13 +76,21 @@ export const useDREPermissions = () => {
           .eq('module', 'dre');
 
         if (userPermissions && userPermissions.length > 0) {
-          const permission = userPermissions[0].permission;
-          setPermissionLevel(permission as PermissionLevel);
-          setIsLoading(false);
-          return;
+          const perms = userPermissions.map(p => p.permission);
+          if (perms.includes('disabled')) {
+            setPermissionLevel('none');
+          } else if (perms.includes('admin')) {
+            setPermissionLevel('admin');
+          } else if (perms.includes('write')) {
+            setPermissionLevel('write');
+          } else if (perms.includes('read')) {
+            setPermissionLevel('read');
+          } else {
+            setPermissionLevel('none');
+          }
+        } else {
+          setPermissionLevel('none');
         }
-
-        setPermissionLevel('none');
       } catch (error) {
         console.error('Error checking DRE permissions:', error);
         setPermissionLevel('none');
