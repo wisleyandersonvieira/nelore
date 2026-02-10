@@ -16,7 +16,8 @@ import {
   Store,
   Loader2,
   UserCircle,
-  Sparkles
+  Sparkles,
+  Bug
 } from "lucide-react";
 import React from "react";
 import {
@@ -300,6 +301,21 @@ const AppSidebar = ({
         { id: "func-funcionarios", label: "Funcionários", action: "openEmployees" },
         { id: "func-movimentacoes", label: "Movimentações", action: "openEmployeeMovements" },
         { id: "func-obrigacoes", label: "Obrigações", action: "openObligations" },
+      ],
+    },
+    {
+      id: "animais",
+      title: "Animais",
+      icon: Bug,
+      subMenus: [
+        { id: "animais-cadastro", label: "Cadastro de Animais", route: "/animais/cadastro" },
+        { id: "animais-lotes", label: "Lotes", route: "/animais/lotes" },
+        { id: "animais-pesagem", label: "Pesagem", route: "/animais/pesagem" },
+        { id: "animais-vacinacao", label: "Vacinação", route: "/animais/vacinacao" },
+        { id: "animais-matrizes", label: "Matrizes", route: "/animais/matrizes" },
+        { id: "animais-prenhez", label: "Gestão de Prenhez", route: "/animais/prenhez" },
+        { id: "animais-aspiracoes", label: "Gestão de Aspirações", route: "/animais/aspiracoes" },
+        { id: "animais-cadastros-gerais", label: "Cadastros Gerais", route: "/animais/cadastros-gerais" },
       ],
     },
     {
