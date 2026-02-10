@@ -17,6 +17,7 @@ export type Database = {
       account_groups: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
+          brand_id: string | null
           code: string
           created_at: string
           id: string
@@ -25,6 +26,7 @@ export type Database = {
         }
         Insert: {
           account_type: Database["public"]["Enums"]["account_type"]
+          brand_id?: string | null
           code: string
           created_at?: string
           id?: string
@@ -33,6 +35,7 @@ export type Database = {
         }
         Update: {
           account_type?: Database["public"]["Enums"]["account_type"]
+          brand_id?: string | null
           code?: string
           created_at?: string
           id?: string
@@ -40,6 +43,13 @@ export type Database = {
           parent_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "account_groups_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "account_groups_parent_id_fkey"
             columns: ["parent_id"]
@@ -968,6 +978,50 @@ export type Database = {
           },
         ]
       }
+      brands: {
+        Row: {
+          authorized_group_users: string[] | null
+          authorized_subgroup_users: string[] | null
+          contact: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          matrix_id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          authorized_group_users?: string[] | null
+          authorized_subgroup_users?: string[] | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          matrix_id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          authorized_group_users?: string[] | null
+          authorized_subgroup_users?: string[] | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          matrix_id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brands_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       breeding_animals: {
         Row: {
           created_at: string
@@ -1858,6 +1912,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           updated_at: string
         }
@@ -1866,6 +1921,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           updated_at?: string
         }
@@ -1874,10 +1930,19 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_types_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dre_entries: {
         Row: {
@@ -2468,6 +2533,7 @@ export type Database = {
       matrices: {
         Row: {
           address: string | null
+          brand_id: string | null
           city: string | null
           cnpj: string | null
           code: number
@@ -2482,6 +2548,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          brand_id?: string | null
           city?: string | null
           cnpj?: string | null
           code?: number
@@ -2496,6 +2563,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          brand_id?: string | null
           city?: string | null
           cnpj?: string | null
           code?: number
@@ -2508,7 +2576,15 @@ export type Database = {
           state?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "matrices_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       partner_transactions: {
         Row: {
@@ -2813,6 +2889,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_blocked: boolean
+          matrix_id: string
           name: string
           product_type: string | null
           subgroup_id: string | null
@@ -2832,6 +2909,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id: string
           name: string
           product_type?: string | null
           subgroup_id?: string | null
@@ -2851,6 +2929,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id?: string
           name?: string
           product_type?: string | null
           subgroup_id?: string | null
@@ -2864,6 +2943,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
             referencedColumns: ["id"]
           },
           {
@@ -3145,6 +3231,7 @@ export type Database = {
           created_at: string
           id: string
           manager_name: string | null
+          matrix_id: string
           name: string
           opening_date: string | null
           phone: string | null
@@ -3157,6 +3244,7 @@ export type Database = {
           created_at?: string
           id?: string
           manager_name?: string | null
+          matrix_id: string
           name: string
           opening_date?: string | null
           phone?: string | null
@@ -3169,12 +3257,21 @@ export type Database = {
           created_at?: string
           id?: string
           manager_name?: string | null
+          matrix_id?: string
           name?: string
           opening_date?: string | null
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stores_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppliers: {
         Row: {
@@ -3720,6 +3817,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          matrix_id: string
           name: string
           symbol: string
           updated_at: string
@@ -3728,6 +3826,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id: string
           name: string
           symbol: string
           updated_at?: string
@@ -3736,11 +3835,20 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string
           name?: string
           symbol?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "units_of_measure_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_permissions: {
         Row: {
@@ -3953,6 +4061,15 @@ export type Database = {
     }
     Functions: {
       can_access_task: { Args: { p_task_id: string }; Returns: boolean }
+      get_brand_by_id: {
+        Args: { p_brand_id: string }
+        Returns: {
+          authorized_group_users: string[]
+          authorized_subgroup_users: string[]
+          id: string
+          name: string
+        }[]
+      }
       get_next_animal_batch_code: {
         Args: { store_uuid: string }
         Returns: number
@@ -3972,6 +4089,10 @@ export type Database = {
       }
       get_next_leilao_code: { Args: { store_uuid: string }; Returns: number }
       get_next_product_code: { Args: never; Returns: number }
+      get_next_product_code_by_matrix: {
+        Args: { p_matrix_id: string }
+        Returns: number
+      }
       get_next_third_party_farm_code:
         | { Args: never; Returns: number }
         | { Args: { store_uuid: string }; Returns: number }
@@ -3989,6 +4110,11 @@ export type Database = {
       }
       get_user_store_id: { Args: never; Returns: string }
       has_cadastros_write_permission: { Args: never; Returns: boolean }
+      is_matriz_user: { Args: never; Returns: boolean }
+      store_in_user_matrix: {
+        Args: { target_store_id: string }
+        Returns: boolean
+      }
       user_can_access_task: { Args: { p_task_id: string }; Returns: boolean }
       user_can_access_task_v2: { Args: { p_task_id: string }; Returns: boolean }
       user_has_access_to_account_stores: {
@@ -4004,6 +4130,10 @@ export type Database = {
           module_name: string
           required_permission: Database["public"]["Enums"]["permission_type"]
         }
+        Returns: boolean
+      }
+      user_in_same_matrix: {
+        Args: { target_user_id: string }
         Returns: boolean
       }
     }
