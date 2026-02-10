@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import CashControl from "./pages/CashControl";
 import Cadastros from "./pages/Cadastros";
@@ -28,6 +29,7 @@ import AccountsReceivableModule from "./pages/AccountsReceivableModule";
 import AccountsReceivableReport from "./pages/AccountsReceivableReport";
 import ReceivedAccountsReport from "./pages/ReceivedAccountsReport";
 import TurnoverReport from "./pages/TurnoverReport";
+import TurnoverChartReport from "./pages/TurnoverChartReport";
 import Extratos from "./pages/Extratos";
 import Animais from "./pages/Animais";
 import AnimaisCadastro from "./pages/AnimaisCadastro";
@@ -42,7 +44,14 @@ import AnimaisLeiloes from "./pages/AnimaisLeiloes";
 import AnimaisFazendasTerceiras from "./pages/AnimaisFazendasTerceiras";
 import AnimaisGestaoPrenhez from "./pages/AnimaisGestaoPrenhez";
 import AnimaisGestaoAspiracoes from "./pages/AnimaisGestaoAspiracoes";
-
+import Tasks from "./pages/Tasks";
+import IncomeExpenseReport from "./pages/IncomeExpenseReport";
+import Goals from "./pages/Goals";
+import BalancePositionReport from "./pages/BalancePositionReport";
+import MyAccount from "./pages/MyAccount";
+import AIAssistant from "./pages/AIAssistant";
+import AccountingExportReport from "./pages/AccountingExportReport";
+import BankReconciliation from "./pages/BankReconciliation";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -61,6 +70,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/cash-control/:storeId" element={<CashControl />} />
               <Route path="/cadastros" element={<Cadastros />} />
@@ -82,6 +92,7 @@ function App() {
               <Route path="/reports/accounts-receivable/pending" element={<AccountsReceivableReport />} />
               <Route path="/reports/accounts-receivable/received" element={<ReceivedAccountsReport />} />
               <Route path="/reports/turnover" element={<TurnoverReport />} />
+              <Route path="/reports/turnover-chart" element={<TurnoverChartReport />} />
               <Route path="/reports/extratos" element={<Extratos />} />
               <Route path="/animais" element={<Animais />} />
               <Route path="/animais/cadastro" element={<AnimaisCadastro />} />
@@ -96,6 +107,14 @@ function App() {
               <Route path="/animais/cadastros-gerais/categorias" element={<AnimaisCategorias />} />
               <Route path="/animais/cadastros-gerais/leiloes" element={<AnimaisLeiloes />} />
               <Route path="/animais/cadastros-gerais/fazendas-terceiras" element={<AnimaisFazendasTerceiras />} />
+              <Route path="/reports/income-expense" element={<IncomeExpenseReport />} />
+              <Route path="/reports/balance-position" element={<BalancePositionReport />} />
+              <Route path="/reports/accounting-export" element={<AccountingExportReport />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/goals" element={<Goals />} />
+              <Route path="/my-account" element={<MyAccount />} />
+              <Route path="/ai-assistant" element={<AIAssistant />} />
+              <Route path="/bank-reconciliation" element={<BankReconciliation />} />              
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
