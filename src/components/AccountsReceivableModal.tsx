@@ -94,14 +94,12 @@ interface DBInstallment {
   payment_account_name?: string;
 }
 
-const documentTypes = [
-  { value: "NF", label: "Nota Fiscal (NF)" },
-  { value: "RC", label: "Recibo (RC)" },
-  { value: "CT", label: "Contrato (CT)" },
-  { value: "CF", label: "Cupom Fiscal (CF)" },
-  { value: "FAT", label: "Fatura (FAT)" },
-  { value: "HOL", label: "Holerite (HOL)" },
-];
+interface DocumentType {
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+}
 
 export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivableModalProps) {
   const [activeTab, setActiveTab] = useState("view");
@@ -113,6 +111,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [items, setItems] = useState<ReceivableItem[]>([]);
   const [loading, setLoading] = useState(false);
   const { canEdit } = useFinanceiroPermissions();
+  
+  // Document types from database
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -170,6 +171,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterCreatedDateFrom, setFilterCreatedDateFrom] = useState("");
+  const [filterCreatedDateTo, setFilterCreatedDateTo] = useState("");
   const [showFilteredData, setShowFilteredData] = useState(false);
 
   // Payment tab filters
@@ -230,6 +233,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       fetchProducts();
       fetchStores();
       fetchCurrentAccounts();
+      fetchDocumentTypes();
       if (activeTab === "view") {
         fetchFilteredAccountsReceivable();
       }
@@ -263,6 +267,21 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setExistingAttachments([]);
     }
   }, [open, activeTab]);
+
+  const fetchDocumentTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("document_types")
+        .select("id, code, name, is_active")
+        .eq("is_active", true)
+        .order("code");
+
+      if (error) throw error;
+      setDocumentTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching document types:", error);
+    }
+  };
 
   const fetchAccountsReceivable = async () => {
     try {
@@ -391,6 +410,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       if (filterStatus && filterStatus !== "all" && filterStatus !== "") {
         query = query.eq("status", filterStatus);
       }
+      
+      // Filtro por período de cadastro (created_at)
+      if (filterCreatedDateFrom) {
+        query = query.gte("created_at", `${filterCreatedDateFrom}T00:00:00`);
+      }
+      if (filterCreatedDateTo) {
+        query = query.lte("created_at", `${filterCreatedDateTo}T23:59:59`);
+      }
 
       query = query.order("created_at", { ascending: false });
 
@@ -440,6 +467,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     setFilterDueDateFrom("");
     setFilterDueDateTo("");
     setFilterStatus("all");
+    setFilterCreatedDateFrom("");
+    setFilterCreatedDateTo("");
     setAccountsReceivable([]);
     setShowFilteredData(false);
   };
@@ -702,17 +731,56 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             .maybeSingle();
           
           if (paymentData?.payment_account_id) {
-            // Fetch account name based on type
-            const { data: accountData } = await supabase
-              .from("current_accounts")
-              .select("name, bank, account_number")
-              .eq("id", paymentData.payment_account_id)
-              .maybeSingle();
+            const accountType = paymentData.payment_account_type || 'current';
+            let accountName = '';
             
-            if (accountData) {
+            // Fetch account name based on type
+            if (accountType === 'current') {
+              const { data: accountData } = await supabase
+                .from("current_accounts")
+                .select("name, bank, account_number")
+                .eq("id", paymentData.payment_account_id)
+                .maybeSingle();
+              
+              if (accountData) {
+                accountName = `${accountData.name} - ${accountData.bank} (${accountData.account_number})`;
+              }
+            } else if (accountType === 'cash') {
+              const { data: accountData } = await supabase
+                .from("cash_accounts")
+                .select("name")
+                .eq("id", paymentData.payment_account_id)
+                .maybeSingle();
+              
+              if (accountData) {
+                accountName = `${accountData.name} (Caixa)`;
+              }
+            } else if (accountType === 'card') {
+              const { data: accountData } = await supabase
+                .from("card_accounts")
+                .select("name, bank")
+                .eq("id", paymentData.payment_account_id)
+                .maybeSingle();
+              
+              if (accountData) {
+                accountName = `${accountData.name} - ${accountData.bank} (Cartão)`;
+              }
+            } else if (accountType === 'delivery') {
+              const { data: accountData } = await supabase
+                .from("delivery_accounts")
+                .select("name")
+                .eq("id", paymentData.payment_account_id)
+                .maybeSingle();
+              
+              if (accountData) {
+                accountName = `${accountData.name} (Delivery)`;
+              }
+            }
+            
+            if (accountName) {
               return {
                 ...inst,
-                payment_account_name: `${accountData.name} - ${accountData.bank} (${accountData.account_number})`
+                payment_account_name: accountName
               };
             }
           }
@@ -784,13 +852,24 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           if (deletePaymentError) throw deletePaymentError;
 
           // Delete financial transaction for this installment
-          const { error: deleteTransactionError } = await supabase
+          // Tenta primeiro com reference_type = accounts_receivable_installments
+          const { error: deleteTransactionError1 } = await supabase
             .from("financial_transactions")
             .delete()
             .eq("reference_id", installmentId)
             .eq("reference_type", "accounts_receivable_installments");
 
-          if (deleteTransactionError) throw deleteTransactionError;
+          if (deleteTransactionError1) throw deleteTransactionError1;
+
+          // Também tenta com reference_type = accounts_receivable (para compatibilidade com registros antigos)
+          // Busca pelo account_receivable_id correspondente
+          const { error: deleteTransactionError2 } = await supabase
+            .from("financial_transactions")
+            .delete()
+            .eq("reference_id", accountId)
+            .eq("reference_type", "accounts_receivable");
+
+          if (deleteTransactionError2) throw deleteTransactionError2;
 
           // Update installment to remove payment_date
           const { error: installmentError } = await supabase
@@ -1001,13 +1080,49 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
-        .from("stores")
-        .select("id, name, code")
-        .order("name");
+      // Buscar o usuário logado
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) throw error;
-      setStores(data || []);
+      // Buscar lojas vinculadas ao usuário através de user_stores
+      const { data: userStoresData, error: userStoresError } = await supabase
+        .from("user_stores")
+        .select("store_id")
+        .eq("user_id", user.id);
+
+      if (userStoresError) throw userStoresError;
+
+      if (userStoresData && userStoresData.length > 0) {
+        const storeIds = userStoresData.map(us => us.store_id);
+        
+        const { data, error } = await supabase
+          .from("stores")
+          .select("id, name, code")
+          .in("id", storeIds)
+          .order("name");
+
+        if (error) throw error;
+        setStores(data || []);
+      } else {
+        // Se não tiver lojas vinculadas, verificar se é admin (pode ver todas)
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profileData?.role === 'admin') {
+          const { data, error } = await supabase
+            .from("stores")
+            .select("id, name, code")
+            .order("name");
+
+          if (error) throw error;
+          setStores(data || []);
+        } else {
+          setStores([]);
+        }
+      }
     } catch (error) {
       console.error("Error fetching stores:", error);
     }
@@ -1500,6 +1615,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   };
 
   const handleSave = async () => {
+    // Prevent double-click submissions
+    if (loading) return;
+    setLoading(true);
+
     // If attachment only edit, skip validation of other fields
     if (!isAttachmentOnlyEdit) {
       if (!creditorId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
@@ -1508,6 +1627,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           description: "Preencha todos os campos obrigatórios do formulário",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
@@ -1517,6 +1637,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           description: "Adicione pelo menos um item na aba Itens",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
@@ -1528,11 +1649,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           description: competenceValidation.message,
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
     }
-
-    setLoading(true);
     try {
       const totalAmount = getTotalAmount();
 
@@ -2304,6 +2424,22 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label>Data Cadastro (De)</Label>
+                    <Input
+                      type="date"
+                      value={filterCreatedDateFrom}
+                      onChange={(e) => setFilterCreatedDateFrom(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Data Cadastro (Até)</Label>
+                    <Input
+                      type="date"
+                      value={filterCreatedDateTo}
+                      onChange={(e) => setFilterCreatedDateTo(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={fetchFilteredAccountsReceivable}>
@@ -2486,8 +2622,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         </SelectTrigger>
                         <SelectContent>
                           {documentTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
+                            <SelectItem key={type.code} value={type.code}>
+                              {type.name} ({type.code})
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -8,7 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2 } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -96,14 +99,19 @@ interface Installment {
   amount: number;
 }
 
-const documentTypes = [
-  { value: "NF", label: "Nota Fiscal (NF)" },
-  { value: "RC", label: "Recibo (RC)" },
-  { value: "CT", label: "Contrato (CT)" },
-  { value: "CF", label: "Cupom Fiscal (CF)" },
-  { value: "FAT", label: "Fatura (FAT)" },
-  { value: "HOL", label: "Holerite (HOL)" },
-];
+interface DocumentType {
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+}
+
+interface AccountLog {
+  type: 'creation' | 'update' | 'payment';
+  user_name: string;
+  timestamp: string;
+  details?: string;
+}
 
 export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModalProps) {
   const [activeTab, setActiveTab] = useState("view");
@@ -116,8 +124,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [items, setItems] = useState<PayableItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const viewItemsPerPage = 15;
   const { canEdit } = useFinanceiroPermissions();
+  
+  // Document types from database
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -163,16 +178,47 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [paymentAccountInfo, setPaymentAccountInfo] = useState<CurrentAccount | null>(null);
   const { toast } = useToast();
 
+  // Helper function to get user's store_id from profiles or user_stores
+  const getUserStoreId = async (userId: string): Promise<string | null> => {
+    // First try to get from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('store_id')
+      .eq('id', userId)
+      .single();
+    
+    if (profile?.store_id) {
+      return profile.store_id;
+    }
+    
+    // Fallback to user_stores
+    const { data: userStores } = await supabase
+      .from('user_stores')
+      .select('store_id')
+      .eq('user_id', userId)
+      .limit(1);
+    
+    if (userStores && userStores.length > 0) {
+      return userStores[0].store_id;
+    }
+    
+    return null;
+  };
+
   // Filter fields
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterSupplier, setFilterSupplier] = useState("");
+  const [filterEmployee, setFilterEmployee] = useState("");
   const [filterStore, setFilterStore] = useState("");
   const [filterDocumentNumber, setFilterDocumentNumber] = useState("");
   const [filterCurrentAccount, setFilterCurrentAccount] = useState("");
+  const [filterPaymentAccount, setFilterPaymentAccount] = useState("");
   const [filterDueDateFrom, setFilterDueDateFrom] = useState("");
   const [filterDueDateTo, setFilterDueDateTo] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCreatedAtFrom, setFilterCreatedAtFrom] = useState("");
+  const [filterCreatedAtTo, setFilterCreatedAtTo] = useState("");
   const [showFilteredData, setShowFilteredData] = useState(false);
 
   // Payment tab filters
@@ -228,13 +274,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [attachments, setAttachments] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url?: string, path?: string, size?: number, type?: string}>>([]);
 
+  // Logs state
+  const [accountLogs, setAccountLogs] = useState<AccountLog[]>([]);
+
   // Search modals state
   const [showSupplierSearch, setShowSupplierSearch] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
   const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -243,6 +294,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchProducts();
       fetchStores();
       fetchCurrentAccounts();
+      fetchDocumentTypes();
       if (activeTab === "view") {
         // Buscar as 5 últimas contas por padrão na aba visualizar
         fetchLatestAccounts();
@@ -255,6 +307,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setIsEmployeeMode(false);
       setSupplierId("");
       setEmployeeId("");
+      setSupplierSearchTerm("");
+      setEmployeeSearchTerm("");
       setDocumentType("");
       setDocumentNumber("");
       setIssueDate("");
@@ -276,6 +330,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setIsRealEdit(false);
       setIsViewOnly(false);
       setViewOnlyAccount(null);
+      setAccountLogs([]);
     }
   }, [open, activeTab]);
 
@@ -285,6 +340,21 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       fetchProducts();
     }
   }, [isEmployeeMode]);
+
+  const fetchDocumentTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("document_types")
+        .select("id, code, name, is_active")
+        .eq("is_active", true)
+        .order("code");
+
+      if (error) throw error;
+      setDocumentTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching document types:", error);
+    }
+  };
 
   const fetchLatestAccounts = async () => {
     try {
@@ -417,22 +487,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   const fetchFilteredAccountsPayable = async () => {
     try {
-      let query = supabase
-        .from("accounts_payable")
-        .select(`
-          *,
-          suppliers(name),
-          employees(name),
-          stores(name)
-        `);
+      // Collect all ID filters first to combine them properly
+      let idFilters: Set<string>[] = [];
+      let hasIdFilter = false;
 
       // Apply filters only if they have values
       if (filterDateFrom || filterDateTo) {
-        // Para filtro de data de baixa, precisamos buscar contas que tenham payment_date
-        // OU que tenham parcelas com payment_date dentro do período
-        
-        let accountsWithPaymentDate = [];
-        let accountsWithInstallmentPaymentDate = [];
+        hasIdFilter = true;
+        let accountsWithPaymentDate: string[] = [];
+        let accountsWithInstallmentPaymentDate: string[] = [];
         
         // Buscar contas com payment_date principal
         if (filterDateFrom && filterDateTo) {
@@ -475,31 +538,193 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         // Combinar IDs de ambas as buscas
         const allAccountIds = [...new Set([...accountsWithPaymentDate, ...accountsWithInstallmentPaymentDate])];
         
-        if (allAccountIds.length > 0) {
-          query = query.in("id", allAccountIds);
-        } else {
-          // Se não encontrou nenhuma conta com pagamento no período, retornar vazio
+        if (allAccountIds.length === 0) {
+          setAccountsPayable([]);
+          setViewCurrentPage(1);
+          setShowFilteredData(true);
+          return;
+        }
+        idFilters.push(new Set(allAccountIds));
+      }
+      
+      // Para filtro de loja, buscar contas que tenham itens na loja selecionada
+      if (filterStore && filterStore !== "all" && filterStore !== "") {
+        hasIdFilter = true;
+        const { data: itemsWithStore } = await supabase
+          .from("accounts_payable_items")
+          .select("account_payable_id")
+          .eq("store_id", filterStore);
+        
+        const accountsWithStoreItems = [...new Set(itemsWithStore?.map(item => item.account_payable_id) || [])];
+        
+        // Also include accounts that have store_id directly matching
+        const { data: accountsWithDirectStore } = await supabase
+          .from("accounts_payable")
+          .select("id")
+          .eq("store_id", filterStore);
+        
+        const directStoreIds = accountsWithDirectStore?.map(item => item.id) || [];
+        const allStoreAccountIds = [...new Set([...accountsWithStoreItems, ...directStoreIds])];
+        
+        if (allStoreAccountIds.length === 0) {
+          setAccountsPayable([]);
+          setViewCurrentPage(1);
+          setShowFilteredData(true);
+          return;
+        }
+        idFilters.push(new Set(allStoreAccountIds));
+      }
+      
+      // Filtro por conta de pagamento
+      if (filterPaymentAccount && filterPaymentAccount !== "all" && filterPaymentAccount !== "") {
+        hasIdFilter = true;
+        const { data: transactionsWithAccount } = await supabase
+          .from("financial_transactions")
+          .select("reference_id, reference_type")
+          .eq("account_id", filterPaymentAccount)
+          .eq("transaction_type", "saida")
+          .in("reference_type", ["accounts_payable", "accounts_payable_installments"]);
+        
+        if (!transactionsWithAccount || transactionsWithAccount.length === 0) {
+          setAccountsPayable([]);
+          setViewCurrentPage(1);
+          setShowFilteredData(true);
+          return;
+        }
+        
+        const directAccountIds = transactionsWithAccount
+          .filter(t => t.reference_type === "accounts_payable")
+          .map(t => t.reference_id);
+        
+        const installmentIds = transactionsWithAccount
+          .filter(t => t.reference_type === "accounts_payable_installments")
+          .map(t => t.reference_id);
+        
+        let accountsFromInstallments: string[] = [];
+        if (installmentIds.length > 0) {
+          const { data: installmentsData } = await supabase
+            .from("accounts_payable_installments")
+            .select("account_payable_id")
+            .in("id", installmentIds);
+          
+          accountsFromInstallments = installmentsData?.map(i => i.account_payable_id) || [];
+        }
+        
+        const allAccountIds = [...new Set([...directAccountIds, ...accountsFromInstallments])];
+        
+        if (allAccountIds.length === 0) {
+          setAccountsPayable([]);
+          setViewCurrentPage(1);
+          setShowFilteredData(true);
+          return;
+        }
+        idFilters.push(new Set(allAccountIds));
+      }
+      
+      // Filtro de vencimento
+      if (filterDueDateFrom || filterDueDateTo) {
+        hasIdFilter = true;
+        let installmentDueDateQuery = supabase
+          .from("accounts_payable_installments")
+          .select("account_payable_id");
+        
+        if (filterDueDateFrom) {
+          installmentDueDateQuery = installmentDueDateQuery.gte("due_date", filterDueDateFrom);
+        }
+        if (filterDueDateTo) {
+          installmentDueDateQuery = installmentDueDateQuery.lte("due_date", filterDueDateTo);
+        }
+        
+        const { data: installmentDueDateData } = await installmentDueDateQuery;
+        const accountsWithInstallmentDueDate = installmentDueDateData?.map(item => item.account_payable_id) || [];
+        
+        // Também buscar contas sem parcelas que tenham due_date no período
+        let mainDueDateQuery = supabase
+          .from("accounts_payable")
+          .select("id");
+        
+        if (filterDueDateFrom) {
+          mainDueDateQuery = mainDueDateQuery.gte("due_date", filterDueDateFrom);
+        }
+        if (filterDueDateTo) {
+          mainDueDateQuery = mainDueDateQuery.lte("due_date", filterDueDateTo);
+        }
+        
+        const { data: mainDueDateData } = await mainDueDateQuery;
+        
+        const accountsWithMainDueDate: string[] = [];
+        if (mainDueDateData && mainDueDateData.length > 0) {
+          const mainAccountIds = mainDueDateData.map(item => item.id);
+          
+          const { data: accountsWithInstallments } = await supabase
+            .from("accounts_payable_installments")
+            .select("account_payable_id")
+            .in("account_payable_id", mainAccountIds);
+          
+          const accountsWithInstallmentsSet = new Set(accountsWithInstallments?.map(item => item.account_payable_id) || []);
+          
+          mainAccountIds.forEach(id => {
+            if (!accountsWithInstallmentsSet.has(id)) {
+              accountsWithMainDueDate.push(id);
+            }
+          });
+        }
+        
+        const allDueDateAccountIds = [...new Set([...accountsWithInstallmentDueDate, ...accountsWithMainDueDate])];
+        
+        if (allDueDateAccountIds.length === 0) {
+          setAccountsPayable([]);
+          setViewCurrentPage(1);
+          setShowFilteredData(true);
+          return;
+        }
+        idFilters.push(new Set(allDueDateAccountIds));
+      }
+
+      // Calculate intersection of all ID filters
+      let finalIds: string[] | null = null;
+      if (hasIdFilter && idFilters.length > 0) {
+        // Start with the first set and intersect with all others
+        let intersectedSet = idFilters[0];
+        for (let i = 1; i < idFilters.length; i++) {
+          intersectedSet = new Set([...intersectedSet].filter(x => idFilters[i].has(x)));
+        }
+        finalIds = [...intersectedSet];
+        
+        if (finalIds.length === 0) {
           setAccountsPayable([]);
           setViewCurrentPage(1);
           setShowFilteredData(true);
           return;
         }
       }
+
+      // Build the main query
+      let query = supabase
+        .from("accounts_payable")
+        .select(`
+          *,
+          suppliers(name),
+          employees(name),
+          stores(name)
+        `);
+
+      // Apply the combined ID filter if we have one
+      if (finalIds !== null) {
+        query = query.in("id", finalIds);
+      }
       
       if (filterSupplier && filterSupplier !== "all" && filterSupplier !== "") {
         query = query.eq("supplier_id", filterSupplier);
       }
-      if (filterStore && filterStore !== "all" && filterStore !== "") {
-        query = query.eq("store_id", filterStore);
+      
+      // Filtro por funcionário
+      if (filterEmployee && filterEmployee !== "all" && filterEmployee !== "") {
+        query = query.eq("employee_id", filterEmployee);
       }
+      
       if (filterDocumentNumber.trim()) {
         query = query.ilike("document_number", `%${filterDocumentNumber}%`);
-      }
-      if (filterDueDateFrom) {
-        query = query.gte("due_date", filterDueDateFrom);
-      }
-      if (filterDueDateTo) {
-        query = query.lte("due_date", filterDueDateTo);
       }
       
       // Apply status filter
@@ -512,6 +737,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           query = query.eq("status", "partial");
         }
       }
+      
+      // Apply created_at filter (data de cadastro)
+      if (filterCreatedAtFrom) {
+        query = query.gte("created_at", `${filterCreatedAtFrom}T00:00:00`);
+      }
+      if (filterCreatedAtTo) {
+        query = query.lte("created_at", `${filterCreatedAtTo}T23:59:59`);
+      }
 
       query = query.order("created_at", { ascending: false });
 
@@ -522,12 +755,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         ...item,
         attachments: Array.isArray(item.attachments) ? item.attachments as Array<{name: string, url?: string, path?: string, size?: number, type?: string}> : []
       }));
-      
-      console.log('📊 Dados das contas buscadas:', formattedData.map(item => ({
-        id: item.id,
-        description: item.description,
-        attachments: item.attachments
-      })));
       
       setAccountsPayable(formattedData);
       setViewCurrentPage(1);
@@ -546,12 +773,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setFilterDateFrom("");
     setFilterDateTo("");
     setFilterSupplier("all");
+    setFilterEmployee("all");
     setFilterStore("all");
     setFilterDocumentNumber("");
     setFilterCurrentAccount("");
+    setFilterPaymentAccount("all");
     setFilterDueDateFrom("");
     setFilterDueDateTo("");
     setFilterStatus("all");
+    setFilterCreatedAtFrom("");
+    setFilterCreatedAtTo("");
     fetchLatestAccounts(); // Voltar para as 5 últimas contas
   };
 
@@ -565,6 +796,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     product.name.toLowerCase().includes(productSearchTerm.toLowerCase())
   );
 
+  // Filtered employee list for combobox
+  const filteredEmployees = employees.filter(employee =>
+    employee.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
+    (employee.cpf && employee.cpf.includes(employeeSearchTerm))
+  );
+
   const handleSupplierSelect = (supplier: Supplier) => {
     setSupplierId(supplier.id);
     setSupplierSearchTerm(supplier.name);
@@ -575,6 +812,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setSelectedProduct(product.id);
     setProductSearchTerm(product.name);
     setShowProductDropdown(false);
+  };
+
+  const handleEmployeeSelect = (employee: Employee) => {
+    setEmployeeId(employee.id);
+    setEmployeeSearchTerm(employee.name);
+    setShowEmployeeDropdown(false);
   };
 
   const handleSupplierSearchChange = (value: string) => {
@@ -590,6 +833,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setShowProductDropdown(value.trim().length > 0 && filteredProducts.length > 0);
     if (value.trim().length === 0) {
       setSelectedProduct("");
+    }
+  };
+
+  const handleEmployeeSearchChange = (value: string) => {
+    setEmployeeSearchTerm(value);
+    setShowEmployeeDropdown(true);
+    if (value.trim().length === 0) {
+      setEmployeeId("");
     }
   };
 
@@ -708,14 +959,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       setIsEmployeeMode(true);
       const employee = employees.find(e => e.name === account.employees?.name);
       setEmployeeId(employee?.id || "");
+      setEmployeeSearchTerm(employee?.name || account.employees?.name || "");
       setSupplierId("");
       setSupplierSearchTerm("");
     } else {
       setIsEmployeeMode(false);
       const supplier = suppliers.find(s => s.name === account.suppliers?.name);
       setSupplierId(supplier?.id || "");
-      setEmployeeId("");
       setSupplierSearchTerm(supplier?.name || "");
+      setEmployeeId("");
+      setEmployeeSearchTerm("");
     }
     setDocumentType(account.document_type || "");
     setDocumentNumber(account.document_number || "");
@@ -768,6 +1021,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         variant: "destructive",
       });
     }
+    
+    // Fetch logs for this account
+    await fetchAccountLogs(account.id);
     
     setActiveTab("create");
   };
@@ -844,7 +1100,138 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       });
     }
     
+    // Fetch logs for this account
+    await fetchAccountLogs(account.id);
+    
     setActiveTab("create");
+  };
+
+  // Function to fetch account logs
+  const fetchAccountLogs = async (accountId: string) => {
+    try {
+      const logs: AccountLog[] = [];
+      
+      // Fetch the account to get creation info
+      const { data: accountData, error: accountError } = await supabase
+        .from("accounts_payable")
+        .select("created_at, created_by, updated_at, updated_by")
+        .eq("id", accountId)
+        .single();
+      
+      if (accountError) throw accountError;
+      
+      // Get creator profile name
+      if (accountData?.created_by) {
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", accountData.created_by)
+          .single();
+        
+        logs.push({
+          type: 'creation',
+          user_name: creatorProfile?.name || 'Usuário não identificado',
+          timestamp: accountData.created_at,
+        });
+      } else if (accountData?.created_at) {
+        logs.push({
+          type: 'creation',
+          user_name: 'Sistema',
+          timestamp: accountData.created_at,
+        });
+      }
+      
+      // Check if there was an update (updated_at different from created_at)
+      if (accountData?.updated_at && accountData?.created_at && 
+          new Date(accountData.updated_at).getTime() !== new Date(accountData.created_at).getTime()) {
+        // Get the modifier profile name
+        let modifierName = 'Usuário não identificado';
+        if (accountData?.updated_by) {
+          const { data: modifierProfile } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", accountData.updated_by)
+            .single();
+          modifierName = modifierProfile?.name || 'Usuário não identificado';
+        }
+        
+        logs.push({
+          type: 'update',
+          user_name: modifierName,
+          timestamp: accountData.updated_at,
+        });
+      }
+      
+      // Fetch payment logs from accounts_payable_payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("accounts_payable_payments")
+        .select(`
+          id,
+          payment_date,
+          amount_paid,
+          interest_amount,
+          discount_amount,
+          created_at,
+          created_by,
+          installment_id
+        `)
+        .eq("account_payable_id", accountId)
+        .order("created_at", { ascending: true });
+      
+      if (!paymentsError && paymentsData && paymentsData.length > 0) {
+        // Get unique creator IDs
+        const creatorIds = [...new Set(paymentsData.map(p => p.created_by).filter(Boolean))];
+        
+        // Fetch all profiles at once
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", creatorIds);
+        
+        const profileMap = new Map(profiles?.map(p => [p.id, p.name]) || []);
+        
+        // Get installment info
+        const installmentIds = [...new Set(paymentsData.map(p => p.installment_id).filter(Boolean))];
+        let installmentMap = new Map<string, number>();
+        
+        if (installmentIds.length > 0) {
+          const { data: installments } = await supabase
+            .from("accounts_payable_installments")
+            .select("id, installment_number")
+            .in("id", installmentIds);
+          
+          installmentMap = new Map(installments?.map(i => [i.id, i.installment_number]) || []);
+        }
+        
+        for (const payment of paymentsData) {
+          const userName = payment.created_by ? (profileMap.get(payment.created_by) || 'Usuário não identificado') : 'Sistema';
+          const installmentNumber = payment.installment_id ? installmentMap.get(payment.installment_id) : null;
+          
+          let details = `Valor: R$ ${Number(payment.amount_paid).toFixed(2)}`;
+          if (installmentNumber) {
+            details = `Parcela ${installmentNumber} - ${details}`;
+          }
+          if (payment.interest_amount && payment.interest_amount > 0) {
+            details += ` + Acréscimo: R$ ${Number(payment.interest_amount).toFixed(2)}`;
+          }
+          if (payment.discount_amount && payment.discount_amount > 0) {
+            details += ` - Desconto: R$ ${Number(payment.discount_amount).toFixed(2)}`;
+          }
+          
+          logs.push({
+            type: 'payment',
+            user_name: userName,
+            timestamp: payment.created_at,
+            details,
+          });
+        }
+      }
+      
+      setAccountLogs(logs);
+    } catch (error) {
+      console.error("Error fetching account logs:", error);
+      setAccountLogs([]);
+    }
   };
 
   const handleReversePayment = async (account: AccountPayable) => {
@@ -868,17 +1255,33 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         // Fetch payment account information for each paid installment
         const installmentsWithPaymentInfo = await Promise.all(
           paidInstallments.map(async (installment) => {
-            const { data: transactionData, error: transactionError } = await supabase
-              .from("financial_transactions")
-              .select("account_id")
-              .eq("reference_id", installment.id)
-              .eq("reference_type", "accounts_payable_installments")
+            let paymentAccountInfo = null;
+            
+            // First, try to get from accounts_payable_payments table
+            const { data: paymentData, error: paymentError } = await supabase
+              .from("accounts_payable_payments")
+              .select("payment_account_id, payment_account_type")
+              .eq("installment_id", installment.id)
               .limit(1)
               .maybeSingle();
 
-            let paymentAccountInfo = null;
-            if (!transactionError && transactionData) {
-              paymentAccountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+            if (!paymentError && paymentData?.payment_account_id) {
+              paymentAccountInfo = currentAccounts.find(acc => acc.id === paymentData.payment_account_id) || null;
+            }
+
+            // If not found, try financial_transactions as fallback
+            if (!paymentAccountInfo) {
+              const { data: transactionData, error: transactionError } = await supabase
+                .from("financial_transactions")
+                .select("account_id")
+                .eq("reference_id", installment.id)
+                .eq("reference_type", "accounts_payable_installments")
+                .limit(1)
+                .maybeSingle();
+
+              if (!transactionError && transactionData) {
+                paymentAccountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+              }
             }
 
             return {
@@ -890,22 +1293,39 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         setReverseInstallments(installmentsWithPaymentInfo);
       } else {
-        // Account without installments - fetch payment info from financial_transactions
+        // Account without installments - fetch payment info
         setReverseInstallments([]);
         
-        // Fetch the payment info for account without installments
-        const { data: transactionData, error: transactionError } = await supabase
-          .from("financial_transactions")
-          .select("account_id, amount")
-          .eq("reference_id", account.id)
-          .eq("reference_type", "accounts_payable")
+        let accountInfo = null;
+        
+        // First, try to get from accounts_payable_payments table
+        const { data: paymentData, error: paymentError } = await supabase
+          .from("accounts_payable_payments")
+          .select("payment_account_id, payment_account_type")
+          .eq("account_payable_id", account.id)
           .limit(1)
           .maybeSingle();
 
-        if (!transactionError && transactionData) {
-          const accountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
-          setPaymentAccountInfo(accountInfo);
+        if (!paymentError && paymentData?.payment_account_id) {
+          accountInfo = currentAccounts.find(acc => acc.id === paymentData.payment_account_id) || null;
         }
+
+        // If not found, try financial_transactions as fallback
+        if (!accountInfo) {
+          const { data: transactionData, error: transactionError } = await supabase
+            .from("financial_transactions")
+            .select("account_id, amount")
+            .eq("reference_id", account.id)
+            .eq("reference_type", "accounts_payable")
+            .limit(1)
+            .maybeSingle();
+
+          if (!transactionError && transactionData) {
+            accountInfo = currentAccounts.find(acc => acc.id === transactionData.account_id) || null;
+          }
+        }
+        
+        setPaymentAccountInfo(accountInfo);
       }
 
       // Always show modal (both for accounts with and without installments)
@@ -971,6 +1391,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
             .eq("reference_type", "accounts_payable_installments");
 
           if (deleteError) throw deleteError;
+
+          // Also delete financial transaction created with account_payable reference
+          // (for payments made via CashPaymentModal which uses account_payable.id)
+          await supabase
+            .from("financial_transactions")
+            .delete()
+            .eq("reference_id", accountId)
+            .eq("reference_type", "accounts_payable");
         }
 
         // Check if any installments are still paid
@@ -1523,17 +1951,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       .replace(/^_|_$/g, ''); // Remover underscores do início e fim
   };
 
-  const uploadAttachments = async (accountId: string): Promise<Array<{name: string, url: string, size: number}>> => {
+  const uploadAttachments = async (accountId: string, storeId?: string): Promise<Array<{name: string, url: string, size: number}>> => {
     const uploadedFiles: Array<{name: string, url: string, size: number}> = [];
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error("Usuário não autenticado");
     
-    // Use defaultStore as the first path segment for RLS compliance
-    if (!defaultStore) throw new Error("Loja não selecionada");
+    // Use storeId parameter first, then defaultStore as fallback
+    const storeForPath = storeId || defaultStore;
+    if (!storeForPath) throw new Error("Loja não selecionada");
 
     for (const file of attachments) {
       const sanitizedName = sanitizeFileName(file.name);
-      const fileName = `${defaultStore}/${accountId}/${Date.now()}_${sanitizedName}`;
+      const fileName = `${storeForPath}/${accountId}/${Date.now()}_${sanitizedName}`;
       
       console.log(`📎 Fazendo upload do arquivo: ${file.name} -> ${fileName}`);
       
@@ -2015,18 +2444,18 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       console.log('💾 Fazendo upload do arquivo...');
       
       // Get current user's store ID for organizing files
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('store_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!userProfile?.store_id) {
+      const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+      if (!currentUserId) {
+        throw new Error('Usuário não autenticado');
+      }
+      
+      const userStoreId = await getUserStoreId(currentUserId);
+      if (!userStoreId) {
         throw new Error('Usuário sem loja definida');
       }
 
       // Upload do arquivo com store_id no path para atender as políticas RLS
-      const fileName = `${userProfile.store_id}/nfe_${Date.now()}_${file.name}`;
+      const fileName = `${userStoreId}/nfe_${Date.now()}_${file.name}`;
       console.log('📁 Caminho do arquivo:', fileName);
       
       const { error: uploadError } = await supabase.storage
@@ -2217,20 +2646,16 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       }
 
       // Primeiro, criar a conta a pagar
-      const userProfile = (await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", user.id)
-        .single()).data;
-
-      if (!userProfile?.store_id) {
-        throw new Error('Usuário sem loja definida');
-      }
+      const userStoreId = await getUserStoreId(user.id);
 
       const totalAmount = getTotalAmount();
       
       // Usar a loja do primeiro item se houver itens, senão usar a loja do usuário
-      const storeToUse = items.length > 0 ? items[0].store_id : userProfile.store_id;
+      const storeToUse = items.length > 0 && items[0].store_id ? items[0].store_id : userStoreId;
+      
+      if (!storeToUse) {
+        throw new Error('Nenhuma loja definida. Adicione itens ou configure sua loja.');
+      }
       
       const { data: payable, error: payableError } = await supabase
         .from("accounts_payable")
@@ -2264,7 +2689,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       let uploadedAttachments: Array<{name: string, url: string, size: number}> = [];
       if (attachments.length > 0) {
         console.log('📤 Fazendo upload de novos anexos:', attachments.length);
-        uploadedAttachments = await uploadAttachments(payable.id);
+        uploadedAttachments = await uploadAttachments(payable.id, storeToUse);
       }
       
       // Combinar anexos existentes (como NFE) com novos anexos
@@ -2345,7 +2770,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         // Upload new attachments if any
         let newAttachments: Array<{name: string, url: string, size: number}> = [];
         if (attachments.length > 0) {
-          newAttachments = await uploadAttachments(editingAccount.id);
+          newAttachments = await uploadAttachments(editingAccount.id, editingAccount.store_id);
         }
         
         // Combine existing and new attachments
@@ -2420,7 +2845,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       // Upload new attachments if any
       let newAttachments: Array<{name: string, url: string, size: number}> = [];
       if (attachments.length > 0) {
-        newAttachments = await uploadAttachments(isEditing && editingAccount ? editingAccount.id : '');
+        // Get store_id from editingAccount or items
+        const storeForUpload = isEditing && editingAccount ? editingAccount.store_id : (items.length > 0 ? items[0].store_id : defaultStore);
+        newAttachments = await uploadAttachments(isEditing && editingAccount ? editingAccount.id : '', storeForUpload);
       }
       
       // Combine existing and new attachments
@@ -2585,7 +3012,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         // Upload attachments for new account
         if (attachments.length > 0) {
-          newAttachments = await uploadAttachments(payable.id);
+          newAttachments = await uploadAttachments(payable.id, storeToUse);
           
           // Update the account with attachments
           await supabase
@@ -2636,6 +3063,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       // Reset form and switch to view (não executar se excluiu parcelas durante edição)
       // O return já deveria ter impedido chegar aqui, mas adicionar flag para segurança
       setSupplierId("");
+      setEmployeeId("");
+      setSupplierSearchTerm("");
+      setEmployeeSearchTerm("");
       setDocumentType("");
       setDocumentNumber("");
       setIssueDate("");
@@ -3017,10 +3447,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           if (updateInstallmentError) throw updateInstallmentError;
 
           // Create financial transaction for each installment
+          // O store_id deve SEMPRE ser o store_id do contas a pagar para manter a integridade dos relatórios
           const { error: transactionError } = await supabase
             .from("financial_transactions")
             .insert({
-              store_id: userProfile?.store_id || paymentAccount.store_id || null,
+              store_id: paymentAccount.store_id,
               account_id: selectedAccountId,
               transaction_type: "saida",
               amount: finalAmount,
@@ -3124,10 +3555,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         if (updateError) throw updateError;
 
         // Create financial transaction
+        // O store_id deve SEMPRE ser o store_id do contas a pagar para manter a integridade dos relatórios
         const { error: transactionError } = await supabase
           .from("financial_transactions")
           .insert({
-            store_id: userProfile?.store_id || paymentAccount.store_id || null,
+            store_id: paymentAccount.store_id,
             account_id: selectedAccountId,
             transaction_type: "saida",
             amount: finalAmount,
@@ -3330,7 +3762,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {showFilteredData ? 
-                      (filterDateFrom || filterDateTo || filterSupplier !== "" || filterStore !== "" || filterDocumentNumber || filterDueDateFrom || filterDueDateTo || filterStatus !== "all" 
+                      (filterDateFrom || filterDateTo || filterSupplier !== "" || filterEmployee !== "" || filterStore !== "" || filterDocumentNumber || filterDueDateFrom || filterDueDateTo || filterStatus !== "all" || filterPaymentAccount !== "" || filterCreatedAtFrom || filterCreatedAtTo
                         ? `${accountsPayable.length} conta(s) encontrada(s) com os filtros aplicados`
                         : `Exibindo as 5 contas mais recentes`
                       )
@@ -3360,19 +3792,111 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     </div>
                     <div>
                       <Label htmlFor="filter-supplier">Fornecedor</Label>
-                      <Select value={filterSupplier} onValueChange={setFilterSupplier}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o fornecedor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between font-normal"
+                          >
+                            {filterSupplier && filterSupplier !== "all"
+                              ? suppliers.find((s) => s.id === filterSupplier)?.name
+                              : "Todos"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Buscar fornecedor..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="todos"
+                                  onSelect={() => setFilterSupplier("all")}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      filterSupplier === "all" || filterSupplier === "" ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  Todos
+                                </CommandItem>
+                                {suppliers.map((supplier) => (
+                                  <CommandItem
+                                    key={supplier.id}
+                                    value={supplier.name}
+                                    onSelect={() => setFilterSupplier(supplier.id)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        filterSupplier === supplier.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {supplier.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-employee">Funcionário</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between font-normal"
+                          >
+                            {filterEmployee && filterEmployee !== "all"
+                              ? employees.find((e) => e.id === filterEmployee)?.name
+                              : "Todos"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Buscar funcionário..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhum funcionário encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="todos"
+                                  onSelect={() => setFilterEmployee("all")}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      filterEmployee === "all" || filterEmployee === "" ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  Todos
+                                </CommandItem>
+                                {employees.map((employee) => (
+                                  <CommandItem
+                                    key={employee.id}
+                                    value={employee.name}
+                                    onSelect={() => setFilterEmployee(employee.id)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        filterEmployee === employee.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {employee.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div>
                       <Label htmlFor="filter-store">Loja</Label>
@@ -3385,6 +3909,25 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           {stores.map((store) => (
                             <SelectItem key={store.id} value={store.id}>
                               {store.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-payment-account">Conta de Pagamento</Label>
+                      <Select value={filterPaymentAccount} onValueChange={setFilterPaymentAccount}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a conta" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {currentAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.account_type === 'current' ? '🏦 ' : 
+                               account.account_type === 'cash' ? '💵 ' : 
+                               account.account_type === 'card' ? '💳 ' : 
+                               account.account_type === 'delivery' ? '🛵 ' : ''}{account.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3432,6 +3975,24 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         </SelectContent>
                       </Select>
                     </div>
+                    <div>
+                      <Label htmlFor="filter-created-at-from">Data Cadastro (De)</Label>
+                      <Input
+                        id="filter-created-at-from"
+                        type="date"
+                        value={filterCreatedAtFrom}
+                        onChange={(e) => setFilterCreatedAtFrom(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="filter-created-at-to">Data Cadastro (Até)</Label>
+                      <Input
+                        id="filter-created-at-to"
+                        type="date"
+                        value={filterCreatedAtTo}
+                        onChange={(e) => setFilterCreatedAtTo(e.target.value)}
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button onClick={fetchFilteredAccountsPayable}>
@@ -3452,11 +4013,63 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </CardHeader>
                   <CardContent>
                     {(() => {
-                      const viewTotalItems = accountsPayable.length;
+                      // Sorting function
+                      const handleSort = (column: string) => {
+                        if (sortColumn === column) {
+                          setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortColumn(column);
+                          setSortDirection('asc');
+                        }
+                        setViewCurrentPage(1); // Reset to first page when sorting
+                      };
+
+                      const getSortIcon = (column: string) => {
+                        if (sortColumn !== column) {
+                          return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+                        }
+                        return sortDirection === 'asc' 
+                          ? <ArrowUp className="h-4 w-4 ml-1" />
+                          : <ArrowDown className="h-4 w-4 ml-1" />;
+                      };
+
+                      // Sort accounts
+                      const sortedAccounts = [...accountsPayable].sort((a, b) => {
+                        if (!sortColumn) return 0;
+                        
+                        let comparison = 0;
+                        
+                        switch (sortColumn) {
+                          case 'supplier':
+                            const nameA = (a.suppliers?.name || a.employees?.name || '').toLowerCase();
+                            const nameB = (b.suppliers?.name || b.employees?.name || '').toLowerCase();
+                            comparison = nameA.localeCompare(nameB);
+                            break;
+                          case 'due_date':
+                            const dateA = a.due_date ? new Date(a.due_date).getTime() : 0;
+                            const dateB = b.due_date ? new Date(b.due_date).getTime() : 0;
+                            comparison = dateA - dateB;
+                            break;
+                          case 'payment_date':
+                            const payDateA = a.payment_date ? new Date(a.payment_date).getTime() : 0;
+                            const payDateB = b.payment_date ? new Date(b.payment_date).getTime() : 0;
+                            comparison = payDateA - payDateB;
+                            break;
+                          case 'amount':
+                            comparison = Number(a.amount) - Number(b.amount);
+                            break;
+                          default:
+                            return 0;
+                        }
+                        
+                        return sortDirection === 'asc' ? comparison : -comparison;
+                      });
+
+                      const viewTotalItems = sortedAccounts.length;
                       const viewTotalPages = Math.ceil(viewTotalItems / viewItemsPerPage);
                       const viewStartIndex = (viewCurrentPage - 1) * viewItemsPerPage;
                       const viewEndIndex = viewStartIndex + viewItemsPerPage;
-                      const paginatedAccounts = accountsPayable.slice(viewStartIndex, viewEndIndex);
+                      const paginatedAccounts = sortedAccounts.slice(viewStartIndex, viewEndIndex);
                       
                       return (
                         <>
@@ -3464,11 +4077,43 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="py-2">Documento</TableHead>
-                                <TableHead className="py-2">Fornecedor</TableHead>
-                                <TableHead className="py-2">Vencimento</TableHead>
-                                <TableHead className="py-2">Valor</TableHead>
+                                <TableHead 
+                                  className="py-2 cursor-pointer hover:bg-muted/50 select-none"
+                                  onClick={() => handleSort('supplier')}
+                                >
+                                  <div className="flex items-center">
+                                    Fornecedor
+                                    {getSortIcon('supplier')}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="py-2 cursor-pointer hover:bg-muted/50 select-none"
+                                  onClick={() => handleSort('due_date')}
+                                >
+                                  <div className="flex items-center">
+                                    Vencimento
+                                    {getSortIcon('due_date')}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="py-2 cursor-pointer hover:bg-muted/50 select-none"
+                                  onClick={() => handleSort('amount')}
+                                >
+                                  <div className="flex items-center">
+                                    Valor
+                                    {getSortIcon('amount')}
+                                  </div>
+                                </TableHead>
                                 <TableHead className="py-2">Status</TableHead>
-                                <TableHead className="py-2">Data Pagamento</TableHead>
+                                <TableHead 
+                                  className="py-2 cursor-pointer hover:bg-muted/50 select-none"
+                                  onClick={() => handleSort('payment_date')}
+                                >
+                                  <div className="flex items-center">
+                                    Data Pagamento
+                                    {getSortIcon('payment_date')}
+                                  </div>
+                                </TableHead>
                                 <TableHead className="py-2">Ações</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -3660,6 +4305,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             // Limpar seleções ao trocar de modo
                             setSupplierId("");
                             setEmployeeId("");
+                            setSupplierSearchTerm("");
+                            setEmployeeSearchTerm("");
                           }}
                           disabled={isViewOnly}
                           className="h-4 w-4"
@@ -3674,18 +4321,50 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       <div className="space-y-2">
                         <Label htmlFor="supplier">{isEmployeeMode ? "Funcionário *" : "Fornecedor *"}</Label>
                         {isEmployeeMode ? (
-                          <Select value={employeeId} onValueChange={setEmployeeId} disabled={isViewOnly}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um funcionário" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {employees.map((employee) => (
-                                <SelectItem key={employee.id} value={employee.id}>
-                                  {employee.name} {employee.cpf && `(${employee.cpf})`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <Input
+                              placeholder="Digite o nome do funcionário..."
+                              value={employeeSearchTerm}
+                              onChange={(e) => handleEmployeeSearchChange(e.target.value)}
+                              onFocus={() => setShowEmployeeDropdown(filteredEmployees.length > 0)}
+                              onBlur={() => setTimeout(() => setShowEmployeeDropdown(false), 200)}
+                              disabled={isViewOnly}
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowEmployeeDropdown(true)}
+                              disabled={isViewOnly}
+                              className="absolute right-0 top-0 h-full px-3"
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                            
+                            {showEmployeeDropdown && (
+                              <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                                {filteredEmployees.length > 0 ? (
+                                  filteredEmployees.slice(0, 10).map((employee) => (
+                                    <div
+                                      key={employee.id}
+                                      className="px-3 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                                      onMouseDown={() => handleEmployeeSelect(employee)}
+                                    >
+                                      <div className="font-medium">{employee.name}</div>
+                                      {employee.cpf && (
+                                        <div className="text-sm text-muted-foreground">{employee.cpf}</div>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="px-3 py-2 text-muted-foreground text-sm">
+                                    Nenhum funcionário encontrado
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="relative">
                             <Input
@@ -3736,8 +4415,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           </SelectTrigger>
                           <SelectContent>
                             {documentTypes.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
+                              <SelectItem key={type.code} value={type.code}>
+                                {type.name} ({type.code})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -3827,15 +4506,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             onChange={handleFileUpload}
                             className="hidden"
                           />
-                          <input
-                            id="nfe-upload"
-                            type="file"
-                            accept=".pdf"
-                            onChange={handleNFEUpload}
-                            className="hidden"
-                          />
                           <div className="text-center">
-                            <Upload className="h-8 w-8 mx-auto mb-4 text-gray-400" />
+                            <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
                             <div className="space-y-2">
                               <div className="flex justify-center gap-2">
                                 <Button
@@ -3846,15 +4518,6 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 >
                                   <Upload className="h-4 w-4" />
                                   Selecionar Arquivos
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="default"
-                                  onClick={() => document.getElementById('nfe-upload')?.click()}
-                                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                                >
-                                  <FileDown className="h-4 w-4" />
-                                  Cadastrar NFE
                                 </Button>
                               </div>
                               <p className="text-sm text-muted-foreground">
@@ -3947,6 +4610,56 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       {attachments.length === 0 && existingAttachments.length === 0 && (
                         <div className="text-center py-4 text-muted-foreground">
                           Nenhum documento anexado
+                        </div>
+                      )}
+
+                      {/* Seção de Logs */}
+                      {(isEditing || isViewOnly) && accountLogs.length > 0 && (
+                        <div className="space-y-3 pt-4 border-t">
+                          <Label className="text-sm font-semibold">Histórico de Atividades:</Label>
+                          <div className="space-y-2">
+                            {accountLogs.map((log, index) => (
+                              <div 
+                                key={index} 
+                                className={`flex items-start gap-3 p-2 rounded border text-sm ${
+                                  log.type === 'creation' 
+                                    ? 'bg-blue-50 border-blue-200' 
+                                    : log.type === 'update' 
+                                    ? 'bg-yellow-50 border-yellow-200' 
+                                    : 'bg-green-50 border-green-200'
+                                }`}
+                              >
+                                <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                  log.type === 'creation' 
+                                    ? 'bg-blue-200 text-blue-700' 
+                                    : log.type === 'update' 
+                                    ? 'bg-yellow-200 text-yellow-700' 
+                                    : 'bg-green-200 text-green-700'
+                                }`}>
+                                  {log.type === 'creation' ? '✓' : log.type === 'update' ? '✎' : '$'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium">
+                                    {log.type === 'creation' && 'Cadastro'}
+                                    {log.type === 'update' && 'Alteração'}
+                                    {log.type === 'payment' && 'Pagamento'}
+                                  </div>
+                                  <div className="text-muted-foreground">
+                                    {log.user_name}
+                                  </div>
+                                  {log.details && (
+                                    <div className="text-muted-foreground text-xs mt-1">
+                                      {log.details}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {new Date(log.timestamp).toLocaleDateString('pt-BR')} às{' '}
+                                    {new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </CardContent>
@@ -4163,18 +4876,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
               <div className="flex justify-end gap-2 pt-4">
                 {isViewOnly ? (
-                  <>
-                    <Button variant="outline" onClick={() => {
-                      setIsViewOnly(false);
-                      setViewOnlyAccount(null);
-                      setActiveTab("view");
-                    }}>
-                      Voltar
-                    </Button>
-                    <Button onClick={handleSave} disabled={loading}>
-                      {loading ? "Salvando..." : "Salvar Anexos"}
-                    </Button>
-                  </>
+                  <Button variant="outline" onClick={() => {
+                    setIsViewOnly(false);
+                    setViewOnlyAccount(null);
+                    setActiveTab("view");
+                  }}>
+                    Voltar
+                  </Button>
                   ) : (
                     <>
                       <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -4367,6 +5075,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     <p className="text-sm text-muted-foreground">
                                       <span className="font-medium">Conta:</span> {installment.paymentAccountInfo.name}
                                       {installment.paymentAccountInfo.account_type === 'current' && ` - ${installment.paymentAccountInfo.bank} (${installment.paymentAccountInfo.account_number})`}
+                                      {installment.paymentAccountInfo.account_type === 'cash' && ' (Caixa)'}
+                                      {installment.paymentAccountInfo.account_type === 'card' && ` - ${installment.paymentAccountInfo.bank} (Cartão)`}
+                                      {installment.paymentAccountInfo.account_type === 'delivery' && ' (Delivery)'}
                                     </p>
                                   )}
                                 </div>
@@ -4584,7 +5295,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <p className="text-sm text-muted-foreground">Conta de Pagamento</p>
                           <p className="font-medium">
                             {paymentAccountInfo 
-                              ? `${paymentAccountInfo.name}${paymentAccountInfo.account_type === 'current' ? ` - ${paymentAccountInfo.bank} (${paymentAccountInfo.account_number})` : ''}`
+                              ? `${paymentAccountInfo.name}${paymentAccountInfo.account_type === 'current' ? ` - ${paymentAccountInfo.bank} (${paymentAccountInfo.account_number})` : ''}${paymentAccountInfo.account_type === 'cash' ? ' (Caixa)' : ''}${paymentAccountInfo.account_type === 'card' ? ` - ${paymentAccountInfo.bank} (Cartão)` : ''}${paymentAccountInfo.account_type === 'delivery' ? ' (Delivery)' : ''}`
                               : 'Não informada'
                             }
                           </p>
@@ -4631,6 +5342,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <p className="text-sm text-muted-foreground">
                                     <span className="font-medium">Conta:</span> {installment.paymentAccountInfo.name}
                                     {installment.paymentAccountInfo.account_type === 'current' && ` - ${installment.paymentAccountInfo.bank} (${installment.paymentAccountInfo.account_number})`}
+                                    {installment.paymentAccountInfo.account_type === 'cash' && ' (Caixa)'}
+                                    {installment.paymentAccountInfo.account_type === 'card' && ` - ${installment.paymentAccountInfo.bank} (Cartão)`}
+                                    {installment.paymentAccountInfo.account_type === 'delivery' && ' (Delivery)'}
                                   </p>
                                 )}
                               </div>
