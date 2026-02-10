@@ -4,8 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, Bell } from "lucide-react";
-import boardLogo from "@/assets/board-sistemas-logo.png";
-import boardTextLogo from "@/assets/board-sistemas-text-logo.png";
+import boardLogo from "@/assets/logo.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,8 +123,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
         <header className="border-b bg-card h-14 sticky top-0 z-30">
           <div className="h-full px-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <img src={boardLogo} alt="Board Sistemas" className="h-8 w-8" />
-              <img src={boardTextLogo} alt="Board Sistemas" className="h-6" />
+              <img src={boardLogo} alt="Board Sistemas" className="h-8" />
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground hidden md:inline">
