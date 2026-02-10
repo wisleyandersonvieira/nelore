@@ -3,14 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Plus, ArrowUp, ArrowDown } from "lucide-react";
+import { Settings, Plus, ArrowUp, ArrowDown, Wallet, ShieldAlert } from "lucide-react";
 import { ProductParameterModal } from "./ProductParameterModal";
 import { SubgroupParameterModal } from "./SubgroupParameterModal";
 import { GrupoParameterModal } from "./GrupoParameterModal";
 import { FaturamentoParameterModal } from "./FaturamentoParameterModal";
 import { AcrescimoParameterModal } from "./AcrescimoParameterModal";
 import { DescontoParameterModal } from "./DescontoParameterModal";
+import { AportesRetiradaParameterModal } from "./AportesRetiradaParameterModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useParametersAccess } from "@/hooks/useParametersAccess";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface ParametersModalProps {
   open: boolean;
@@ -21,7 +24,7 @@ interface Parameter {
   id: string;
   name: string;
   description: string;
-  type: 'acrescimo' | 'desconto' | 'sorvete' | 'mercadorias_diversas' | 'embalagens' | 'funcionarios' | 'faturamento';
+  type: 'acrescimo' | 'desconto' | 'sorvete' | 'mercadorias_diversas' | 'embalagens' | 'funcionarios' | 'faturamento' | 'aportes_retiradas';
   category: 'product' | 'subgroup' | 'group' | 'faturamento';
   productId?: string;
   productName?: string;
@@ -39,7 +42,11 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
   const [faturamentoParameterOpen, setFaturamentoParameterOpen] = useState(false);
   const [acrescimoParameterOpen, setAcrescimoParameterOpen] = useState(false);
   const [descontoParameterOpen, setDescontoParameterOpen] = useState(false);
+  const [aportesRetiradaParameterOpen, setAportesRetiradaParameterOpen] = useState(false);
   const [configuredParameters, setConfiguredParameters] = useState<Record<string, { productId?: string; productName?: string; subgroupId?: string; subgroupName?: string; groupId?: string; groupName?: string }>>({});
+
+  const { hasAccess, isLoading: accessLoading } = useParametersAccess();
+  const { matrixId } = useUserMatrix();
 
   // Parâmetros padrão do sistema
   const systemParameters: Parameter[] = [
@@ -60,6 +67,15 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       category: 'product',
       productId: configuredParameters['desconto_pagar']?.productId,
       productName: configuredParameters['desconto_pagar']?.productName,
+    },
+    {
+      id: 'aportes_retiradas',
+      name: 'Aportes e Retiradas',
+      description: 'Configurar produtos para aportes (entrada de capital) e retiradas (saída de capital) de sócios',
+      type: 'aportes_retiradas',
+      category: 'product',
+      productId: configuredParameters['aporte_socios']?.productId,
+      productName: configuredParameters['aporte_socios']?.productName,
     },
     {
       id: 'sorvete',
@@ -107,10 +123,10 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
   ];
 
   useEffect(() => {
-    if (open) {
+    if (open && hasAccess) {
       loadConfiguredParameters();
     }
-  }, [open, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen, acrescimoParameterOpen, descontoParameterOpen]);
+  }, [open, hasAccess, productParameterOpen, subgroupParameterOpen, groupParameterOpen, faturamentoParameterOpen, acrescimoParameterOpen, descontoParameterOpen, aportesRetiradaParameterOpen]);
 
   const loadConfiguredParameters = async () => {
     try {
@@ -118,7 +134,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
       const { data: productParams, error: productError } = await supabase
         .from('system_parameters')
         .select('parameter_key, product_id, products!inner(name)')
-        .in('parameter_key', ['acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber', 'desconto_pagar', 'desconto_receber'])
+        .in('parameter_key', ['acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber', 'desconto_pagar', 'desconto_receber', 'aporte_socios', 'retirada_socios'])
         .not('product_id', 'is', null);
 
       if (productError) throw productError;
@@ -175,11 +191,13 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
 
   const handleParameterClick = (parameter: Parameter) => {
     setSelectedParameter(parameter);
-    // Para acréscimos e descontos, abrir o modal específico com dois produtos
+    // Para acréscimos, descontos e aportes/retiradas, abrir o modal específico com dois produtos
     if (parameter.id === 'acrescimo') {
       setAcrescimoParameterOpen(true);
     } else if (parameter.id === 'desconto') {
       setDescontoParameterOpen(true);
+    } else if (parameter.id === 'aportes_retiradas') {
+      setAportesRetiradaParameterOpen(true);
     } else if (parameter.category === 'product') {
       setProductParameterOpen(true);
     } else if (parameter.category === 'subgroup') {
@@ -197,10 +215,12 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return <ArrowUp className="h-5 w-5 text-green-600" />;
       case 'desconto':
         return <ArrowDown className="h-5 w-5 text-red-600" />;
+      case 'aportes_retiradas':
+        return <Wallet className="h-5 w-5 text-orange-600" />;
       case 'sorvete':
         return <Settings className="h-5 w-5 text-purple-600" />;
       case 'mercadorias_diversas':
-        return <Settings className="h-5 w-5 text-orange-600" />;
+        return <Settings className="h-5 w-5 text-amber-600" />;
       case 'embalagens':
         return <Settings className="h-5 w-5 text-teal-600" />;
       case 'funcionarios':
@@ -218,10 +238,12 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return 'bg-green-100 hover:bg-green-200';
       case 'desconto':
         return 'bg-red-100 hover:bg-red-200';
+      case 'aportes_retiradas':
+        return 'bg-orange-100 hover:bg-orange-200';
       case 'sorvete':
         return 'bg-purple-100 hover:bg-purple-200';
       case 'mercadorias_diversas':
-        return 'bg-orange-100 hover:bg-orange-200';
+        return 'bg-amber-100 hover:bg-amber-200';
       case 'embalagens':
         return 'bg-teal-100 hover:bg-teal-200';
       case 'funcionarios':
@@ -232,6 +254,33 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         return 'bg-blue-100 hover:bg-blue-200';
     }
   };
+
+  // Show access denied if user doesn't have permission
+  if (!accessLoading && !hasAccess) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-5 w-5" />
+              Acesso Negado
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <p className="text-muted-foreground">
+              Você não tem permissão para acessar os parâmetros do sistema.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Apenas usuários com perfil <strong>Matriz</strong> podem configurar parâmetros.
+            </p>
+          </div>
+          <div className="flex justify-center">
+            <Button onClick={() => onOpenChange(false)}>Fechar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <>
@@ -285,7 +334,7 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                             <Settings className="h-3 w-3 mr-1" />
                             Configurar
                           </Button>
-                          {configuredParam && parameter.id !== 'acrescimo' && parameter.id !== 'desconto' && (
+                          {configuredParam && parameter.id !== 'acrescimo' && parameter.id !== 'desconto' && parameter.id !== 'aportes_retiradas' && (
                             <Badge variant="default" className="text-xs">
                               {parameter.category === 'product' 
                                 ? `Produto: ${configuredParam.productName}`
@@ -320,6 +369,20 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
                             {configuredParameters['desconto_receber']?.productName && (
                               <Badge variant="outline" className="text-xs justify-start">
                                 Receber: {configuredParameters['desconto_receber'].productName}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {parameter.id === 'aportes_retiradas' && (
+                          <div className="flex flex-col gap-1">
+                            {configuredParameters['aporte_socios']?.productName && (
+                              <Badge variant="outline" className="text-xs justify-start bg-green-50">
+                                Aporte: {configuredParameters['aporte_socios'].productName}
+                              </Badge>
+                            )}
+                            {configuredParameters['retirada_socios']?.productName && (
+                              <Badge variant="outline" className="text-xs justify-start bg-red-50">
+                                Retirada: {configuredParameters['retirada_socios'].productName}
                               </Badge>
                             )}
                           </div>
@@ -377,16 +440,6 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
         } : null}
       />
 
-      <AcrescimoParameterModal
-        open={acrescimoParameterOpen}
-        onOpenChange={setAcrescimoParameterOpen}
-      />
-
-      <DescontoParameterModal
-        open={descontoParameterOpen}
-        onOpenChange={setDescontoParameterOpen}
-      />
-
       <FaturamentoParameterModal
         open={faturamentoParameterOpen}
         onOpenChange={setFaturamentoParameterOpen}
@@ -397,6 +450,21 @@ export const ParametersModal = ({ open, onOpenChange }: ParametersModalProps) =>
           type: selectedParameter.type as 'faturamento',
           category: selectedParameter.category
         } : null}
+      />
+
+      <AcrescimoParameterModal
+        open={acrescimoParameterOpen}
+        onOpenChange={setAcrescimoParameterOpen}
+      />
+
+      <DescontoParameterModal
+        open={descontoParameterOpen}
+        onOpenChange={setDescontoParameterOpen}
+      />
+
+      <AportesRetiradaParameterModal
+        open={aportesRetiradaParameterOpen}
+        onOpenChange={setAportesRetiradaParameterOpen}
       />
     </>
   );

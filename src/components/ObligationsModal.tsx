@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Upload, X, FileText } from "lucide-react";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface Obligation {
   id: string;
@@ -17,8 +18,10 @@ interface Obligation {
   recurrence_months: number | null;
   attachments: { name: string; url: string }[];
   store_id: string;
+  matrix_id: string;
   is_active: boolean;
   created_at: string;
+  linked_count?: number;
 }
 
 interface ObligationsModalProps {
@@ -32,6 +35,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
   const [editingObligation, setEditingObligation] = useState<Obligation | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const { matrixId, matrixName, isLoading: matrixLoading } = useUserMatrix();
 
   // Form state
   const [name, setName] = useState("");
@@ -42,6 +46,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
   const fetchObligations = async () => {
     setLoading(true);
     try {
+      // Fetch obligations (RLS will filter by matrix)
       const { data, error } = await supabase
         .from('employee_obligations')
         .select('*')
@@ -50,12 +55,25 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
 
       if (error) throw error;
       
-      setObligations((data || []).map(item => ({
-        ...item,
-        attachments: Array.isArray(item.attachments) 
-          ? (item.attachments as unknown as { name: string; url: string }[])
-          : []
-      })));
+      // Fetch linked counts from job_function_obligations
+      const obligationsWithCounts = await Promise.all(
+        (data || []).map(async (item) => {
+          const { count } = await supabase
+            .from('job_function_obligations')
+            .select('*', { count: 'exact', head: true })
+            .eq('obligation_id', item.id);
+          
+          return {
+            ...item,
+            attachments: Array.isArray(item.attachments) 
+              ? (item.attachments as unknown as { name: string; url: string }[])
+              : [],
+            linked_count: count || 0
+          };
+        })
+      );
+      
+      setObligations(obligationsWithCounts);
     } catch (error: any) {
       toast.error("Erro ao carregar obrigações: " + error.message);
     } finally {
@@ -94,7 +112,21 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
         .eq('id', userData.user.id)
         .single();
       
-      if (!profileData?.store_id) throw new Error("Loja não encontrada");
+      let storeId = profileData?.store_id;
+
+      // Se não tiver store_id no profile, buscar de user_stores
+      if (!storeId) {
+        const { data: userStoresData } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', userData.user.id)
+          .limit(1)
+          .single();
+        
+        storeId = userStoresData?.store_id;
+      }
+
+      if (!storeId) throw new Error("Loja não encontrada. Verifique se você tem uma loja atribuída.");
       
       const newAttachments: { name: string; url: string }[] = [];
 
@@ -102,7 +134,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         // Use store_id as the first path segment for RLS compliance
-        const filePath = `${profileData.store_id}/obligations/${fileName}`;
+        const filePath = `${storeId}/obligations/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('obligation-attachments')
@@ -167,14 +199,31 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
         .eq('id', userData.user.id)
         .single();
 
-      if (!profileData?.store_id) throw new Error("Loja não encontrada");
+      let storeId = profileData?.store_id;
+
+      // Se não tiver store_id no profile, buscar de user_stores
+      if (!storeId) {
+        const { data: userStoresData } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', userData.user.id)
+          .limit(1)
+          .single();
+        
+        storeId = userStoresData?.store_id;
+      }
+
+      if (!storeId) throw new Error("Loja não encontrada. Verifique se você tem uma loja atribuída.");
+
+      if (!matrixId) throw new Error("Matriz não encontrada");
 
       const obligationData = {
         name: name.trim(),
         recurrence_type: recurrenceType,
         recurrence_months: recurrenceType === 'periodica' ? parseInt(recurrenceMonths) : null,
         attachments: attachments,
-        store_id: profileData.store_id
+        store_id: storeId,
+        matrix_id: matrixId
       };
 
       if (editingObligation) {
@@ -212,14 +261,20 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (obligation: Obligation) => {
+    // Check if obligation has linked records
+    if (obligation.linked_count && obligation.linked_count > 0) {
+      toast.error(`Não é possível excluir. Esta obrigação está vinculada a ${obligation.linked_count} função(ões).`);
+      return;
+    }
+
     if (!confirm("Deseja realmente excluir esta obrigação?")) return;
 
     try {
       const { error } = await supabase
         .from('employee_obligations')
         .update({ is_active: false })
-        .eq('id', id);
+        .eq('id', obligation.id);
 
       if (error) throw error;
       toast.success("Obrigação excluída com sucesso!");
@@ -295,7 +350,8 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
                       <TableRow key={obligation.id}>
                         <TableCell className="font-medium">{obligation.name}</TableCell>
                         <TableCell>
-                          {obligation.recurrence_type === 'unica' ? 'Única' : 'Periódica'}
+                          {obligation.recurrence_type === 'unica' ? 'Única' : 
+                           obligation.recurrence_type === 'periodica' ? 'Periódica' : 'Documentação'}
                         </TableCell>
                         <TableCell>
                           {obligation.recurrence_months || '-'}
@@ -315,9 +371,13 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDelete(obligation.id)}
+                              onClick={() => handleDelete(obligation)}
+                              disabled={obligation.linked_count && obligation.linked_count > 0}
+                              title={obligation.linked_count && obligation.linked_count > 0 
+                                ? `Vinculada a ${obligation.linked_count} função(ões)` 
+                                : "Excluir obrigação"}
                             >
-                              <Trash2 className="w-4 h-4 text-destructive" />
+                              <Trash2 className={`w-4 h-4 ${obligation.linked_count && obligation.linked_count > 0 ? 'text-muted-foreground' : 'text-destructive'}`} />
                             </Button>
                           </div>
                         </TableCell>
@@ -337,6 +397,16 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
+                    <Label htmlFor="matrix">Matriz</Label>
+                    <Input
+                      id="matrix"
+                      value={matrixLoading ? "Carregando..." : matrixName || "Não definida"}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="name">Nome da Obrigação *</Label>
                     <Input
                       id="name"
@@ -355,6 +425,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
                       <SelectContent>
                         <SelectItem value="unica">Única</SelectItem>
                         <SelectItem value="periodica">Periódica</SelectItem>
+                        <SelectItem value="documentacao">Documentação</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

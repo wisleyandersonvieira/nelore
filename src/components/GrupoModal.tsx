@@ -15,7 +15,14 @@ interface Grupo {
   id: string;
   name: string;
   account_type: string;
+  brand_id: string | null;
   created_at: string;
+}
+
+interface Brand {
+  id: string;
+  name: string;
+  authorized_group_users: string[];
 }
 
 interface GrupoModalProps {
@@ -34,6 +41,10 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterAccountType, setFilterAccountType] = useState<string>("all");
+  const [userBrand, setUserBrand] = useState<Brand | null>(null);
+  const [userBrandName, setUserBrandName] = useState<string>("");
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     account_type: ""
@@ -42,21 +53,88 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
 
   useEffect(() => {
     if (open) {
-      fetchGrupos();
+      fetchUserBrandAndGroups();
     }
   }, [open]);
 
-  const fetchGrupos = async () => {
+  const fetchUserBrandAndGroups = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      setCurrentUserId(user.id);
+
+      // Get user's matrix_id from profile
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("matrix_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile?.matrix_id) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível identificar a matriz do usuário.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Get the brand linked to user's matrix
+      const { data: matrix, error: matrixError } = await supabase
+        .from("matrices")
+        .select("brand_id")
+        .eq("id", profile.matrix_id)
+        .single();
+
+      if (matrixError || !matrix?.brand_id) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível identificar a marca vinculada à matriz.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Get brand details using security definer function to bypass RLS
+      const { data: brandData, error: brandError } = await supabase
+        .rpc("get_brand_by_id", { p_brand_id: matrix.brand_id });
+      
+      const brand = brandData?.[0];
+
+      if (brandError || !brand) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível carregar os dados da marca.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      setUserBrand(brand);
+      setUserBrandName(brand.name);
+      
+      // Check if user is authorized to create/edit groups
+      const authorizedUsers = brand.authorized_group_users || [];
+      setIsAuthorized(authorizedUsers.includes(user.id));
+
+      // Fetch groups filtered by brand_id
+      const { data: gruposData, error: gruposError } = await supabase
         .from("account_groups")
-        .select("id, name, account_type, created_at")
-        .is("parent_id", null) // Apenas grupos principais (não subgrupos)
+        .select("id, name, account_type, brand_id, created_at")
+        .is("parent_id", null)
+        .eq("brand_id", brand.id)
         .order("name");
 
-      if (error) throw error;
-      setGrupos(data || []);
+      if (gruposError) throw gruposError;
+      setGrupos(gruposData || []);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -74,6 +152,34 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
         variant: "destructive",
         title: "Erro",
         description: "Nome e classe são obrigatórios.",
+      });
+      return;
+    }
+
+    // Validate authorization
+    if (!isAuthorized && !editingGrupo) {
+      toast({
+        variant: "destructive",
+        title: "Não autorizado",
+        description: "Você não tem permissão para criar grupos nesta marca.",
+      });
+      return;
+    }
+
+    if (!isAuthorized && editingGrupo) {
+      toast({
+        variant: "destructive",
+        title: "Não autorizado",
+        description: "Você não tem permissão para editar grupos nesta marca.",
+      });
+      return;
+    }
+
+    if (!userBrand) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Marca não identificada.",
       });
       return;
     }
@@ -114,7 +220,8 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
           .insert({
             name: formData.name,
             account_type: formData.account_type as "receita" | "despesa" | "ativo" | "passivo",
-            code: `${Date.now()}`, // Código temporário único
+            code: `${Date.now()}`,
+            brand_id: userBrand.id,
           });
 
         if (error) throw error;
@@ -124,7 +231,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
       setFormData({ name: "", account_type: "" });
       setEditingGrupo(null);
       setShowForm(false);
-      await fetchGrupos();
+      await fetchUserBrandAndGroups();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -137,6 +244,15 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   };
 
   const handleEdit = (grupo: Grupo) => {
+    if (!isAuthorized) {
+      toast({
+        variant: "destructive",
+        title: "Não autorizado",
+        description: "Você não tem permissão para editar grupos nesta marca.",
+      });
+      return;
+    }
+    
     setEditingGrupo(grupo);
     setFormData({
       name: grupo.name,
@@ -146,6 +262,15 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   };
 
   const handleDelete = async (grupo: Grupo) => {
+    if (!isAuthorized) {
+      toast({
+        variant: "destructive",
+        title: "Não autorizado",
+        description: "Você não tem permissão para excluir grupos nesta marca.",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Verificar se existem contas a pagar vinculadas (através do chart_of_accounts)
@@ -301,7 +426,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
 
       if (error) throw error;
       toast({ title: "Sucesso", description: "Grupo excluído com sucesso!" });
-      await fetchGrupos();
+      await fetchUserBrandAndGroups();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -314,7 +439,6 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
   };
 
   const handleToggleStatus = async (grupo: Grupo) => {
-    // Funcionalidade removida pois a tabela não tem campo is_active
     toast({
       variant: "destructive",
       title: "Funcionalidade não disponível",
@@ -375,6 +499,18 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
     setShowForm(false);
   };
 
+  const handleNewGroup = () => {
+    if (!isAuthorized) {
+      toast({
+        variant: "destructive",
+        title: "Não autorizado",
+        description: "Você não tem permissão para criar grupos nesta marca.",
+      });
+      return;
+    }
+    setShowForm(true);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0">
@@ -392,7 +528,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
             <div>
               <DialogTitle className="text-2xl font-bold text-primary">Grupos</DialogTitle>
               <DialogDescription className="text-base">
-                Gerencie os grupos de contas financeiras
+                Gerencie os grupos de contas financeiras {userBrandName && `- Marca: ${userBrandName}`}
               </DialogDescription>
             </div>
           </div>
@@ -403,8 +539,9 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
           <div className="flex flex-wrap gap-4 items-center">
             {canEdit && (
               <Button
-                onClick={() => setShowForm(true)}
-                disabled={loading}
+                onClick={handleNewGroup}
+                disabled={loading || !isAuthorized}
+                title={!isAuthorized ? "Você não tem permissão para criar grupos" : ""}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Grupo
@@ -444,7 +581,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome</Label>
                     <Input
@@ -469,6 +606,15 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                         <SelectItem value="investimento">Investimento</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brand">Marca</Label>
+                    <Input
+                      id="brand"
+                      value={userBrandName}
+                      disabled
+                      className="bg-muted"
+                    />
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -495,7 +641,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                   <TableHeader className="bg-card">
                     <TableRow className="hover:bg-transparent">
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[35%]"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[30%]"
                         onClick={() => handleSort('name')}
                       >
                         <div className="flex items-center">
@@ -504,7 +650,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[30%]"
+                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[20%]"
                         onClick={() => handleSort('account_type')}
                       >
                         <div className="flex items-center">
@@ -512,7 +658,8 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                           {getSortIcon('account_type')}
                         </div>
                       </TableHead>
-                      <TableHead className="h-10 py-2 w-[15%]">Status</TableHead>
+                      <TableHead className="h-10 py-2 w-[20%]">Marca</TableHead>
+                      <TableHead className="h-10 py-2 w-[10%]">Status</TableHead>
                       <TableHead className="text-right h-10 py-2 w-[20%]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -523,22 +670,23 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                     <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center h-20">
+                      <TableCell colSpan={5} className="text-center h-20">
                         Carregando...
                       </TableCell>
                     </TableRow>
                   ) : sortedGrupos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground h-20">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground h-20">
                         {searchTerm ? "Nenhum grupo encontrado com os filtros aplicados" : "Nenhum grupo encontrado"}
                       </TableCell>
                     </TableRow>
                   ) : (
                     sortedGrupos.map((grupo) => (
                       <TableRow key={grupo.id} className="h-12">
-                        <TableCell className="font-medium py-2 w-[35%]">{grupo.name}</TableCell>
-                        <TableCell className="capitalize py-2 w-[30%]">{grupo.account_type}</TableCell>
-                        <TableCell className="py-2 w-[15%]">
+                        <TableCell className="font-medium py-2 w-[30%]">{grupo.name}</TableCell>
+                        <TableCell className="capitalize py-2 w-[20%]">{grupo.account_type}</TableCell>
+                        <TableCell className="py-2 w-[20%]">{userBrandName}</TableCell>
+                        <TableCell className="py-2 w-[10%]">
                           <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             Ativo
                           </span>
@@ -550,7 +698,8 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEdit(grupo)}
-                                title="Editar"
+                                title={isAuthorized ? "Editar" : "Você não tem permissão para editar"}
+                                disabled={!isAuthorized}
                                 className="h-8 w-8 p-0"
                               >
                                 <Edit className="h-4 w-4" />
@@ -573,7 +722,8 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDelete(grupo)}
-                                title="Excluir"
+                                title={isAuthorized ? "Excluir" : "Você não tem permissão para excluir"}
+                                disabled={!isAuthorized}
                                 className="text-destructive hover:text-destructive h-8 w-8 p-0"
                               >
                                 <Trash2 className="h-4 w-4" />

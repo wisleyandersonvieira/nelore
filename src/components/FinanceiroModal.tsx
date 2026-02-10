@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, TrendingUp, ArrowLeftRight, Shield, Lock } from "lucide-react";
+import { CreditCard, TrendingUp, ArrowLeftRight, Shield, Lock, Wallet, FileSearch } from "lucide-react";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 interface FinanceiroModalProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface FinanceiroModalProps {
   onAccountsReceivableOpen: () => void;
   onTransfersOpen: () => void;
   onPeriodControlOpen: () => void;
+  onPartnerTransactionsOpen: () => void;
 }
 
 export const FinanceiroModal = ({ 
@@ -20,9 +22,11 @@ export const FinanceiroModal = ({
   onAccountsPayableOpen, 
   onAccountsReceivableOpen,
   onTransfersOpen,
-  onPeriodControlOpen
+  onPeriodControlOpen,
+  onPartnerTransactionsOpen
 }: FinanceiroModalProps) => {
-  const { permissionLevel, loading, canView, canAdmin } = useFinanceiroPermissions();
+  const { permissionLevel, loading, canView, canEdit, canAdmin } = useFinanceiroPermissions();
+  const navigate = useNavigate();
 
   const modules = [
     {
@@ -62,6 +66,18 @@ export const FinanceiroModal = ({
       }
     },
     {
+      id: "aportes-retiradas",
+      title: "Aportes e Retiradas",
+      description: "Gestão de aportes e retiradas dos sócios",
+      icon: Wallet,
+      color: "bg-orange-500",
+      requiresAdmin: false,
+      onClick: () => {
+        onOpenChange(false);
+        onPartnerTransactionsOpen();
+      }
+    },
+    {
       id: "periodo-controle",
       title: "Controle de Períodos",
       description: "Bloquear meses para novos cadastros",
@@ -72,6 +88,19 @@ export const FinanceiroModal = ({
         onOpenChange(false);
         onPeriodControlOpen();
       }
+    },
+    {
+      id: "conciliacao-bancaria",
+      title: "Conciliação Bancária",
+      description: "Importar OFX e conciliar com o sistema",
+      icon: FileSearch,
+      color: "bg-teal-500",
+      requiresAdmin: false,
+      requiresEdit: true,
+      onClick: () => {
+        onOpenChange(false);
+        navigate('/bank-reconciliation');
+      }
     }
   ];
 
@@ -79,6 +108,9 @@ export const FinanceiroModal = ({
   const visibleModules = modules.filter(module => {
     if (module.requiresAdmin) {
       return canAdmin;
+    }
+    if (module.requiresEdit) {
+      return canEdit;
     }
     return canView;
   });

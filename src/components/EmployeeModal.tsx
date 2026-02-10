@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, UserPlus, Upload, Download, Eye, X, Ban, RotateCcw } from "lucide-react";
+import { Plus, Edit, Trash2, UserPlus, Upload, Download, Eye, X, Ban, RotateCcw, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useFuncionariosPermissions } from "@/hooks/useFuncionariosPermissions";
 
 interface Employee {
   id: string;
@@ -36,6 +37,7 @@ interface Employee {
   bank_account?: string;
   store_id: string;
   is_active: boolean;
+  is_registered?: boolean;
   dismissal_date?: string;
   attachments?: any[];
   created_at: string;
@@ -58,6 +60,7 @@ interface EmployeeModalProps {
 
 const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [jobFunctions, setJobFunctions] = useState<JobFunction[]>([]);
   const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -66,6 +69,18 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [employeesWithMovements, setEmployeesWithMovements] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { canEdit } = useFuncionariosPermissions();
+
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterName, setFilterName] = useState("");
+  const [filterStore, setFilterStore] = useState("all");
+  const [filterRegistered, setFilterRegistered] = useState("all");
+  const [filterActive, setFilterActive] = useState("all");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Função utilitária para upload de arquivo
   const uploadFile = async (file: File, storeId: string): Promise<string | null> => {
@@ -239,6 +254,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
     observations: "",
     bank_account: "",
     store_id: "",
+    is_registered: "nao",
   });
 
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -382,6 +398,51 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
     }
   }, [isOpen]);
 
+  // Filter employees when filters or employees change
+  useEffect(() => {
+    let result = [...employees];
+
+    // Filter by name
+    if (filterName) {
+      result = result.filter(emp => 
+        emp.name.toLowerCase().includes(filterName.toLowerCase())
+      );
+    }
+
+    // Filter by store
+    if (filterStore !== "all") {
+      result = result.filter(emp => emp.store_id === filterStore);
+    }
+
+    // Filter by registered
+    if (filterRegistered !== "all") {
+      const isRegistered = filterRegistered === "sim";
+      result = result.filter(emp => emp.is_registered === isRegistered);
+    }
+
+    // Filter by active
+    if (filterActive !== "all") {
+      const isActive = filterActive === "ativo";
+      result = result.filter(emp => emp.is_active === isActive);
+    }
+
+    setFilteredEmployees(result);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [employees, filterName, filterStore, filterRegistered, filterActive]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  const clearFilters = () => {
+    setFilterName("");
+    setFilterStore("all");
+    setFilterRegistered("all");
+    setFilterActive("all");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -390,13 +451,28 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      // Buscar store_id do profile primeiro, depois de user_stores
       const { data: profile } = await supabase
         .from('profiles')
         .select('store_id')
         .eq('id', user.id)
         .single();
 
-      if (!profile?.store_id) throw new Error('Store ID não encontrado');
+      let userStoreId = profile?.store_id;
+
+      // Se não tiver store_id no profile, buscar de user_stores
+      if (!userStoreId) {
+        const { data: userStoresData } = await supabase
+          .from('user_stores')
+          .select('store_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .single();
+        
+        userStoreId = userStoresData?.store_id;
+      }
+
+      if (!userStoreId && !formData.store_id) throw new Error('Store ID não encontrado. Verifique se você tem uma loja atribuída.');
 
       // Upload de novos anexos using store_id from form data for RLS compliance
       const uploadedPaths: string[] = [];
@@ -425,7 +501,8 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         bank_account: formData.bank_account || null,
         observations: formData.observations || null,
         attachments: finalAttachments,
-        store_id: formData.store_id
+        store_id: formData.store_id,
+        is_registered: formData.is_registered === 'sim'
       };
 
       if (editingEmployee) {
@@ -482,7 +559,8 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
       base_salary: '',
       bank_account: '',
       observations: '',
-      store_id: ''
+      store_id: '',
+      is_registered: 'nao'
     });
     setAttachments([]);
     setExistingAttachments([]);
@@ -506,7 +584,8 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
       base_salary: employee.base_salary.toString(),
       bank_account: employee.bank_account || '',
       observations: employee.observations || '',
-      store_id: employee.store_id
+      store_id: employee.store_id,
+      is_registered: employee.is_registered ? 'sim' : 'nao'
     });
     setExistingAttachments(Array.isArray(employee.attachments) ? employee.attachments : []);
     setAttachments([]);
@@ -616,19 +695,94 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-2">
             <h3 className="text-lg font-semibold">Funcionários Cadastrados</h3>
-            <Button 
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-              }}
-              className="flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Funcionário
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                {showFilters ? 'Ocultar Filtros' : 'Exibir Filtros'}
+              </Button>
+              {canEdit && (
+                <Button 
+                  onClick={() => {
+                    resetForm();
+                    setShowForm(true);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Novo Funcionário
+                </Button>
+              )}
+            </div>
           </div>
+
+          {showFilters && (
+            <Card className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="filterName">Nome</Label>
+                  <Input
+                    id="filterName"
+                    placeholder="Buscar por nome..."
+                    value={filterName}
+                    onChange={(e) => setFilterName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Loja</Label>
+                  <Select value={filterStore} onValueChange={setFilterStore}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Registrado</Label>
+                  <Select value={filterRegistered} onValueChange={setFilterRegistered}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="sim">Sim</SelectItem>
+                      <SelectItem value="nao">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select value={filterActive} onValueChange={setFilterActive}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="inativo">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Limpar Filtros
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {showForm && (
             <Card>
@@ -692,17 +846,26 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                                  )}
                                >
                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                 {formData.birth_date ? format(new Date(formData.birth_date), "dd/MM/yyyy") : "Selecionar data"}
+                                 {formData.birth_date ? format(new Date(formData.birth_date + 'T00:00:00'), "dd/MM/yyyy") : "Selecionar data"}
                                </Button>
                              </PopoverTrigger>
                              <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar
                                   mode="single"
-                                  selected={formData.birth_date ? new Date(formData.birth_date) : undefined}
-                                  onSelect={(date) => setFormData({...formData, birth_date: date ? date.toISOString().split('T')[0] : ''})}
+                                  selected={formData.birth_date ? new Date(formData.birth_date + 'T00:00:00') : undefined}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      const year = date.getFullYear();
+                                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                                      const day = String(date.getDate()).padStart(2, '0');
+                                      setFormData({...formData, birth_date: `${year}-${month}-${day}`});
+                                    } else {
+                                      setFormData({...formData, birth_date: ''});
+                                    }
+                                  }}
                                   initialFocus
                                   className="pointer-events-auto"
-                                  defaultMonth={formData.birth_date ? new Date(formData.birth_date) : new Date(1990, 0)}
+                                  defaultMonth={formData.birth_date ? new Date(formData.birth_date + 'T00:00:00') : new Date(1990, 0)}
                                   fromYear={1900}
                                   toYear={new Date().getFullYear()}
                                   captionLayout="dropdown-buttons"
@@ -735,6 +898,18 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                               <SelectItem value="divorciado">Divorciado</SelectItem>
                               <SelectItem value="viuvo">Viúvo</SelectItem>
                               <SelectItem value="nao_informado">Não Informado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Registrado</Label>
+                          <Select value={formData.is_registered} onValueChange={(value) => setFormData({...formData, is_registered: value})}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecionar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sim">Sim</SelectItem>
+                              <SelectItem value="nao">Não</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -951,12 +1126,13 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                     <TableHead>Função</TableHead>
                     <TableHead>Salário</TableHead>
                     <TableHead>Data Registro</TableHead>
+                    <TableHead>Registrado</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
+                    {canEdit && <TableHead>Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {employees.map((employee) => {
+                  {paginatedEmployees.map((employee) => {
                     const hasMovements = employeesWithMovements.has(employee.id);
                     const isInactive = !employee.is_active;
                     
@@ -975,65 +1151,102 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
                           {new Date(employee.registration_date).toLocaleDateString('pt-BR')}
                         </TableCell>
                         <TableCell>
+                          <Badge variant={employee.is_registered ? "default" : "secondary"}>
+                            {employee.is_registered ? "Sim" : "Não"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           <Badge variant={isInactive ? "secondary" : "default"}>
                             {isInactive ? "Inativo" : "Ativo"}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {isInactive ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReactivate(employee.id)}
-                                title="Reativar funcionário"
-                              >
-                                <RotateCcw className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <>
+                        {canEdit && (
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {isInactive ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleEdit(employee)}
-                                  title="Editar funcionário"
+                                  onClick={() => handleReactivate(employee.id)}
+                                  title="Reativar funcionário"
                                 >
-                                  <Edit className="w-4 h-4" />
+                                  <RotateCcw className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleInactivate(employee.id)}
-                                  title="Inativar funcionário"
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </Button>
-                                {!hasMovements && (
+                              ) : (
+                                <>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleDelete(employee.id)}
-                                    title="Excluir funcionário"
+                                    onClick={() => handleEdit(employee)}
+                                    title="Editar funcionário"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Edit className="w-4 h-4" />
                                   </Button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleInactivate(employee.id)}
+                                    title="Inativar funcionário"
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </Button>
+                                  {!hasMovements && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDelete(employee.id)}
+                                      title="Excluir funcionário"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
-                  {employees.length === 0 && (
+                  {filteredEmployees.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
-                        Nenhum funcionário cadastrado
+                      <TableCell colSpan={canEdit ? 8 : 7} className="text-center text-muted-foreground">
+                        {employees.length === 0 ? 'Nenhum funcionário cadastrado' : 'Nenhum funcionário encontrado com os filtros aplicados'}
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Exibindo {startIndex + 1} a {Math.min(endIndex, filteredEmployees.length)} de {filteredEmployees.length} funcionários
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

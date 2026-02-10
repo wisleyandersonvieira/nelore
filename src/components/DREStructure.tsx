@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ArrowUp, ArrowDown, Edit2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
+
 interface AccountGroup {
   id: string;
   name: string;
@@ -42,14 +44,65 @@ export const DREStructure: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [userBrandId, setUserBrandId] = useState<string | null>(null);
+  const [canManageStructures, setCanManageStructures] = useState(false);
+  const { matrixId } = useUserMatrix();
   const {
     toast
   } = useToast();
+
+  // Buscar brand_id da matriz do usuário e verificar permissões
   useEffect(() => {
-    fetchStructures();
-    fetchAccountGroups();
-  }, []);
+    const fetchUserBrandAndPermissions = async () => {
+      if (!matrixId) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: matrixData, error } = await supabase
+          .from("matrices")
+          .select("brand_id")
+          .eq("id", matrixId)
+          .maybeSingle();
+        
+        if (error) {
+          console.error("Error fetching matrix brand:", error);
+        }
+        
+        const brandId = matrixData?.brand_id || null;
+        setUserBrandId(brandId);
+
+        // Verificar se o usuário está autorizado a gerenciar estruturas
+        if (brandId) {
+          const { data: brandData, error: brandError } = await supabase
+            .rpc('get_brand_by_id', { p_brand_id: brandId });
+
+          if (brandError) {
+            console.error("Error fetching brand permissions:", brandError);
+            setCanManageStructures(false);
+          } else if (brandData && brandData.length > 0) {
+            const authorizedUsers = brandData[0].authorized_group_users || [];
+            setCanManageStructures(authorizedUsers.includes(user.id));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user brand:", error);
+        setUserBrandId(null);
+        setCanManageStructures(false);
+      }
+    };
+    fetchUserBrandAndPermissions();
+  }, [matrixId]);
+
+  useEffect(() => {
+    if (userBrandId) {
+      fetchStructures();
+      fetchAccountGroups();
+    }
+  }, [userBrandId]);
   const fetchStructures = async () => {
+    if (!userBrandId) return;
+    
     try {
       const {
         data,
@@ -60,7 +113,10 @@ export const DREStructure: React.FC = () => {
             *,
             account_groups (id, name, parent_id)
           )
-        `).eq('is_active', true).order('created_at', {
+        `)
+        .eq('is_active', true)
+        .eq('brand_id', userBrandId)
+        .order('created_at', {
         ascending: false
       });
       if (error) throw error;
@@ -91,10 +147,14 @@ export const DREStructure: React.FC = () => {
   };
   const fetchAccountGroups = async () => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('account_groups').select('id, name, parent_id').order('name');
+      let query = supabase.from('account_groups').select('id, name, parent_id').order('name');
+      
+      // Filtrar por brand_id do usuário
+      if (userBrandId) {
+        query = query.eq('brand_id', userBrandId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       setAccountGroups(data || []);
     } catch (error: any) {
@@ -137,12 +197,22 @@ export const DREStructure: React.FC = () => {
         if (deleteError) throw deleteError;
       } else {
         // Criar nova estrutura
+        if (!userBrandId) {
+          toast({
+            title: "Erro",
+            description: "Não foi possível identificar a marca do usuário",
+            variant: "destructive"
+          });
+          return;
+        }
+        
         const {
           data: structureData,
           error: structureError
         } = await supabase.from('dre_structures').insert({
           name: currentStructure.name,
-          created_by: user.user.id
+          created_by: user.user.id,
+          brand_id: userBrandId
         }).select().single();
         if (structureError) throw structureError;
         structureId = structureData.id;
@@ -271,9 +341,32 @@ export const DREStructure: React.FC = () => {
     });
   };
 
-  // Função para obter apenas grupos (sem parent_id)
-  const getMainGroups = () => {
-    return accountGroups.filter(group => !group.parent_id);
+  // Obter IDs de grupos já selecionados na estrutura atual
+  const getSelectedGroupIds = () => {
+    return currentStructure.items
+      .filter(item => item.item_type === 'group' && item.account_group_id)
+      .map(item => item.account_group_id!);
+  };
+
+  // Função para obter apenas grupos (sem parent_id) - excluindo os já selecionados
+  const getMainGroups = (currentItemIndex?: number) => {
+    const selectedGroupIds = getSelectedGroupIds();
+    return accountGroups.filter(group => {
+      // Só grupos principais (sem parent_id)
+      if (group.parent_id) return false;
+      
+      // Se for o item atual sendo editado, permitir o próprio grupo
+      const currentItemGroupId = currentItemIndex !== undefined 
+        ? currentStructure.items[currentItemIndex]?.account_group_id 
+        : undefined;
+      
+      // Não exibir grupos já selecionados (exceto o do item atual)
+      if (selectedGroupIds.includes(group.id) && group.id !== currentItemGroupId) {
+        return false;
+      }
+      
+      return true;
+    });
   };
 
   // Função para obter subgrupos de um grupo específico
@@ -318,22 +411,24 @@ export const DREStructure: React.FC = () => {
   };
   return <div className="space-y-6">
       <div className="flex justify-between items-center">
-        
+        <div />
         
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={() => {
-            setCurrentStructure({
-              name: "",
-              items: []
-            });
-            setIsEditing(false);
-            setShowDialog(true);
-          }} className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>Nova Estrutura</span>
-            </Button>
-          </DialogTrigger>
+          {canManageStructures && (
+            <DialogTrigger asChild>
+              <Button onClick={() => {
+              setCurrentStructure({
+                name: "",
+                items: []
+              });
+              setIsEditing(false);
+              setShowDialog(true);
+            }} className="flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Nova Estrutura</span>
+              </Button>
+            </DialogTrigger>
+          )}
           
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -418,7 +513,7 @@ export const DREStructure: React.FC = () => {
                                    <SelectValue placeholder={item.item_type === 'group' ? "Selecione o grupo" : "Selecione o subgrupo"} />
                                  </SelectTrigger>
                                  <SelectContent>
-                                   {(item.item_type === 'group' ? getMainGroups() : item.item_type === 'subgroup' ? getSubgroups(findParentGroup(index) || '') : []).map(group => <SelectItem key={group.id} value={group.id}>
+                                   {(item.item_type === 'group' ? getMainGroups(index) : item.item_type === 'subgroup' ? getSubgroups(findParentGroup(index) || '') : []).map(group => <SelectItem key={group.id} value={group.id}>
                                        {group.name}
                                      </SelectItem>)}
                                  </SelectContent>
@@ -500,14 +595,18 @@ export const DREStructure: React.FC = () => {
                       -
                     </TableCell>
                     <TableCell>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="ghost" onClick={() => handleEditStructure(structure)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => structure.id && handleDeleteStructure(structure.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canManageStructures ? (
+                        <div className="flex space-x-2">
+                          <Button size="sm" variant="ghost" onClick={() => handleEditStructure(structure)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => structure.id && handleDeleteStructure(structure.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
                     </TableCell>
                   </TableRow>)}
               </TableBody>

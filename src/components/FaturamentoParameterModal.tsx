@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Settings, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface FaturamentoParameterModalProps {
   open: boolean;
@@ -38,16 +39,32 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
   const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
   const [config, setConfig] = useState<FaturamentoConfig>({});
   const [loading, setLoading] = useState(false);
+  const { matrixId } = useUserMatrix();
 
   useEffect(() => {
-    if (open && parameter) {
+    if (open && parameter && matrixId) {
       fetchSubgroups();
       loadCurrentConfig();
     }
-  }, [open, parameter]);
+  }, [open, parameter, matrixId]);
 
   const fetchSubgroups = async () => {
+    if (!matrixId) return;
+
     try {
+      // First get the brand_id from the matrix
+      const { data: matrixData } = await supabase
+        .from('matrices')
+        .select('brand_id')
+        .eq('id', matrixId)
+        .single();
+
+      if (!matrixData?.brand_id) {
+        toast.error("Matriz não possui marca vinculada");
+        return;
+      }
+
+      // Fetch subgroups filtered by brand
       const result = await supabase
         .from('account_groups')
         .select(`
@@ -57,6 +74,7 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
           account_groups!parent_id(name)
         `)
         .not('parent_id', 'is', null)
+        .eq('brand_id', matrixData.brand_id)
         .order('name');
 
       if (result.error) {
@@ -102,7 +120,7 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
   };
 
   const handleSave = async () => {
-    if (!parameter) return;
+    if (!parameter || !matrixId) return;
 
     setLoading(true);
     try {
@@ -117,25 +135,29 @@ export const FaturamentoParameterModal = ({ open, onOpenChange, parameter }: Fat
       if (config.venda_dinheiro) {
         inserts.push({
           parameter_key: 'venda_dinheiro',
-          subgroup_id: config.venda_dinheiro
+          subgroup_id: config.venda_dinheiro,
+          matrix_id: matrixId
         });
       }
       if (config.venda_cartao) {
         inserts.push({
           parameter_key: 'venda_cartao',
-          subgroup_id: config.venda_cartao
+          subgroup_id: config.venda_cartao,
+          matrix_id: matrixId
         });
       }
       if (config.venda_contas) {
         inserts.push({
           parameter_key: 'venda_contas',
-          subgroup_id: config.venda_contas
+          subgroup_id: config.venda_contas,
+          matrix_id: matrixId
         });
       }
       if (config.venda_delivery) {
         inserts.push({
           parameter_key: 'venda_delivery',
-          subgroup_id: config.venda_delivery
+          subgroup_id: config.venda_delivery,
+          matrix_id: matrixId
         });
       }
 

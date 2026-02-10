@@ -30,6 +30,9 @@ interface ExpenseData {
   description: string;
   amount: number;
   attachments: AttachmentInfo[];
+  is_paid?: boolean;
+  payment_date?: string | null;
+  notes?: string | null;
 }
 
 interface LinkToAccountsPayableModalProps {
@@ -45,6 +48,12 @@ interface Supplier {
   id: string;
   name: string;
   cnpj_cpf?: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  cpf: string;
 }
 
 interface Product {
@@ -70,14 +79,12 @@ interface PayableItem {
   store_name: string;
 }
 
-const documentTypes = [
-  { value: "NF", label: "Nota Fiscal (NF)" },
-  { value: "RC", label: "Recibo (RC)" },
-  { value: "CT", label: "Contrato (CT)" },
-  { value: "CF", label: "Cupom Fiscal (CF)" },
-  { value: "FAT", label: "Fatura (FAT)" },
-  { value: "HOL", label: "Holerite (HOL)" },
-];
+interface DocumentType {
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+}
 
 export function LinkToAccountsPayableModal({ 
   open, 
@@ -88,14 +95,20 @@ export function LinkToAccountsPayableModal({
   expenseType = "caixa_geral"
 }: LinkToAccountsPayableModalProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [items, setItems] = useState<PayableItem[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Document types from database
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
 
   // Form fields
+  const [isEmployeeMode, setIsEmployeeMode] = useState(false);
   const [supplierId, setSupplierId] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
   const [documentType, setDocumentType] = useState("");
   const [documentNumber, setDocumentNumber] = useState("");
   const [issueDate, setIssueDate] = useState("");
@@ -133,13 +146,32 @@ export function LinkToAccountsPayableModal({
   useEffect(() => {
     if (open) {
       fetchSuppliers();
+      fetchEmployees();
       fetchProducts();
       fetchStores();
+      fetchDocumentTypes();
       
       // Pre-fill form with expense data
       if (expense) {
         setIssueDate(expense.issue_date);
-        setNotes(`Vinculado da despesa de caixa: ${expense.description}`);
+        
+        // Set due date to payment_date if the expense was paid, otherwise leave blank
+        if (expense.is_paid && expense.payment_date) {
+          setDueDate(expense.payment_date);
+        } else {
+          setDueDate("");
+        }
+        
+        // Set competence date to issue_date
+        setDataCompetencia(expense.issue_date);
+        
+        // Build notes with expense description and any expense notes
+        let notesText = `Vinculado da despesa de caixa: ${expense.description}`;
+        if (expense.notes) {
+          notesText += `\n${expense.notes}`;
+        }
+        setNotes(notesText);
+        
         setDefaultStore(storeId);
         
         // Try to find supplier by name
@@ -162,8 +194,17 @@ export function LinkToAccountsPayableModal({
     }
   }, [open, expense, storeId]);
 
+  // Recarregar produtos quando o modo funcionário mudar
+  useEffect(() => {
+    if (open) {
+      fetchProducts();
+    }
+  }, [isEmployeeMode]);
+
   const resetForm = () => {
+    setIsEmployeeMode(false);
     setSupplierId("");
+    setEmployeeId("");
     setDocumentType("");
     setDocumentNumber("");
     setIssueDate("");
@@ -177,6 +218,21 @@ export function LinkToAccountsPayableModal({
     setQuantity(1);
     setUnitPrice(0);
     setSupplierSearchTerm("");
+  };
+
+  const fetchDocumentTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("document_types")
+        .select("id, code, name, is_active")
+        .eq("is_active", true)
+        .order("code");
+
+      if (error) throw error;
+      setDocumentTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching document types:", error);
+    }
   };
 
   const fetchSuppliers = async () => {
@@ -194,13 +250,46 @@ export function LinkToAccountsPayableModal({
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchEmployees = async () => {
     try {
       const { data, error } = await supabase
+        .from("employees")
+        .select("id, name, cpf")
+        .eq("is_active", true)
+        .eq("store_id", storeId)
+        .order("name");
+
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      let query = supabase
         .from("products")
         .select("id, name, code")
         .eq("is_active", true)
-        .order("name");
+        .eq("function_type", "debit");
+
+      // Se estiver no modo funcionário, filtrar por grupo do parâmetro FUNCIONÁRIOS
+      if (isEmployeeMode) {
+        const { data: paramData, error: paramError } = await supabase
+          .from("system_parameters")
+          .select("group_id")
+          .eq("parameter_key", "funcionarios")
+          .maybeSingle();
+
+        if (paramError) {
+          console.warn("Error fetching FUNCIONÁRIOS parameter:", paramError);
+        } else if (paramData?.group_id) {
+          query = query.eq("group_id", paramData.group_id);
+        }
+      }
+
+      const { data, error } = await query.order("name");
 
       if (error) throw error;
       setProducts(data || []);
@@ -313,14 +402,23 @@ export function LinkToAccountsPayableModal({
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
-  // Filtered products based on search term
+  // Helper function to normalize text (remove accents)
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  // Filtered products based on search term with accent-insensitive search
   const filteredProducts = useMemo(() => {
     if (!productSearchTerm) return products;
-    const searchLower = productSearchTerm.toLowerCase();
-    return products.filter(product => 
-      product.name.toLowerCase().includes(searchLower) ||
-      (product.code && product.code.toLowerCase().includes(searchLower))
-    );
+    const searchNormalized = normalizeText(productSearchTerm);
+    return products.filter(product => {
+      const nameNormalized = normalizeText(product.name);
+      const codeNormalized = product.code ? normalizeText(product.code) : "";
+      return nameNormalized.includes(searchNormalized) || codeNormalized.includes(searchNormalized);
+    });
   }, [products, productSearchTerm]);
 
   const selectedProductData = products.find(p => p.id === selectedProduct);
@@ -429,13 +527,28 @@ export function LinkToAccountsPayableModal({
   };
 
   const handleSave = async () => {
-    if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive",
-      });
-      return;
+    // Prevent double-click by checking loading state first
+    if (loading) return;
+    
+    // Validar fornecedor ou funcionário dependendo do modo
+    if (isEmployeeMode) {
+      if (!employeeId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
+        toast({
+          title: "Erro",
+          description: "Preencha todos os campos obrigatórios",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      if (!supplierId || !documentType || !documentNumber || !issueDate || !dueDate || !dataCompetencia) {
+        toast({
+          title: "Erro",
+          description: "Preencha todos os campos obrigatórios",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (items.length === 0) {
@@ -460,51 +573,60 @@ export function LinkToAccountsPayableModal({
       return;
     }
 
-    // Validate period
-    const competenceValidation = await validateAccountsPayablePeriod.competencia(dataCompetencia);
-    if (competenceValidation.blocked) {
-      toast({
-        title: "Período Bloqueado",
-        description: competenceValidation.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check for duplicate account payable (same supplier, document number and document type)
-    const { data: existingPayable, error: duplicateCheckError } = await supabase
-      .from("accounts_payable")
-      .select("id, issue_date, amount")
-      .eq("supplier_id", supplierId)
-      .eq("document_number", documentNumber)
-      .eq("document_type", documentType)
-      .limit(1)
-      .maybeSingle();
-
-    if (duplicateCheckError) {
-      console.error("Erro ao verificar duplicidade:", duplicateCheckError);
-    }
-
-    if (existingPayable) {
-      const formattedDate = existingPayable.issue_date 
-        ? new Date(existingPayable.issue_date + 'T00:00:00').toLocaleDateString('pt-BR')
-        : 'N/A';
-      const formattedValue = new Intl.NumberFormat('pt-BR', { 
-        style: 'currency', 
-        currency: 'BRL' 
-      }).format(existingPayable.amount || 0);
-      
-      toast({
-        title: "Título Duplicado",
-        description: `Já existe um título igual com data de emissão ${formattedDate} e valor ${formattedValue}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Set loading BEFORE async operations to prevent double-click
     setLoading(true);
 
     try {
+      // Validate period
+      const competenceValidation = await validateAccountsPayablePeriod.competencia(dataCompetencia);
+      if (competenceValidation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: competenceValidation.message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check for duplicate account payable (same supplier/employee, document number and document type)
+      let duplicateQuery = supabase
+        .from("accounts_payable")
+        .select("id, issue_date, amount")
+        .eq("document_number", documentNumber)
+        .eq("document_type", documentType);
+
+      if (isEmployeeMode) {
+        duplicateQuery = duplicateQuery.eq("employee_id", employeeId);
+      } else {
+        duplicateQuery = duplicateQuery.eq("supplier_id", supplierId);
+      }
+
+      const { data: existingPayable, error: duplicateCheckError } = await duplicateQuery
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicateCheckError) {
+        console.error("Erro ao verificar duplicidade:", duplicateCheckError);
+      }
+
+      if (existingPayable) {
+        const formattedDate = existingPayable.issue_date 
+          ? new Date(existingPayable.issue_date + 'T00:00:00').toLocaleDateString('pt-BR')
+          : 'N/A';
+        const formattedValue = new Intl.NumberFormat('pt-BR', { 
+          style: 'currency', 
+          currency: 'BRL' 
+        }).format(existingPayable.amount || 0);
+        
+        toast({
+          title: "Título Duplicado",
+          description: `Já existe um título igual com data de emissão ${formattedDate} e valor ${formattedValue}`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw new Error("Usuário não autenticado");
 
@@ -516,7 +638,8 @@ export function LinkToAccountsPayableModal({
         .from("accounts_payable")
         .insert({
           store_id: storeToUse,
-          supplier_id: supplierId,
+          supplier_id: isEmployeeMode ? null : supplierId,
+          employee_id: isEmployeeMode ? employeeId : null,
           description: `${documentType} ${documentNumber}`,
           document_type: documentType,
           document_number: documentNumber,
@@ -601,6 +724,10 @@ export function LinkToAccountsPayableModal({
       // Update cash_control_expenses to mark as linked and update supplier name
       if (expense?.id) {
         const selectedSupplierData = suppliers.find(s => s.id === supplierId);
+        const selectedEmployeeData = employees.find(e => e.id === employeeId);
+        const supplierOrEmployeeName = isEmployeeMode 
+          ? selectedEmployeeData?.name 
+          : selectedSupplierData?.name;
         
         // Get user name for history
         const { data: profile } = await supabase
@@ -628,7 +755,7 @@ export function LinkToAccountsPayableModal({
           .from("cash_control_expenses")
           .update({ 
             linked_account_payable_id: payable.id,
-            supplier: selectedSupplierData?.name || expense.supplier,
+            supplier: supplierOrEmployeeName || expense.supplier,
             edit_history: newHistory
           })
           .eq("id", expense.id);
@@ -647,14 +774,17 @@ export function LinkToAccountsPayableModal({
         .single();
 
       // Store the created account payable for potential payment (with attachments)
-      const selectedSupplierData = suppliers.find(s => s.id === supplierId);
+      const selectedSupplierDataForPayment = suppliers.find(s => s.id === supplierId);
+      const selectedEmployeeDataForPayment = employees.find(e => e.id === employeeId);
       setCreatedAccountPayable({
         id: payable.id,
         description: `${documentType} ${documentNumber}`,
         amount: totalAmount,
         due_date: dueDate,
         store_id: storeToUse,
-        suppliers: selectedSupplierData ? { name: selectedSupplierData.name } : undefined,
+        suppliers: isEmployeeMode 
+          ? (selectedEmployeeDataForPayment ? { name: selectedEmployeeDataForPayment.name } : undefined)
+          : (selectedSupplierDataForPayment ? { name: selectedSupplierDataForPayment.name } : undefined),
         attachments: Array.isArray(updatedPayable?.attachments) ? updatedPayable.attachments : []
       });
 
@@ -698,7 +828,7 @@ export function LinkToAccountsPayableModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Vincular Despesa ao Contas a Pagar</DialogTitle>
           </DialogHeader>
@@ -758,25 +888,64 @@ export function LinkToAccountsPayableModal({
 
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="supplier">Fornecedor *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="supplier"
-                    value={selectedSupplier?.name || supplierSearchTerm}
-                    onChange={(e) => setSupplierSearchTerm(e.target.value)}
-                    placeholder="Buscar fornecedor..."
-                    readOnly
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => setShowSupplierSearch(true)}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
+              {/* Employee Mode Toggle */}
+              <div className="md:col-span-3 flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="employee-mode"
+                  checked={isEmployeeMode}
+                  onChange={(e) => {
+                    setIsEmployeeMode(e.target.checked);
+                    // Limpar seleções ao trocar de modo
+                    setSupplierId("");
+                    setEmployeeId("");
+                    setSupplierSearchTerm("");
+                  }}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="employee-mode" className="cursor-pointer">
+                  Funcionário
+                </Label>
               </div>
+
+              {/* Supplier or Employee field */}
+              {isEmployeeMode ? (
+                <div>
+                  <Label htmlFor="employee">Funcionário *</Label>
+                  <Select value={employeeId} onValueChange={setEmployeeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o funcionário..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map(employee => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name} - {employee.cpf}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="supplier">Fornecedor *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="supplier"
+                      value={selectedSupplier?.name || supplierSearchTerm}
+                      onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                      placeholder="Buscar fornecedor..."
+                      readOnly
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => setShowSupplierSearch(true)}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="documentType">Tipo de Documento *</Label>
@@ -786,8 +955,8 @@ export function LinkToAccountsPayableModal({
                   </SelectTrigger>
                   <SelectContent>
                     {documentTypes.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
+                      <SelectItem key={type.code} value={type.code}>
+                        {type.name} ({type.code})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -857,59 +1026,60 @@ export function LinkToAccountsPayableModal({
               <h3 className="font-semibold mb-3">Itens</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto] gap-3 mb-4 items-end">
-                <div className="min-w-0">
+                <div className="min-w-0 relative">
                   <Label>Produto</Label>
                   <div className="flex gap-2">
-                    <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={productSearchOpen}
-                          className="w-full justify-between font-normal min-w-0"
-                        >
-                          <span className="truncate">
-                            {selectedProductData
-                              ? `${selectedProductData.code ? `${selectedProductData.code} - ` : ''}${selectedProductData.name}`
-                              : "Digite para buscar..."}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0" align="start">
-                        <Command shouldFilter={false}>
-                          <CommandInput 
-                            placeholder="Buscar produto..." 
-                            value={productSearchTerm}
-                            onValueChange={setProductSearchTerm}
-                          />
-                          <CommandList className="max-h-[300px] overflow-y-auto" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              {filteredProducts.slice(0, 50).map((product) => (
-                                <CommandItem
-                                  key={product.id}
-                                  value={product.id}
-                                  onSelect={() => {
-                                    setSelectedProduct(product.id);
-                                    setProductSearchOpen(false);
-                                    setProductSearchTerm("");
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedProduct === product.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {product.code ? `${product.code} - ` : ''}{product.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder="Digite para buscar produto..."
+                        value={selectedProductData 
+                          ? `${selectedProductData.code ? `${selectedProductData.code} - ` : ''}${selectedProductData.name}`
+                          : productSearchTerm
+                        }
+                        onChange={(e) => {
+                          setProductSearchTerm(e.target.value);
+                          setSelectedProduct("");
+                          setProductSearchOpen(true);
+                        }}
+                        onFocus={() => setProductSearchOpen(true)}
+                        onBlur={() => {
+                          // Delay to allow click on dropdown item
+                          setTimeout(() => setProductSearchOpen(false), 200);
+                        }}
+                      />
+                      {productSearchOpen && (productSearchTerm || !selectedProduct) && filteredProducts.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-[300px] overflow-y-auto">
+                          {filteredProducts.slice(0, 50).map((product) => (
+                            <div
+                              key={product.id}
+                              className={cn(
+                                "flex items-center px-3 py-1.5 cursor-pointer hover:bg-accent hover:text-accent-foreground text-xs",
+                                selectedProduct === product.id && "bg-accent"
+                              )}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setSelectedProduct(product.id);
+                                setProductSearchTerm("");
+                                setProductSearchOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedProduct === product.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {product.code ? `${product.code} - ` : ''}{product.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {productSearchOpen && productSearchTerm && filteredProducts.length === 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-3 text-sm text-muted-foreground">
+                          Nenhum produto encontrado.
+                        </div>
+                      )}
+                    </div>
                     <Button 
                       variant="outline" 
                       size="icon"
@@ -1033,6 +1203,7 @@ export function LinkToAccountsPayableModal({
         open={showProductSearch}
         onOpenChange={setShowProductSearch}
         onSelectProduct={handleProductSelect}
+        isEmployeeMode={isEmployeeMode}
       />
 
       {/* Payment Confirmation Dialog */}

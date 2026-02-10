@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Eye, Trash2, Paperclip } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Plus, Eye, Paperclip } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
@@ -22,6 +23,7 @@ interface Attachment {
   file_path: string;
   file_name: string;
   uploaded_at: string;
+  is_active: boolean;
 }
 
 const parseLocalDate = (dateString: string) => {
@@ -47,13 +49,15 @@ const ObligationAttachmentsModal = ({
     try {
       const { data, error } = await supabase
         .from("employee_obligation_attachments")
-        .select("id, file_path, file_name, uploaded_at")
+        .select("id, file_path, file_name, uploaded_at, is_active")
         .eq("completion_id", completionId)
         .order("uploaded_at", { ascending: false });
 
       if (error) throw error;
       setAttachments(data || []);
-      onAttachmentsChange?.(data?.length || 0);
+      // Count only active attachments
+      const activeCount = data?.filter(a => a.is_active).length || 0;
+      onAttachmentsChange?.(activeCount);
     } catch (error) {
       console.error("Error fetching attachments:", error);
       toast({
@@ -154,34 +158,26 @@ const ObligationAttachmentsModal = ({
     }
   };
 
-  const handleDelete = async (attachment: Attachment) => {
-    if (!confirm(`Deseja excluir o anexo "${attachment.file_name}"?`)) return;
-
+  const handleToggleActive = async (attachment: Attachment) => {
     try {
-      // Delete from storage
-      await supabase.storage
-        .from("obligation-attachments")
-        .remove([attachment.file_path]);
-
-      // Delete from database
       const { error } = await supabase
         .from("employee_obligation_attachments")
-        .delete()
+        .update({ is_active: !attachment.is_active })
         .eq("id", attachment.id);
 
       if (error) throw error;
 
       toast({
         title: "Sucesso",
-        description: "Anexo excluído"
+        description: attachment.is_active ? "Anexo inabilitado" : "Anexo habilitado"
       });
 
       fetchAttachments();
     } catch (error) {
-      console.error("Error deleting attachment:", error);
+      console.error("Error toggling attachment:", error);
       toast({
         title: "Erro",
-        description: "Erro ao excluir anexo",
+        description: "Erro ao alterar status do anexo",
         variant: "destructive"
       });
     }
@@ -235,37 +231,34 @@ const ObligationAttachmentsModal = ({
                 <TableRow>
                   <TableHead>Arquivo</TableHead>
                   <TableHead>Data</TableHead>
+                  <TableHead className="text-center">Ativo</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {attachments.map((attachment) => (
-                  <TableRow key={attachment.id}>
+                  <TableRow key={attachment.id} className={!attachment.is_active ? "opacity-50" : ""}>
                     <TableCell className="font-medium">
                       {attachment.file_name}
                     </TableCell>
                     <TableCell>
                       {format(parseLocalDate(attachment.uploaded_at), "dd/MM/yyyy HH:mm")}
                     </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={attachment.is_active}
+                        onCheckedChange={() => handleToggleActive(attachment)}
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewAttachment(attachment.file_path)}
-                          className="text-primary"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(attachment)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewAttachment(attachment.file_path)}
+                        className="text-primary"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

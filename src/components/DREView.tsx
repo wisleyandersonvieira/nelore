@@ -5,13 +5,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Download, ArrowLeft, FileSpreadsheet } from "lucide-react";
+import { Eye, Download, ArrowLeft, FileSpreadsheet, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 interface Store {
   id: string;
   name: string;
@@ -53,6 +60,8 @@ export const DREView: React.FC<DREViewProps> = ({
   const [selectedStructure, setSelectedStructure] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [loading, setLoading] = useState(false);
+  const [userBrandId, setUserBrandId] = useState<string | null>(null);
+  const { matrixId } = useUserMatrix();
   const {
     toast
   } = useToast();
@@ -109,10 +118,39 @@ export const DREView: React.FC<DREViewProps> = ({
     value: "12",
     label: "Dezembro"
   }];
+  // Buscar brand_id da matriz do usuário
+  useEffect(() => {
+    const fetchUserBrandId = async () => {
+      if (!matrixId) return;
+      try {
+        const { data: matrixData, error } = await supabase
+          .from("matrices")
+          .select("brand_id")
+          .eq("id", matrixId)
+          .maybeSingle();
+        
+        if (error) {
+          console.error("Error fetching matrix brand:", error);
+        }
+        setUserBrandId(matrixData?.brand_id || null);
+      } catch (error) {
+        console.error("Error fetching user brand:", error);
+        setUserBrandId(null);
+      }
+    };
+    fetchUserBrandId();
+  }, [matrixId]);
+
   useEffect(() => {
     fetchStores();
-    fetchStructures();
   }, []);
+
+  useEffect(() => {
+    if (userBrandId) {
+      fetchStructures();
+    }
+  }, [userBrandId]);
+
   useEffect(() => {
     if (selectedStructure) {
       fetchStructureItems();
@@ -175,11 +213,18 @@ export const DREView: React.FC<DREViewProps> = ({
     }
   };
   const fetchStructures = async () => {
+    if (!userBrandId) return;
+    
     try {
       const {
         data,
         error
-      } = await supabase.from('dre_structures').select('id, name').eq('is_active', true).order('name');
+      } = await supabase
+        .from('dre_structures')
+        .select('id, name')
+        .eq('is_active', true)
+        .eq('brand_id', userBrandId)
+        .order('name');
       if (error) throw error;
       setStructures(data || []);
     } catch (error: any) {
@@ -243,11 +288,11 @@ export const DREView: React.FC<DREViewProps> = ({
     }
     setLoading(true);
     try {
-      // Buscar parâmetros de faturamento configurados (incluindo os novos parâmetros separados de acréscimo)
+      // Buscar parâmetros de faturamento configurados (incluindo os novos parâmetros separados de acréscimo e aportes/retiradas)
       const {
         data: faturamentoParams,
         error: paramsError
-      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber', 'desconto_pagar', 'desconto_receber']);
+      } = await supabase.from('system_parameters').select('parameter_key, subgroup_id, product_id').in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery', 'acrescimo', 'desconto', 'acrescimo_pagar', 'acrescimo_receber', 'desconto_pagar', 'desconto_receber', 'aporte_socios', 'retirada_socios']);
       if (paramsError) throw paramsError;
 
       // Criar mapeamento de parâmetros para subgrupos
@@ -259,6 +304,8 @@ export const DREView: React.FC<DREViewProps> = ({
       let descontoProductId: string | null = null;
       let descontoPagarProductId: string | null = null;
       let descontoReceberProductId: string | null = null;
+      let aporteProductId: string | null = null;
+      let retiradaProductId: string | null = null;
       faturamentoParams?.forEach(param => {
         if (param.subgroup_id) {
           faturamentoMapping[param.parameter_key] = param.subgroup_id;
@@ -283,6 +330,12 @@ export const DREView: React.FC<DREViewProps> = ({
         // Fallback para parâmetro legado
         if (param.parameter_key === 'desconto' && param.product_id) {
           descontoProductId = param.product_id;
+        }
+        if (param.parameter_key === 'aporte_socios' && param.product_id) {
+          aporteProductId = param.product_id;
+        }
+        if (param.parameter_key === 'retirada_socios' && param.product_id) {
+          retiradaProductId = param.product_id;
         }
       });
       
@@ -365,11 +418,17 @@ export const DREView: React.FC<DREViewProps> = ({
         const accountPayableIdsFromDirectPayment = paidAccounts?.map(acc => acc.id) || [];
         const accountPayableIds = [...new Set([...accountPayableIdsFromInstallments, ...accountPayableIdsFromDirectPayment])];
         if (accountPayableIds.length > 0) {
-          // Buscar as contas a pagar com seus itens, valor total e parcelas (quitadas ou parcialmente pagas)
-          const {
-            data,
-            error
-          } = await supabase.from('accounts_payable').select(`
+          // Buscar as contas a pagar em lotes para evitar Bad Request (URL muito longa)
+          const BATCH_SIZE = 50;
+          const allApData: any[] = [];
+          let apBatchError: any = null;
+          
+          for (let i = 0; i < accountPayableIds.length; i += BATCH_SIZE) {
+            const batchIds = accountPayableIds.slice(i, i + BATCH_SIZE);
+            const {
+              data: batchData,
+              error: batchError
+            } = await supabase.from('accounts_payable').select(`
               id,
               store_id,
               total_amount,
@@ -397,9 +456,17 @@ export const DREView: React.FC<DREViewProps> = ({
                 payment_date
               ),
               stores (name)
-            `).in('id', accountPayableIds).in('store_id', selectedStores).in('status', ['paid', 'partial']);
-          accountsPayableData = data;
-          apError = error;
+            `).in('id', batchIds).in('store_id', selectedStores).in('status', ['paid', 'partial']);
+            
+            if (batchError) {
+              apBatchError = batchError;
+              break;
+            }
+            if (batchData) allApData.push(...batchData);
+          }
+          
+          accountsPayableData = allApData;
+          apError = apBatchError;
         } else {
           accountsPayableData = [];
           apError = null;
@@ -540,10 +607,17 @@ export const DREView: React.FC<DREViewProps> = ({
         const accountReceivableIds = [...new Set([...accountReceivableIdsFromInstallments, ...accountReceivableIdsFromDirectPayment])];
 
         if (accountReceivableIds.length > 0) {
-          const {
-            data,
-            error
-          } = await supabase.from('accounts_receivable').select(`
+          // Buscar contas a receber em lotes para evitar Bad Request (URL muito longa)
+          const BATCH_SIZE = 50;
+          const allArData: any[] = [];
+          let arBatchError: any = null;
+          
+          for (let i = 0; i < accountReceivableIds.length; i += BATCH_SIZE) {
+            const batchIds = accountReceivableIds.slice(i, i + BATCH_SIZE);
+            const {
+              data: batchData,
+              error: batchError
+            } = await supabase.from('accounts_receivable').select(`
               id,
               store_id,
               total_amount,
@@ -571,9 +645,17 @@ export const DREView: React.FC<DREViewProps> = ({
                 payment_date
               ),
               stores (name)
-            `).in('id', accountReceivableIds).in('store_id', selectedStores).in('status', ['paid', 'partial']);
-          accountsReceivableData = data || [];
-          arError = error;
+            `).in('id', batchIds).in('store_id', selectedStores).in('status', ['paid', 'partial']);
+            
+            if (batchError) {
+              arBatchError = batchError;
+              break;
+            }
+            if (batchData) allArData.push(...batchData);
+          }
+          
+          accountsReceivableData = allArData;
+          arError = arBatchError;
         } else {
           accountsReceivableData = [];
           arError = null;
@@ -848,9 +930,10 @@ export const DREView: React.FC<DREViewProps> = ({
               };
             }
 
-            // Proporção desta parcela em relação ao total de parcelas
-            // Cada parcela representa 1/N do valor base dos itens normais
-            const installmentProportion = 1 / totalInstallments;
+            // Proporção desta parcela em relação ao valor base da conta
+            // Usar o valor real da parcela paga, não divisão igual
+            const installmentAmount = parseFloat(installment.amount) || 0;
+            const installmentProportion = baseAccountAmount > 0 ? installmentAmount / baseAccountAmount : 1 / totalInstallments;
 
             // Processar itens normais proporcionalmente
             normalItems.forEach((item: any) => {
@@ -1265,9 +1348,10 @@ export const DREView: React.FC<DREViewProps> = ({
                 };
               }
 
-              // Proporção desta parcela em relação ao total de parcelas
-              // Cada parcela representa 1/N do valor base dos itens normais
-              const installmentProportion = 1 / totalInstallments;
+              // Proporção desta parcela em relação ao valor base da conta
+              // Usar o valor real da parcela recebida, não divisão igual
+              const installmentAmount = parseFloat(installment.amount) || 0;
+              const installmentProportion = baseAccountAmount > 0 ? installmentAmount / baseAccountAmount : 1 / totalInstallments;
 
               // Processar itens normais proporcionalmente
               normalItems.forEach((item: any) => {
@@ -1583,6 +1667,104 @@ export const DREView: React.FC<DREViewProps> = ({
         });
       }
 
+      // Processar transações de parceiros (aportes e retiradas)
+      if (aporteProductId || retiradaProductId) {
+        // Buscar subgrupos dos produtos de aporte e retirada
+        const partnerProductIds = [aporteProductId, retiradaProductId].filter(Boolean) as string[];
+        const { data: partnerProducts } = partnerProductIds.length > 0
+          ? await supabase
+              .from('products')
+              .select('id, subgroup_id, function_type')
+              .in('id', partnerProductIds)
+          : { data: [] };
+
+        const getPartnerProductSubgroupId = (productId: string | null): string | null => {
+          if (!productId) return null;
+          const product = partnerProducts?.find(p => p.id === productId);
+          return product?.subgroup_id || null;
+        };
+
+        const getPartnerProductFunctionType = (productId: string | null): string => {
+          if (!productId) return 'credit';
+          const product = partnerProducts?.find(p => p.id === productId);
+          return product?.function_type || 'credit';
+        };
+
+        // Buscar transações de parceiros
+        // Para regime de competência: usar competence_date
+        // Para regime de caixa: usar payment_date
+        const dateField = isCashRegime ? 'payment_date' : 'competence_date';
+        const { data: partnerTransactions, error: ptError } = await supabase
+          .from('partner_transactions')
+          .select('store_id, payment_date, competence_date, amount, transaction_type, stores(name)')
+          .in('store_id', selectedStores)
+          .gte(dateField, `${selectedYear}-01-01`)
+          .lte(dateField, `${selectedYear}-12-31`);
+
+        if (ptError) {
+          console.warn('Erro ao buscar transações de parceiros:', ptError);
+        }
+
+        partnerTransactions?.forEach((transaction: any) => {
+          const dateToUse = isCashRegime ? transaction.payment_date : transaction.competence_date;
+          if (!dateToUse) return;
+
+          const { month, year } = getMonthAndYearFromDate(dateToUse);
+
+          // Verificar se o mês está selecionado
+          if (!selectedMonths.includes(month.toString()) || year !== parseInt(selectedYear)) {
+            return;
+          }
+
+          const storeId = transaction.store_id;
+          const storeName = transaction.stores?.name || 'Loja sem nome';
+          const key = `${storeId}-${month}`;
+
+          // Inicializar se não existir
+          if (!groupedData[key]) {
+            groupedData[key] = {
+              month,
+              year: parseInt(selectedYear),
+              store_id: storeId,
+              store_name: storeName,
+              values: {}
+            };
+          }
+
+          if (transaction.transaction_type === 'aporte') {
+            // Aporte: usar o subgrupo do produto configurado
+            const aporteSubgroupId = getPartnerProductSubgroupId(aporteProductId);
+            if (aporteSubgroupId) {
+              const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === aporteSubgroupId);
+              if (structureItem) {
+                if (!groupedData[key].values[structureItem.id]) {
+                  groupedData[key].values[structureItem.id] = 0;
+                }
+                // Aporte é crédito (entrada de capital)
+                const functionType = getPartnerProductFunctionType(aporteProductId);
+                const signedValue = functionType === 'credit' ? transaction.amount : -transaction.amount;
+                groupedData[key].values[structureItem.id] += signedValue;
+              }
+            }
+          } else if (transaction.transaction_type === 'retirada') {
+            // Retirada: usar o subgrupo do produto configurado
+            const retiradaSubgroupId = getPartnerProductSubgroupId(retiradaProductId);
+            if (retiradaSubgroupId) {
+              const structureItem = structureItems.find(si => si.item_type === 'subgroup' && si.account_group_id === retiradaSubgroupId);
+              if (structureItem) {
+                if (!groupedData[key].values[structureItem.id]) {
+                  groupedData[key].values[structureItem.id] = 0;
+                }
+                // Retirada é débito (saída de capital)
+                const functionType = getPartnerProductFunctionType(retiradaProductId);
+                const signedValue = functionType === 'debit' ? -transaction.amount : transaction.amount;
+                groupedData[key].values[structureItem.id] += signedValue;
+              }
+            }
+          }
+        });
+      }
+
       // Buscar dados de estoque para itens de estoque inicial e final
       await loadStockData(groupedData);
 
@@ -1687,9 +1869,12 @@ export const DREView: React.FC<DREViewProps> = ({
         value = data.values[item.id] || 0;
         return total + value;
       } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
-        // Estoques: aplicar operation_type da estrutura
+        // Estoque inicial é sempre subtraído (negativo), estoque final é sempre somado (positivo)
         value = calculateStockTotal(item.id, data);
-        return total + (item.operation_type === 'credit' ? value : -value);
+        if (item.item_type === 'initial_stock') {
+          return total - value;
+        }
+        return total + value;
       }
       return total;
     }, 0);
@@ -1707,9 +1892,12 @@ export const DREView: React.FC<DREViewProps> = ({
         const value = data.values[item.id] || 0;
         return total + value;
       } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
-        // Estoques: aplicar operation_type da estrutura
+        // Estoque inicial é sempre subtraído, estoque final é sempre somado
         const value = data.values[item.id] || 0;
-        return total + (item.operation_type === 'credit' ? value : -value);
+        if (item.item_type === 'initial_stock') {
+          return total - value;
+        }
+        return total + value;
       }
       return total;
     }, 0);
@@ -1849,6 +2037,10 @@ export const DREView: React.FC<DREViewProps> = ({
               value = calculateSumLineTotal(item.id, data);
             } else if (item.item_type === 'initial_stock' || item.item_type === 'final_stock') {
               value = calculateStockTotal(item.id, data);
+              // Estoque inicial é sempre exibido como negativo
+              if (item.item_type === 'initial_stock' && value !== 0) {
+                value = -Math.abs(value);
+              }
             }
 
             // Aplicar sinal negativo conforme operation_type
@@ -2060,16 +2252,25 @@ export const DREView: React.FC<DREViewProps> = ({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>Demonstrativo de Resultados</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={exportToExcel}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Exportar Excel
-                </Button>
-                <Button variant="outline" size="sm" onClick={exportToPDF}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar PDF
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background">
+                  <DropdownMenuItem onClick={exportToPDF}>
+                    <Download className="h-4 w-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToExcel}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardTitle>
             <CardDescription>
               Comparativo dos resultados por período e loja
@@ -2104,7 +2305,8 @@ export const DREView: React.FC<DREViewProps> = ({
                               {item.item_type === 'subgroup' && formatCurrency(data.values[item.id] || 0)}
                               {item.item_type === 'group' && formatCurrency(calculateGroupTotal(item.id, data))}
                               {item.item_type === 'sum_line' && formatCurrency(calculateSumLineTotal(item.id, data))}
-                              {(item.item_type === 'initial_stock' || item.item_type === 'final_stock') && formatCurrency(calculateStockTotal(item.id, data))}
+                              {item.item_type === 'initial_stock' && formatCurrency(-(calculateStockTotal(item.id, data)))}
+                              {item.item_type === 'final_stock' && formatCurrency(calculateStockTotal(item.id, data))}
                             </TableCell>))}
                      </TableRow>)}
                  </TableBody>

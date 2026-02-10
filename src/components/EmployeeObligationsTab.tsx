@@ -71,7 +71,8 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
       const { data, error } = await supabase
         .from("employee_obligation_attachments")
         .select("completion_id")
-        .in("completion_id", completionIds);
+        .in("completion_id", completionIds)
+        .eq("is_active", true);
 
       if (error) throw error;
 
@@ -139,12 +140,15 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
 
       setCompletions(completionsData || []);
 
-      // Fetch attachment counts for unique obligations
-      const uniqueCompletionIds = completionsData
-        ?.filter(c => obligationsData?.find(o => o.id === c.obligation_id)?.recurrence_type === 'unica')
+      // Fetch attachment counts for unique and documentacao obligations
+      const uniqueAndDocCompletionIds = completionsData
+        ?.filter(c => {
+          const obl = obligationsData?.find(o => o.id === c.obligation_id);
+          return obl?.recurrence_type === 'unica' || obl?.recurrence_type === 'documentacao';
+        })
         .map(c => c.id) || [];
       
-      await fetchAttachmentCounts(uniqueCompletionIds);
+      await fetchAttachmentCounts(uniqueAndDocCompletionIds);
 
       // Fetch latest completion for periodic obligations (to get status)
       const periodicObligationIds = obligationsData
@@ -365,7 +369,19 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
   };
 
   const getRecurrenceLabel = (type: string) => {
-    return type === 'periodica' ? 'Periódica' : 'Única';
+    if (type === 'periodica') return 'Periódica';
+    if (type === 'documentacao') return 'Documentação';
+    return 'Única';
+  };
+
+  const getDocumentacaoStatus = (obligationId: string) => {
+    const completion = getCompletion(obligationId);
+    const attachmentCount = completion ? (attachmentCounts[completion.id] || 0) : 0;
+    
+    if (attachmentCount > 0) {
+      return { label: "Concluído", variant: "default" as const, className: "bg-green-500 hover:bg-green-600" };
+    }
+    return { label: "Pendente", variant: "outline" as const, className: "" };
   };
 
   const handleAttachmentsChange = (completionId: string, count: number) => {
@@ -418,11 +434,12 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
               </TableRow>
             </TableHeader>
             <TableBody>
-              {obligations.map((obligation) => {
+            {obligations.map((obligation) => {
                 const completion = getCompletion(obligation.id);
                 const completed = !!completion;
                 const isUnica = obligation.recurrence_type === 'unica';
                 const isPeriodica = obligation.recurrence_type === 'periodica';
+                const isDocumentacao = obligation.recurrence_type === 'documentacao';
                 const attachmentCount = completion ? (attachmentCounts[completion.id] || 0) : 0;
 
                 return (
@@ -448,6 +465,14 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                           </Badge>
                         );
                       })()}
+                      {isDocumentacao && (() => {
+                        const status = getDocumentacaoStatus(obligation.id);
+                        return (
+                          <Badge variant={status.variant} className={status.className}>
+                            {status.label}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="font-medium">{obligation.name}</TableCell>
                     <TableCell>
@@ -458,10 +483,12 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                     <TableCell>
                       {isUnica && completion?.completed_at 
                         ? format(new Date(completion.completed_at), "dd/MM/yyyy HH:mm")
-                        : isPeriodica ? "Ver movimentações" : "-"}
+                        : isPeriodica ? "Ver movimentações" 
+                        : isDocumentacao && attachmentCount > 0 ? `${attachmentCount} arquivo(s)`
+                        : "-"}
                     </TableCell>
                     <TableCell>
-                      {isUnica && completion ? (
+                      {(isUnica || isDocumentacao) && completion ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -482,7 +509,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isUnica && (
+                      {(isUnica || isDocumentacao) && (
                         <div className="flex items-center justify-end gap-2">
                           <Input
                             type="file"

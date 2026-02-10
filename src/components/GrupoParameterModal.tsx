@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Settings, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface GrupoParameterModalProps {
   open: boolean;
@@ -31,24 +32,37 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [currentGroupId, setCurrentGroupId] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const { matrixId } = useUserMatrix();
 
   useEffect(() => {
-    if (open && parameter) {
+    if (open && parameter && matrixId) {
       fetchGroups();
       loadCurrentParameter();
     }
-  }, [open, parameter]);
+  }, [open, parameter, matrixId]);
 
   const fetchGroups = async () => {
+    if (!matrixId) return;
+
     try {
+      // First get the brand_id from the matrix
+      const { data: matrixData } = await supabase
+        .from('matrices')
+        .select('brand_id')
+        .eq('id', matrixId)
+        .single();
+
+      if (!matrixData?.brand_id) {
+        toast.error("Matriz não possui marca vinculada");
+        return;
+      }
+
+      // Fetch groups (parent_id is null) filtered by brand
       const { data, error } = await supabase
         .from('account_groups')
-        .select(`
-          id,
-          name,
-          parent:account_groups!parent_id(name)
-        `)
+        .select('id, name')
         .is('parent_id', null)
+        .eq('brand_id', matrixData.brand_id)
         .order('name');
 
       if (error) throw error;
@@ -56,7 +70,6 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
       const formattedGroups = data?.map((group: any) => ({
         id: group.id,
         name: group.name,
-        parent_name: group.parent?.name,
       })) || [];
 
       setGroups(formattedGroups);
@@ -92,7 +105,7 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
   };
 
   const handleSave = async () => {
-    if (!parameter || !selectedGroupId) {
+    if (!parameter || !selectedGroupId || !matrixId) {
       toast.error("Selecione um grupo");
       return;
     }
@@ -113,7 +126,8 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
           .from('system_parameters')
           .insert({
             parameter_key: parameter.id,
-            group_id: selectedGroupId
+            group_id: selectedGroupId,
+            matrix_id: matrixId
           });
 
         if (error) throw error;
@@ -201,11 +215,6 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div>
                     <p className="font-medium">{currentGroup.name}</p>
-                    {currentGroup.parent_name && (
-                      <p className="text-sm text-muted-foreground">
-                        Grupo pai: {currentGroup.parent_name}
-                      </p>
-                    )}
                   </div>
                   <Badge variant="default">Configurado</Badge>
                 </div>
@@ -229,14 +238,7 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
                 <SelectContent>
                   {groups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
-                      <div>
-                        <div className="font-medium">{group.name}</div>
-                        {group.parent_name && (
-                          <div className="text-sm text-muted-foreground">
-                            Grupo pai: {group.parent_name}
-                          </div>
-                        )}
-                      </div>
+                      <div className="font-medium">{group.name}</div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -248,11 +250,6 @@ export const GrupoParameterModal = ({ open, onOpenChange, parameter }: GrupoPara
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{selectedGroup.name}</p>
-                        {selectedGroup.parent_name && (
-                          <p className="text-sm text-muted-foreground">
-                            Grupo pai: {selectedGroup.parent_name}
-                          </p>
-                        )}
                       </div>
                       <Badge variant="secondary">Selecionado</Badge>
                     </div>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowDown, Package, Check, FileText, Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface DescontoParameterModalProps {
   open: boolean;
@@ -28,6 +29,7 @@ export const DescontoParameterModal = ({ open, onOpenChange }: DescontoParameter
   const [currentReceberProductId, setCurrentReceberProductId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { matrixId } = useUserMatrix();
 
   useEffect(() => {
     if (open) {
@@ -110,6 +112,15 @@ export const DescontoParameterModal = ({ open, onOpenChange }: DescontoParameter
   };
 
   const handleSave = async () => {
+    if (!matrixId) {
+      toast({
+        title: "Erro",
+        description: "Matriz não identificada",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Salvar parâmetro para Contas a Pagar
@@ -130,7 +141,8 @@ export const DescontoParameterModal = ({ open, onOpenChange }: DescontoParameter
             .from('system_parameters')
             .insert({
               parameter_key: 'desconto_pagar',
-              product_id: selectedPagarProductId
+              product_id: selectedPagarProductId,
+              matrix_id: matrixId
             });
         }
       }
@@ -153,7 +165,8 @@ export const DescontoParameterModal = ({ open, onOpenChange }: DescontoParameter
             .from('system_parameters')
             .insert({
               parameter_key: 'desconto_receber',
-              product_id: selectedReceberProductId
+              product_id: selectedReceberProductId,
+              matrix_id: matrixId
             });
         }
       }
@@ -176,7 +189,8 @@ export const DescontoParameterModal = ({ open, onOpenChange }: DescontoParameter
             .from('system_parameters')
             .insert({
               parameter_key: 'desconto',
-              product_id: selectedPagarProductId
+              product_id: selectedPagarProductId,
+              matrix_id: matrixId
             });
         }
       }

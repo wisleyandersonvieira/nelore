@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Trash2, Plus, Calendar, Shield, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
+import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 
 interface PeriodControlModalProps {
   open: boolean;
@@ -21,6 +23,8 @@ interface PeriodControlModalProps {
 interface PeriodBlock {
   id: string;
   store_id: string;
+  matrix_id: string;
+  matrix_name?: string;
   year: number;
   month: number;
   block_type: 'competencia' | 'pagamento';
@@ -47,6 +51,7 @@ const MODULES = [
   { id: 'contas_pagar', label: 'Contas a Pagar' },
   { id: 'contas_receber', label: 'Contas a Receber' },
   { id: 'transferencias', label: 'Transferências' },
+  { id: 'aportes_retiradas', label: 'Aportes e Retiradas' },
   { id: 'caixa', label: 'Controle de Caixa' },
   { id: 'estoque', label: 'Estoque' }
 ];
@@ -60,6 +65,12 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
   const [periodBlocks, setPeriodBlocks] = useState<PeriodBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  
+  // User matrix data
+  const { matrixId, matrixName, isLoading: matrixLoading } = useUserMatrix();
+  
+  // Financeiro permissions
+  const { canEdit } = useFinanceiroPermissions();
   
   // Filter state
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
@@ -82,12 +93,22 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
       setLoading(true);
       const { data, error } = await supabase
         .from("period_blocks")
-        .select("*")
+        .select(`
+          *,
+          matrices:matrix_id (name)
+        `)
         .order("year", { ascending: false })
         .order("month", { ascending: false });
 
       if (error) throw error;
-      setPeriodBlocks(data || []);
+      
+      // Map data to include matrix_name
+      const mappedData = (data || []).map(block => ({
+        ...block,
+        matrix_name: block.matrices?.name || 'N/A'
+      }));
+      
+      setPeriodBlocks(mappedData);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar períodos bloqueados",
@@ -109,29 +130,29 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
       return;
     }
 
+    if (!matrixId) {
+      toast({
+        title: "Erro",
+        description: "Usuário não está associado a uma matriz.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Buscar store_id do usuário
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!profile?.store_id) {
-        throw new Error("Usuário não associado a uma loja");
-      }
+      const { data: { user } } = await supabase.auth.getUser();
 
       const { error } = await supabase
         .from("period_blocks")
         .insert({
-          store_id: profile.store_id,
+          matrix_id: matrixId,
           year: selectedYear,
           month: selectedMonth,
           block_type: selectedBlockType,
           blocked_modules: selectedModules,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: user?.id
         });
 
       if (error) {
@@ -249,18 +270,20 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Botão para criar novo bloqueio */}
+          {/* Botão para criar novo bloqueio - apenas para usuários com permissão de escrita */}
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
               Gerencie os períodos bloqueados para evitar novos cadastros nos módulos selecionados.
             </p>
-            <Button 
-              onClick={() => setShowForm(!showForm)}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Bloqueio
-            </Button>
+            {canEdit && (
+              <Button 
+                onClick={() => setShowForm(!showForm)}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Bloqueio
+              </Button>
+            )}
           </div>
 
           {/* Formulário de criação */}
@@ -270,6 +293,17 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                 <CardTitle className="text-lg">Criar Novo Bloqueio</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Campo Matriz - readonly, preenchido automaticamente */}
+                <div>
+                  <Label htmlFor="matrix">Matriz</Label>
+                  <Input
+                    id="matrix"
+                    value={matrixLoading ? "Carregando..." : matrixName || "Não definida"}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="year">Ano</Label>
@@ -335,7 +369,7 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                 </div>
 
                 <div className="flex gap-2">
-                  <Button onClick={handleCreateBlock} disabled={loading}>
+                  <Button onClick={handleCreateBlock} disabled={loading || matrixLoading || !matrixId}>
                     Criar Bloqueio
                   </Button>
                   <Button variant="outline" onClick={() => setShowForm(false)}>
@@ -422,7 +456,10 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                 <div className="space-y-2">
                   {filteredPeriodBlocks.map((block) => (
                     <div key={block.id} className="border rounded-lg p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <Badge variant="outline" className="bg-primary/10">
+                          {block.matrix_name}
+                        </Badge>
                         <Badge variant="outline">
                           {getMonthName(block.month)}/{block.year}
                         </Badge>
@@ -433,15 +470,17 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                           Criado em: {format(new Date(block.created_at), 'dd/MM/yyyy HH:mm')}
                         </span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteBlock(block.id)}
-                        disabled={loading}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Liberar
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteBlock(block.id)}
+                          disabled={loading}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Liberar
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

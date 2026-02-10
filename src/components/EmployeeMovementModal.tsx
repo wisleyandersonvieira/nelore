@@ -9,12 +9,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Building2, User, FileText, Download, ChevronDown, FileSpreadsheet, UserX, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import EmployeeObligationsTab from "./EmployeeObligationsTab";
 import { ptBR } from "date-fns/locale";
+import { useFuncionariosPermissions } from "@/hooks/useFuncionariosPermissions";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -30,6 +32,7 @@ interface Employee {
   name: string;
   cpf: string;
   is_active: boolean;
+  is_registered: boolean;
 }
 
 interface PayableAccount {
@@ -76,6 +79,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
   const [showInactiveEmployees, setShowInactiveEmployees] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const { canEdit } = useFuncionariosPermissions();
   const { toast } = useToast();
 
   const fetchStores = async () => {
@@ -165,7 +169,8 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           id,
           name,
           cpf,
-          is_active
+          is_active,
+          is_registered
         `)
         .eq("store_id", storeId)
         .eq("is_active", !inactive)
@@ -177,7 +182,8 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
         id: employee.id,
         name: employee.name || '',
         cpf: employee.cpf || '',
-        is_active: employee.is_active || false
+        is_active: employee.is_active || false,
+        is_registered: employee.is_registered ?? false
       })) || [];
       
       setEmployees(employeesData);
@@ -647,9 +653,20 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                             CPF: {employee.cpf}
                           </p>
                         </div>
-                        <Button variant="outline" size="sm">
-                          Ver Movimentações
-                        </Button>
+                        <div className="flex items-center gap-3">
+                          <Badge 
+                            variant={employee.is_registered ? "default" : "secondary"}
+                            className={employee.is_registered 
+                              ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100" 
+                              : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-100"
+                            }
+                          >
+                            {employee.is_registered ? "Registrado" : "Sem Registro"}
+                          </Badge>
+                          <Button variant="outline" size="sm">
+                            Ver Movimentações
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -667,9 +684,9 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
               </div>
 
               <Tabs defaultValue="financeiro" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={`grid w-full ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-                  <TabsTrigger value="obrigacoes">Obrigações</TabsTrigger>
+                  {canEdit && <TabsTrigger value="obrigacoes">Obrigações</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="financeiro" className="space-y-4">
@@ -846,13 +863,15 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="obrigacoes" className="space-y-4">
-                  <EmployeeObligationsTab
-                    employeeId={selectedEmployee.id}
-                    employeeName={selectedEmployee.name}
-                    storeId={selectedStore.id}
-                  />
-                </TabsContent>
+                {canEdit && (
+                  <TabsContent value="obrigacoes" className="space-y-4">
+                    <EmployeeObligationsTab
+                      employeeId={selectedEmployee.id}
+                      employeeName={selectedEmployee.name}
+                      storeId={selectedStore.id}
+                    />
+                  </TabsContent>
+                )}
               </Tabs>
             </div>
           )}
