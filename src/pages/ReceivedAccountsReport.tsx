@@ -846,7 +846,7 @@ const ReceivedAccountsReport = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
-          <Button onClick={() => navigate("/reports/accounts-receivable")} variant="outline" size="sm">
+          <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>

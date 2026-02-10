@@ -2,61 +2,21 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import boardLogo from "@/assets/board-sistemas-logo.png";
+import boardTextLogo from "@/assets/board-sistemas-text-logo.png";
+import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            name: name,
-          },
-        },
-      });
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Erro no cadastro",
-          description: error.message,
-        });
-        return;
-      }
-
-      toast({
-        title: "Cadastro realizado!",
-        description: "Seu cadastro foi enviado para análise. Após aprovação do administrador, você receberá acesso ao sistema.",
-        duration: 6000,
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,96 +69,60 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={logo} alt="Elite Sistemas" className="h-32 w-32" />
+            <img src={boardLogo} alt="Board Sistemas" className="h-16 w-16" />
           </div>
-          <CardTitle className="text-2xl text-green-800">Elite Sistemas</CardTitle>
-          <CardDescription className="text-green-600">Sistema para Gestão de Gado de Elite</CardDescription>
+          <div className="flex justify-center">
+            <img src={boardTextLogo} alt="Board Sistemas" className="h-12" />
+          </div>
+          <CardDescription>Sistema de Gestão Financeira</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="********"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-green-700 hover:bg-green-800" disabled={loading}>
-                  {loading ? "Entrando..." : "Entrar"}
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Seu nome completo"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="********"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-green-700 hover:bg-green-800" disabled={loading}>
-                  {loading ? "Cadastrando..." : "Cadastrar"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar"}
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="w-full text-sm text-muted-foreground"
+              onClick={() => setForgotPasswordOpen(true)}
+            >
+              Esqueci minha senha
+            </Button>
+          </form>
         </CardContent>
       </Card>
+
+      <ForgotPasswordModal
+        open={forgotPasswordOpen}
+        onOpenChange={setForgotPasswordOpen}
+      />
     </div>
   );
 };

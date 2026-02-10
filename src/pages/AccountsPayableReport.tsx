@@ -90,12 +90,13 @@ const AccountsPayableReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch accounts with suppliers, stores, installments and items with products
+      // Fetch accounts with suppliers, employees, stores, installments and items with products
       const { data: allAccounts, error } = await supabase
         .from("accounts_payable")
         .select(`
           *,
           suppliers(id, name),
+          employees(id, name),
           stores(id, name),
           accounts_payable_installments(*),
           accounts_payable_payments(
@@ -294,7 +295,7 @@ const AccountsPayableReport = () => {
     // Table data
     const tableData = accounts.map(account => [
       account.description,
-      account.suppliers?.name || "N/A",
+      account.employees?.name || account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
       new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
@@ -408,7 +409,7 @@ const AccountsPayableReport = () => {
       monthGroup.accounts.forEach(account => {
         tableData.push([
           account.description,
-          account.suppliers?.name || "N/A",
+          account.employees?.name || account.suppliers?.name || "N/A",
           account.stores?.name || "N/A",
           new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
           account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
@@ -463,6 +464,125 @@ const AccountsPayableReport = () => {
     doc.save("contas-a-pagar-resumido-por-mes.pdf");
   };
 
+  const exportToPDFResumidoPorDia = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas ainda não pagas - Resumido por Dia", 105, 28, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+    
+    // Group accounts by day (YYYY-MM-DD)
+    const accountsByDay: { [key: string]: { dayLabel: string; accounts: any[]; sortKey: string } } = {};
+    
+    accounts.forEach(account => {
+      const dueDate = new Date(account.due_date + 'T00:00:00');
+      const key = account.due_date; // Already in YYYY-MM-DD format
+      const dayLabel = dueDate.toLocaleDateString("pt-BR", { 
+        weekday: 'long', 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+      
+      if (!accountsByDay[key]) {
+        accountsByDay[key] = {
+          dayLabel: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
+          accounts: [],
+          sortKey: key
+        };
+      }
+      
+      accountsByDay[key].accounts.push(account);
+    });
+    
+    // Sort by day (ascending)
+    const sortedDays = Object.values(accountsByDay).sort((a, b) => 
+      a.sortKey.localeCompare(b.sortKey)
+    );
+    
+    // Build table data with day grouping
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    let totalInstallments = 0;
+    
+    sortedDays.forEach(dayGroup => {
+      // Day header row
+      tableData.push([
+        { content: dayGroup.dayLabel, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+      ]);
+      
+      // Items for this day
+      let dayTotal = 0;
+      dayGroup.accounts.forEach(account => {
+        tableData.push([
+          account.description,
+          account.employees?.name || account.suppliers?.name || "N/A",
+          account.stores?.name || "N/A",
+          new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+        ]);
+        dayTotal += account.amount || 0;
+      });
+      
+      // Day subtotal
+      tableData.push([
+        { content: `Subtotal do dia`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+        { content: dayTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
+        { content: `${dayGroup.accounts.length} parcela(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      ]);
+      
+      grandTotal += dayTotal;
+      totalInstallments += dayGroup.accounts.length;
+    });
+    
+    // Grand total row
+    tableData.push([
+      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 } },
+      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } },
+      { content: `${totalInstallments} parcela(s)`, styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 10, right: 10 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-pagar-resumido-por-dia.pdf");
+  };
+
   const exportToPDFDetalhado = () => {
     const doc = new jsPDF();
     
@@ -485,7 +605,7 @@ const AccountsPayableReport = () => {
       // Main account row
       tableData.push([
         { content: account.description, styles: { fontStyle: "bold" } },
-        { content: account.suppliers?.name || "N/A", styles: { fontStyle: "bold" } },
+        { content: account.employees?.name || account.suppliers?.name || "N/A", styles: { fontStyle: "bold" } },
         { content: account.stores?.name || "N/A", styles: { fontStyle: "bold" } },
         { content: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"), styles: { fontStyle: "bold" } },
         { content: account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A", styles: { fontStyle: "bold" } },
@@ -641,7 +761,7 @@ const AccountsPayableReport = () => {
           
           accountsBySubgroup[subgroupId].items.push({
             description: account.description,
-            supplierName: account.suppliers?.name || "N/A",
+            supplierName: account.employees?.name || account.suppliers?.name || "N/A",
             storeName: account.stores?.name || "N/A",
             dueDate: account.due_date,
             amount: itemAmount,
@@ -661,7 +781,7 @@ const AccountsPayableReport = () => {
         // For accounts without items, use the already adjusted amount
         accountsBySubgroup['sem-subgrupo'].items.push({
           description: account.description,
-          supplierName: account.suppliers?.name || "N/A",
+          supplierName: account.employees?.name || account.suppliers?.name || "N/A",
           storeName: account.stores?.name || "N/A",
           dueDate: account.due_date,
           amount: account.amount || 0,
@@ -740,7 +860,7 @@ const AccountsPayableReport = () => {
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: account.description,
-      Fornecedor: account.suppliers?.name || "N/A",
+      Fornecedor: account.employees?.name || account.suppliers?.name || "N/A",
       Loja: account.stores?.name || "N/A",
       Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       Valor: account.amount || 0,
@@ -758,7 +878,7 @@ const AccountsPayableReport = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
-          <Button onClick={() => navigate("/reports/accounts-payable")} variant="outline" size="sm">
+          <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
@@ -927,6 +1047,9 @@ const AccountsPayableReport = () => {
                       <DropdownMenuItem onClick={exportToPDFResumidoPorMes}>
                         Relatório Resumido por Mês
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFResumidoPorDia}>
+                        Relatório Resumido por Dia
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Button onClick={exportToExcel} variant="outline" size="sm">
@@ -952,7 +1075,7 @@ const AccountsPayableReport = () => {
                   {accounts.map((account, index) => (
                     <TableRow key={`${account.id}-${account.installment_id || index}`}>
                       <TableCell>{account.description}</TableCell>
-                      <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
+                      <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>

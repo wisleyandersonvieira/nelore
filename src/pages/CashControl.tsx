@@ -160,7 +160,7 @@ const CashControl = () => {
               variant="outline" 
               onClick={() => setMonthViewModalOpen(true)}
             >
-              VISUALIZAR MÊS COMPLETO
+              Relatório
             </Button>
           </div>
         </div>

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Edit, Trash2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCadastrosPermissions } from "@/hooks/useCadastrosPermissions";
 
 interface Store {
   id: string;
@@ -19,18 +20,23 @@ interface Store {
   phone: string | null;
   manager_name: string | null;
   opening_date: string | null;
+  matrix_id: string;
   created_at: string;
   updated_at: string;
 }
 
 const Stores = () => {
   const [stores, setStores] = useState<Store[]>([]);
+  const [userStoreIds, setUserStoreIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingStore, setEditingStore] = useState<Store | null>(null);
-  const [activeTab, setActiveTab] = useState("register");
+  const [activeTab, setActiveTab] = useState("list");
+  const [userMatrixId, setUserMatrixId] = useState<string>("");
+  const [userMatrixName, setUserMatrixName] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canEdit, canDelete, loading: permissionsLoading } = useCadastrosPermissions();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -41,18 +47,78 @@ const Stores = () => {
     phone: "",
     manager_name: "",
     opening_date: "",
+    matrix_id: "",
   });
 
   useEffect(() => {
+    fetchUserMatrix();
     fetchStores();
+    fetchUserStores();
   }, []);
+
+  const fetchUserMatrix = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('matrix_id')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !profile?.matrix_id) {
+        console.error("Error fetching user matrix:", error);
+        return;
+      }
+
+      const { data: matrix, error: matrixError } = await supabase
+        .from('matrices')
+        .select('id, code, name')
+        .eq('id', profile.matrix_id)
+        .single();
+
+      if (matrixError || !matrix) {
+        console.error("Error fetching matrix:", matrixError);
+        return;
+      }
+
+      setUserMatrixId(matrix.id);
+      setUserMatrixName(`${matrix.code} - ${matrix.name}`);
+      setFormData(prev => ({ ...prev, matrix_id: matrix.id }));
+    } catch (error) {
+      console.error("Error in fetchUserMatrix:", error);
+    }
+  };
 
   // Adicionar useEffect para atualizar quando mudar de aba
   useEffect(() => {
     if (activeTab === "list") {
       fetchStores();
+      fetchUserStores();
     }
   }, [activeTab]);
+
+  const fetchUserStores = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("user_stores")
+        .select("store_id")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error fetching user stores:", error);
+        return;
+      }
+
+      setUserStoreIds((data || []).map(us => us.store_id));
+    } catch (error) {
+      console.error("Error in fetchUserStores:", error);
+    }
+  };
 
   const fetchStores = async () => {
     setLoading(true);
@@ -203,6 +269,7 @@ const Stores = () => {
       phone: store.phone || "",
       manager_name: store.manager_name || "",
       opening_date: store.opening_date || "",
+      matrix_id: store.matrix_id,
     });
     setEditingStore(store);
     setActiveTab("register");
@@ -254,6 +321,7 @@ const Stores = () => {
       phone: "",
       manager_name: "",
       opening_date: "",
+      matrix_id: userMatrixId,
     });
     setEditingStore(null);
   };
@@ -274,6 +342,11 @@ const Stores = () => {
   };
 
   const filteredStores = stores.filter(store => {
+    // Se não tem permissão de edição, filtra apenas as lojas vinculadas ao usuário
+    if (!canEdit && !userStoreIds.includes(store.id)) {
+      return false;
+    }
+    
     if (!searchTerm.trim()) return true; // Se não há termo de busca, mostra todos
     
     const searchLower = searchTerm.toLowerCase();
@@ -287,6 +360,14 @@ const Stores = () => {
   console.log("All stores:", stores);
   console.log("Search term:", searchTerm);
   console.log("Filtered stores:", filteredStores);
+
+  if (permissionsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p>Carregando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -307,8 +388,10 @@ const Stores = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register">Cadastro</TabsTrigger>
+          <TabsList className={canEdit ? "grid w-full grid-cols-2" : "grid w-full grid-cols-1"}>
+            {canEdit && (
+              <TabsTrigger value="register">Cadastro</TabsTrigger>
+            )}
             <TabsTrigger value="list">Exibir Cadastros</TabsTrigger>
           </TabsList>
 
@@ -328,6 +411,17 @@ const Stores = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Campo Matriz - sempre visível mas não editável */}
+                  <div className="space-y-2">
+                    <Label htmlFor="matrix">Matriz *</Label>
+                    <Input
+                      id="matrix"
+                      value={userMatrixName}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="code">Código *</Label>
@@ -454,7 +548,9 @@ const Stores = () => {
                         <TableHead>Telefone</TableHead>
                         <TableHead>Gerente</TableHead>
                         <TableHead>Data Abertura</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        {(canEdit || canDelete) && (
+                          <TableHead className="text-right">Ações</TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -491,24 +587,30 @@ const Stores = () => {
                             <TableCell>
                               {store.opening_date ? new Date(store.opening_date).toLocaleDateString('pt-BR') : "-"}
                             </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(store)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(store)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
+                            {(canEdit || canDelete) && (
+                              <TableCell className="text-right">
+                                <div className="flex justify-end space-x-2">
+                                  {canEdit && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEdit(store)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {canDelete && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDelete(store)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))
                       )}

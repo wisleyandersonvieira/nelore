@@ -11,7 +11,7 @@ const Extratos = () => {
   const handleModalClose = (open: boolean) => {
     setModalOpen(open);
     if (!open) {
-      navigate("/reports");
+      navigate("/dashboard");
     }
   };
 
@@ -20,9 +20,9 @@ const Extratos = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
-          <Button onClick={() => navigate("/reports")} variant="outline" size="sm">
+          <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Relatórios
+            Voltar
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-primary">Extratos de Contas</h1>

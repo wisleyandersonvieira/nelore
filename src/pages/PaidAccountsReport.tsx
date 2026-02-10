@@ -7,7 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ArrowLeft, Download, Filter, FileDown, ChevronDown, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -49,12 +52,16 @@ const PaidAccountsReport = () => {
     store_id: "all",
     product_id: "all",
     account_id: "all",
+    group_id: "all",
+    employee_id: "all",
   });
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -62,6 +69,8 @@ const PaidAccountsReport = () => {
     fetchSuppliers();
     fetchStores();
     fetchProducts();
+    fetchGroups();
+    fetchEmployees();
   }, []);
 
   // Fetch available accounts when store is selected
@@ -119,6 +128,24 @@ const PaidAccountsReport = () => {
   const fetchProducts = async () => {
     const { data } = await supabase.from("products").select("id, name");
     setProducts(data || []);
+  };
+
+  const fetchGroups = async () => {
+    const { data } = await supabase
+      .from("account_groups")
+      .select("id, name, code")
+      .is("parent_id", null)
+      .order("code");
+    setGroups(data || []);
+  };
+
+  const fetchEmployees = async () => {
+    const { data } = await supabase
+      .from("employees")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name");
+    setEmployees(data || []);
   };
 
   const fetchAccountsForStore = async (storeId: string) => {
@@ -189,35 +216,70 @@ const PaidAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch paid accounts with suppliers, employees, stores, installments and items with products
-      const { data: allAccounts, error } = await supabase
-        .from("accounts_payable")
-        .select(`
-          *,
-          suppliers(id, name),
-          employees(id, name),
-          stores(id, name),
-          accounts_payable_installments(*),
-          accounts_payable_items(
-            id,
-            product_id,
-            quantity,
-            unit_price,
-            total_price,
-            products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
-          )
-        `) as { data: any[] | null; error: any };
+      // Helper: fetch all rows with automatic pagination (batches of 1000)
+      const fetchAllPaginated = async (buildQuery: () => any) => {
+        const PAGE_SIZE = 1000;
+        let allRows: any[] = [];
+        let from = 0;
+        let hasMore = true;
 
-      if (error) throw error;
+        while (hasMore) {
+          const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          if (data) {
+            allRows = allRows.concat(data);
+          }
+          hasMore = (data?.length ?? 0) === PAGE_SIZE;
+          from += PAGE_SIZE;
+        }
+        return allRows;
+      };
 
-      // Fetch payments data with interest/discount products
-      const { data: paymentsData } = await supabase
-        .from("accounts_payable_payments")
-        .select(`
-          *,
-          interest_product:interest_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
-          discount_product:discount_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name))
-        `);
+      // Fetch paid accounts with automatic pagination
+      const buildAccountsQuery = () => {
+        let q = supabase
+          .from("accounts_payable")
+          .select(`
+            *,
+            suppliers(id, name),
+            employees(id, name),
+            stores(id, name),
+            accounts_payable_installments(*),
+            accounts_payable_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              products(id, name, subgroup_id, account_groups:subgroup_id(id, name, parent_id))
+            )
+          `)
+          .in('status', ['paid', 'partial']);
+
+        if (filters.store_id && filters.store_id !== "all") {
+          q = q.eq('store_id', filters.store_id);
+        }
+        if (filters.supplier_id && filters.supplier_id !== "all") {
+          q = q.eq('supplier_id', filters.supplier_id);
+        }
+        if (filters.employee_id && filters.employee_id !== "all") {
+          q = q.eq('employee_id', filters.employee_id);
+        }
+        return q;
+      };
+
+      const allAccounts = await fetchAllPaginated(buildAccountsQuery);
+
+      // Fetch payments data with automatic pagination
+      const paymentsData = await fetchAllPaginated(() =>
+        supabase
+          .from("accounts_payable_payments")
+          .select(`
+            *,
+            interest_product:interest_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
+            discount_product:discount_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+          `)
+      );
 
       // Create a map of payments by installment_id
       const paymentsByInstallmentId: { [key: string]: any } = {};
@@ -241,11 +303,9 @@ const PaidAccountsReport = () => {
         }
       }
 
-      // Filter for paid or partial accounts and expand installments
+      // Expand installments into individual rows
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        // Include both 'paid' and 'partial' status - we want to show paid installments
-        if (account.status !== 'paid' && account.status !== 'partial') return;
 
         // If filtering by account, check if this account was paid with the selected account
         if (filters.account_id && filters.account_id !== "all") {
@@ -337,13 +397,38 @@ const PaidAccountsReport = () => {
         });
       }
 
-      if (filters.supplier_id && filters.supplier_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.supplier_id === filters.supplier_id);
+      // supplier, store, and employee filters are now applied server-side
+
+      // Filter by product - show accounts that have at least one item with the selected product
+      if (filters.product_id && filters.product_id !== "all") {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.accounts_payable_items || account.accounts_payable_items.length === 0) {
+            return false;
+          }
+          // Check if any item in this account has the selected product
+          return account.accounts_payable_items.some((item: any) => {
+            return item.product_id === filters.product_id;
+          });
+        });
       }
 
-      if (filters.store_id && filters.store_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
+      // Filter by group - show accounts that have at least one product with the selected group
+      if (filters.group_id && filters.group_id !== "all") {
+        accountsData = accountsData.filter((account: any) => {
+          if (!account.accounts_payable_items || account.accounts_payable_items.length === 0) {
+            return false;
+          }
+          // Check if any product in this account belongs to a subgroup of the selected group
+          return account.accounts_payable_items.some((item: any) => {
+            const subgroup = item.products?.account_groups;
+            if (!subgroup) return false;
+            // The subgroup's parent_id should match the selected group_id
+            return subgroup.parent_id === filters.group_id;
+          });
+        });
       }
+
+      // employee filter is now applied server-side
 
       setAccounts(accountsData);
       toast({
@@ -374,6 +459,8 @@ const PaidAccountsReport = () => {
       store_id: "all",
       product_id: "all",
       account_id: "all",
+      group_id: "all",
+      employee_id: "all",
     });
     setAvailableAccounts([]);
     setAccounts([]);
@@ -397,6 +484,14 @@ const PaidAccountsReport = () => {
     if (filters.account_id !== "all") {
       const account = availableAccounts.find(a => a.id === filters.account_id);
       if (account) filterInfo.push(`Conta: ${account.name}`);
+    }
+    if (filters.group_id !== "all") {
+      const group = groups.find(g => g.id === filters.group_id);
+      if (group) filterInfo.push(`Grupo: ${group.name}`);
+    }
+    if (filters.employee_id !== "all") {
+      const employee = employees.find(e => e.id === filters.employee_id);
+      if (employee) filterInfo.push(`Funcionário: ${employee.name}`);
     }
     return filterInfo;
   };
@@ -588,31 +683,47 @@ const PaidAccountsReport = () => {
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
     
     accounts.forEach(account => {
-      // Process normal product items (original values, no interest/discount)
+      // Process normal product items - calculate proportional amount for installments
       if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
+        // Calculate the total of all items to determine proportion
+        const totalItemsValue = account.accounts_payable_items.reduce((sum: number, it: any) => sum + (it.total_price || 0), 0);
+        // The paid amount for this installment (excludes interest/discount)
+        const paidAmount = account.paid_amount ?? account.amount ?? 0;
+        // Proportion: how much of the total was paid in this installment
+        const proportion = totalItemsValue > 0 ? paidAmount / totalItemsValue : 1;
+
+        // Group items by subgroup within this account, summing their proportional values
+        const itemsBySubgroup: { [key: string]: { subgroupId: string; subgroupName: string; totalAmount: number } } = {};
         account.accounts_payable_items.forEach((item: any) => {
           const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
           const subgroupName = item.products?.account_groups?.name || 'Sem Subgrupo';
-          
+          const proportionalAmount = (item.total_price || 0) * proportion;
+
+          if (!itemsBySubgroup[subgroupId]) {
+            itemsBySubgroup[subgroupId] = { subgroupId, subgroupName, totalAmount: 0 };
+          }
+          itemsBySubgroup[subgroupId].totalAmount += proportionalAmount;
+        });
+
+        // Add one row per subgroup for this account
+        Object.values(itemsBySubgroup).forEach(({ subgroupId, subgroupName, totalAmount }) => {
           if (!accountsBySubgroup[subgroupId]) {
             accountsBySubgroup[subgroupId] = {
               subgroupName,
               items: []
             };
           }
-          
-          // Add item with its original value (total_price from the item, not the installment amount)
+
           accountsBySubgroup[subgroupId].items.push({
             description: account.description,
             supplierName: getSupplierOrEmployeeName(account),
             storeName: account.stores?.name || "N/A",
             paymentDate: account.payment_date,
-            amount: item.total_price || 0,
+            amount: totalAmount,
             installmentNumber: account.installment_number,
             totalInstallments: account.total_installments,
             accountId: account.id,
             installmentId: account.installment_id,
-            productName: item.products?.name || "Produto"
           });
         });
       }
@@ -764,6 +875,122 @@ const PaidAccountsReport = () => {
     doc.save("contas-pagas-por-subgrupo.pdf");
   };
 
+  const exportToPDFPorFornecedor = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS PAGAS POR FORNECEDOR", 105, 20, { align: "center" });
+    
+    const filterInfo = getFilterInfo();
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
+    }
+    
+    // Group accounts by supplier
+    const accountsBySupplier: { [key: string]: { supplierName: string; items: any[] } } = {};
+    
+    accounts.forEach(account => {
+      const supplierId = account.supplier_id || account.employee_id || 'sem-fornecedor';
+      const supplierName = getSupplierOrEmployeeName(account);
+      
+      if (!accountsBySupplier[supplierId]) {
+        accountsBySupplier[supplierId] = {
+          supplierName,
+          items: []
+        };
+      }
+      
+      accountsBySupplier[supplierId].items.push({
+        description: account.description,
+        storeName: account.stores?.name || "N/A",
+        dueDate: account.due_date,
+        paymentDate: account.payment_date,
+        amount: account.paid_amount ?? account.amount ?? 0,
+        installmentNumber: account.installment_number,
+        totalInstallments: account.total_installments,
+      });
+    });
+    
+    // Sort suppliers alphabetically
+    const sortedSuppliers = Object.values(accountsBySupplier).sort((a, b) => 
+      a.supplierName.localeCompare(b.supplierName)
+    );
+    
+    // Build table data
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    let totalItems = 0;
+    
+    sortedSuppliers.forEach(group => {
+      // Supplier header row
+      tableData.push([
+        { content: group.supplierName, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+      ]);
+      
+      // Items for this supplier
+      let supplierTotal = 0;
+      group.items.forEach(item => {
+        tableData.push([
+          item.description,
+          item.storeName,
+          item.dueDate ? new Date(item.dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+          item.paymentDate ? new Date(item.paymentDate + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
+          item.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          item.totalInstallments > 1 ? `${item.installmentNumber}/${item.totalInstallments}` : "À vista"
+        ]);
+        supplierTotal += item.amount || 0;
+        totalItems++;
+      });
+      
+      // Supplier subtotal
+      tableData.push([
+        { content: `Subtotal ${group.supplierName}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+        { content: supplierTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
+        { content: `${group.items.length} item(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      ]);
+      
+      grandTotal += supplierTotal;
+    });
+    
+    // Grand total row
+    tableData.push([
+      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [34, 197, 94], textColor: 255 } },
+      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } },
+      { content: `${totalItems} item(s)`, styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } }
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 37 : 27,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [34, 197, 94],
+        textColor: 255,
+        fontStyle: "bold"
+      },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-pagas-por-fornecedor.pdf");
+  };
+
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: account.description,
@@ -786,7 +1013,7 @@ const PaidAccountsReport = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
-          <Button onClick={() => navigate("/reports/accounts-payable")} variant="outline" size="sm">
+          <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
@@ -868,19 +1095,57 @@ const PaidAccountsReport = () => {
               </div>
               <div>
                 <Label>Fornecedor</Label>
-                <Select value={filters.supplier_id} onValueChange={(value) => setFilters(prev => ({...prev, supplier_id: value}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar fornecedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {filters.supplier_id !== "all"
+                        ? suppliers.find((supplier) => supplier.id === filters.supplier_id)?.name || "Selecionar fornecedor"
+                        : "Todos"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar fornecedor..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => setFilters(prev => ({...prev, supplier_id: "all"}))}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                filters.supplier_id === "all" ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            Todos
+                          </CommandItem>
+                          {suppliers.map((supplier) => (
+                            <CommandItem
+                              key={supplier.id}
+                              value={supplier.name}
+                              onSelect={() => setFilters(prev => ({...prev, supplier_id: supplier.id}))}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  filters.supplier_id === supplier.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {supplier.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label>Loja</Label>
@@ -900,19 +1165,57 @@ const PaidAccountsReport = () => {
               </div>
               <div>
                 <Label>Produto</Label>
-                <Select value={filters.product_id} onValueChange={(value) => setFilters(prev => ({...prev, product_id: value}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar produto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {filters.product_id !== "all"
+                        ? products.find((product) => product.id === filters.product_id)?.name || "Selecionar produto"
+                        : "Todos"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar produto..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => setFilters(prev => ({...prev, product_id: "all"}))}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                filters.product_id === "all" ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            Todos
+                          </CommandItem>
+                          {products.map((product) => (
+                            <CommandItem
+                              key={product.id}
+                              value={product.name}
+                              onSelect={() => setFilters(prev => ({...prev, product_id: product.id}))}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  filters.product_id === product.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {product.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label>Conta</Label>
@@ -929,6 +1232,38 @@ const PaidAccountsReport = () => {
                     {availableAccounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name} ({account.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Grupo</Label>
+                <Select value={filters.group_id} onValueChange={(value) => setFilters(prev => ({...prev, group_id: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar grupo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.code} - {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Funcionário</Label>
+                <Select value={filters.employee_id} onValueChange={(value) => setFilters(prev => ({...prev, employee_id: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar funcionário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -971,6 +1306,9 @@ const PaidAccountsReport = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>
                         Relatório por Subgrupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFPorFornecedor}>
+                        Relatório por Fornecedor
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

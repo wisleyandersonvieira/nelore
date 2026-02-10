@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, DollarSign } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, TrendingUpDown, LineChart, Wallet, FileArchive } from "lucide-react";
 const Reports = () => {
   const navigate = useNavigate();
   const reportModules = [{
@@ -19,6 +19,13 @@ const Reports = () => {
     color: "bg-green-500",
     onClick: () => navigate("/reports/accounts-receivable")
   }, {
+    id: "income-expense",
+    title: "Relatório de Entradas e Saídas",
+    description: "Análise de receitas e despesas por grupo e subgrupo",
+    icon: TrendingUpDown,
+    color: "bg-orange-500",
+    onClick: () => navigate("/reports/income-expense")
+  }, {
     id: "turnover-report",
     title: "Relatório de Faturamento",
     description: "Relatório de faturamento por período",
@@ -26,12 +33,33 @@ const Reports = () => {
     color: "bg-blue-500",
     onClick: () => navigate("/reports/turnover")
   }, {
+    id: "turnover-chart",
+    title: "Gráfico de Faturamento",
+    description: "Visualização gráfica do faturamento por loja e período",
+    icon: LineChart,
+    color: "bg-cyan-500",
+    onClick: () => navigate("/reports/turnover-chart")
+  }, {
     id: "extratos",
     title: "Extratos de Contas",
     description: "Extratos detalhados das movimentações das contas",
     icon: FileText,
     color: "bg-purple-500",
     onClick: () => navigate("/reports/extratos")
+  }, {
+    id: "balance-position",
+    title: "Posição de Saldos",
+    description: "Visualize o saldo das contas em uma data específica",
+    icon: Wallet,
+    color: "bg-teal-500",
+    onClick: () => navigate("/reports/balance-position")
+  }, {
+    id: "accounting-export",
+    title: "Exportar Contabilidade",
+    description: "Exporte pagamentos e anexos para contabilidade",
+    icon: FileArchive,
+    color: "bg-indigo-500",
+    onClick: () => navigate("/reports/accounting-export")
   }];
   return <div className="min-h-screen bg-background">
       {/* Header */}

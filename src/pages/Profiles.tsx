@@ -4,11 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ProfileModal } from "@/components/ProfileModal";
+import { ProfileViewModal } from "@/components/ProfileViewModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useConfiguracoesPermissions } from "@/hooks/useConfiguracoesPermissions";
+
+const MASTER_USER_EMAIL = "wisley_anderson@hotmail.com";
 
 interface UserProfile {
   id: string;
@@ -27,8 +30,13 @@ export default function Profiles() {
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState<UserProfile | null>(null);
+  const [viewingProfile, setViewingProfile] = useState<UserProfile | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const { hasAccess, loading: permissionsLoading } = useConfiguracoesPermissions();
+
+  const isMasterUser = currentUserEmail === MASTER_USER_EMAIL;
 
   const fetchProfiles = async () => {
     try {
@@ -55,7 +63,20 @@ export default function Profiles() {
 
   useEffect(() => {
     fetchProfiles();
+    fetchCurrentUser();
   }, []);
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserEmail(user.email || null);
+    }
+  };
+
+  const handleView = (profile: UserProfile) => {
+    setViewingProfile(profile);
+    setShowViewModal(true);
+  };
 
   const handleEdit = (profile: UserProfile) => {
     setEditingProfile(profile);
@@ -197,7 +218,9 @@ export default function Profiles() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {profiles.map((profile) => (
+              {profiles
+                .filter((profile) => isMasterUser || profile.name !== 'Matriz')
+                .map((profile) => (
                 <TableRow key={profile.id}>
                   <TableCell className="font-medium">{profile.name}</TableCell>
                   <TableCell>{profile.description}</TableCell>
@@ -216,18 +239,32 @@ export default function Profiles() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEdit(profile)}
+                        onClick={() => handleView(profile)}
+                        title="Visualizar"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(profile.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isMasterUser && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(profile)}
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(profile.id)}
+                            className="text-destructive hover:text-destructive"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -248,6 +285,12 @@ export default function Profiles() {
         onClose={() => setShowModal(false)}
         onSuccess={fetchProfiles}
         editingProfile={editingProfile}
+      />
+
+      <ProfileViewModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        profile={viewingProfile}
       />
     </div>
   );

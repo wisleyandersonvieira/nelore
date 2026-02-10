@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Store, Package } from "lucide-react";
 import { StockYearCalendarModal } from "@/components/StockYearCalendarModal";
-
+import { useEstoquePermissions } from "@/hooks/useEstoquePermissions";
 interface Store {
   id: string;
   name: string;
@@ -17,6 +17,7 @@ const StockControl = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [yearCalendarOpen, setYearCalendarOpen] = useState(false);
+  const { canEdit, loading: loadingPermissions } = useEstoquePermissions();
 
   useEffect(() => {
     if (storeId) {
@@ -38,7 +39,7 @@ const StockControl = () => {
       setStore(data);
     } catch (error) {
       console.error('Erro ao carregar loja:', error);
-      navigate('/stock');
+      navigate('/dashboard');
     } finally {
       setLoading(false);
     }
@@ -47,8 +48,8 @@ const StockControl = () => {
   const handleYearCalendarClose = (open: boolean) => {
     setYearCalendarOpen(open);
     if (!open) {
-      // Navigate back to stock module when calendar closes
-      navigate('/stock');
+      // Navigate back to dashboard when calendar closes
+      navigate('/dashboard');
     }
   };
 
@@ -65,8 +66,8 @@ const StockControl = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Loja não encontrada</h2>
-          <Button onClick={() => navigate('/stock')}>
-            Voltar ao Estoque
+          <Button onClick={() => navigate('/dashboard')}>
+            Voltar ao Dashboard
           </Button>
         </div>
       </div>
@@ -83,10 +84,10 @@ const StockControl = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => navigate('/stock')}
+                onClick={() => navigate('/dashboard')}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar ao Estoque
+                Voltar ao Dashboard
               </Button>
               
               <div className="flex items-center gap-3">
@@ -119,11 +120,12 @@ const StockControl = () => {
         </div>
       </main>
 
-      {storeId && (
+      {storeId && !loadingPermissions && (
         <StockYearCalendarModal
           open={yearCalendarOpen}
           onOpenChange={handleYearCalendarClose}
           storeId={storeId}
+          canEdit={canEdit}
         />
       )}
     </div>

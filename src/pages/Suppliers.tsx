@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Edit, Trash2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface Supplier {
   id: string;
   name: string;
+  trade_name: string | null;
   cnpj_cpf: string | null;
   address: string | null;
   city: string | null;
@@ -32,13 +34,14 @@ const Suppliers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [activeTab, setActiveTab] = useState("register");
-  const [userStoreId, setUserStoreId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { matrixId, matrixName } = useUserMatrix();
 
   // Form state
   const [formData, setFormData] = useState({
     name: "",
+    trade_name: "",
     cnpj_cpf: "",
     address: "",
     city: "",
@@ -49,26 +52,9 @@ const Suppliers = () => {
   });
 
   useEffect(() => {
-    fetchUserStoreId();
     fetchSuppliers();
   }, []);
 
-  const fetchUserStoreId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("store_id")
-          .eq("id", user.id)
-          .single();
-        
-        setUserStoreId(profile?.store_id || null);
-      }
-    } catch (error) {
-      console.error("Error fetching user store:", error);
-    }
-  };
 
   const formatCnpjCpf = (value: string) => {
     const cleaned = value.replace(/\D/g, "");
@@ -168,18 +154,18 @@ const Suppliers = () => {
           description: "Fornecedor atualizado com sucesso!",
         });
       } else {
-        if (!userStoreId) {
+        if (!matrixId) {
           toast({
             variant: "destructive",
             title: "Erro",
-            description: "Usuário não associado a uma loja.",
+            description: "Matriz do usuário não encontrada.",
           });
           return;
         }
         
         const { error } = await supabase
           .from("suppliers")
-          .insert([{ ...formData, store_id: userStoreId }]);
+          .insert([{ ...formData, matrix_id: matrixId }]);
 
         if (error) throw error;
         toast({
@@ -204,6 +190,7 @@ const Suppliers = () => {
   const handleEdit = (supplier: Supplier) => {
     setFormData({
       name: supplier.name,
+      trade_name: supplier.trade_name || "",
       cnpj_cpf: supplier.cnpj_cpf || "",
       address: supplier.address || "",
       city: supplier.city || "",
@@ -250,6 +237,7 @@ const Suppliers = () => {
   const resetForm = () => {
     setFormData({
       name: "",
+      trade_name: "",
       cnpj_cpf: "",
       address: "",
       city: "",
@@ -306,6 +294,18 @@ const Suppliers = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Campo Matriz (somente leitura) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Matriz</Label>
+                      <Input 
+                        value={matrixName || 'Carregando...'} 
+                        disabled 
+                        className="bg-muted"
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cnpj_cpf">CNPJ</Label>
@@ -327,6 +327,16 @@ const Suppliers = () => {
                         placeholder="Nome da empresa"
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="trade_name">Nome Fantasia</Label>
+                    <Input
+                      id="trade_name"
+                      value={formData.trade_name}
+                      onChange={(e) => setFormData({ ...formData, trade_name: e.target.value })}
+                      placeholder="Nome fantasia da empresa"
+                    />
                   </div>
 
                    <div className="space-y-2">

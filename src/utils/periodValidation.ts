@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface PeriodBlock {
   id: string;
-  store_id: string;
+  matrix_id: string;
   year: number;
   month: number;
   block_type: 'competencia' | 'pagamento';
@@ -41,25 +41,25 @@ export const isPeriodBlocked = async (
 
     console.log('📅 Data processada:', { year, month });
 
-    // Buscar store_id do usuário
+    // Buscar matrix_id do usuário
     const { data: profile } = await supabase
       .from("profiles")
-      .select("store_id")
+      .select("matrix_id")
       .eq("id", (await supabase.auth.getUser()).data.user?.id)
       .single();
 
     console.log('👤 Profile do usuário:', profile);
 
-    if (!profile?.store_id) {
-      console.log('❌ Usuário sem store_id, não bloqueia');
-      return false; // Se não tem store_id, não bloqueia
+    if (!profile?.matrix_id) {
+      console.log('❌ Usuário sem matrix_id, não bloqueia');
+      return false; // Se não tem matrix_id, não bloqueia
     }
 
-    // Verificar se existe bloqueio para o período
+    // Verificar se existe bloqueio para o período na matriz do usuário
     const { data: blocks, error } = await supabase
       .from("period_blocks")
       .select("*")
-      .eq("store_id", profile.store_id)
+      .eq("matrix_id", profile.matrix_id)
       .eq("year", year)
       .eq("month", month)
       .eq("block_type", blockType);

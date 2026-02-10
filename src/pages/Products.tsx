@@ -7,14 +7,13 @@ import { ProductForm } from "@/components/ProductForm";
 import { ProductList } from "@/components/ProductList";
 import { UnitsModal } from "@/components/UnitsModal";
 import { useNavigate } from "react-router-dom";
-import { useProdutosPermissions } from "@/hooks/useProdutosPermissions";
+import { useCadastrosPermissions } from "@/hooks/useCadastrosPermissions";
 
 export default function Products() {
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("list");
   const navigate = useNavigate();
-  const { permissionLevel, loading, canEdit, canDelete } = useProdutosPermissions();
+  const { permissionLevel, loading, canEdit, canDelete } = useCadastrosPermissions();
 
   // Se for read-only, sempre mostrar lista
   const effectiveTab = !canEdit ? "list" : activeTab;
@@ -67,18 +66,14 @@ export default function Products() {
             <TabsContent value="register" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{editingProduct ? 'Editar' : 'Cadastrar Novo'} Produto</CardTitle>
+                  <CardTitle>Cadastrar Novo Produto</CardTitle>
                   <CardDescription>
-                    {editingProduct ? 'Edite os dados do produto.' : 'Preencha os dados do produto. O código será gerado automaticamente.'}
+                    Preencha os dados do produto. O código será gerado automaticamente.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ProductForm 
                     onUnitsModalOpen={() => setUnitsModalOpen(true)}
-                    editingProduct={editingProduct}
-                    onSaveSuccess={() => {
-                      setEditingProduct(null);
-                    }}
                   />
                 </CardContent>
               </Card>
@@ -87,10 +82,6 @@ export default function Products() {
 
           <TabsContent value="list" className="space-y-4">
             <ProductList 
-              onEditProduct={canEdit ? (product) => {
-                setEditingProduct(product);
-                setActiveTab("register");
-              } : undefined}
               canEdit={canEdit}
               canDelete={canDelete}
             />

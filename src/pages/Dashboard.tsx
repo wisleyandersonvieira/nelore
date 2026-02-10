@@ -1,50 +1,91 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Calculator, 
-  CreditCard, 
-  Users, 
-  Store, 
-  Package,
-  LogOut,
-  BarChart3,
-  Settings,
-  Database,
-  FileBarChart,
-  Beef
-} from "lucide-react";
-import { AccountsPayableModal } from "@/components/AccountsPayableModal";
-import { AccountsReceivableModal } from "@/components/AccountsReceivableModal";
-import { CashControlModal } from "@/components/CashControlModal";
-import { FinanceiroModal } from "@/components/FinanceiroModal";
-import { TransfersModal } from "@/components/TransfersModal";
-import FuncionariosModal from "@/components/FuncionariosModal";
-import { PeriodControlModal } from "@/components/PeriodControlModal";
+import { Bell } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import DashboardLayout from "@/components/DashboardLayout";
+import DashboardIndicators from "@/components/DashboardIndicators";
+
+interface PendingTask {
+  id: string;
+  title: string;
+}
+
+const POPUP_SHOWN_KEY = 'pendingTasksPopupShown';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
-  const [accountsReceivableOpen, setAccountsReceivableOpen] = useState(false);
-  const [cashControlOpen, setCashControlOpen] = useState(false);
-  const [financeiroOpen, setFinanceiroOpen] = useState(false);
-  const [funcionariosOpen, setFuncionariosOpen] = useState(false);
-  const [transfersOpen, setTransfersOpen] = useState(false);
-  const [periodControlOpen, setPeriodControlOpen] = useState(false);
+  const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
+  const [showPendingPopup, setShowPendingPopup] = useState(false);
   const navigate = useNavigate();
+  const hasShownPopupRef = useRef(false);
+
+  const fetchPendingTasks = async (userId: string) => {
+    try {
+      const { data: memberTasks } = await supabase
+        .from('task_members')
+        .select('task_id')
+        .eq('user_id', userId);
+
+      if (memberTasks && memberTasks.length > 0) {
+        const taskIds = memberTasks.map(mt => mt.task_id);
+        const { data: tasks } = await supabase
+          .from('tasks')
+          .select('id, title')
+          .in('id', taskIds)
+          .in('status', ['open', 'active']);
+
+        if (tasks) {
+          setPendingTasks(tasks);
+          return tasks.length;
+        }
+      }
+      setPendingTasks([]);
+      return 0;
+    } catch (error) {
+      console.error('Error fetching pending tasks:', error);
+      setPendingTasks([]);
+      return 0;
+    }
+  };
+
+  const showPopupIfNeeded = async (userId: string) => {
+    // Verificar se o popup já foi mostrado nesta sessão do navegador
+    const alreadyShown = sessionStorage.getItem(POPUP_SHOWN_KEY);
+    
+    if (alreadyShown || hasShownPopupRef.current) {
+      // Apenas atualizar as tarefas sem mostrar o popup
+      await fetchPendingTasks(userId);
+      return;
+    }
+
+    const count = await fetchPendingTasks(userId);
+    if (count > 0) {
+      setShowPendingPopup(true);
+      sessionStorage.setItem(POPUP_SHOWN_KEY, 'true');
+      hasShownPopupRef.current = true;
+    }
+  };
 
   useEffect(() => {
-    // Check current session
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
+        // Mostrar popup apenas no primeiro carregamento após login
+        await showPopupIfNeeded(session.user.id);
       } else {
+        // Limpar flag ao não ter sessão (logout)
+        sessionStorage.removeItem(POPUP_SHOWN_KEY);
         navigate("/auth");
       }
       setLoading(false);
@@ -52,12 +93,25 @@ const Dashboard = () => {
 
     getSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session?.user) {
           setUser(session.user);
-        } else {
+          
+          // Mostrar popup APENAS no evento SIGNED_IN real (não em TOKEN_REFRESHED ou visibilitychange)
+          if (event === 'SIGNED_IN') {
+            // Verificar se é um login genuíno (não apenas refresh de token)
+            const alreadyShown = sessionStorage.getItem(POPUP_SHOWN_KEY);
+            if (!alreadyShown && !hasShownPopupRef.current) {
+              setTimeout(async () => {
+                await showPopupIfNeeded(session.user.id);
+              }, 100);
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          // Limpar flag ao fazer logout
+          sessionStorage.removeItem(POPUP_SHOWN_KEY);
+          hasShownPopupRef.current = false;
           navigate("/auth");
         }
       }
@@ -65,10 +119,6 @@ const Dashboard = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
 
   if (loading) {
     return (
@@ -78,206 +128,36 @@ const Dashboard = () => {
     );
   }
 
-  const modules = [
-    {
-      id: "caixa",
-      title: "Controle de Caixa",
-      description: "Abertura, fechamento e movimentação do caixa",
-      icon: Calculator,
-      color: "bg-blue-500",
-    },
-    {
-      id: "financeiro",
-      title: "Financeiro",
-      description: "Contas a pagar e receber",
-      icon: CreditCard,
-      color: "bg-emerald-500",
-    },
-    {
-      id: "estoque",
-      title: "Estoque",
-      description: "Controle de estoque por categorias",
-      icon: Package,
-      color: "bg-amber-500",
-    },
-    {
-      id: "produtos",
-      title: "Produtos/Serviços",
-      description: "Cadastro e gestão de produtos e serviços",
-      icon: Package,
-      color: "bg-purple-500",
-    },
-    {
-      id: "cadastros",
-      title: "Cadastros",
-      description: "Fornecedores, lojas e plano de contas",
-      icon: Database,
-      color: "bg-orange-500",
-    },
-    {
-      id: "dre",
-      title: "DRE",
-      description: "Demonstrativo de Resultados do Exercício",
-      icon: FileBarChart,
-      color: "bg-teal-500",
-    },
-    {
-      id: "relatorios",
-      title: "Relatórios",
-      description: "Dashboards e relatórios financeiros",
-      icon: BarChart3,
-      color: "bg-indigo-500",
-    },
-    {
-      id: "funcionarios",
-      title: "Funcionários",
-      description: "Gestão de funcionários e funções",
-      icon: Users,
-      color: "bg-red-500",
-    },
-    {
-      id: "configuracoes",
-      title: "Configurações",
-      description: "Usuários, permissões e configurações",
-      icon: Settings,
-      color: "bg-gray-500",
-    },
-    {
-      id: "animais",
-      title: "Animais",
-      description: "Cadastro, pesagem e vacinação de animais",
-      icon: Beef,
-      color: "bg-lime-600",
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-green-700">Elite Sistemas</h1>
-            <p className="text-sm text-muted-foreground">Sistema para Gestão de Gado de Elite</p>
+    <DashboardLayout user={user} pendingTasks={pendingTasks}>
+      {/* Conteúdo do Dashboard */}
+      <DashboardIndicators />
+
+      {/* Popup de tarefas pendentes ao logar */}
+      <Dialog open={showPendingPopup} onOpenChange={setShowPendingPopup}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-destructive" />
+              Tarefas Pendentes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center">
+            <p className="text-lg">
+              Você possui <span className="font-bold text-destructive">{pendingTasks.length}</span> tarefa(s) pendente(s).
+            </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm">Olá, {user?.user_metadata?.name || user?.email}</span>
-            <Button onClick={handleSignOut} variant="outline" size="sm">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPendingPopup(false)}>
+              Fechar
             </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-
-        {/* Modules Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {modules.map((module) => {
-            const IconComponent = module.icon;
-            return (
-              <Card key={module.id} className="cursor-pointer hover:shadow-lg transition-shadow h-full flex flex-col">
-                <CardHeader className="pb-3 flex-1">
-                  <div className={`w-12 h-12 rounded-lg ${module.color} flex items-center justify-center mb-3`}>
-                    <IconComponent className="h-6 w-6 text-white" />
-                  </div>
-                  <CardTitle className="text-lg">{module.title}</CardTitle>
-                  <CardDescription>{module.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="mt-auto">
-                  <Button 
-                    className="w-full" 
-                    variant="outline"
-                     onClick={() => {
-                       if (module.id === "cadastros") {
-                         navigate("/cadastros");
-                       } else if (module.id === "configuracoes") {
-                         navigate("/users");
-                       } else if (module.id === "produtos") {
-                         navigate("/products");
-                       } else if (module.id === "dre") {
-                         navigate("/dre");
-                       } else if (module.id === "relatorios") {
-                         navigate("/reports");
-                       } else if (module.id === "estoque") {
-                         navigate("/stock");
-                       } else if (module.id === "financeiro") {
-                         setFinanceiroOpen(true);
-                        } else if (module.id === "funcionarios") {
-                          setFuncionariosOpen(true);
-                        } else if (module.id === "caixa") {
-                         setCashControlOpen(true);
-                       } else if (module.id === "animais") {
-                         navigate("/animais");
-                       }
-                     }}
-                  >
-                    Acessar
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-      </main>
-
-      {/* Account Modals */}
-      {financeiroOpen && (
-        <FinanceiroModal
-          open={financeiroOpen}
-          onOpenChange={setFinanceiroOpen}
-          onAccountsPayableOpen={() => setAccountsPayableOpen(true)}
-          onAccountsReceivableOpen={() => setAccountsReceivableOpen(true)}
-          onTransfersOpen={() => setTransfersOpen(true)}
-          onPeriodControlOpen={() => setPeriodControlOpen(true)}
-        />
-      )}
-
-      {accountsPayableOpen && (
-        <AccountsPayableModal 
-          open={accountsPayableOpen} 
-          onOpenChange={setAccountsPayableOpen} 
-        />
-      )}
-      
-      {accountsReceivableOpen && (
-        <AccountsReceivableModal 
-          open={accountsReceivableOpen} 
-          onOpenChange={setAccountsReceivableOpen} 
-        />
-      )}
-
-      {transfersOpen && (
-        <TransfersModal
-          open={transfersOpen}
-          onOpenChange={setTransfersOpen}
-        />
-      )}
-
-      {funcionariosOpen && (
-        <FuncionariosModal 
-          isOpen={funcionariosOpen} 
-          onClose={() => setFuncionariosOpen(false)} 
-        />
-      )}
-
-      {cashControlOpen && (
-        <CashControlModal 
-          open={cashControlOpen} 
-          onOpenChange={setCashControlOpen} 
-        />
-      )}
-
-      {periodControlOpen && (
-        <PeriodControlModal
-          open={periodControlOpen}
-          onOpenChange={setPeriodControlOpen}
-        />
-      )}
-    </div>
+            <Button onClick={() => { setShowPendingPopup(false); navigate('/tasks'); }}>
+              Ver Tarefas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
   );
 };
 

@@ -14,18 +14,22 @@ import { ptBR } from "date-fns/locale";
 
 import { supabase } from "@/integrations/supabase/client";
 
+const formatCurrency = (value: number) => {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
 const TurnoverReport = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [stores, setStores] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
-  const [selectedAccounts, setSelectedAccounts] = useState([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState([]);
+  const [reportData, setReportData] = useState<any[]>([]);
 
   // Buscar lojas
   useEffect(() => {
@@ -198,6 +202,61 @@ const TurnoverReport = () => {
     setSelectedAccounts(prev => prev.filter(id => id !== accountId));
   };
 
+  const fetchContasRecebidas = async (): Promise<Record<string, number>> => {
+    try {
+      // 1. Get faturamento subgroup IDs from system_parameters
+      const { data: params } = await supabase
+        .from('system_parameters')
+        .select('subgroup_id')
+        .in('parameter_key', ['venda_dinheiro', 'venda_cartao', 'venda_contas', 'venda_delivery']);
+
+      const subgroupIds = [...new Set((params || []).map(p => p.subgroup_id).filter(Boolean))] as string[];
+      if (subgroupIds.length === 0) return {};
+
+      // 2. Get product IDs that belong to those subgroups
+      const { data: products } = await supabase
+        .from('products')
+        .select('id')
+        .in('subgroup_id', subgroupIds);
+
+      const productIds = (products || []).map(p => p.id);
+      if (productIds.length === 0) return {};
+
+      // 3. Get accounts_receivable IDs for the selected store that have items with those products
+      const { data: items } = await supabase
+        .from('accounts_receivable_items')
+        .select('account_receivable_id')
+        .eq('store_id', selectedStore)
+        .in('product_id', productIds);
+
+      const receivableIds = [...new Set((items || []).map(i => i.account_receivable_id))];
+      if (receivableIds.length === 0) return {};
+
+      // 4. Get payments for those receivables, grouped by payment_date
+      let paymentQuery = supabase
+        .from('accounts_receivable_payments')
+        .select('payment_date, amount_paid')
+        .in('account_receivable_id', receivableIds);
+
+      if (startDate) paymentQuery = paymentQuery.gte('payment_date', startDate);
+      if (endDate) paymentQuery = paymentQuery.lte('payment_date', endDate);
+
+      const { data: payments } = await paymentQuery;
+
+      // 5. Group by date
+      const dateMap: Record<string, number> = {};
+      (payments || []).forEach(p => {
+        const date = p.payment_date;
+        dateMap[date] = (dateMap[date] || 0) + (p.amount_paid || 0);
+      });
+
+      return dateMap;
+    } catch (error) {
+      console.error('Erro ao buscar contas recebidas:', error);
+      return {};
+    }
+  };
+
   const generateReport = async () => {
     if (!selectedStore) {
       toast({
@@ -211,6 +270,7 @@ const TurnoverReport = () => {
     setLoading(true);
     
     try {
+      // Fetch cash control data and contas recebidas in parallel
       let query = supabase
         .from('cash_control')
         .select(`
@@ -235,56 +295,69 @@ const TurnoverReport = () => {
         query = query.lte('date', endDate);
       }
 
-      const { data, error } = await query;
+      const [{ data, error }, contasRecebidasMap] = await Promise.all([
+        query,
+        fetchContasRecebidas()
+      ]);
 
       if (error) throw error;
 
-      const processedData = (data || []).map(item => {
-        let dinheiro = item.faturamento_dinheiro || 0;
+      // Collect all dates (from cash_control and from contas recebidas)
+      const allDates = new Set<string>();
+      (data || []).forEach(item => allDates.add(item.date));
+      Object.keys(contasRecebidasMap).forEach(date => allDates.add(date));
+
+      const cashControlMap = new Map<string, any>();
+      (data || []).forEach(item => cashControlMap.set(item.date, item));
+
+      const processedData = Array.from(allDates).sort().map(date => {
+        const item = cashControlMap.get(date);
+        
+        let dinheiro = 0;
         let cartao = 0;
         let contas = 0;
         let delivery = 0;
 
-        // Se há contas selecionadas, filtrar apenas essas contas
-        if (selectedAccounts.length > 0) {
-          // Filtrar cartão
-          cartao = (item.cash_control_card_items || [])
-            .filter(cardItem => selectedAccounts.includes(cardItem.card_account_id))
-            .reduce((sum, cardItem) => sum + (cardItem.valor || 0), 0);
+        if (item) {
+          dinheiro = item.faturamento_dinheiro || 0;
 
-          // Filtrar contas correntes
-          contas = (item.cash_control_account_items || [])
-            .filter(accountItem => selectedAccounts.includes(accountItem.current_account_id))
-            .reduce((sum, accountItem) => sum + (accountItem.valor || 0), 0);
+          if (selectedAccounts.length > 0) {
+            cartao = (item.cash_control_card_items || [])
+              .filter((cardItem: any) => selectedAccounts.includes(cardItem.card_account_id))
+              .reduce((sum: number, cardItem: any) => sum + (cardItem.valor || 0), 0);
 
-          // Filtrar delivery
-          delivery = (item.cash_control_delivery_items || [])
-            .filter(deliveryItem => selectedAccounts.includes(deliveryItem.delivery_account_id))
-            .reduce((sum, deliveryItem) => sum + (deliveryItem.valor || 0), 0);
+            contas = (item.cash_control_account_items || [])
+              .filter((accountItem: any) => selectedAccounts.includes(accountItem.current_account_id))
+              .reduce((sum: number, accountItem: any) => sum + (accountItem.valor || 0), 0);
 
-          // Para dinheiro, verificar se alguma conta de caixa foi selecionada
-          const cashAccountSelected = selectedAccounts.some(accountId => 
-            accounts.find(acc => acc.id === accountId && acc.type === 'cash')
-          );
-          
-          if (!cashAccountSelected) {
-            dinheiro = 0;
+            delivery = (item.cash_control_delivery_items || [])
+              .filter((deliveryItem: any) => selectedAccounts.includes(deliveryItem.delivery_account_id))
+              .reduce((sum: number, deliveryItem: any) => sum + (deliveryItem.valor || 0), 0);
+
+            const cashAccountSelected = selectedAccounts.some(accountId => 
+              accounts.find(acc => acc.id === accountId && acc.type === 'cash')
+            );
+            
+            if (!cashAccountSelected) {
+              dinheiro = 0;
+            }
+          } else {
+            cartao = item.faturamento_cartao || 0;
+            contas = item.faturamento_conta || 0;
+            delivery = item.faturamento_delivery || 0;
           }
-        } else {
-          // Se nenhuma conta selecionada, usar os valores totais
-          cartao = item.faturamento_cartao || 0;
-          contas = item.faturamento_conta || 0;
-          delivery = item.faturamento_delivery || 0;
         }
 
-        const total = dinheiro + cartao + contas + delivery;
+        const contasRecebidas = contasRecebidasMap[date] || 0;
+        const total = dinheiro + cartao + contas + delivery + contasRecebidas;
 
         return {
-          date: item.date,
+          date,
           dinheiro,
           cartao,
           contas,
           delivery,
+          contasRecebidas,
           total
         };
       });
@@ -309,9 +382,10 @@ const TurnoverReport = () => {
         cartao: acc.cartao + row.cartao,
         contas: acc.contas + row.contas,
         delivery: acc.delivery + row.delivery,
+        contasRecebidas: acc.contasRecebidas + row.contasRecebidas,
         total: acc.total + row.total
       }),
-      { dinheiro: 0, cartao: 0, contas: 0, delivery: 0, total: 0 }
+      { dinheiro: 0, cartao: 0, contas: 0, delivery: 0, contasRecebidas: 0, total: 0 }
     );
   };
 
@@ -322,7 +396,7 @@ const TurnoverReport = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center space-x-4">
-          <Button onClick={() => navigate("/reports")} variant="outline" size="sm">
+          <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
@@ -458,6 +532,7 @@ const TurnoverReport = () => {
                       <TableHead className="text-right">Cartão</TableHead>
                       <TableHead className="text-right">Contas</TableHead>
                       <TableHead className="text-right">Delivery</TableHead>
+                      <TableHead className="text-right">Contas Recebidas</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -468,19 +543,22 @@ const TurnoverReport = () => {
                           {format(parseISO(row.date), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {row.dinheiro.toFixed(2)}
+                          {formatCurrency(row.dinheiro)}
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {row.cartao.toFixed(2)}
+                          {formatCurrency(row.cartao)}
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {row.contas.toFixed(2)}
+                          {formatCurrency(row.contas)}
                         </TableCell>
                         <TableCell className="text-right">
-                          R$ {row.delivery.toFixed(2)}
+                          {formatCurrency(row.delivery)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(row.contasRecebidas)}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                          R$ {row.total.toFixed(2)}
+                          {formatCurrency(row.total)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -488,19 +566,22 @@ const TurnoverReport = () => {
                     <TableRow className="bg-muted/50 font-semibold">
                       <TableCell className="font-bold">TOTAL</TableCell>
                       <TableCell className="text-right font-bold">
-                        R$ {totals.dinheiro.toFixed(2)}
+                        {formatCurrency(totals.dinheiro)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        R$ {totals.cartao.toFixed(2)}
+                        {formatCurrency(totals.cartao)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        R$ {totals.contas.toFixed(2)}
+                        {formatCurrency(totals.contas)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        R$ {totals.delivery.toFixed(2)}
+                        {formatCurrency(totals.delivery)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        R$ {totals.total.toFixed(2)}
+                        {formatCurrency(totals.contasRecebidas)}
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
+                        {formatCurrency(totals.total)}
                       </TableCell>
                     </TableRow>
                   </TableBody>
