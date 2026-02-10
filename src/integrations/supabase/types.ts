@@ -71,6 +71,7 @@ export type Database = {
           supplier_id: string | null
           total_amount: number | null
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           account_id?: string | null
@@ -93,6 +94,7 @@ export type Database = {
           supplier_id?: string | null
           total_amount?: number | null
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           account_id?: string | null
@@ -115,6 +117,7 @@ export type Database = {
           supplier_id?: string | null
           total_amount?: number | null
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -150,6 +153,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1401,7 +1411,22 @@ export type Database = {
           updated_at?: string
           valor?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cash_control_cash_items_cash_account_id_fkey"
+            columns: ["cash_account_id"]
+            isOneToOne: false
+            referencedRelation: "cash_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_control_cash_items_cash_control_id_fkey"
+            columns: ["cash_control_id"]
+            isOneToOne: false
+            referencedRelation: "cash_control"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cash_control_delivery_items: {
         Row: {
@@ -1773,6 +1798,33 @@ export type Database = {
         }
         Relationships: []
       }
+      document_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dre_entries: {
         Row: {
           created_at: string
@@ -1978,6 +2030,7 @@ export type Database = {
           file_name: string
           file_path: string
           id: string
+          is_active: boolean
           uploaded_at: string
           uploaded_by: string
         }
@@ -1986,6 +2039,7 @@ export type Database = {
           file_name: string
           file_path: string
           id?: string
+          is_active?: boolean
           uploaded_at?: string
           uploaded_by: string
         }
@@ -1994,6 +2048,7 @@ export type Database = {
           file_name?: string
           file_path?: string
           id?: string
+          is_active?: boolean
           uploaded_at?: string
           uploaded_by?: string
         }
@@ -2117,6 +2172,7 @@ export type Database = {
           gender: string | null
           id: string
           is_active: boolean
+          is_registered: boolean
           job_function_id: string | null
           marital_status: string | null
           name: string
@@ -2139,6 +2195,7 @@ export type Database = {
           gender?: string | null
           id?: string
           is_active?: boolean
+          is_registered?: boolean
           job_function_id?: string | null
           marital_status?: string | null
           name: string
@@ -2161,6 +2218,7 @@ export type Database = {
           gender?: string | null
           id?: string
           is_active?: boolean
+          is_registered?: boolean
           job_function_id?: string | null
           marital_status?: string | null
           name?: string
@@ -2352,6 +2410,154 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      matrices: {
+        Row: {
+          address: string | null
+          city: string | null
+          cnpj: string | null
+          code: number
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          code?: number
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          code?: number
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      partner_transactions: {
+        Row: {
+          account_id: string
+          account_type: string
+          amount: number
+          competence_date: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          partner_id: string
+          payment_date: string
+          store_id: string
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_type: string
+          amount: number
+          competence_date: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          partner_id: string
+          payment_date: string
+          store_id: string
+          transaction_type: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_type?: string
+          amount?: number
+          competence_date?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          partner_id?: string
+          payment_date?: string
+          store_id?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_transactions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_transactions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partners: {
+        Row: {
+          birth_date: string | null
+          cpf: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          birth_date?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          birth_date?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       period_blocks: {
         Row: {
@@ -2649,6 +2855,7 @@ export type Database = {
           email: string
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           profile_id: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -2660,6 +2867,7 @@ export type Database = {
           email: string
           id: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           profile_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -2671,6 +2879,7 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           profile_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -2678,6 +2887,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_profile_id_fkey"
             columns: ["profile_id"]
@@ -2765,6 +2981,96 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      store_goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          goal_value: number
+          id: string
+          month: number
+          store_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          goal_value?: number
+          id?: string
+          month: number
+          store_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          goal_value?: number
+          id?: string
+          month?: number
+          store_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_goals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_partners: {
+        Row: {
+          created_at: string
+          id: string
+          partner_id: string
+          percentage: number
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          partner_id: string
+          percentage?: number
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          partner_id?: string
+          percentage?: number
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_partners_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_partners_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stores: {
         Row: {
@@ -2909,6 +3215,335 @@ export type Database = {
             columns: ["subgroup_id"]
             isOneToOne: false
             referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_activities: {
+        Row: {
+          action_description: string
+          action_type: string
+          created_at: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          action_description: string
+          action_type: string
+          created_at?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          action_description?: string
+          action_type?: string
+          created_at?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_activities_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          task_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          task_id: string
+          uploaded_by: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          task_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_checklist_items: {
+        Row: {
+          created_at: string
+          id: string
+          is_completed: boolean
+          position_order: number
+          task_id: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          position_order?: number
+          task_id: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          position_order?: number
+          task_id?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_columns: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          position_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          position_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          position_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      task_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_members: {
+        Row: {
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_members_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_stores: {
+        Row: {
+          created_at: string
+          id: string
+          store_id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          store_id: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          store_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_stores_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          column_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          id: string
+          position_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          column_id: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          position_order?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          column_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          position_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "task_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3242,6 +3877,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_task: { Args: { p_task_id: string }; Returns: boolean }
       get_next_animal_batch_code: {
         Args: { store_uuid: string }
         Returns: number
@@ -3264,11 +3900,30 @@ export type Database = {
       get_next_third_party_farm_code:
         | { Args: never; Returns: number }
         | { Args: { store_uuid: string }; Returns: number }
+      get_store_members: {
+        Args: { store_ids: string[] }
+        Returns: {
+          user_id: string
+          user_name: string
+        }[]
+      }
+      get_user_matrix_id: { Args: never; Returns: string }
       get_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
       get_user_store_id: { Args: never; Returns: string }
+      has_cadastros_write_permission: { Args: never; Returns: boolean }
+      user_can_access_task: { Args: { p_task_id: string }; Returns: boolean }
+      user_can_access_task_v2: { Args: { p_task_id: string }; Returns: boolean }
+      user_has_access_to_account_stores: {
+        Args: { p_account_id: string; p_junction_table: string }
+        Returns: boolean
+      }
+      user_has_access_to_store: {
+        Args: { p_store_id: string }
+        Returns: boolean
+      }
       user_has_permission: {
         Args: {
           module_name: string
@@ -3280,7 +3935,7 @@ export type Database = {
     Enums: {
       account_type: "receita" | "despesa" | "ativo" | "passivo"
       block_type: "competencia" | "pagamento"
-      permission_type: "read" | "write" | "admin"
+      permission_type: "read" | "write" | "admin" | "disabled"
       transaction_type: "entrada" | "saida"
       user_role: "admin" | "manager" | "operator" | "viewer"
     }
@@ -3412,7 +4067,7 @@ export const Constants = {
     Enums: {
       account_type: ["receita", "despesa", "ativo", "passivo"],
       block_type: ["competencia", "pagamento"],
-      permission_type: ["read", "write", "admin"],
+      permission_type: ["read", "write", "admin", "disabled"],
       transaction_type: ["entrada", "saida"],
       user_role: ["admin", "manager", "operator", "viewer"],
     },
