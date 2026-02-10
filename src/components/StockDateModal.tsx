@@ -14,9 +14,10 @@ interface StockDateModalProps {
   month: number;
   year: number;
   storeId: string;
+  canEdit?: boolean;
 }
 
-export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: StockDateModalProps) => {
+export const StockDateModal = ({ open, onOpenChange, month, year, storeId, canEdit = true }: StockDateModalProps) => {
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit' | 'create'>('create');
   const [hasStock, setHasStock] = useState(false);
@@ -108,9 +109,9 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">
               Controle de Estoque - {monthNames[month - 1]} {year}
             </DialogTitle>
           </DialogHeader>
@@ -120,39 +121,41 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-              {/* Cadastrar Estoque */}
-              <Card 
-                className={`transition-all ${
-                  hasStock || periodBlocked
-                    ? 'opacity-50 cursor-not-allowed bg-muted' 
-                    : 'cursor-pointer hover:shadow-lg bg-green-50 border-green-200'
-                }`}
-                onClick={hasStock || periodBlocked ? undefined : () => handleAction('create')}
-              >
-                <CardHeader className="text-center">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
-                    hasStock || periodBlocked ? 'bg-gray-400' : 'bg-green-500'
-                  }`}>
-                    <Plus className="h-6 w-6 text-white" />
-                  </div>
-                  <CardTitle className={`text-lg ${hasStock || periodBlocked ? 'text-muted-foreground' : ''}`}>
-                    Cadastrar Estoque
-                  </CardTitle>
-                  <CardDescription>
-                    {periodBlocked ? 'Período bloqueado' : hasStock ? 'Estoque já cadastrado' : 'Criar novo registro de estoque'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    className="w-full" 
-                    variant="outline" 
-                    disabled={hasStock || periodBlocked}
-                  >
-                    Cadastrar
-                  </Button>
-                </CardContent>
-              </Card>
+            <div className={`grid grid-cols-1 ${canEdit ? 'sm:grid-cols-3' : 'sm:grid-cols-1 max-w-sm mx-auto'} gap-3 sm:gap-4 py-4`}>
+              {/* Cadastrar Estoque - Only show if canEdit */}
+              {canEdit && (
+                <Card 
+                  className={`transition-all ${
+                    hasStock || periodBlocked
+                      ? 'opacity-50 cursor-not-allowed bg-muted' 
+                      : 'cursor-pointer hover:shadow-lg bg-green-50 border-green-200'
+                  }`}
+                  onClick={hasStock || periodBlocked ? undefined : () => handleAction('create')}
+                >
+                  <CardHeader className="text-center p-3 sm:p-6">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
+                      hasStock || periodBlocked ? 'bg-gray-400' : 'bg-green-500'
+                    }`}>
+                      <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                    </div>
+                    <CardTitle className={`text-sm sm:text-lg ${hasStock || periodBlocked ? 'text-muted-foreground' : ''}`}>
+                      Cadastrar Estoque
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      {periodBlocked ? 'Período bloqueado' : hasStock ? 'Estoque já cadastrado' : 'Criar novo registro de estoque'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <Button 
+                      className="w-full text-xs sm:text-sm" 
+                      variant="outline" 
+                      disabled={hasStock || periodBlocked}
+                    >
+                      Cadastrar
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Visualizar Estoque */}
               <Card 
@@ -163,22 +166,22 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
                 }`}
                 onClick={hasStock ? () => handleAction('view') : undefined}
               >
-                <CardHeader className="text-center">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
+                <CardHeader className="text-center p-3 sm:p-6">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
                     hasStock ? 'bg-blue-500' : 'bg-gray-400'
                   }`}>
-                    <Eye className="h-6 w-6 text-white" />
+                    <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
-                  <CardTitle className={`text-lg ${!hasStock ? 'text-muted-foreground' : ''}`}>
+                  <CardTitle className={`text-sm sm:text-lg ${!hasStock ? 'text-muted-foreground' : ''}`}>
                     Visualizar Estoque
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">
                     {hasStock ? 'Ver registros existentes' : 'Nenhum estoque cadastrado'}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                   <Button 
-                    className="w-full" 
+                    className="w-full text-xs sm:text-sm" 
                     variant="outline" 
                     disabled={!hasStock}
                   >
@@ -187,48 +190,52 @@ export const StockDateModal = ({ open, onOpenChange, month, year, storeId }: Sto
                 </CardContent>
               </Card>
 
-              {/* Editar Estoque */}
-              <Card 
-                className={`transition-all ${
-                  hasStock && !periodBlocked
-                    ? 'cursor-pointer hover:shadow-lg bg-green-50 border-green-200' 
-                    : 'opacity-50 cursor-not-allowed bg-muted'
-                }`}
-                onClick={hasStock && !periodBlocked ? () => handleAction('edit') : undefined}
-              >
-                <CardHeader className="text-center">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
-                    hasStock && !periodBlocked ? 'bg-yellow-500' : 'bg-gray-400'
-                  }`}>
-                    <Edit className="h-6 w-6 text-white" />
-                  </div>
-                  <CardTitle className={`text-lg ${!hasStock || periodBlocked ? 'text-muted-foreground' : ''}`}>
-                    Editar Estoque
-                  </CardTitle>
-                  <CardDescription>
-                    {periodBlocked ? 'Período bloqueado' : hasStock ? 'Modificar registros existentes' : 'Nenhum estoque cadastrado'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    className="w-full" 
-                    variant="outline" 
-                    disabled={!hasStock || periodBlocked}
-                  >
-                    Editar
-                  </Button>
-                </CardContent>
-              </Card>
+              {/* Editar Estoque - Only show if canEdit */}
+              {canEdit && (
+                <Card 
+                  className={`transition-all ${
+                    hasStock && !periodBlocked
+                      ? 'cursor-pointer hover:shadow-lg bg-green-50 border-green-200' 
+                      : 'opacity-50 cursor-not-allowed bg-muted'
+                  }`}
+                  onClick={hasStock && !periodBlocked ? () => handleAction('edit') : undefined}
+                >
+                  <CardHeader className="text-center p-3 sm:p-6">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
+                      hasStock && !periodBlocked ? 'bg-yellow-500' : 'bg-gray-400'
+                    }`}>
+                      <Edit className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                    </div>
+                    <CardTitle className={`text-sm sm:text-lg ${!hasStock || periodBlocked ? 'text-muted-foreground' : ''}`}>
+                      Editar Estoque
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      {periodBlocked ? 'Período bloqueado' : hasStock ? 'Modificar registros existentes' : 'Nenhum estoque cadastrado'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                    <Button 
+                      className="w-full text-xs sm:text-sm" 
+                      variant="outline" 
+                      disabled={!hasStock || periodBlocked}
+                    >
+                      Editar
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 
           <div className="mt-4 p-4 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground">
-              {periodBlocked 
-                ? `O período ${monthNames[month - 1]} ${year} está bloqueado para operações de estoque. Apenas visualização é permitida.`
-                : hasStock 
-                  ? `Estoque já cadastrado para ${monthNames[month - 1]} ${year}. Você pode visualizar ou editar os dados existentes.`
-                  : `Selecione "Cadastrar Estoque" para criar um novo registro para ${monthNames[month - 1]} ${year}.`
+              {!canEdit
+                ? `Você possui permissão apenas para visualização do estoque de ${monthNames[month - 1]} ${year}.`
+                : periodBlocked 
+                  ? `O período ${monthNames[month - 1]} ${year} está bloqueado para operações de estoque. Apenas visualização é permitida.`
+                  : hasStock 
+                    ? `Estoque já cadastrado para ${monthNames[month - 1]} ${year}. Você pode visualizar ou editar os dados existentes.`
+                    : `Selecione "Cadastrar Estoque" para criar um novo registro para ${monthNames[month - 1]} ${year}.`
               }
             </p>
           </div>

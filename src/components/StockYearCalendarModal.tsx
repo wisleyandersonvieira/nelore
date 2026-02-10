@@ -10,9 +10,10 @@ interface StockYearCalendarModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   storeId: string;
+  canEdit?: boolean;
 }
 
-export const StockYearCalendarModal = ({ open, onOpenChange, storeId }: StockYearCalendarModalProps) => {
+export const StockYearCalendarModal = ({ open, onOpenChange, storeId, canEdit = true }: StockYearCalendarModalProps) => {
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -185,6 +186,7 @@ export const StockYearCalendarModal = ({ open, onOpenChange, storeId }: StockYea
           month={selectedMonth.month}
           year={selectedMonth.year}
           storeId={storeId}
+          canEdit={canEdit}
         />
       )}
     </>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Edit, Ban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface Unit {
   id: string;
@@ -17,6 +18,11 @@ interface Unit {
   symbol: string;
   is_active: boolean;
   created_at: string;
+  matrix_id: string;
+  matrix?: {
+    name: string;
+    code: number;
+  };
 }
 
 interface UnitsModalProps {
@@ -37,6 +43,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
     symbol: ""
   });
   const { toast } = useToast();
+  const { matrixId, matrixName, matrixCode, isLoading: matrixLoading } = useUserMatrix();
 
   useEffect(() => {
     if (open || inlineMode) {
@@ -49,7 +56,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
     try {
       const { data, error } = await supabase
         .from("units_of_measure")
-        .select("id, name, symbol, is_active, created_at")
+        .select("id, name, symbol, is_active, created_at, matrix_id, matrix:matrices!matrix_id(name, code)")
         .order("name");
 
       if (error) throw error;
@@ -107,12 +114,22 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
         toast({ title: "Sucesso", description: "Unidade atualizada com sucesso!" });
       } else {
         // Criar nova unidade
+        if (!matrixId) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Matriz do usuário não encontrada.",
+          });
+          return;
+        }
+        
         const { error } = await supabase
           .from("units_of_measure")
           .insert({
             name: formData.name,
             symbol: formData.symbol.toUpperCase(),
-            is_active: true
+            is_active: true,
+            matrix_id: matrixId
           });
 
         if (error) throw error;
@@ -223,7 +240,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
                 <Input
@@ -243,9 +260,19 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                   maxLength={10}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="matrix">Matriz</Label>
+                <Input
+                  id="matrix"
+                  value={matrixLoading ? "Carregando..." : matrixCode && matrixName ? `${matrixCode} - ${matrixName}` : ""}
+                  readOnly
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={loading}>
+              <Button onClick={handleSave} disabled={loading || matrixLoading}>
                 {editingUnit ? "Atualizar" : "Salvar"}
               </Button>
               <Button variant="outline" onClick={resetForm}>
@@ -266,9 +293,10 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
           <Table>
             <TableHeader className="bg-card">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[35%] h-8 py-1">Nome</TableHead>
-                <TableHead className="w-[20%] h-8 py-1">Símbolo</TableHead>
-                <TableHead className="w-[20%] h-8 py-1">Status</TableHead>
+                <TableHead className="w-[25%] h-8 py-1">Nome</TableHead>
+                <TableHead className="w-[15%] h-8 py-1">Símbolo</TableHead>
+                <TableHead className="w-[20%] h-8 py-1">Matriz</TableHead>
+                <TableHead className="w-[15%] h-8 py-1">Status</TableHead>
                 <TableHead className="text-right w-[25%] h-8 py-1">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -279,22 +307,25 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center h-10">
+                    <TableCell colSpan={5} className="text-center h-10">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : units.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground h-10">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground h-10">
                       Nenhuma unidade encontrada
                     </TableCell>
                   </TableRow>
                 ) : (
                   units.map((unit) => (
                     <TableRow key={unit.id} className="h-8">
-                      <TableCell className="font-medium py-1 w-[35%]">{unit.name}</TableCell>
-                      <TableCell className="font-mono py-1 w-[20%]">{unit.symbol}</TableCell>
+                      <TableCell className="font-medium py-1 w-[25%]">{unit.name}</TableCell>
+                      <TableCell className="font-mono py-1 w-[15%]">{unit.symbol}</TableCell>
                       <TableCell className="py-1 w-[20%]">
+                        {unit.matrix ? `${unit.matrix.code} - ${unit.matrix.name}` : "-"}
+                      </TableCell>
+                      <TableCell className="py-1 w-[15%]">
                         <Badge variant={unit.is_active ? "default" : "secondary"} className="text-xs">
                           {unit.is_active ? "Ativo" : "Inativo"}
                         </Badge>

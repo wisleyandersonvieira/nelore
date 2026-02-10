@@ -3,11 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Package, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface SubgroupParameterModalProps {
   open: boolean;
@@ -33,21 +34,41 @@ export const SubgroupParameterModal = ({ open, onOpenChange, parameter }: Subgro
   const [currentSubgroupId, setCurrentSubgroupId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { matrixId } = useUserMatrix();
 
   useEffect(() => {
-    if (open && parameter) {
+    if (open && parameter && matrixId) {
       fetchSubgroups();
       loadCurrentParameter();
     }
-  }, [open, parameter]);
+  }, [open, parameter, matrixId]);
 
   const fetchSubgroups = async () => {
+    if (!matrixId) return;
+
     try {
-      // Buscar subgrupos (itens com parent_id)
+      // First get the brand_id from the matrix
+      const { data: matrixData } = await supabase
+        .from('matrices')
+        .select('brand_id')
+        .eq('id', matrixId)
+        .single();
+
+      if (!matrixData?.brand_id) {
+        toast({
+          title: "Erro",
+          description: "Matriz não possui marca vinculada",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Buscar subgrupos (itens com parent_id) filtered by brand
       const { data: subgroupsData, error } = await supabase
         .from('account_groups')
         .select('id, name, parent_id')
         .not('parent_id', 'is', null)
+        .eq('brand_id', matrixData.brand_id)
         .order('name');
 
       if (error) throw error;
@@ -110,7 +131,7 @@ export const SubgroupParameterModal = ({ open, onOpenChange, parameter }: Subgro
   };
 
   const handleSave = async () => {
-    if (!parameter || !selectedSubgroupId) {
+    if (!parameter || !selectedSubgroupId || !matrixId) {
       toast({
         title: "Erro",
         description: "Selecione um subgrupo para continuar",
@@ -144,7 +165,8 @@ export const SubgroupParameterModal = ({ open, onOpenChange, parameter }: Subgro
           .from('system_parameters')
           .insert({
             parameter_key: parameter.id,
-            subgroup_id: selectedSubgroupId
+            subgroup_id: selectedSubgroupId,
+            matrix_id: matrixId
           });
 
         if (insertError) throw insertError;

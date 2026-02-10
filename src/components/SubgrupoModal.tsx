@@ -15,14 +15,25 @@ interface Grupo {
   id: string;
   name: string;
   account_type: string;
+  brand_id: string | null;
+}
+
+interface Brand {
+  id: string;
+  name: string;
+  authorized_subgroup_users: string[] | null;
 }
 
 interface Subgrupo {
   id: string;
   name: string;
   parent_id: string;
+  brand_id: string | null;
   created_at: string;
   parent?: {
+    name: string;
+  };
+  brand?: {
     name: string;
   };
 }
@@ -40,7 +51,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   const [loading, setLoading] = useState(false);
   const [editingSubgrupo, setEditingSubgrupo] = useState<Subgrupo | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [sortBy, setSortBy] = useState<'name' | 'parent' | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'parent' | 'brand' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filterGroup, setFilterGroup] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -48,21 +59,124 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     name: "",
     parent_id: ""
   });
+  
+  // Brand authorization state
+  const [userBrand, setUserBrand] = useState<Brand | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  
   const { toast } = useToast();
 
+  // Fetch user's brand and check authorization
   useEffect(() => {
     if (open) {
-      fetchGrupos();
-      fetchSubgrupos();
+      fetchUserBrandAndAuthorization();
     }
   }, [open]);
 
-  const fetchGrupos = async () => {
+  useEffect(() => {
+    if (open && userBrand) {
+      fetchGrupos();
+      fetchSubgrupos();
+    }
+  }, [open, userBrand]);
+
+  const fetchUserBrandAndAuthorization = async () => {
+    setAuthLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Usuário não autenticado.",
+        });
+        setAuthLoading(false);
+        return;
+      }
+
+      // Get user's profile to find matrix_id
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("matrix_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile?.matrix_id) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível encontrar a matriz do usuário.",
+        });
+        setAuthLoading(false);
+        return;
+      }
+
+      // Get matrix to find brand_id
+      const { data: matrix, error: matrixError } = await supabase
+        .from("matrices")
+        .select("brand_id")
+        .eq("id", profile.matrix_id)
+        .single();
+
+      if (matrixError || !matrix?.brand_id) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível encontrar a marca vinculada à matriz.",
+        });
+        setAuthLoading(false);
+        return;
+      }
+
+      // Get brand details using security definer function to bypass RLS
+      const { data: brandData, error: brandError } = await supabase
+        .rpc("get_brand_by_id", { p_brand_id: matrix.brand_id });
+      
+      const brand = brandData?.[0];
+
+      if (brandError || !brand) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível carregar os dados da marca.",
+        });
+        setAuthLoading(false);
+        return;
+      }
+
+      setUserBrand({
+        id: brand.id,
+        name: brand.name,
+        authorized_subgroup_users: brand.authorized_subgroup_users
+      });
+
+      // Check if user is authorized to create/edit subgroups
+      const authorized = brand.authorized_subgroup_users?.includes(user.id) || false;
+      setIsAuthorized(authorized);
+
+    } catch (error) {
+      console.error("Error fetching brand authorization:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao verificar autorização.",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const fetchGrupos = async () => {
+    if (!userBrand) return;
+    
+    try {
+      // Fetch only groups linked to user's brand
       const { data, error } = await supabase
         .from("account_groups")
-        .select("id, name, account_type")
-        .is("parent_id", null) // Apenas grupos principais
+        .select("id, name, account_type, brand_id")
+        .is("parent_id", null)
+        .eq("brand_id", userBrand.id)
         .order("name");
 
       if (error) throw error;
@@ -77,17 +191,21 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   };
 
   const fetchSubgrupos = async () => {
+    if (!userBrand) return;
+    
     setLoading(true);
     try {
+      // Fetch only subgroups linked to user's brand
       const { data: subgruposData, error } = await supabase
         .from("account_groups")
-        .select("id, name, parent_id, created_at")
-        .not("parent_id", "is", null) // Apenas subgrupos
+        .select("id, name, parent_id, brand_id, created_at")
+        .not("parent_id", "is", null)
+        .eq("brand_id", userBrand.id)
         .order("name");
 
       if (error) throw error;
 
-      // Buscar os nomes dos grupos pais
+      // Fetch parent group names and brand names
       if (subgruposData && subgruposData.length > 0) {
         const parentIds = [...new Set(subgruposData.map(s => s.parent_id))];
         const { data: gruposData } = await supabase
@@ -95,10 +213,11 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
           .select("id, name")
           .in("id", parentIds);
 
-        // Combinar os dados
+        // Combine data with parent names and brand name
         const subgruposComGrupo = subgruposData.map(subgrupo => ({
           ...subgrupo,
-          parent: gruposData?.find(g => g.id === subgrupo.parent_id)
+          parent: gruposData?.find(g => g.id === subgrupo.parent_id),
+          brand: { name: userBrand.name }
         }));
 
         setSubgrupos(subgruposComGrupo);
@@ -126,7 +245,16 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
       return;
     }
 
-    // Verificar se já existe um subgrupo com esse nome
+    if (!userBrand) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Marca não identificada.",
+      });
+      return;
+    }
+
+    // Check name uniqueness within the brand
     const nameExists = subgrupos.some(
       subgrupo => subgrupo.name.toLowerCase() === formData.name.toLowerCase() &&
       subgrupo.id !== editingSubgrupo?.id
@@ -143,7 +271,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
 
     setLoading(true);
     try {
-      // Buscar o grupo pai para obter o account_type
+      // Get parent group's account_type
       const { data: grupoData, error: grupoError } = await supabase
         .from("account_groups")
         .select("account_type")
@@ -153,27 +281,29 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
       if (grupoError) throw grupoError;
 
       if (editingSubgrupo) {
-        // Editar subgrupo existente
+        // Update existing subgroup
         const { error } = await supabase
           .from("account_groups")
           .update({
             name: formData.name,
             parent_id: formData.parent_id,
             account_type: grupoData.account_type,
+            brand_id: userBrand.id,
           })
           .eq("id", editingSubgrupo.id);
 
         if (error) throw error;
         toast({ title: "Sucesso", description: "Subgrupo atualizado com sucesso!" });
       } else {
-        // Criar novo subgrupo
+        // Create new subgroup with brand_id
         const { error } = await supabase
           .from("account_groups")
           .insert({
             name: formData.name,
             parent_id: formData.parent_id,
             account_type: grupoData.account_type,
-            code: `${formData.parent_id}-${Date.now()}`, // Código temporário único
+            brand_id: userBrand.id,
+            code: `${formData.parent_id}-${Date.now()}`,
           });
 
         if (error) throw error;
@@ -205,9 +335,19 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   };
 
   const handleDelete = async (subgrupo: Subgrupo) => {
+    // Verificar autorização do usuário
+    if (!isAuthorized) {
+      toast({
+        variant: "destructive",
+        title: "Não autorizado",
+        description: "Você não tem permissão para excluir subgrupos nesta marca.",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Verificar se existem contas a pagar vinculadas (através do chart_of_accounts)
+      // Check for linked chart_of_accounts
       const { data: chartAccounts, error: chartError } = await supabase
         .from("chart_of_accounts")
         .select("id")
@@ -217,7 +357,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
       if (chartError) throw chartError;
 
       if (chartAccounts && chartAccounts.length > 0) {
-        // Verificar se alguma conta está vinculada a contas a pagar
+        // Check accounts_payable
         const { data: payables, error: payablesError } = await supabase
           .from("accounts_payable")
           .select("id")
@@ -236,7 +376,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
           return;
         }
 
-        // Verificar se alguma conta está vinculada a contas a receber
+        // Check accounts_receivable
         const { data: receivables, error: receivablesError } = await supabase
           .from("accounts_receivable")
           .select("id")
@@ -256,7 +396,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
         }
       }
 
-      // Verificar se existem produtos vinculados ao subgrupo
+      // Check for linked products
       const { data: products, error: productsError } = await supabase
         .from("products")
         .select("id")
@@ -270,6 +410,31 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
           variant: "destructive",
           title: "Exclusão não permitida",
           description: "Este subgrupo possui produtos vinculados e não pode ser excluído.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se o subgrupo está sendo usado na estrutura do DRE
+      const { data: dreItems, error: dreError } = await supabase
+        .from("dre_structure_items")
+        .select(`
+          id, 
+          name,
+          dre_structures!inner(name)
+        `)
+        .eq("account_group_id", subgrupo.id)
+        .limit(3);
+
+      if (dreError) throw dreError;
+
+      if (dreItems && dreItems.length > 0) {
+        const dreItemNames = dreItems.map(item => `"${item.name}" (${(item.dre_structures as any).name})`).join(", ");
+        
+        toast({
+          variant: "destructive",
+          title: "Não é possível excluir",
+          description: `Este subgrupo está sendo usado na estrutura DRE: ${dreItemNames}. Remova essas referências antes de excluir o subgrupo.`,
         });
         setLoading(false);
         return;
@@ -300,7 +465,6 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   };
 
   const handleToggleStatus = async (subgrupo: Subgrupo) => {
-    // Funcionalidade removida pois a tabela não tem campo is_active
     toast({
       variant: "destructive",
       title: "Funcionalidade não disponível",
@@ -308,7 +472,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     });
   };
 
-  const handleSort = (field: 'name' | 'parent') => {
+  const handleSort = (field: 'name' | 'parent' | 'brand') => {
     if (sortBy === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -317,7 +481,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     }
   };
 
-  // Filtrar e ordenar subgrupos
+  // Filter and sort subgroups
   const filteredSubgrupos = subgrupos.filter((subgrupo) => {
     const matchesSearch = searchTerm === "" || 
       subgrupo.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -339,6 +503,9 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     } else if (sortBy === 'parent') {
       aValue = (a.parent?.name || '').toLowerCase();
       bValue = (b.parent?.name || '').toLowerCase();
+    } else if (sortBy === 'brand') {
+      aValue = (a.brand?.name || '').toLowerCase();
+      bValue = (b.brand?.name || '').toLowerCase();
     }
     
     if (sortDirection === 'asc') {
@@ -348,7 +515,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     }
   });
 
-  const getSortIcon = (field: 'name' | 'parent') => {
+  const getSortIcon = (field: 'name' | 'parent' | 'brand') => {
     if (sortBy !== field) return null;
     return sortDirection === 'asc' ? 
       <ChevronUp className="h-4 w-4 ml-1" /> : 
@@ -360,6 +527,11 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     setEditingSubgrupo(null);
     setShowForm(false);
   };
+
+  // Determine if user can perform actions based on authorization
+  const canCreate = canEdit && isAuthorized;
+  const canModify = canEdit && isAuthorized;
+  const canRemove = canDelete && isAuthorized;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -379,207 +551,241 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
               <DialogTitle className="text-2xl font-bold text-primary">Subgrupos</DialogTitle>
               <DialogDescription className="text-base">
                 Gerencie os subgrupos de contas financeiras
+                {userBrand && <span className="ml-2 text-muted-foreground">• Marca: {userBrand.name}</span>}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
-          {/* Controles superiores */}
-          <div className="flex flex-wrap gap-4 items-center">
-            {canEdit && (
-              <Button
-                onClick={() => setShowForm(true)}
-                disabled={loading}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Subgrupo
-              </Button>
-            )}
-            
-            {/* Filtros */}
-            <div className="flex gap-4 items-center flex-1">
-              <div className="flex-1 max-w-xs">
-                <Input
-                  placeholder="Buscar por nome..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <Select value={filterGroup} onValueChange={setFilterGroup}>
-                <SelectTrigger className="w-[180px] h-9">
-                  <SelectValue placeholder="Filtrar por grupo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os grupos</SelectItem>
-                  {grupos.map((grupo) => (
-                    <SelectItem key={grupo.id} value={grupo.id}>
-                      {grupo.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {authLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <span className="text-muted-foreground">Carregando...</span>
             </div>
-          </div>
-
-          {/* Formulário */}
-          {showForm && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {editingSubgrupo ? "Editar Subgrupo" : "Novo Subgrupo"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome</Label>
+          ) : (
+            <>
+              {/* Top controls */}
+              <div className="flex flex-wrap gap-4 items-center">
+                {canCreate && (
+                  <Button
+                    onClick={() => setShowForm(true)}
+                    disabled={loading}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Subgrupo
+                  </Button>
+                )}
+                
+                {!isAuthorized && canEdit && (
+                  <span className="text-sm text-muted-foreground">
+                    Você não tem permissão para criar/editar subgrupos nesta marca.
+                  </span>
+                )}
+                
+                {/* Filters */}
+                <div className="flex gap-4 items-center flex-1">
+                  <div className="flex-1 max-w-xs">
                     <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Nome do subgrupo"
+                      placeholder="Buscar por nome..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="parent_id">Grupo</Label>
-                    <Select
-                      value={formData.parent_id}
-                      onValueChange={(value) => setFormData({ ...formData, parent_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o grupo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {grupos.map((grupo) => (
-                          <SelectItem key={grupo.id} value={grupo.id}>
-                            {grupo.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <Select value={filterGroup} onValueChange={setFilterGroup}>
+                    <SelectTrigger className="w-[180px] h-9">
+                      <SelectValue placeholder="Filtrar por grupo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os grupos</SelectItem>
+                      {grupos.map((grupo) => (
+                        <SelectItem key={grupo.id} value={grupo.id}>
+                          {grupo.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Form */}
+              {showForm && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {editingSubgrupo ? "Editar Subgrupo" : "Novo Subgrupo"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="brand">Marca</Label>
+                        <Input
+                          id="brand"
+                          value={userBrand?.name || ""}
+                          disabled
+                          className="bg-muted"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nome</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="Nome do subgrupo"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="parent_id">Grupo</Label>
+                        <Select
+                          value={formData.parent_id}
+                          onValueChange={(value) => setFormData({ ...formData, parent_id: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o grupo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {grupos.map((grupo) => (
+                              <SelectItem key={grupo.id} value={grupo.id}>
+                                {grupo.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleSave} disabled={loading}>
+                        {editingSubgrupo ? "Atualizar" : "Salvar"}
+                      </Button>
+                      <Button variant="outline" onClick={resetForm}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Subgroups List */}
+              <div className="flex-1 flex flex-col border rounded-md overflow-hidden bg-card min-h-0">
+                <div className="border-b px-4 py-3 shrink-0">
+                  <h3 className="font-semibold">Subgrupos Cadastrados ({sortedSubgrupos.length})</h3>
+                </div>
+                <div className="flex-1 overflow-hidden min-h-0">
+                  <div className="h-full flex flex-col">
+                    {/* Fixed header */}
+                    <Table>
+                      <TableHeader className="bg-card">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[25%]"
+                            onClick={() => handleSort('name')}
+                          >
+                            <div className="flex items-center">
+                              Nome
+                              {getSortIcon('name')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[20%]"
+                            onClick={() => handleSort('parent')}
+                          >
+                            <div className="flex items-center">
+                              Grupo
+                              {getSortIcon('parent')}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[20%]"
+                            onClick={() => handleSort('brand')}
+                          >
+                            <div className="flex items-center">
+                              Marca
+                              {getSortIcon('brand')}
+                            </div>
+                          </TableHead>
+                          <TableHead className="h-10 py-2 w-[15%]">Status</TableHead>
+                          <TableHead className="text-right h-10 py-2 w-[20%]">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                    </Table>
+                    {/* Scrollable body */}
+                    <ScrollArea className="flex-1">
+                      <Table>
+                        <TableBody>
+                          {loading ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center h-20">
+                                Carregando...
+                              </TableCell>
+                            </TableRow>
+                          ) : sortedSubgrupos.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground h-20">
+                                {searchTerm || filterGroup ? "Nenhum subgrupo encontrado com os filtros aplicados" : "Nenhum subgrupo encontrado"}
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            sortedSubgrupos.map((subgrupo) => (
+                              <TableRow key={subgrupo.id} className="h-12">
+                                <TableCell className="font-medium py-2 w-[25%]">{subgrupo.name}</TableCell>
+                                <TableCell className="py-2 w-[20%]">{subgrupo.parent?.name || 'N/A'}</TableCell>
+                                <TableCell className="py-2 w-[20%]">{subgrupo.brand?.name || 'N/A'}</TableCell>
+                                <TableCell className="py-2 w-[15%]">
+                                  <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                    Ativo
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right py-2 w-[20%]">
+                                  <div className="flex gap-1 justify-end">
+                                    {canModify && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEdit(subgrupo)}
+                                        title="Editar"
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {canModify && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleToggleStatus(subgrupo)}
+                                        title="Bloquear/Desbloquear"
+                                        disabled
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Ban className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {canRemove && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDelete(subgrupo)}
+                                        title="Excluir"
+                                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSave} disabled={loading}>
-                    {editingSubgrupo ? "Atualizar" : "Salvar"}
-                  </Button>
-                  <Button variant="outline" onClick={resetForm}>
-                    Cancelar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Lista de Subgrupos */}
-          <div className="flex-1 flex flex-col border rounded-md overflow-hidden bg-card min-h-0">
-            <div className="border-b px-4 py-3 shrink-0">
-              <h3 className="font-semibold">Subgrupos Cadastrados ({sortedSubgrupos.length})</h3>
-            </div>
-            <div className="flex-1 overflow-hidden min-h-0">
-              <div className="h-full flex flex-col">
-                {/* Cabeçalho fixo */}
-                <Table>
-                  <TableHeader className="bg-card">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[35%]"
-                        onClick={() => handleSort('name')}
-                      >
-                        <div className="flex items-center">
-                          Nome
-                          {getSortIcon('name')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none h-10 py-2 w-[30%]"
-                        onClick={() => handleSort('parent')}
-                      >
-                        <div className="flex items-center">
-                          Grupo
-                          {getSortIcon('parent')}
-                        </div>
-                      </TableHead>
-                      <TableHead className="h-10 py-2 w-[15%]">Status</TableHead>
-                      <TableHead className="text-right h-10 py-2 w-[20%]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                </Table>
-                {/* Corpo com scroll */}
-                <ScrollArea className="flex-1">
-                  <Table>
-                    <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center h-20">
-                        Carregando...
-                      </TableCell>
-                    </TableRow>
-                  ) : sortedSubgrupos.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground h-20">
-                        {searchTerm || filterGroup ? "Nenhum subgrupo encontrado com os filtros aplicados" : "Nenhum subgrupo encontrado"}
-                      </TableCell>
-                    </TableRow>
-                   ) : (
-                     sortedSubgrupos.map((subgrupo) => (
-                      <TableRow key={subgrupo.id} className="h-12">
-                        <TableCell className="font-medium py-2 w-[35%]">{subgrupo.name}</TableCell>
-                        <TableCell className="py-2 w-[30%]">{subgrupo.parent?.name || 'N/A'}</TableCell>
-                        <TableCell className="py-2 w-[15%]">
-                          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            Ativo
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right py-2 w-[20%]">
-                          <div className="flex gap-1 justify-end">
-                            {canEdit && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(subgrupo)}
-                                title="Editar"
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {canEdit && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleStatus(subgrupo)}
-                                title="Bloquear/Desbloquear"
-                                disabled
-                                className="h-8 w-8 p-0"
-                              >
-                                <Ban className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {canDelete && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(subgrupo)}
-                                title="Excluir"
-                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

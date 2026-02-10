@@ -10,10 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Edit, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface Supplier {
   id: string;
   name: string;
+  trade_name: string | null;
   cnpj_cpf: string | null;
   address: string | null;
   city: string | null;
@@ -39,15 +41,17 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [activeTab, setActiveTab] = useState("register");
+  const [activeTab, setActiveTab] = useState(canEdit ? "register" : "list");
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
+  const { matrixId, matrixName } = useUserMatrix();
   
   const ITEMS_PER_PAGE = 10;
 
   // Form state
   const [formData, setFormData] = useState({
     name: "",
+    trade_name: "",
     cnpj_cpf: "",
     address: "",
     city: "",
@@ -163,9 +167,18 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
           description: "Fornecedor atualizado com sucesso!",
         });
       } else {
+        if (!matrixId) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Matriz do usuário não encontrada.",
+          });
+          return;
+        }
+
         const { error } = await supabase
           .from("suppliers")
-          .insert([formData]);
+          .insert([{ ...formData, matrix_id: matrixId }]);
 
         if (error) throw error;
         toast({
@@ -191,6 +204,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
   const handleEdit = (supplier: Supplier) => {
     setFormData({
       name: supplier.name,
+      trade_name: supplier.trade_name || "",
       cnpj_cpf: supplier.cnpj_cpf || "",
       address: supplier.address || "",
       city: supplier.city || "",
@@ -257,6 +271,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
   const resetForm = () => {
     setFormData({
       name: "",
+      trade_name: "",
       cnpj_cpf: "",
       address: "",
       city: "",
@@ -295,8 +310,10 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
         <ScrollArea className="h-[calc(90vh-120px)] pr-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register" disabled={!canEdit}>Cadastro</TabsTrigger>
+          <TabsList className={canEdit ? "grid w-full grid-cols-2" : "grid w-full grid-cols-1"}>
+            {canEdit && (
+              <TabsTrigger value="register">Cadastro</TabsTrigger>
+            )}
             <TabsTrigger value="list">Exibir Cadastros</TabsTrigger>
           </TabsList>
 
@@ -317,6 +334,18 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
               <CardContent>
                 <ScrollArea className="h-[400px] pr-4">
                   <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Campo Matriz (somente leitura) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Matriz</Label>
+                        <Input 
+                          value={matrixName || 'Carregando...'} 
+                          disabled 
+                          className="bg-muted"
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cnpj_cpf">CNPJ</Label>
@@ -338,6 +367,16 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                         placeholder="Nome da empresa"
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="trade_name">Nome Fantasia</Label>
+                    <Input
+                      id="trade_name"
+                      value={formData.trade_name}
+                      onChange={(e) => setFormData({ ...formData, trade_name: e.target.value })}
+                      placeholder="Nome fantasia da empresa"
+                    />
                   </div>
 
                    <div className="space-y-2">
@@ -452,7 +491,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                         <TableHead>Telefone</TableHead>
                         <TableHead>Cidade</TableHead>
                         <TableHead>Última Compra</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        {(canEdit || canDelete) && (
+                          <TableHead className="text-right">Ações</TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -488,28 +529,30 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                                 Não disponível
                               </span>
                             </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end space-x-2">
-                                {canEdit && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleEdit(supplier)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                {canDelete && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDelete(supplier)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
+                            {(canEdit || canDelete) && (
+                              <TableCell className="text-right">
+                                <div className="flex justify-end space-x-2">
+                                  {canEdit && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEdit(supplier)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {canDelete && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDelete(supplier)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))
                       )}

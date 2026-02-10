@@ -151,17 +151,36 @@ export function TransferFormModal({
       return;
     }
 
-    // Obter store_id do usuário atual
-    const { data: userData, error: userError } = await supabase
+    // Obter store_id do usuário atual (primeiro do perfil, senão da tabela user_stores)
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    
+    let storeId: string | null = null;
+    
+    // Primeiro tenta buscar do perfil
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('store_id')
-      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .eq('id', userId)
       .single();
+    
+    storeId = profileData?.store_id || null;
+    
+    // Se não tem no perfil, busca da tabela user_stores
+    if (!storeId) {
+      const { data: userStoreData } = await supabase
+        .from('user_stores')
+        .select('store_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+      
+      storeId = userStoreData?.store_id || null;
+    }
 
-    if (userError || !userData?.store_id) {
+    if (!storeId) {
       toast({
         title: "Erro",
-        description: "Não foi possível identificar a loja do usuário",
+        description: "Não foi possível identificar a loja do usuário. Verifique se você está associado a alguma loja.",
         variant: "destructive",
       });
       setLoading(false);
@@ -173,7 +192,7 @@ export function TransferFormModal({
     console.log('Data formatada para salvar:', format(data.transfer_date, 'yyyy-MM-dd'));
     
     const transferData = {
-      store_id: userData.store_id,
+      store_id: storeId,
       transfer_date: format(data.transfer_date, 'yyyy-MM-dd'),
       source_account_id: data.source_account_id,
       source_account_type: data.source_account_type,
@@ -181,6 +200,7 @@ export function TransferFormModal({
       destination_account_type: data.destination_account_type,
       amount: data.amount,
       description: data.description || null,
+      created_by: userId,
     };
 
     let error;
