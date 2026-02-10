@@ -14,7 +14,7 @@ interface Account {
   name: string;
   bank: string | null;
   account_number: string | null;
-  type: "cash" | "current" | "card";
+  type: "cash" | "current" | "card" | "delivery";
 }
 
 interface AccountPayable {
@@ -51,7 +51,7 @@ export function CashPaymentModal({
 }: CashPaymentModalProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
-  const [selectedAccountType, setSelectedAccountType] = useState<"cash" | "current" | "card">("cash");
+  const [selectedAccountType, setSelectedAccountType] = useState<"cash" | "current" | "card" | "delivery">("cash");
   const [paymentDate, setPaymentDate] = useState("");
   const [surcharge, setSurcharge] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
@@ -136,26 +136,41 @@ export function CashPaymentModal({
     if (!accountPayable) return;
     
     try {
+      // Buscar as lojas dos itens da conta a pagar
+      const { data: itemStores } = await supabase
+        .from("accounts_payable_items")
+        .select("store_id")
+        .eq("account_payable_id", accountPayable.id);
+      
+      // Se não houver itens, usar a loja principal da conta a pagar
+      const storeIds = itemStores && itemStores.length > 0 
+        ? [...new Set(itemStores.map(item => item.store_id))]
+        : [accountPayable.store_id];
+
       const allAccounts: Account[] = [];
       
-      // Always fetch cash accounts
+      // Fetch cash accounts linked to ALL stores from items
       const { data: cashData, error: cashError } = await supabase
         .from("cash_accounts")
         .select("id, name, bank, account_number")
         .eq("is_active", true)
+        .eq("is_blocked", false)
         .order("name");
 
       if (cashError) throw cashError;
       
-      // Filter cash accounts by store
-      const { data: cashStores } = await supabase
+      // Get cash accounts that are linked to all required stores
+      const { data: cashStoreLinks } = await supabase
         .from("cash_account_stores")
-        .select("account_id")
-        .eq("store_id", accountPayable.store_id);
+        .select("account_id, store_id")
+        .in("store_id", storeIds);
       
-      const cashStoreIds = cashStores?.map(s => s.account_id) || [];
-      const filteredCash = (cashData || []).filter(acc => cashStoreIds.includes(acc.id));
-      allAccounts.push(...filteredCash.map(acc => ({ ...acc, type: "cash" as const })));
+      // Filter accounts that are linked to ALL stores
+      const cashAccountsWithAllStores = (cashData || []).filter(acc => {
+        const linkedStores = cashStoreLinks?.filter(l => l.account_id === acc.id).map(l => l.store_id) || [];
+        return storeIds.every(storeId => linkedStores.includes(storeId));
+      });
+      allAccounts.push(...cashAccountsWithAllStores.map(acc => ({ ...acc, type: "cash" as const })));
 
       // If showAllAccounts, also fetch current and card accounts
       if (showAllAccounts) {
@@ -164,36 +179,42 @@ export function CashPaymentModal({
           .from("current_accounts")
           .select("id, name, bank, account_number")
           .eq("is_active", true)
+          .eq("is_blocked", false)
           .order("name");
 
         if (currentError) throw currentError;
         
-        const { data: currentStores } = await supabase
+        const { data: currentStoreLinks } = await supabase
           .from("current_account_stores")
-          .select("account_id")
-          .eq("store_id", accountPayable.store_id);
+          .select("account_id, store_id")
+          .in("store_id", storeIds);
         
-        const currentStoreIds = currentStores?.map(s => s.account_id) || [];
-        const filteredCurrent = (currentData || []).filter(acc => currentStoreIds.includes(acc.id));
-        allAccounts.push(...filteredCurrent.map(acc => ({ ...acc, type: "current" as const })));
+        const currentAccountsWithAllStores = (currentData || []).filter(acc => {
+          const linkedStores = currentStoreLinks?.filter(l => l.account_id === acc.id).map(l => l.store_id) || [];
+          return storeIds.every(storeId => linkedStores.includes(storeId));
+        });
+        allAccounts.push(...currentAccountsWithAllStores.map(acc => ({ ...acc, type: "current" as const })));
 
         // Fetch card accounts
         const { data: cardData, error: cardError } = await supabase
           .from("card_accounts")
           .select("id, name, bank, account_number")
           .eq("is_active", true)
+          .eq("is_blocked", false)
           .order("name");
 
         if (cardError) throw cardError;
         
-        const { data: cardStores } = await supabase
+        const { data: cardStoreLinks } = await supabase
           .from("card_account_stores")
-          .select("account_id")
-          .eq("store_id", accountPayable.store_id);
+          .select("account_id, store_id")
+          .in("store_id", storeIds);
         
-        const cardStoreIds = cardStores?.map(s => s.account_id) || [];
-        const filteredCard = (cardData || []).filter(acc => cardStoreIds.includes(acc.id));
-        allAccounts.push(...filteredCard.map(acc => ({ ...acc, type: "card" as const })));
+        const cardAccountsWithAllStores = (cardData || []).filter(acc => {
+          const linkedStores = cardStoreLinks?.filter(l => l.account_id === acc.id).map(l => l.store_id) || [];
+          return storeIds.every(storeId => linkedStores.includes(storeId));
+        });
+        allAccounts.push(...cardAccountsWithAllStores.map(acc => ({ ...acc, type: "card" as const })));
       }
 
       setAccounts(allAccounts);
@@ -215,15 +236,19 @@ export function CashPaymentModal({
     }
   };
 
-  const getAccountTypeLabel = (type: "cash" | "current" | "card") => {
+  const getAccountTypeLabel = (type: "cash" | "current" | "card" | "delivery") => {
     switch (type) {
       case "cash": return "Caixa";
       case "current": return "Conta Corrente";
       case "card": return "Cartão";
+      case "delivery": return "Delivery";
     }
   };
 
   const handlePayment = async () => {
+    // CRITICAL: Set loading immediately to prevent double-clicks
+    if (loading) return;
+    
     if (!accountPayable || !selectedAccountId || !paymentDate) {
       toast({
         title: "Erro",
@@ -233,21 +258,39 @@ export function CashPaymentModal({
       return;
     }
 
-    // Validate payment period
-    const paymentValidation = await validateAccountsPayablePeriod.pagamento(paymentDate);
-    if (paymentValidation.blocked) {
-      toast({
-        title: "Período Bloqueado",
-        description: paymentValidation.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Account validation is already done during fetch - accounts are filtered by store
-
     setLoading(true);
+
     try {
+      // Validate payment period
+      const paymentValidation = await validateAccountsPayablePeriod.pagamento(paymentDate);
+      if (paymentValidation.blocked) {
+        toast({
+          title: "Período Bloqueado",
+          description: paymentValidation.message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if already paid to prevent duplicates
+      const { data: existingPayments } = await supabase
+        .from("accounts_payable_payments")
+        .select("id")
+        .eq("account_payable_id", accountPayable.id)
+        .limit(1);
+      
+      if (existingPayments && existingPayments.length > 0) {
+        toast({
+          title: "Erro",
+          description: "Esta conta já foi paga",
+          variant: "destructive",
+        });
+        setLoading(false);
+        onOpenChange(false);
+        onPaymentSuccess?.();
+        return;
+      }
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) {
         throw new Error("User not authenticated");
@@ -395,11 +438,15 @@ export function CashPaymentModal({
 
       if (updateError) throw updateError;
 
+      // O store_id da transação deve SEMPRE ser o store_id do contas a pagar
+      // Isso garante que a transação apareça nos relatórios da loja correta
+      const transactionStoreId = accountPayable.store_id;
+
       // Create financial transaction
       const { error: transactionError } = await supabase
         .from("financial_transactions")
         .insert({
-          store_id: accountPayable.store_id,
+          store_id: transactionStoreId,
           account_id: selectedAccountId,
           transaction_type: "saida",
           amount: finalAmount,

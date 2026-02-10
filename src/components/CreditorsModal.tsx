@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface Creditor {
   id: string;
@@ -31,6 +32,7 @@ interface Creditor {
   email?: string;
   city?: string;
   state?: string;
+  matrix_id: string;
   store_id: string;
   is_active: boolean;
   created_at: string;
@@ -49,8 +51,8 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingCreditor, setEditingCreditor] = useState<Creditor | null>(null);
-  const [activeTab, setActiveTab] = useState("register");
-  const [userStoreId, setUserStoreId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(canEdit ? "register" : "list");
+  const { matrixId, matrixName } = useUserMatrix();
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -66,27 +68,9 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
 
   useEffect(() => {
     if (open) {
-      fetchUserStoreId();
       fetchCreditors();
     }
   }, [open]);
-
-  const fetchUserStoreId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("store_id")
-          .eq("id", user.id)
-          .single();
-        
-        setUserStoreId(profile?.store_id || null);
-      }
-    } catch (error) {
-      console.error("Error fetching user store:", error);
-    }
-  };
 
   const fetchCreditors = async () => {
     try {
@@ -193,10 +177,10 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
         });
       } else {
         // Create new creditor
-        if (!userStoreId) {
+        if (!matrixId) {
           toast({
             title: "Erro",
-            description: "Usuário não associado a uma loja",
+            description: "Usuário não associado a uma matriz",
             variant: "destructive",
           });
           return;
@@ -213,8 +197,8 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
             email: formData.email || null,
             city: formData.city || null,
             state: formData.state || null,
-            store_id: userStoreId,
-          });
+            matrix_id: matrixId,
+          } as any);
 
         if (error) throw error;
 
@@ -337,15 +321,29 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register" disabled={!canEdit}>
-              {editingCreditor ? "Editar" : "Cadastrar"}
-            </TabsTrigger>
+          <TabsList className={canEdit ? "grid w-full grid-cols-2" : "grid w-full grid-cols-1"}>
+            {canEdit && (
+              <TabsTrigger value="register">
+                {editingCreditor ? "Editar" : "Cadastrar"}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="list">Listar</TabsTrigger>
           </TabsList>
 
           <TabsContent value="register" className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Campo Matriz (somente leitura) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Matriz</Label>
+                  <Input 
+                    value={matrixName || 'Carregando...'} 
+                    disabled 
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome da Empresa *</Label>
@@ -490,7 +488,9 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
                       <TableHead>Contato</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>E-mail</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      {(canEdit || canDelete) && (
+                        <TableHead className="text-right">Ações</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -510,28 +510,30 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
                           <TableCell>{creditor.contact_person || "-"}</TableCell>
                           <TableCell>{creditor.phone || "-"}</TableCell>
                           <TableCell>{creditor.email || "-"}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
-                              {canEdit && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(creditor)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {canDelete && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(creditor)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
+                          {(canEdit || canDelete) && (
+                            <TableCell className="text-right">
+                              <div className="flex justify-end space-x-2">
+                                {canEdit && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEdit(creditor)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {canDelete && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDelete(creditor)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))
                     )}

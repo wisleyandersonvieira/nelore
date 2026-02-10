@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 import { Pencil, Trash2, Lock, Unlock, Plus, Search } from "lucide-react";
 
 interface CurrentAccount {
@@ -22,6 +23,7 @@ interface CurrentAccount {
   initial_balance_date: string;
   is_active: boolean;
   is_blocked: boolean;
+  matrix_id: string;
   current_account_stores: { store_id: string }[];
 }
 
@@ -48,6 +50,9 @@ interface FormData {
 }
 
 export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDelete = true }: CurrentAccountsModalProps) {
+  // Debug log to verify permissions are received correctly
+  console.log('CurrentAccountsModal permissions:', { canEdit, canDelete, open });
+  
   const [accounts, setAccounts] = useState<CurrentAccount[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [editingAccount, setEditingAccount] = useState<CurrentAccount | null>(null);
@@ -56,6 +61,7 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
   const [searchName, setSearchName] = useState("");
   const [filterStoreId, setFilterStoreId] = useState<string>("all");
   const { toast } = useToast();
+  const { matrixId, matrixName, isLoading: matrixLoading } = useUserMatrix();
 
   const form = useForm<FormData>({
     defaultValues: {
@@ -71,12 +77,49 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
   useEffect(() => {
     if (open) {
       fetchAccounts();
-      fetchStores();
     }
   }, [open]);
 
+  useEffect(() => {
+    if (open && matrixId) {
+      fetchStores();
+    }
+  }, [open, matrixId]);
+
+  const fetchUserStoreIds = async (): Promise<string[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, store_id')
+      .eq('id', user.id)
+      .single();
+
+    // Admin sees all stores
+    if (profile?.role === 'admin') {
+      return [];
+    }
+
+    const storeIds: string[] = [];
+    if (profile?.store_id) storeIds.push(profile.store_id);
+
+    const { data: userStores } = await supabase
+      .from('user_stores')
+      .select('store_id')
+      .eq('user_id', user.id);
+
+    userStores?.forEach(us => {
+      if (!storeIds.includes(us.store_id)) storeIds.push(us.store_id);
+    });
+
+    return storeIds;
+  };
+
   const fetchAccounts = async () => {
     try {
+      const userStoreIds = await fetchUserStoreIds();
+      
       const { data, error } = await supabase
         .from('current_accounts')
         .select(`
@@ -86,7 +129,16 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAccounts(data || []);
+      
+      // Filter accounts to only show those linked to user's stores
+      let filteredData = data || [];
+      if (userStoreIds.length > 0) {
+        filteredData = filteredData.filter(account => 
+          account.current_account_stores?.some(cas => userStoreIds.includes(cas.store_id))
+        );
+      }
+      
+      setAccounts(filteredData);
     } catch (error) {
       console.error('Error fetching accounts:', error);
       toast({
@@ -99,13 +151,30 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
+      const userStoreIds = await fetchUserStoreIds();
+      
+      // Build query filtering by matrix
+      let query = supabase
         .from('stores')
-        .select('id, name, code')
+        .select('id, name, code, matrix_id')
         .order('name');
+      
+      // Filter by user's matrix
+      if (matrixId) {
+        query = query.eq('matrix_id', matrixId);
+      }
+      
+      const { data, error } = await query;
 
       if (error) throw error;
-      setStores(data || []);
+      
+      // If user has specific stores (non-admin), filter by them as well
+      let filteredStores = data || [];
+      if (userStoreIds.length > 0) {
+        filteredStores = filteredStores.filter(store => userStoreIds.includes(store.id));
+      }
+      
+      setStores(filteredStores);
     } catch (error) {
       console.error('Error fetching stores:', error);
     }
@@ -153,7 +222,16 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
           description: "Conta corrente atualizada com sucesso",
         });
       } else {
-        // Create new account
+        // Create new account with matrix_id
+        if (!matrixId) {
+          toast({
+            title: "Erro",
+            description: "Matriz do usuário não encontrada",
+            variant: "destructive",
+          });
+          return;
+        }
+
         const { data: accountData, error: insertError } = await supabase
           .from('current_accounts')
           .insert({
@@ -161,7 +239,8 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
             bank: data.bank,
             account_number: data.account_number,
             initial_balance: data.initial_balance,
-            initial_balance_date: data.initial_balance_date
+            initial_balance_date: data.initial_balance_date,
+            matrix_id: matrixId
           })
           .select()
           .single();
@@ -242,21 +321,20 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
 
   const handleDelete = async (account: CurrentAccount) => {
     try {
-      // Verificar se existem pagamentos de contas a pagar vinculados
-      const { data: payablePayments, error: payablePaymentsError } = await supabase
-        .from('accounts_payable_payments')
+      // Verificar se existem transações financeiras vinculadas
+      const { data: financialTransactions, error: financialTransactionsError } = await supabase
+        .from('financial_transactions')
         .select('id')
-        .eq('payment_account_type', 'current_account')
-        .eq('payment_account_id', account.id)
+        .eq('account_id', account.id)
         .limit(1);
 
-      if (payablePaymentsError) throw payablePaymentsError;
+      if (financialTransactionsError) throw financialTransactionsError;
 
-      if (payablePayments && payablePayments.length > 0) {
+      if (financialTransactions && financialTransactions.length > 0) {
         toast({
           variant: "destructive",
           title: "Exclusão não permitida",
-          description: "Esta conta corrente possui pagamentos de contas a pagar vinculados e não pode ser excluída.",
+          description: "Esta conta corrente possui transações financeiras vinculadas e não pode ser excluída.",
         });
         return;
       }
@@ -343,7 +421,7 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
           {!showForm ? (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-4 items-end">
-                {canEdit && (
+                {canEdit === true && (
                   <Button onClick={() => setShowForm(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Conta Corrente
@@ -475,6 +553,18 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
           ) : (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {/* Campo Matriz (somente leitura) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Matriz</Label>
+                    <Input 
+                      value={matrixName || 'Carregando...'} 
+                      disabled 
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}

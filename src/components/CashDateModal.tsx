@@ -166,14 +166,14 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Controle de Caixa - {date.toLocaleDateString('pt-BR')}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 py-4">
             {/* Cadastrar Caixa */}
             <Card 
               className={`cursor-pointer hover:shadow-lg transition-shadow ${
@@ -181,18 +181,18 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
               }`}
               onClick={() => canCreateCash && handleAction('create')}
             >
-              <CardHeader className="text-center">
-                <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center mx-auto mb-2">
-                  <Plus className="h-6 w-6 text-white" />
+              <CardHeader className="text-center p-3 sm:p-6">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-green-500 flex items-center justify-center mx-auto mb-2">
+                  <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <CardTitle className="text-lg">Cadastrar Caixa</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-base sm:text-lg">Cadastrar Caixa</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Criar novo fechamento de caixa
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6 pt-0">
                 <Button 
-                  className="w-full" 
+                  className="w-full text-sm" 
                   variant="outline"
                   disabled={!canCreateCash}
                 >
@@ -208,18 +208,18 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
               }`}
               onClick={() => canViewCash && handleAction('view')}
             >
-              <CardHeader className="text-center">
-                <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center mx-auto mb-2">
-                  <Eye className="h-6 w-6 text-white" />
+              <CardHeader className="text-center p-3 sm:p-6">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-blue-500 flex items-center justify-center mx-auto mb-2">
+                  <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <CardTitle className="text-lg">Visualizar Caixa</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-base sm:text-lg">Visualizar Caixa</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Ver fechamento existente
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6 pt-0">
                 <Button 
-                  className="w-full" 
+                  className="w-full text-sm" 
                   variant="outline"
                   disabled={!canViewCash}
                 >
@@ -235,18 +235,18 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
               }`}
               onClick={() => canEditCash && handleAction('edit')}
             >
-              <CardHeader className="text-center">
-                <div className="w-12 h-12 rounded-lg bg-yellow-500 flex items-center justify-center mx-auto mb-2">
-                  <Edit className="h-6 w-6 text-white" />
+              <CardHeader className="text-center p-3 sm:p-6">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-yellow-500 flex items-center justify-center mx-auto mb-2">
+                  <Edit className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <CardTitle className="text-lg">Editar Caixa</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-base sm:text-lg">Editar Caixa</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   Modificar fechamento existente
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6 pt-0">
                 <Button 
-                  className="w-full" 
+                  className="w-full text-sm" 
                   variant="outline"
                   disabled={!canEditCash}
                 >
@@ -263,29 +263,29 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
                     !canApproveCash ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
-              <CardHeader className="text-center">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
+              <CardHeader className="text-center p-3 sm:p-6">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 ${
                   cashControl?.approved_status ? 'bg-red-500' : 'bg-purple-500'
                 }`}>
                   {cashControl?.approved_status ? (
-                    <X className="h-6 w-6 text-white" />
+                    <X className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   ) : (
-                    <Check className="h-6 w-6 text-white" />
+                    <Check className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   )}
                 </div>
-                <CardTitle className="text-lg">
+                <CardTitle className="text-base sm:text-lg">
                   {cashControl?.approved_status ? 'Reprovar Caixa' : 'Aprovar Caixa'}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs sm:text-sm">
                   {cashControl?.approved_status ? 
                     'Remover aprovação do caixa' : 
                     'Aprovar fechamento de caixa'
                   }
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-6 pt-0">
                 <Button 
-                  className="w-full" 
+                  className="w-full text-sm" 
                   variant="outline"
                   disabled={!canApproveCash}
                 >
@@ -315,17 +315,17 @@ export const CashDateModal = ({ open, onOpenChange, date, storeId }: CashDateMod
           </div>
 
           {cashControl && (
-            <div className="mt-4 p-4 bg-muted rounded-lg">
+            <div className="mt-4 p-3 sm:p-4 bg-muted rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold">Informações do Caixa</h4>
+                <h4 className="font-semibold text-sm sm:text-base">Informações do Caixa</h4>
                 {cashControl.approved_status && (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <Check className="h-4 w-4" />
+                  <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-green-600">
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="font-medium">Aprovado</span>
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
                 <div>
                   <span className="font-medium">Faturamento Total:</span> R$ {Number(cashControl.faturamento_total || 0).toFixed(2)}
                 </div>

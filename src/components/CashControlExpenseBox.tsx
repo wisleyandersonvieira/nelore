@@ -4,15 +4,19 @@ import type { Json } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Eye, Pencil, Ban, Upload, X, FileText, ArrowUp, ArrowDown, Link2 } from "lucide-react";
+import { Plus, Eye, Pencil, Ban, Upload, X, FileText, ArrowUp, ArrowDown, Link2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LinkToAccountsPayableModal } from "./LinkToAccountsPayableModal";
 import { useCaixaPermissions } from "@/hooks/useCaixaPermissions";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface AttachmentInfo {
   path: string;
@@ -34,6 +38,9 @@ interface Expense {
   reference_month: number;
   reference_year: number;
   linked_account_payable_id: string | null;
+  is_paid: boolean;
+  payment_date: string | null;
+  notes: string | null;
 }
 
 interface CashControlExpenseBoxProps {
@@ -44,8 +51,9 @@ interface CashControlExpenseBoxProps {
   referenceYear: number;
 }
 
-type SortField = 'issue_date' | 'supplier' | 'description' | 'amount';
+type SortField = 'issue_date' | 'created_at' | 'supplier' | 'description' | 'amount';
 type SortDirection = 'asc' | 'desc';
+type LinkFilter = 'all' | 'linked' | 'unlinked';
 
 export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMonth, referenceYear }: CashControlExpenseBoxProps) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -56,6 +64,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [sortField, setSortField] = useState<SortField>('issue_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [linkFilter, setLinkFilter] = useState<LinkFilter>('all');
   
   // Permissions
   const { canEdit, canApprove } = useCaixaPermissions();
@@ -73,6 +82,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   const [existingAttachments, setExistingAttachments] = useState<AttachmentInfo[]>([]);
   const [attachmentStatus, setAttachmentStatus] = useState<Record<string, boolean>>({});
   const [uploading, setUploading] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
+  const [paymentDate, setPaymentDate] = useState("");
+  const [notes, setNotes] = useState("");
 
   const handleOpenLinkModal = (expense: Expense) => {
     setExpenseToLink(expense);
@@ -116,7 +128,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
           edit_history: (exp.edit_history as Array<{ edited_at: string; edited_by_name: string }>) || [],
           reference_month: exp.reference_month,
           reference_year: exp.reference_year,
-          linked_account_payable_id: exp.linked_account_payable_id || null
+          linked_account_payable_id: exp.linked_account_payable_id || null,
+          is_paid: exp.is_paid || false,
+          payment_date: exp.payment_date || null,
+          notes: exp.notes || null
         };
       }));
     } catch (error) {
@@ -135,6 +150,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
     setExistingAttachments([]);
     setAttachmentStatus({});
     setEditingExpense(null);
+    setIsPaid(false);
+    setPaymentDate("");
+    setNotes("");
   };
 
   const handleOpenForm = (expense?: Expense) => {
@@ -146,6 +164,9 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
       setAmount(expense.amount.toString());
       setExistingAttachments(expense.attachments);
       setAttachmentStatus(expense.attachment_status);
+      setIsPaid(expense.is_paid || false);
+      setPaymentDate(expense.payment_date || "");
+      setNotes(expense.notes || "");
     } else {
       resetForm();
     }
@@ -246,18 +267,32 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
         // Clean up the blob URL after a delay
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
       } else {
-        // For other file types, use signed URL
-        const { data, error } = await supabase.storage
+        // For other file types, download and open like PDF
+        const { data: fileData, error: downloadError } = await supabase.storage
           .from("account-documents")
-          .createSignedUrl(pathOrUrl, 3600);
+          .download(pathOrUrl);
 
-        if (error) {
-          console.error("Erro ao gerar URL:", error, "Path:", pathOrUrl);
+        if (downloadError) {
+          console.error("Erro ao baixar anexo:", downloadError, "Path:", pathOrUrl);
           toast.error("Erro ao abrir anexo");
           return;
         }
 
-        window.open(data.signedUrl, "_blank");
+        // Determine MIME type based on extension
+        const ext = pathOrUrl.toLowerCase().split('.').pop();
+        let mimeType = 'application/octet-stream';
+        if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+        else if (ext === 'png') mimeType = 'image/png';
+        else if (ext === 'gif') mimeType = 'image/gif';
+        else if (ext === 'webp') mimeType = 'image/webp';
+
+        // Create blob URL and open in new tab
+        const blob = new Blob([fileData], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+        
+        // Clean up after delay
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
       }
     } catch (error) {
       console.error("Erro ao abrir anexo:", error);
@@ -309,7 +344,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             amount: parseFloat(amount),
             attachments: allAttachments as unknown as Json,
             attachment_status: newStatus as unknown as Json,
-            edit_history: newHistory
+            edit_history: newHistory,
+            is_paid: isPaid,
+            payment_date: isPaid ? paymentDate || null : null,
+            notes: notes || null
           })
           .eq("id", editingExpense.id);
 
@@ -331,7 +369,10 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             created_by: user.id,
             created_by_name: userName,
             reference_month: referenceMonth,
-            reference_year: referenceYear
+            reference_year: referenceYear,
+            is_paid: isPaid,
+            payment_date: isPaid ? paymentDate || null : null,
+            notes: notes || null
           });
 
         if (error) throw error;
@@ -402,12 +443,34 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
     }
   };
 
-  const sortedExpenses = [...expenses].sort((a, b) => {
+  // Filter by link status
+  const filteredExpenses = expenses.filter((expense) => {
+    // Only show disabled items when filter is 'all'
+    if (linkFilter === 'all') {
+      return true;
+    }
+    // For 'linked' and 'unlinked', hide disabled items
+    if (expense.is_disabled) {
+      return false;
+    }
+    if (linkFilter === 'linked') {
+      return !!expense.linked_account_payable_id;
+    }
+    if (linkFilter === 'unlinked') {
+      return !expense.linked_account_payable_id;
+    }
+    return true;
+  });
+
+  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
     let comparison = 0;
     
     switch (sortField) {
       case 'issue_date':
         comparison = new Date(a.issue_date).getTime() - new Date(b.issue_date).getTime();
+        break;
+      case 'created_at':
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         break;
       case 'supplier':
         comparison = a.supplier.localeCompare(b.supplier, 'pt-BR');
@@ -430,11 +493,85 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
       : <ArrowDown className="h-3 w-3 inline ml-1" />;
   };
 
+  const linkFilterOptions: { value: LinkFilter; label: string }[] = [
+    { value: 'all', label: 'Todos' },
+    { value: 'linked', label: 'Vinculados' },
+    { value: 'unlinked', label: 'Não Vinculados' },
+  ];
+
+  // Calculate total for filtered expenses
+  const filteredTotal = sortedExpenses.reduce((acc, expense) => acc + expense.amount, 0);
+  const filteredCount = sortedExpenses.length;
+
+  // Export to PDF
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Title
+      doc.setFontSize(16);
+      doc.text(title, 14, 15);
+      
+      // Reference period
+      doc.setFontSize(10);
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      doc.text(`Período: ${monthNames[referenceMonth - 1]} / ${referenceYear}`, 14, 22);
+      
+      // Filter info
+      const filterLabel = linkFilterOptions.find(o => o.value === linkFilter)?.label || 'Todos';
+      doc.text(`Filtro: ${filterLabel}`, 14, 28);
+      
+      // Table data
+      const tableData = sortedExpenses.map(expense => [
+        format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy"),
+        format(new Date(expense.created_at), "dd/MM/yyyy HH:mm"),
+        expense.supplier + (expense.is_disabled ? ' (inabilitado)' : ''),
+        expense.description,
+        formatCurrency(expense.amount)
+      ]);
+      
+      autoTable(doc, {
+        head: [['Data', 'Criado em', 'Fornecedor', 'Descrição', 'Valor']],
+        body: tableData,
+        startY: 35,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [59, 130, 246] },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 'auto' },
+          4: { cellWidth: 30, halign: 'right' }
+        }
+      });
+      
+      // Total
+      const finalY = (doc as any).lastAutoTable.finalY || 35;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text(`Total: ${formatCurrency(filteredTotal)} (${filteredCount} registro${filteredCount !== 1 ? 's' : ''})`, 14, finalY + 10);
+      
+      // Save
+      const fileName = `${title.replace(/\s+/g, '_')}_${referenceMonth}_${referenceYear}.pdf`;
+      doc.save(fileName);
+      
+      toast.success("PDF exportado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error);
+      toast.error("Erro ao exportar PDF");
+    }
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            {title}
+            <span className="text-sm font-normal text-muted-foreground">
+              ({filteredCount} registro{filteredCount !== 1 ? 's' : ''})
+            </span>
+          </CardTitle>
           {canEdit && (
             <Button size="sm" onClick={() => handleOpenForm()}>
               <Plus className="h-4 w-4 mr-1" />
@@ -453,38 +590,78 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             Nenhuma despesa cadastrada
           </p>
         ) : (
+          <>
+          {/* Filter by link status */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Filtrar:</span>
+              <div className="flex gap-1">
+                {linkFilterOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={linkFilter === option.value ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 text-xs px-2"
+                    onClick={() => setLinkFilter(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+              {linkFilter !== 'all' && (
+                <span className="text-xs font-medium text-primary ml-2">
+                  Total: {formatCurrency(filteredTotal)}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs px-2"
+                onClick={handleExportPDF}
+                title="Exportar PDF"
+              >
+                <Download className="h-3 w-3 mr-1" />
+                PDF
+              </Button>
+            </div>
+          </div>
           <div className="border rounded">
             <Table>
               <TableHeader className="sticky top-0 bg-card z-10">
                 <TableRow className="h-8">
                   <TableHead 
-                    className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
+                    className="text-xs py-1 text-left cursor-pointer hover:bg-muted/50 select-none w-[90px]"
                     onClick={() => handleSort('issue_date')}
                   >
                     Data <SortIcon field="issue_date" />
                   </TableHead>
-                  <TableHead className="text-xs py-1">
-                    Criado em
+                  <TableHead 
+                    className="text-xs py-1 text-left cursor-pointer hover:bg-muted/50 select-none w-[130px]"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    Criado em <SortIcon field="created_at" />
                   </TableHead>
                   <TableHead 
-                    className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
+                    className="text-xs py-1 text-left cursor-pointer hover:bg-muted/50 select-none w-[200px]"
                     onClick={() => handleSort('supplier')}
                   >
                     Fornecedor <SortIcon field="supplier" />
                   </TableHead>
                   <TableHead 
-                    className="text-xs py-1 cursor-pointer hover:bg-muted/50 select-none"
+                    className="text-xs py-1 text-left cursor-pointer hover:bg-muted/50 select-none"
                     onClick={() => handleSort('description')}
                   >
                     Descrição <SortIcon field="description" />
                   </TableHead>
                   <TableHead 
-                    className="text-xs py-1 text-right cursor-pointer hover:bg-muted/50 select-none"
+                    className="text-xs py-1 text-left cursor-pointer hover:bg-muted/50 select-none w-[100px]"
                     onClick={() => handleSort('amount')}
                   >
                     Valor <SortIcon field="amount" />
                   </TableHead>
-                  <TableHead className="text-xs py-1 text-right">Ações</TableHead>
+                  <TableHead className="text-xs py-1 text-left w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
@@ -504,24 +681,24 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                       key={expense.id}
                       className={rowClassName}
                     >
-                      <TableCell className="text-xs py-1">
+                      <TableCell className="text-xs py-1 text-left w-[90px]">
                         {format(new Date(expense.issue_date + 'T12:00:00'), "dd/MM/yyyy")}
                       </TableCell>
-                      <TableCell className="text-xs py-1">
+                      <TableCell className="text-xs py-1 text-left w-[130px]">
                         {format(new Date(expense.created_at), "dd/MM/yyyy HH:mm")}
                       </TableCell>
-                      <TableCell className="text-xs py-1">
+                      <TableCell className="text-xs py-1 text-left w-[200px]">
                         {expense.supplier}
                         {expense.is_disabled && " (inabilitado)"}
                       </TableCell>
-                      <TableCell className="text-xs py-1 max-w-[200px] truncate">
+                      <TableCell className="text-xs py-1 text-left max-w-[200px] truncate">
                         {expense.description}
                       </TableCell>
-                      <TableCell className="text-xs py-1 text-right">
+                      <TableCell className="text-xs py-1 text-left w-[100px]">
                         {formatCurrency(expense.amount)}
                       </TableCell>
-                      <TableCell className="text-xs py-1 text-right">
-                        <div className="flex justify-end gap-0.5">
+                      <TableCell className="text-xs py-1 text-left w-[100px]">
+                        <div className="flex justify-start gap-0.5">
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -573,6 +750,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
               </Table>
             </div>
           </div>
+          </>
         )}
       </CardContent>
 
@@ -625,6 +803,46 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0,00"
+              />
+            </div>
+
+            <div className="flex items-center justify-between py-2">
+              <Label htmlFor="isPaid" className="cursor-pointer">Despesa paga?</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{isPaid ? "Sim" : "Não"}</span>
+                <Switch
+                  id="isPaid"
+                  checked={isPaid}
+                  onCheckedChange={(checked) => {
+                    setIsPaid(checked);
+                    if (checked && !paymentDate && issueDate) {
+                      setPaymentDate(issueDate);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {isPaid && (
+              <div>
+                <Label htmlFor="paymentDate">Data do Pagamento</Label>
+                <Input
+                  id="paymentDate"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Observações sobre a despesa..."
+                rows={3}
               />
             </div>
 
@@ -750,6 +968,28 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                 <Label className="text-muted-foreground text-xs">Descrição</Label>
                 <p className="font-medium">{viewingExpense.description}</p>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Despesa paga?</Label>
+                  <p className="font-medium">{viewingExpense.is_paid ? "Sim" : "Não"}</p>
+                </div>
+                {viewingExpense.is_paid && viewingExpense.payment_date && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Data do Pagamento</Label>
+                    <p className="font-medium">
+                      {format(new Date(viewingExpense.payment_date + 'T12:00:00'), "dd/MM/yyyy")}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {viewingExpense.notes && (
+                <div>
+                  <Label className="text-muted-foreground text-xs">Observações</Label>
+                  <p className="font-medium whitespace-pre-wrap">{viewingExpense.notes}</p>
+                </div>
+              )}
 
               {viewingExpense.attachments.length > 0 && (
                 <div>

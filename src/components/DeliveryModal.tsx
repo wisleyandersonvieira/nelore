@@ -12,6 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, ArrowLeft, Lock, Unlock, Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useUserMatrix } from "@/hooks/useUserMatrix";
 
 interface DeliveryAccount {
   id: string;
@@ -24,6 +26,7 @@ interface DeliveryAccount {
   is_active: boolean;
   is_blocked: boolean;
   created_at: string;
+  matrix_id: string;
   delivery_account_stores?: { store_id: string }[] | null;
 }
 
@@ -68,6 +71,7 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   const [loading, setLoading] = useState(false);
   const [searchName, setSearchName] = useState("");
   const [filterStoreId, setFilterStoreId] = useState<string>("all");
+  const { matrixId, matrixName, isLoading: matrixLoading } = useUserMatrix();
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -82,8 +86,37 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
     },
   });
 
+  const fetchUserStoreIds = async (): Promise<string[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, store_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.role === 'admin') return [];
+
+    const storeIds: string[] = [];
+    if (profile?.store_id) storeIds.push(profile.store_id);
+
+    const { data: userStores } = await supabase
+      .from('user_stores')
+      .select('store_id')
+      .eq('user_id', user.id);
+
+    userStores?.forEach(us => {
+      if (!storeIds.includes(us.store_id)) storeIds.push(us.store_id);
+    });
+
+    return storeIds;
+  };
+
   const fetchAccounts = async () => {
     try {
+      const userStoreIds = await fetchUserStoreIds();
+      
       const { data, error } = await supabase
         .from('delivery_accounts')
         .select(`
@@ -95,7 +128,15 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
         .order('name');
 
       if (error) throw error;
-      setAccounts((data as any) || []);
+      
+      let filteredData = (data as any) || [];
+      if (userStoreIds.length > 0) {
+        filteredData = filteredData.filter((account: any) => 
+          account.delivery_account_stores?.some((das: any) => userStoreIds.includes(das.store_id))
+        );
+      }
+      
+      setAccounts(filteredData);
     } catch (error) {
       console.error('Erro ao buscar contas delivery:', error);
       toast.error('Erro ao carregar contas delivery');
@@ -104,13 +145,29 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
+      const userStoreIds = await fetchUserStoreIds();
+      
+      // Build query filtering by matrix
+      let query = supabase
         .from('stores')
-        .select('*')
+        .select('id, name, code, matrix_id')
         .order('name');
-
+      
+      // Filter by user's matrix
+      if (matrixId) {
+        query = query.eq('matrix_id', matrixId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
-      setStores(data || []);
+      
+      // If user has specific stores (non-admin), filter by them as well
+      let filteredStores = data || [];
+      if (userStoreIds.length > 0) {
+        filteredStores = filteredStores.filter(store => userStoreIds.includes(store.id));
+      }
+      
+      setStores(filteredStores);
     } catch (error) {
       console.error('Erro ao buscar lojas:', error);
       toast.error('Erro ao carregar lojas');
@@ -120,9 +177,14 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
   useEffect(() => {
     if (open) {
       fetchAccounts();
-      fetchStores();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open && matrixId) {
+      fetchStores();
+    }
+  }, [open, matrixId]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -168,7 +230,12 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
 
         toast.success('Conta delivery atualizada com sucesso!');
       } else {
-        // Create new account
+        // Create new account with matrix_id
+        if (!matrixId) {
+          toast.error('Matriz do usuário não encontrada');
+          return;
+        }
+
         const { data: newAccount, error: insertError } = await supabase
           .from('delivery_accounts')
           .insert({
@@ -178,6 +245,7 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
             email: data.email || null,
             initial_balance: data.initial_balance,
             initial_balance_date: data.initial_balance_date,
+            matrix_id: matrixId,
           })
           .select()
           .single();
@@ -247,18 +315,17 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
 
   const handleDelete = async (account: DeliveryAccount) => {
     try {
-      // Verificar se existem pagamentos de contas a pagar vinculados
-      const { data: payablePayments, error: payablePaymentsError } = await supabase
-        .from('accounts_payable_payments')
+      // Verificar se existem transações financeiras vinculadas
+      const { data: financialTransactions, error: financialTransactionsError } = await supabase
+        .from('financial_transactions')
         .select('id')
-        .eq('payment_account_type', 'delivery_account')
-        .eq('payment_account_id', account.id)
+        .eq('account_id', account.id)
         .limit(1);
 
-      if (payablePaymentsError) throw payablePaymentsError;
+      if (financialTransactionsError) throw financialTransactionsError;
 
-      if (payablePayments && payablePayments.length > 0) {
-        toast.error('Esta conta delivery possui pagamentos de contas a pagar vinculados e não pode ser excluída.');
+      if (financialTransactions && financialTransactions.length > 0) {
+        toast.error('Esta conta delivery possui transações financeiras vinculadas e não pode ser excluída.');
         return;
       }
 
@@ -477,6 +544,18 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {/* Campo Matriz (somente leitura) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Matriz</Label>
+                    <Input 
+                      value={matrixName || 'Carregando...'} 
+                      disabled 
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -575,24 +654,33 @@ export const DeliveryModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                       <FormItem>
                         <FormLabel>Lojas Vinculadas</FormLabel>
                         <FormControl>
-                          <Select 
-                            value={field.value.join(',')} 
-                            onValueChange={(value) => {
-                              const ids = value ? value.split(',') : [];
-                              field.onChange(ids);
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione as lojas" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {stores.map((store) => (
-                                <SelectItem key={store.id} value={store.id}>
-                                  {store.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                            {stores.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">Nenhuma loja disponível</p>
+                            ) : (
+                              stores.map(store => (
+                                <div key={store.id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`delivery-store-${store.id}`}
+                                    checked={field.value.includes(store.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...field.value, store.id]);
+                                      } else {
+                                        field.onChange(field.value.filter((id: string) => id !== store.id));
+                                      }
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`delivery-store-${store.id}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  >
+                                    {store.name} ({store.code})
+                                  </label>
+                                </div>
+                              ))
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
