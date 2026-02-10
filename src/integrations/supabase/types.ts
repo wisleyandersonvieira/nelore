@@ -1075,6 +1075,7 @@ export type Database = {
           initial_balance_date: string
           is_active: boolean
           is_blocked: boolean
+          matrix_id: string
           name: string
           updated_at: string
         }
@@ -1087,6 +1088,7 @@ export type Database = {
           initial_balance_date: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id: string
           name: string
           updated_at?: string
         }
@@ -1099,10 +1101,19 @@ export type Database = {
           initial_balance_date?: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "card_accounts_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cash_account_stores: {
         Row: {
@@ -1150,6 +1161,7 @@ export type Database = {
           initial_balance_date: string
           is_active: boolean
           is_blocked: boolean
+          matrix_id: string
           name: string
           updated_at: string
         }
@@ -1162,6 +1174,7 @@ export type Database = {
           initial_balance_date: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id: string
           name: string
           updated_at?: string
         }
@@ -1174,10 +1187,19 @@ export type Database = {
           initial_balance_date?: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cash_accounts_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cash_control: {
         Row: {
@@ -1599,10 +1621,11 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          matrix_id: string
           name: string
           phone: string | null
           state: string | null
-          store_id: string
+          store_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1614,10 +1637,11 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id: string
           name: string
           phone?: string | null
           state?: string | null
-          store_id: string
+          store_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1629,13 +1653,21 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string
           name?: string
           phone?: string | null
           state?: string | null
-          store_id?: string
+          store_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "creditors_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_creditors_store"
             columns: ["store_id"]
@@ -1691,6 +1723,7 @@ export type Database = {
           initial_balance_date: string
           is_active: boolean
           is_blocked: boolean
+          matrix_id: string
           name: string
           updated_at: string
         }
@@ -1703,6 +1736,7 @@ export type Database = {
           initial_balance_date: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id: string
           name: string
           updated_at?: string
         }
@@ -1715,10 +1749,19 @@ export type Database = {
           initial_balance_date?: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "current_accounts_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_account_stores: {
         Row: {
@@ -1766,6 +1809,7 @@ export type Database = {
           initial_balance_date: string
           is_active: boolean
           is_blocked: boolean
+          matrix_id: string
           name: string
           phone: string | null
           updated_at: string
@@ -1779,6 +1823,7 @@ export type Database = {
           initial_balance_date: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id: string
           name: string
           phone?: string | null
           updated_at?: string
@@ -1792,11 +1837,20 @@ export type Database = {
           initial_balance_date?: string
           is_active?: boolean
           is_blocked?: boolean
+          matrix_id?: string
           name?: string
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "delivery_accounts_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_types: {
         Row: {
@@ -2534,6 +2588,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          matrix_id: string
           name: string
           updated_at: string
         }
@@ -2544,6 +2599,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id: string
           name: string
           updated_at?: string
         }
@@ -2554,10 +2610,19 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "partners_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       period_blocks: {
         Row: {
@@ -3121,6 +3186,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          matrix_id: string
           name: string
           phone: string | null
           state: string | null
@@ -3136,6 +3202,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id: string
           name: string
           phone?: string | null
           state?: string | null
@@ -3151,6 +3218,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string
           name?: string
           phone?: string | null
           state?: string | null
@@ -3163,6 +3231,13 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
             referencedColumns: ["id"]
           },
         ]
