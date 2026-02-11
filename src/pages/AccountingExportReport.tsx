@@ -76,36 +76,30 @@ const AccountingExportReport = () => {
 
   const fetchStores = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, store_id")
-        .eq("id", user.id)
-        .single();
+      const { data: profile } = await supabase.from("profiles").select("role, store_id").eq("id", user.id).single();
 
       let storesData: Store[] = [];
 
       if (profile?.role === "admin") {
-        const { data } = await query("stores")
-          .select("id, name")
-          .order("name");
+        const { data } = await query("stores").select("id, name").order("name");
         storesData = (data || []).map((s: any) => ({ id: s.id, name: s.name }));
       } else {
         // Collect store IDs from user_stores and primary store
         const storeIds: string[] = [];
-        
+
         // Add primary store from profile
         if (profile?.store_id) {
           storeIds.push(profile.store_id);
         }
-        
+
         // Get additional stores from user_stores
-        const { data: userStores } = await query("user_stores")
-          .select("store_id")
-          .eq("user_id", user.id);
-        
+        const { data: userStores } = await query("user_stores").select("store_id").eq("user_id", user.id);
+
         if (userStores) {
           userStores.forEach((us: any) => {
             if (us.store_id && !storeIds.includes(us.store_id)) {
@@ -113,20 +107,17 @@ const AccountingExportReport = () => {
             }
           });
         }
-        
+
         // Fetch stores by IDs
         if (storeIds.length > 0) {
-          const { data } = await query("stores")
-            .select("id, name")
-            .in("id", storeIds)
-            .order("name");
+          const { data } = await query("stores").select("id, name").in("id", storeIds).order("name");
           storesData = (data || []).map((s: any) => ({ id: s.id, name: s.name }));
         }
       }
 
       setStores(storesData);
     } catch (error) {
-      console.error("Erro ao buscar lojas:", error);
+      console.error("Erro ao buscar fazendas:", error);
     }
   };
 
@@ -134,12 +125,14 @@ const AccountingExportReport = () => {
     try {
       const allAccounts: CashAccount[] = [];
 
-      // Buscar contas caixa vinculadas à loja
+      // Buscar contas caixa vinculadas à fazenda
       const { data: cashAccounts } = await query("cash_accounts")
-        .select(`
+        .select(
+          `
           id, name,
           cash_account_stores!inner (store_id)
-        `)
+        `,
+        )
         .eq("is_active", true)
         .eq("cash_account_stores.store_id", storeId);
 
@@ -147,12 +140,14 @@ const AccountingExportReport = () => {
         allAccounts.push({ id: acc.id, name: `Caixa - ${acc.name}`, type: "cash" });
       });
 
-      // Buscar contas correntes vinculadas à loja
+      // Buscar contas correntes vinculadas à fazenda
       const { data: currentAccounts } = await query("current_accounts")
-        .select(`
+        .select(
+          `
           id, name,
           current_account_stores!inner (store_id)
-        `)
+        `,
+        )
         .eq("is_active", true)
         .eq("current_account_stores.store_id", storeId);
 
@@ -160,12 +155,14 @@ const AccountingExportReport = () => {
         allAccounts.push({ id: acc.id, name: `Corrente - ${acc.name}`, type: "current" });
       });
 
-      // Buscar contas delivery vinculadas à loja
+      // Buscar contas delivery vinculadas à fazenda
       const { data: deliveryAccounts } = await query("delivery_accounts")
-        .select(`
+        .select(
+          `
           id, name,
           delivery_account_stores!inner (store_id)
-        `)
+        `,
+        )
         .eq("is_active", true)
         .eq("delivery_account_stores.store_id", storeId);
 
@@ -173,12 +170,14 @@ const AccountingExportReport = () => {
         allAccounts.push({ id: acc.id, name: `Delivery - ${acc.name}`, type: "delivery" });
       });
 
-      // Buscar contas cartão vinculadas à loja
+      // Buscar contas cartão vinculadas à fazenda
       const { data: cardAccounts } = await query("card_accounts")
-        .select(`
+        .select(
+          `
           id, name,
           card_account_stores!inner (store_id)
-        `)
+        `,
+        )
         .eq("is_active", true)
         .eq("card_account_stores.store_id", storeId);
 
@@ -194,9 +193,7 @@ const AccountingExportReport = () => {
 
   const handleAccountToggle = (accountId: string) => {
     setSelectedAccounts((prev) =>
-      prev.includes(accountId)
-        ? prev.filter((id) => id !== accountId)
-        : [...prev, accountId]
+      prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId],
     );
   };
 
@@ -210,7 +207,7 @@ const AccountingExportReport = () => {
 
   const handleSearch = async () => {
     if (!selectedStore) {
-      toast({ title: "Selecione uma loja", variant: "destructive" });
+      toast({ title: "Selecione uma fazenda", variant: "destructive" });
       return;
     }
     if (selectedAccounts.length === 0) {
@@ -226,20 +223,20 @@ const AccountingExportReport = () => {
     const startDate = parseISO(paymentStartDate);
     const endDate = parseISO(paymentEndDate);
     const daysDiff = differenceInDays(endDate, startDate);
-    
+
     if (daysDiff > 35) {
-      toast({ 
-        title: "Período máximo permitido: 35 dias", 
+      toast({
+        title: "Período máximo permitido: 35 dias",
         description: `O período selecionado tem ${daysDiff} dias.`,
-        variant: "destructive" 
+        variant: "destructive",
       });
       return;
     }
 
     if (daysDiff < 0) {
-      toast({ 
-        title: "Data inicial deve ser anterior à data final", 
-        variant: "destructive" 
+      toast({
+        title: "Data inicial deve ser anterior à data final",
+        variant: "destructive",
       });
       return;
     }
@@ -249,7 +246,8 @@ const AccountingExportReport = () => {
       // Buscar transações financeiras de saída (pagamentos) das contas selecionadas
       const { data: transactions, error: transError } = await supabase
         .from("financial_transactions")
-        .select(`
+        .select(
+          `
           id,
           amount,
           transaction_date,
@@ -257,7 +255,8 @@ const AccountingExportReport = () => {
           reference_id,
           reference_type,
           account_id
-        `)
+        `,
+        )
         .eq("store_id", selectedStore)
         .in("account_id", selectedAccounts)
         .in("reference_type", ["accounts_payable", "accounts_payable_installments"])
@@ -279,8 +278,8 @@ const AccountingExportReport = () => {
       // Separar transações por tipo
       const installmentRefIds: string[] = [];
       const accountPayableRefIds: string[] = [];
-      
-      transactions.forEach(t => {
+
+      transactions.forEach((t) => {
         if (t.reference_type === "accounts_payable_installments") {
           installmentRefIds.push(t.reference_id);
         } else if (t.reference_type === "accounts_payable") {
@@ -289,17 +288,14 @@ const AccountingExportReport = () => {
       });
 
       // Buscar todos os dados em paralelo
-      const [
-        installmentsResult,
-        directAccountsResult,
-        installmentPaymentsResult,
-        directPaymentsResult
-      ] = await Promise.all([
-        // Buscar parcelas e contas a pagar relacionadas
-        installmentRefIds.length > 0
-          ? supabase
-              .from("accounts_payable_installments")
-              .select(`
+      const [installmentsResult, directAccountsResult, installmentPaymentsResult, directPaymentsResult] =
+        await Promise.all([
+          // Buscar parcelas e contas a pagar relacionadas
+          installmentRefIds.length > 0
+            ? supabase
+                .from("accounts_payable_installments")
+                .select(
+                  `
                 id,
                 installment_number,
                 account_payable_id,
@@ -311,41 +307,44 @@ const AccountingExportReport = () => {
                   employee_id,
                   supplier_id
                 )
-              `)
-              .in("id", installmentRefIds)
-          : Promise.resolve({ data: [] }),
-        
-        // Buscar contas a pagar diretas
-        accountPayableRefIds.length > 0
-          ? supabase
-              .from("accounts_payable")
-              .select(`
+              `,
+                )
+                .in("id", installmentRefIds)
+            : Promise.resolve({ data: [] }),
+
+          // Buscar contas a pagar diretas
+          accountPayableRefIds.length > 0
+            ? supabase
+                .from("accounts_payable")
+                .select(
+                  `
                 id,
                 document_number,
                 description,
                 attachments,
                 employee_id,
                 supplier_id
-              `)
-              .in("id", accountPayableRefIds)
-          : Promise.resolve({ data: [] }),
-        
-        // Buscar pagamentos das parcelas
-        installmentRefIds.length > 0
-          ? supabase
-              .from("accounts_payable_payments")
-              .select("installment_id, interest_amount, discount_amount")
-              .in("installment_id", installmentRefIds)
-          : Promise.resolve({ data: [] }),
-        
-        // Buscar pagamentos diretos
-        accountPayableRefIds.length > 0
-          ? supabase
-              .from("accounts_payable_payments")
-              .select("account_payable_id, interest_amount, discount_amount")
-              .in("account_payable_id", accountPayableRefIds)
-          : Promise.resolve({ data: [] })
-      ]);
+              `,
+                )
+                .in("id", accountPayableRefIds)
+            : Promise.resolve({ data: [] }),
+
+          // Buscar pagamentos das parcelas
+          installmentRefIds.length > 0
+            ? supabase
+                .from("accounts_payable_payments")
+                .select("installment_id, interest_amount, discount_amount")
+                .in("installment_id", installmentRefIds)
+            : Promise.resolve({ data: [] }),
+
+          // Buscar pagamentos diretos
+          accountPayableRefIds.length > 0
+            ? supabase
+                .from("accounts_payable_payments")
+                .select("account_payable_id, interest_amount, discount_amount")
+                .in("account_payable_id", accountPayableRefIds)
+            : Promise.resolve({ data: [] }),
+        ]);
 
       // Criar mapas para lookup rápido
       const installmentsMap = new Map<string, any>();
@@ -390,17 +389,17 @@ const AccountingExportReport = () => {
         supplierIds.size > 0
           ? supabase.from("suppliers").select("id, name").in("id", Array.from(supplierIds))
           : Promise.resolve({ data: [] }),
-        
+
         employeeIds.size > 0
           ? supabase.from("employees").select("id, name").in("id", Array.from(employeeIds))
           : Promise.resolve({ data: [] }),
-        
+
         accountPayableIdsForInstallmentCount.size > 0
           ? supabase
               .from("accounts_payable_installments")
               .select("account_payable_id, installment_number")
               .in("account_payable_id", Array.from(accountPayableIdsForInstallmentCount))
-          : Promise.resolve({ data: [] })
+          : Promise.resolve({ data: [] }),
       ]);
 
       // Criar mapas para lookup
@@ -443,14 +442,14 @@ const AccountingExportReport = () => {
             documentNumber = ap?.document_number || null;
             description = ap?.description || description;
             attachments = ap?.attachments || null;
-            
+
             if (ap?.supplier_id) {
               supplierName = suppliersMap.get(ap.supplier_id) || null;
             }
             if (ap?.employee_id) {
               employeeName = employeesMap.get(ap.employee_id) || null;
             }
-            
+
             totalInstallments = totalInstallmentsMap.get(accountPayableId!) || 1;
 
             const paymentData = installmentPaymentsMap.get(transaction.reference_id);
@@ -466,7 +465,7 @@ const AccountingExportReport = () => {
             documentNumber = apData.document_number;
             description = apData.description || description;
             attachments = apData.attachments;
-            
+
             if (apData.supplier_id) {
               supplierName = suppliersMap.get(apData.supplier_id) || null;
             }
@@ -540,7 +539,7 @@ const AccountingExportReport = () => {
     doc.text("Relatório de Exportação Contabilidade", 14, 15);
 
     doc.setFontSize(10);
-    doc.text(`Loja: ${storeName}`, 14, 25);
+    doc.text(`Fazenda: ${storeName}`, 14, 25);
     doc.text(`Período: ${formatDate(paymentStartDate)} a ${formatDate(paymentEndDate)}`, 14, 30);
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, 35);
 
@@ -557,27 +556,24 @@ const AccountingExportReport = () => {
       formatCurrency(record.amount_paid + record.interest_amount - record.discount_amount),
     ]);
 
-    const total = paymentRecords.reduce(
-      (acc, r) => acc + r.amount_paid + r.interest_amount - r.discount_amount,
-      0
-    );
+    const total = paymentRecords.reduce((acc, r) => acc + r.amount_paid + r.interest_amount - r.discount_amount, 0);
 
-    tableData.push([
-      "",
-      "",
-      "",
-      "",
-      "",
-      "TOTAL",
-      "",
-      "",
-      "",
-      formatCurrency(total),
-    ]);
+    tableData.push(["", "", "", "", "", "TOTAL", "", "", "", formatCurrency(total)]);
 
     autoTable(doc, {
       head: [
-        ["Data Pgto", "Descrição", "Fornecedor", "Documento", "Parcela", "Conta", "Valor", "Juros", "Desconto", "Total"],
+        [
+          "Data Pgto",
+          "Descrição",
+          "Fornecedor",
+          "Documento",
+          "Parcela",
+          "Conta",
+          "Valor",
+          "Juros",
+          "Desconto",
+          "Total",
+        ],
       ],
       body: tableData,
       startY: 42,
@@ -607,9 +603,7 @@ const AccountingExportReport = () => {
           if (!filePath) continue;
 
           try {
-            const { data, error } = await supabase.storage
-              .from("account-documents")
-              .createSignedUrl(filePath, 3600);
+            const { data, error } = await supabase.storage.from("account-documents").createSignedUrl(filePath, 3600);
 
             if (error || !data?.signedUrl) {
               console.error("Erro ao criar URL assinada:", error);
@@ -662,9 +656,7 @@ const AccountingExportReport = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-primary">Exportar Contabilidade</h1>
-            <p className="text-sm text-muted-foreground">
-              Exporte pagamentos e anexos para contabilidade
-            </p>
+            <p className="text-sm text-muted-foreground">Exporte pagamentos e anexos para contabilidade</p>
           </div>
         </div>
       </header>
@@ -674,31 +666,23 @@ const AccountingExportReport = () => {
         <Card>
           <CardHeader>
             <CardTitle>Filtros</CardTitle>
-            <CardDescription>Selecione o período, loja e contas para exportação</CardDescription>
+            <CardDescription>Selecione o período, fazenda e contas para exportação</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>Data Inicial Pagamento</Label>
-                <Input
-                  type="date"
-                  value={paymentStartDate}
-                  onChange={(e) => setPaymentStartDate(e.target.value)}
-                />
+                <Input type="date" value={paymentStartDate} onChange={(e) => setPaymentStartDate(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Data Final Pagamento</Label>
-                <Input
-                  type="date"
-                  value={paymentEndDate}
-                  onChange={(e) => setPaymentEndDate(e.target.value)}
-                />
+                <Input type="date" value={paymentEndDate} onChange={(e) => setPaymentEndDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Loja</Label>
+                <Label>Fazenda</Label>
                 <Select value={selectedStore} onValueChange={setSelectedStore}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma loja" />
+                    <SelectValue placeholder="Selecione uma fazenda" />
                   </SelectTrigger>
                   <SelectContent>
                     {stores.map((store) => (
@@ -727,10 +711,7 @@ const AccountingExportReport = () => {
                         checked={selectedAccounts.includes(account.id)}
                         onCheckedChange={() => handleAccountToggle(account.id)}
                       />
-                      <label
-                        htmlFor={account.id}
-                        className="text-sm cursor-pointer"
-                      >
+                      <label htmlFor={account.id} className="text-sm cursor-pointer">
                         {account.name}
                       </label>
                     </div>
@@ -755,9 +736,7 @@ const AccountingExportReport = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Pagamentos Encontrados</CardTitle>
-                  <CardDescription>
-                    {paymentRecords.length} pagamento(s) no período selecionado
-                  </CardDescription>
+                  <CardDescription>{paymentRecords.length} pagamento(s) no período selecionado</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={exportToPDF} disabled={paymentRecords.length === 0}>
@@ -801,32 +780,20 @@ const AccountingExportReport = () => {
                         return (
                           <TableRow key={record.id}>
                             <TableCell>{formatDate(record.payment_date)}</TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {record.description || "-"}
-                            </TableCell>
-                            <TableCell>
-                              {record.supplier_name || record.employee_name || "-"}
-                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate">{record.description || "-"}</TableCell>
+                            <TableCell>{record.supplier_name || record.employee_name || "-"}</TableCell>
                             <TableCell>{record.document_number || "-"}</TableCell>
                             <TableCell>
-                              {record.installment_number 
-                                ? `${record.installment_number}/${record.total_installments || 1}` 
+                              {record.installment_number
+                                ? `${record.installment_number}/${record.total_installments || 1}`
                                 : "1"}
                             </TableCell>
                             <TableCell>{getAccountName(record.payment_account_id)}</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(record.amount_paid)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(record.interest_amount)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(record.discount_amount)}
-                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(record.amount_paid)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(record.interest_amount)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(record.discount_amount)}</TableCell>
                             <TableCell className="text-right font-medium">
-                              {formatCurrency(
-                                record.amount_paid + record.interest_amount - record.discount_amount
-                              )}
+                              {formatCurrency(record.amount_paid + record.interest_amount - record.discount_amount)}
                             </TableCell>
                             <TableCell className="text-center">
                               {attachmentCount > 0 ? (
@@ -843,26 +810,20 @@ const AccountingExportReport = () => {
                       <TableRow className="bg-muted/50 font-bold">
                         <TableCell colSpan={6}>TOTAL</TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(
-                            paymentRecords.reduce((acc, r) => acc + r.amount_paid, 0)
-                          )}
+                          {formatCurrency(paymentRecords.reduce((acc, r) => acc + r.amount_paid, 0))}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(
-                            paymentRecords.reduce((acc, r) => acc + r.interest_amount, 0)
-                          )}
+                          {formatCurrency(paymentRecords.reduce((acc, r) => acc + r.interest_amount, 0))}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(
-                            paymentRecords.reduce((acc, r) => acc + r.discount_amount, 0)
-                          )}
+                          {formatCurrency(paymentRecords.reduce((acc, r) => acc + r.discount_amount, 0))}
                         </TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(
                             paymentRecords.reduce(
                               (acc, r) => acc + r.amount_paid + r.interest_amount - r.discount_amount,
-                              0
-                            )
+                              0,
+                            ),
                           )}
                         </TableCell>
                         <TableCell></TableCell>

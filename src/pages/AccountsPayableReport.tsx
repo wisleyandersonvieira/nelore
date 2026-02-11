@@ -6,7 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -47,38 +52,33 @@ const AccountsPayableReport = () => {
 
   const fetchStores = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, store_id')
-        .eq('id', user.id)
-        .single();
+      const { data: profile } = await supabase.from("profiles").select("role, store_id").eq("id", user.id).single();
 
-      if (profile?.role === 'admin') {
-        const { data } = await supabase.from("stores").select("id, name").order('name');
+      if (profile?.role === "admin") {
+        const { data } = await supabase.from("stores").select("id, name").order("name");
         setStores(data || []);
       } else {
         const storeIds: string[] = [];
         if (profile?.store_id) storeIds.push(profile.store_id);
-        
-        const { data: userStores } = await supabase
-          .from('user_stores')
-          .select('store_id')
-          .eq('user_id', user.id);
-        
-        userStores?.forEach(us => {
+
+        const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", user.id);
+
+        userStores?.forEach((us) => {
           if (!storeIds.includes(us.store_id)) storeIds.push(us.store_id);
         });
 
         if (storeIds.length > 0) {
-          const { data } = await supabase.from("stores").select("id, name").in('id', storeIds).order('name');
+          const { data } = await supabase.from("stores").select("id, name").in("id", storeIds).order("name");
           setStores(data || []);
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar lojas:', error);
+      console.error("Erro ao carregar fazendass:", error);
     }
   };
 
@@ -91,9 +91,7 @@ const AccountsPayableReport = () => {
     setLoading(true);
     try {
       // Fetch accounts with suppliers, employees, stores, installments and items with products
-      const { data: allAccounts, error } = await supabase
-        .from("accounts_payable")
-        .select(`
+      const { data: allAccounts, error } = (await supabase.from("accounts_payable").select(`
           *,
           suppliers(id, name),
           employees(id, name),
@@ -113,24 +111,25 @@ const AccountsPayableReport = () => {
             total_price,
             products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
           )
-        `) as { data: any[] | null; error: any };
+        `)) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
       // Filter for unpaid accounts only and expand installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        if (account.status === 'paid') return;
-        
+        if (account.status === "paid") return;
+
         if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
           // Has installments - create one row per unpaid installment
           account.accounts_payable_installments.forEach((installment: any) => {
-            if (!installment.payment_date) { // Only unpaid installments
+            if (!installment.payment_date) {
+              // Only unpaid installments
               // Check if there are any reversed payments with interest/discount for this installment
               const installmentPayments = (account.accounts_payable_payments || []).filter(
-                (p: any) => p.installment_id === installment.id
+                (p: any) => p.installment_id === installment.id,
               );
-              
+
               // Sum up all interest and discount from payments (including reversed ones)
               let totalInterest = 0;
               let totalDiscount = 0;
@@ -138,7 +137,7 @@ const AccountsPayableReport = () => {
                 totalInterest += payment.interest_amount || 0;
                 totalDiscount += payment.discount_amount || 0;
               });
-              
+
               // The installment.amount already reflects the adjusted value from payments
               // So we use it directly
               accountsData.push({
@@ -147,7 +146,7 @@ const AccountsPayableReport = () => {
                 amount: installment.amount,
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_payable_installments.length,
-                installment_id: installment.id
+                installment_id: installment.id,
               });
             }
           });
@@ -156,7 +155,7 @@ const AccountsPayableReport = () => {
           // Check if there were any reversed payments with adjustments
           const payments = account.accounts_payable_payments || [];
           let adjustedAmount = account.amount;
-          
+
           if (payments.length > 0) {
             // Sum up all interest and discount from all payments
             let totalInterest = 0;
@@ -165,16 +164,16 @@ const AccountsPayableReport = () => {
               totalInterest += payment.interest_amount || 0;
               totalDiscount += payment.discount_amount || 0;
             });
-            
+
             // Adjust the amount with interest and discount
             adjustedAmount = account.amount + totalInterest - totalDiscount;
           }
-          
+
           accountsData.push({
             ...account,
             amount: adjustedAmount,
             installment_number: 1,
-            total_installments: 1
+            total_installments: 1,
           });
         }
       });
@@ -184,7 +183,7 @@ const AccountsPayableReport = () => {
         accountsData = accountsData.filter((account: any) => {
           if (!account.due_date) return false;
           const dueDate = account.due_date; // String no formato YYYY-MM-DD
-          
+
           if (filters.due_start && dueDate < filters.due_start) return false;
           if (filters.due_end && dueDate > filters.due_end) return false;
           return true;
@@ -195,7 +194,7 @@ const AccountsPayableReport = () => {
         accountsData = accountsData.filter((account: any) => {
           if (!account.data_competencia) return false;
           const competenciaDate = account.data_competencia; // String no formato YYYY-MM-DD
-          
+
           if (filters.competencia_start && competenciaDate < filters.competencia_start) return false;
           if (filters.competencia_end && competenciaDate > filters.competencia_end) return false;
           return true;
@@ -208,7 +207,7 @@ const AccountsPayableReport = () => {
           const createdDate = new Date(account.created_at);
           const startDate = filters.created_start ? new Date(filters.created_start + "T00:00:00") : null;
           const endDate = filters.created_end ? new Date(filters.created_end + "T23:59:59") : null;
-          
+
           if (startDate && createdDate < startDate) return false;
           if (endDate && createdDate > endDate) return false;
           return true;
@@ -263,57 +262,57 @@ const AccountsPayableReport = () => {
       filterInfo.push(`Vencimento: ${start} a ${end}`);
     }
     if (filters.supplier_id !== "all") {
-      const supplier = suppliers.find(s => s.id === filters.supplier_id);
+      const supplier = suppliers.find((s) => s.id === filters.supplier_id);
       if (supplier) filterInfo.push(`Fornecedor: ${supplier.name}`);
     }
     if (filters.store_id !== "all") {
-      const store = stores.find(s => s.id === filters.store_id);
-      if (store) filterInfo.push(`Loja: ${store.name}`);
+      const store = stores.find((s) => s.id === filters.store_id);
+      if (store) filterInfo.push(`Fazenda: ${store.name}`);
     }
     return filterInfo;
   };
 
   const exportToPDFResumido = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-    
+
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.text("Contas ainda não pagas - Resumido", 105, 28, { align: "center" });
-    
+
     const filterInfo = getFilterInfo();
-    
+
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
-    
+
     // Table data
-    const tableData = accounts.map(account => [
+    const tableData = accounts.map((account) => [
       account.description,
       account.employees?.name || account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
-      new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+      new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-      account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+      account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
     ]);
 
     // Calculate total
     const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-    
+
     // Add total row
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
     ]);
 
     autoTable(doc, {
-      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
       startY: filterInfo.length > 0 ? 45 : 35,
       styles: {
@@ -323,12 +322,12 @@ const AccountsPayableReport = () => {
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
-        fontStyle: "bold"
+        fontStyle: "bold",
       },
       alternateRowStyles: {
-        fillColor: [245, 245, 245]
+        fillColor: [245, 245, 245],
       },
-      margin: { left: 20, right: 20 }
+      margin: { left: 20, right: 20 },
     });
 
     // Footer
@@ -345,99 +344,131 @@ const AccountsPayableReport = () => {
 
   const exportToPDFResumidoPorMes = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-    
+
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.text("Contas ainda não pagas - Resumido por Mês", 105, 28, { align: "center" });
-    
+
     const filterInfo = getFilterInfo();
-    
+
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
-    
+
     // Group accounts by month/year
     const accountsByMonth: { [key: string]: { monthLabel: string; accounts: any[]; sortKey: string } } = {};
-    
-    accounts.forEach(account => {
-      const dueDate = new Date(account.due_date + 'T00:00:00');
+
+    accounts.forEach((account) => {
+      const dueDate = new Date(account.due_date + "T00:00:00");
       const year = dueDate.getFullYear();
       const month = dueDate.getMonth();
-      const key = `${year}-${String(month).padStart(2, '0')}`;
-      
+      const key = `${year}-${String(month).padStart(2, "0")}`;
+
       const monthNames = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        "Janeiro",
+        "Fevereiro",
+        "Março",
+        "Abril",
+        "Maio",
+        "Junho",
+        "Julho",
+        "Agosto",
+        "Setembro",
+        "Outubro",
+        "Novembro",
+        "Dezembro",
       ];
       const monthLabel = `${monthNames[month]} / ${year}`;
-      
+
       if (!accountsByMonth[key]) {
         accountsByMonth[key] = {
           monthLabel,
           accounts: [],
-          sortKey: key
+          sortKey: key,
         };
       }
-      
+
       accountsByMonth[key].accounts.push(account);
     });
-    
+
     // Sort by month/year
-    const sortedMonths = Object.values(accountsByMonth).sort((a, b) => 
-      a.sortKey.localeCompare(b.sortKey)
-    );
-    
+    const sortedMonths = Object.values(accountsByMonth).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
     // Build table data with month grouping
     const tableData: any[] = [];
     let grandTotal = 0;
     let totalInstallments = 0;
-    
-    sortedMonths.forEach(monthGroup => {
+
+    sortedMonths.forEach((monthGroup) => {
       // Month header row
       tableData.push([
-        { content: monthGroup.monthLabel, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+        {
+          content: monthGroup.monthLabel,
+          colSpan: 6,
+          styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 },
+        },
       ]);
-      
+
       // Items for this month
       let monthTotal = 0;
-      monthGroup.accounts.forEach(account => {
+      monthGroup.accounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
           account.stores?.name || "N/A",
-          new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
           account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
         ]);
         monthTotal += account.amount || 0;
       });
-      
+
       // Month subtotal
       tableData.push([
-        { content: `Subtotal ${monthGroup.monthLabel}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
-        { content: monthTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
-        { content: `${monthGroup.accounts.length} parcela(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+        {
+          content: `Subtotal ${monthGroup.monthLabel}`,
+          colSpan: 4,
+          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+        },
+        {
+          content: monthTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
+        {
+          content: `${monthGroup.accounts.length} parcela(s)`,
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
       ]);
-      
+
       grandTotal += monthTotal;
       totalInstallments += monthGroup.accounts.length;
     });
-    
+
     // Grand total row
     tableData.push([
-      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 } },
-      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } },
-      { content: `${totalInstallments} parcela(s)`, styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } }
+      {
+        content: "TOTAL GERAL",
+        colSpan: 4,
+        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: `${totalInstallments} parcela(s)`,
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
     ]);
 
     autoTable(doc, {
-      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
       startY: filterInfo.length > 0 ? 45 : 35,
       styles: {
@@ -447,9 +478,9 @@ const AccountsPayableReport = () => {
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
-        fontStyle: "bold"
+        fontStyle: "bold",
       },
-      margin: { left: 10, right: 10 }
+      margin: { left: 10, right: 10 },
     });
 
     // Footer
@@ -466,97 +497,119 @@ const AccountsPayableReport = () => {
 
   const exportToPDFResumidoPorDia = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-    
+
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.text("Contas ainda não pagas - Resumido por Dia", 105, 28, { align: "center" });
-    
+
     const filterInfo = getFilterInfo();
-    
+
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
-    
+
     // Group accounts by day (YYYY-MM-DD)
     const accountsByDay: { [key: string]: { dayLabel: string; accounts: any[]; sortKey: string } } = {};
-    
-    accounts.forEach(account => {
-      const dueDate = new Date(account.due_date + 'T00:00:00');
+
+    accounts.forEach((account) => {
+      const dueDate = new Date(account.due_date + "T00:00:00");
       const key = account.due_date; // Already in YYYY-MM-DD format
-      const dayLabel = dueDate.toLocaleDateString("pt-BR", { 
-        weekday: 'long', 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
+      const dayLabel = dueDate.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
       });
-      
+
       if (!accountsByDay[key]) {
         accountsByDay[key] = {
           dayLabel: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
           accounts: [],
-          sortKey: key
+          sortKey: key,
         };
       }
-      
+
       accountsByDay[key].accounts.push(account);
     });
-    
+
     // Sort by day (ascending)
-    const sortedDays = Object.values(accountsByDay).sort((a, b) => 
-      a.sortKey.localeCompare(b.sortKey)
-    );
-    
+    const sortedDays = Object.values(accountsByDay).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
     // Build table data with day grouping
     const tableData: any[] = [];
     let grandTotal = 0;
     let totalInstallments = 0;
-    
-    sortedDays.forEach(dayGroup => {
+
+    sortedDays.forEach((dayGroup) => {
       // Day header row
       tableData.push([
-        { content: dayGroup.dayLabel, colSpan: 6, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+        {
+          content: dayGroup.dayLabel,
+          colSpan: 6,
+          styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 },
+        },
       ]);
-      
+
       // Items for this day
       let dayTotal = 0;
-      dayGroup.accounts.forEach(account => {
+      dayGroup.accounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
           account.stores?.name || "N/A",
-          new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
           account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
         ]);
         dayTotal += account.amount || 0;
       });
-      
+
       // Day subtotal
       tableData.push([
-        { content: `Subtotal do dia`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
-        { content: dayTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
-        { content: `${dayGroup.accounts.length} parcela(s)`, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+        {
+          content: `Subtotal do dia`,
+          colSpan: 4,
+          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+        },
+        {
+          content: dayTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
+        {
+          content: `${dayGroup.accounts.length} parcela(s)`,
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
       ]);
-      
+
       grandTotal += dayTotal;
       totalInstallments += dayGroup.accounts.length;
     });
-    
+
     // Grand total row
     tableData.push([
-      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 } },
-      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } },
-      { content: `${totalInstallments} parcela(s)`, styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } }
+      {
+        content: "TOTAL GERAL",
+        colSpan: 4,
+        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: `${totalInstallments} parcela(s)`,
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
     ]);
 
     autoTable(doc, {
-      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
       startY: filterInfo.length > 0 ? 45 : 35,
       styles: {
@@ -566,9 +619,9 @@ const AccountsPayableReport = () => {
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
-        fontStyle: "bold"
+        fontStyle: "bold",
       },
-      margin: { left: 10, right: 10 }
+      margin: { left: 10, right: 10 },
     });
 
     // Footer
@@ -585,49 +638,61 @@ const AccountsPayableReport = () => {
 
   const exportToPDFDetalhado = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-    
+
     const filterInfo = getFilterInfo();
-    
+
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
     }
-    
+
     // Build table data with product details
     const tableData: any[] = [];
-    
-    accounts.forEach(account => {
+
+    accounts.forEach((account) => {
       // Main account row
       tableData.push([
         { content: account.description, styles: { fontStyle: "bold" } },
         { content: account.employees?.name || account.suppliers?.name || "N/A", styles: { fontStyle: "bold" } },
         { content: account.stores?.name || "N/A", styles: { fontStyle: "bold" } },
-        { content: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"), styles: { fontStyle: "bold" } },
-        { content: account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A", styles: { fontStyle: "bold" } },
-        { content: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista", styles: { fontStyle: "bold" } }
+        {
+          content: new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
+          styles: { fontStyle: "bold" },
+        },
+        {
+          content: account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          styles: { fontStyle: "bold" },
+        },
+        {
+          content:
+            account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
+          styles: { fontStyle: "bold" },
+        },
       ]);
-      
+
       // Product detail rows
       if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
         account.accounts_payable_items.forEach((item: any) => {
           const productName = item.products?.name || "Produto não encontrado";
           const subgroupName = item.products?.account_groups?.name || "-";
           const quantity = item.quantity || 0;
-          const unitPrice = item.unit_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
-          const totalPrice = item.total_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
-          
+          const unitPrice =
+            item.unit_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
+          const totalPrice =
+            item.total_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
+
           tableData.push([
             { content: "", styles: { fontSize: 8 } },
             { content: `   ${productName}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
             { content: subgroupName, styles: { fontSize: 8, textColor: [100, 100, 100] } },
             { content: `${quantity}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
             { content: totalPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: unitPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } }
+            { content: unitPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } },
           ]);
         });
       }
@@ -635,16 +700,16 @@ const AccountsPayableReport = () => {
 
     // Calculate total
     const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-    
+
     // Add total row
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
     ]);
 
     autoTable(doc, {
-      head: [["Título", "Fornecedor", "Loja", "Vencimento", "Valor", "Parcelas"]],
+      head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
       startY: filterInfo.length > 0 ? 37 : 27,
       styles: {
@@ -654,9 +719,9 @@ const AccountsPayableReport = () => {
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
-        fontStyle: "bold"
+        fontStyle: "bold",
       },
-      margin: { left: 20, right: 20 }
+      margin: { left: 20, right: 20 },
     });
 
     // Footer
@@ -673,18 +738,18 @@ const AccountsPayableReport = () => {
 
   const exportToPDFPorSubgrupo = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-    
+
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.text("Agrupado por Subgrupo", 105, 28, { align: "center" });
-    
+
     const filterInfo = getFilterInfo();
-    
+
     if (filterInfo.length > 0) {
       doc.setFontSize(10);
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
@@ -692,27 +757,27 @@ const AccountsPayableReport = () => {
 
     // Group accounts by subgroup
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
-    
+
     accounts.forEach((account: any) => {
       // Calculate the installment proportion for parcelado accounts
       // For installment accounts: proportion = installment_amount / total_title_amount
       // Interest and discounts are applied fully to each installment
-      
+
       let installmentProportion = 1; // Default: full amount (à vista)
       let interestAmount = 0;
       let discountAmount = 0;
-      
+
       if (account.total_installments > 1) {
         // This is a parcelado account - calculate proportion
         // We need to get the original total amount (sum of all installments or total_amount)
         const originalTotalAmount = account.total_amount || account.amount * account.total_installments;
-        
+
         if (originalTotalAmount > 0) {
           // Get the installment base amount (without interest/discount adjustments from payments)
           const installmentBaseAmount = originalTotalAmount / account.total_installments;
           installmentProportion = installmentBaseAmount / originalTotalAmount;
         }
-        
+
         // Check for interest/discount from payments on this specific installment
         const payments = account.accounts_payable_payments || [];
         if (payments.length > 0) {
@@ -731,34 +796,35 @@ const AccountsPayableReport = () => {
           });
         }
       }
-      
+
       // Process items
       if (account.accounts_payable_items && account.accounts_payable_items.length > 0) {
         // Calculate total of all items to distribute interest/discount proportionally
         const totalItemsValue = account.accounts_payable_items.reduce(
-          (sum: number, item: any) => sum + (item.total_price || 0), 0
+          (sum: number, item: any) => sum + (item.total_price || 0),
+          0,
         );
-        
+
         account.accounts_payable_items.forEach((item: any) => {
-          const subgroupId = item.products?.subgroup_id || 'sem-subgrupo';
-          const subgroupName = item.products?.account_groups?.name || 'Sem Subgrupo';
-          
+          const subgroupId = item.products?.subgroup_id || "sem-subgrupo";
+          const subgroupName = item.products?.account_groups?.name || "Sem Subgrupo";
+
           if (!accountsBySubgroup[subgroupId]) {
             accountsBySubgroup[subgroupId] = {
               subgroupName,
-              items: []
+              items: [],
             };
           }
-          
+
           // Calculate proportional item amount for this installment
           let itemAmount = (item.total_price || 0) * installmentProportion;
-          
+
           // Distribute interest/discount proportionally to items based on their value
           if (totalItemsValue > 0 && (interestAmount > 0 || discountAmount > 0)) {
             const itemProportion = (item.total_price || 0) / totalItemsValue;
-            itemAmount += (interestAmount * itemProportion) - (discountAmount * itemProportion);
+            itemAmount += interestAmount * itemProportion - discountAmount * itemProportion;
           }
-          
+
           accountsBySubgroup[subgroupId].items.push({
             description: account.description,
             supplierName: account.employees?.name || account.suppliers?.name || "N/A",
@@ -766,27 +832,29 @@ const AccountsPayableReport = () => {
             dueDate: account.due_date,
             amount: itemAmount,
             productName: item.products?.name || "Produto",
-            installmentInfo: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : null
+            installmentInfo:
+              account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : null,
           });
         });
       } else {
         // No items - add to "Sem Subgrupo"
-        if (!accountsBySubgroup['sem-subgrupo']) {
-          accountsBySubgroup['sem-subgrupo'] = {
-            subgroupName: 'Sem Subgrupo',
-            items: []
+        if (!accountsBySubgroup["sem-subgrupo"]) {
+          accountsBySubgroup["sem-subgrupo"] = {
+            subgroupName: "Sem Subgrupo",
+            items: [],
           };
         }
-        
+
         // For accounts without items, use the already adjusted amount
-        accountsBySubgroup['sem-subgrupo'].items.push({
+        accountsBySubgroup["sem-subgrupo"].items.push({
           description: account.description,
           supplierName: account.employees?.name || account.suppliers?.name || "N/A",
           storeName: account.stores?.name || "N/A",
           dueDate: account.due_date,
           amount: account.amount || 0,
           productName: null,
-          installmentInfo: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : null
+          installmentInfo:
+            account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : null,
         });
       }
     });
@@ -794,43 +862,61 @@ const AccountsPayableReport = () => {
     // Build table data
     const tableData: any[] = [];
     let grandTotal = 0;
-    
-    Object.values(accountsBySubgroup).forEach(group => {
+
+    Object.values(accountsBySubgroup).forEach((group) => {
       // Subgroup header row
       tableData.push([
-        { content: group.subgroupName, colSpan: 5, styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 } }
+        {
+          content: group.subgroupName,
+          colSpan: 5,
+          styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 },
+        },
       ]);
-      
+
       // Items for this subgroup
       let subgroupTotal = 0;
-      group.items.forEach(item => {
+      group.items.forEach((item) => {
         tableData.push([
           item.description,
           item.supplierName,
           item.storeName,
-          item.dueDate ? new Date(item.dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : "N/A",
-          item.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A"
+          item.dueDate ? new Date(item.dueDate + "T00:00:00").toLocaleDateString("pt-BR") : "N/A",
+          item.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
         ]);
         subgroupTotal += item.amount || 0;
       });
-      
+
       // Subgroup subtotal
       tableData.push([
-        { content: `Subtotal ${group.subgroupName}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
-        { content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+        {
+          content: `Subtotal ${group.subgroupName}`,
+          colSpan: 4,
+          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+        },
+        {
+          content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
       ]);
-      
+
       grandTotal += subgroupTotal;
     });
-    
+
     // Grand total row
     tableData.push([
-      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 } },
-      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 } }
+      {
+        content: "TOTAL GERAL",
+        colSpan: 4,
+        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
     ]);
 
     autoTable(doc, {
-      head: [["Descrição", "Fornecedor", "Loja", "Vencimento", "Valor"]],
+      head: [["Descrição", "Fornecedor", "Fazenda", "Vencimento", "Valor"]],
       body: tableData,
       startY: filterInfo.length > 0 ? 45 : 35,
       styles: {
@@ -840,9 +926,9 @@ const AccountsPayableReport = () => {
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
-        fontStyle: "bold"
+        fontStyle: "bold",
       },
-      margin: { left: 10, right: 10 }
+      margin: { left: 10, right: 10 },
     });
 
     // Footer
@@ -858,13 +944,14 @@ const AccountsPayableReport = () => {
   };
 
   const exportToExcel = () => {
-    const excelData = accounts.map(account => ({
+    const excelData = accounts.map((account) => ({
       Título: account.description,
       Fornecedor: account.employees?.name || account.suppliers?.name || "N/A",
-      Loja: account.stores?.name || "N/A",
-      Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+      Fazenda: account.stores?.name || "N/A",
+      Vencimento: new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
       Valor: account.amount || 0,
-      Parcelas: account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+      Parcelas:
+        account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -898,9 +985,7 @@ const AccountsPayableReport = () => {
               <Filter className="h-5 w-5" />
               Filtros
             </CardTitle>
-            <CardDescription>
-              Configure os filtros para o relatório
-            </CardDescription>
+            <CardDescription>Configure os filtros para o relatório</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -910,7 +995,7 @@ const AccountsPayableReport = () => {
                   id="due_start"
                   type="date"
                   value={filters.due_start}
-                  onChange={(e) => setFilters(prev => ({...prev, due_start: e.target.value}))}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, due_start: e.target.value }))}
                 />
               </div>
               <div>
@@ -919,7 +1004,7 @@ const AccountsPayableReport = () => {
                   id="due_end"
                   type="date"
                   value={filters.due_end}
-                  onChange={(e) => setFilters(prev => ({...prev, due_end: e.target.value}))}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, due_end: e.target.value }))}
                 />
               </div>
               <div>
@@ -928,7 +1013,7 @@ const AccountsPayableReport = () => {
                   id="competencia_start"
                   type="date"
                   value={filters.competencia_start}
-                  onChange={(e) => setFilters(prev => ({...prev, competencia_start: e.target.value}))}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, competencia_start: e.target.value }))}
                 />
               </div>
               <div>
@@ -937,7 +1022,7 @@ const AccountsPayableReport = () => {
                   id="competencia_end"
                   type="date"
                   value={filters.competencia_end}
-                  onChange={(e) => setFilters(prev => ({...prev, competencia_end: e.target.value}))}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, competencia_end: e.target.value }))}
                 />
               </div>
               <div>
@@ -946,7 +1031,7 @@ const AccountsPayableReport = () => {
                   id="created_start"
                   type="date"
                   value={filters.created_start}
-                  onChange={(e) => setFilters(prev => ({...prev, created_start: e.target.value}))}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, created_start: e.target.value }))}
                 />
               </div>
               <div>
@@ -955,12 +1040,15 @@ const AccountsPayableReport = () => {
                   id="created_end"
                   type="date"
                   value={filters.created_end}
-                  onChange={(e) => setFilters(prev => ({...prev, created_end: e.target.value}))}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, created_end: e.target.value }))}
                 />
               </div>
               <div>
                 <Label>Fornecedor</Label>
-                <Select value={filters.supplier_id} onValueChange={(value) => setFilters(prev => ({...prev, supplier_id: value}))}>
+                <Select
+                  value={filters.supplier_id}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, supplier_id: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar fornecedor" />
                   </SelectTrigger>
@@ -975,10 +1063,13 @@ const AccountsPayableReport = () => {
                 </Select>
               </div>
               <div>
-                <Label>Loja</Label>
-                <Select value={filters.store_id} onValueChange={(value) => setFilters(prev => ({...prev, store_id: value}))}>
+                <Label>Fazenda</Label>
+                <Select
+                  value={filters.store_id}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, store_id: value }))}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecionar loja" />
+                    <SelectValue placeholder="Selecionar fazenda" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
@@ -992,7 +1083,10 @@ const AccountsPayableReport = () => {
               </div>
               <div>
                 <Label>Produto</Label>
-                <Select value={filters.product_id} onValueChange={(value) => setFilters(prev => ({...prev, product_id: value}))}>
+                <Select
+                  value={filters.product_id}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, product_id: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar produto" />
                   </SelectTrigger>
@@ -1007,7 +1101,7 @@ const AccountsPayableReport = () => {
                 </Select>
               </div>
             </div>
-            
+
             <div className="flex gap-2">
               <Button onClick={handleSearch} disabled={loading}>
                 {loading ? "Pesquisando..." : "Pesquisar"}
@@ -1035,15 +1129,9 @@ const AccountsPayableReport = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem onClick={exportToPDFResumido}>
-                        Relatório Resumido
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFDetalhado}>
-                        Relatório Detalhado
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>
-                        Relatório por Subgrupo
-                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFResumido}>Relatório Resumido</DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFDetalhado}>Relatório Detalhado</DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>Relatório por Subgrupo</DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFResumidoPorMes}>
                         Relatório Resumido por Mês
                       </DropdownMenuItem>
@@ -1065,7 +1153,7 @@ const AccountsPayableReport = () => {
                   <TableRow>
                     <TableHead>Título</TableHead>
                     <TableHead>Fornecedor</TableHead>
-                    <TableHead>Loja</TableHead>
+                    <TableHead>Fazenda</TableHead>
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Parcelas</TableHead>
@@ -1077,26 +1165,32 @@ const AccountsPayableReport = () => {
                       <TableCell>{account.description}</TableCell>
                       <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
-                      <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
                         {account.amount?.toLocaleString("pt-BR", {
                           style: "currency",
-                          currency: "BRL"
+                          currency: "BRL",
                         }) || "N/A"}
                       </TableCell>
                       <TableCell>
-                        {account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}
+                        {account.total_installments > 1
+                          ? `${account.installment_number}/${account.total_installments}`
+                          : "À vista"}
                       </TableCell>
                     </TableRow>
                   ))}
                   {/* Total Row */}
                   <TableRow className="border-t-2 font-bold bg-muted/50">
-                    <TableCell colSpan={4} className="text-right">Total:</TableCell>
+                    <TableCell colSpan={4} className="text-right">
+                      Total:
+                    </TableCell>
                     <TableCell>
-                      {accounts.reduce((sum, account) => sum + (account.amount || 0), 0).toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL"
-                      })}
+                      {accounts
+                        .reduce((sum, account) => sum + (account.amount || 0), 0)
+                        .toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
                     </TableCell>
                     <TableCell>{accounts.length} parcela(s)</TableCell>
                   </TableRow>
