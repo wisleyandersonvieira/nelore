@@ -666,7 +666,7 @@ const AccountingExportReport = () => {
         <Card>
           <CardHeader>
             <CardTitle>Filtros</CardTitle>
-            <CardDescription>Selecione o período, fazenda e contas para exportação</CardDescription>
+            <CardDescription>Selecione o período, Fazenda e contas para exportação</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -682,7 +682,7 @@ const AccountingExportReport = () => {
                 <Label>Fazenda</Label>
                 <Select value={selectedStore} onValueChange={setSelectedStore}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma fazenda" />
+                    <SelectValue placeholder="Selecione uma Fazenda" />
                   </SelectTrigger>
                   <SelectContent>
                     {stores.map((store) => (
