@@ -16,7 +16,7 @@ const Index = () => {
           <h2 className="text-2xl font-semibold text-foreground">Sistema Financeiro para Sorveterias</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Controle completo das suas finanças com gestão de caixa, contas a pagar e receber, relatórios detalhados e
-            controle de acesso por fazendas.
+            controle de acesso por Fazenda.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ const Index = () => {
               </svg>
             </div>
             <h3 className="text-lg font-semibold">Controle de Acesso</h3>
-            <p className="text-sm text-muted-foreground">Permissões por usuário e limitação de acesso por fazenda</p>
+            <p className="text-sm text-muted-foreground">Permissões por usuário e limitação de acesso por Fazenda</p>
           </div>
         </div>
       </div>
