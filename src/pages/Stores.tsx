@@ -58,14 +58,12 @@ const Stores = () => {
 
   const fetchUserMatrix = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('matrix_id')
-        .eq('id', user.id)
-        .single();
+      const { data: profile, error } = await supabase.from("profiles").select("matrix_id").eq("id", user.id).single();
 
       if (error || !profile?.matrix_id) {
         console.error("Error fetching user matrix:", error);
@@ -73,9 +71,9 @@ const Stores = () => {
       }
 
       const { data: matrix, error: matrixError } = await supabase
-        .from('matrices')
-        .select('id, code, name')
-        .eq('id', profile.matrix_id)
+        .from("matrices")
+        .select("id, code, name")
+        .eq("id", profile.matrix_id)
         .single();
 
       if (matrixError || !matrix) {
@@ -85,7 +83,7 @@ const Stores = () => {
 
       setUserMatrixId(matrix.id);
       setUserMatrixName(`${matrix.code} - ${matrix.name}`);
-      setFormData(prev => ({ ...prev, matrix_id: matrix.id }));
+      setFormData((prev) => ({ ...prev, matrix_id: matrix.id }));
     } catch (error) {
       console.error("Error in fetchUserMatrix:", error);
     }
@@ -101,20 +99,19 @@ const Stores = () => {
 
   const fetchUserStores = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from("user_stores")
-        .select("store_id")
-        .eq("user_id", user.id);
+      const { data, error } = await supabase.from("user_stores").select("store_id").eq("user_id", user.id);
 
       if (error) {
         console.error("Error fetching user stores:", error);
         return;
       }
 
-      setUserStoreIds((data || []).map(us => us.store_id));
+      setUserStoreIds((data || []).map((us) => us.store_id));
     } catch (error) {
       console.error("Error in fetchUserStores:", error);
     }
@@ -124,10 +121,7 @@ const Stores = () => {
     setLoading(true);
     try {
       console.log("Fetching stores...");
-      const { data, error } = await supabase
-        .from("stores")
-        .select("*")
-        .order("name");
+      const { data, error } = await supabase.from("stores").select("*").order("name");
 
       console.log("Stores data:", data);
       if (error) {
@@ -140,7 +134,7 @@ const Stores = () => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível carregar as lojas.",
+        description: "Não foi possível carregar as fazendas.",
       });
     } finally {
       setLoading(false);
@@ -149,12 +143,12 @@ const Stores = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Nome da loja é obrigatório.",
+        description: "Nome da fazenda é obrigatório.",
       });
       return;
     }
@@ -163,7 +157,7 @@ const Stores = () => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Código da loja é obrigatório.",
+        description: "Código da fazenda é obrigatório.",
       });
       return;
     }
@@ -179,7 +173,7 @@ const Stores = () => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao verificar código da loja.",
+        description: "Erro ao verificar código da fazenda.",
       });
       return;
     }
@@ -188,7 +182,7 @@ const Stores = () => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Já existe uma loja cadastrada com este código.",
+        description: "Já existe uma fazenda cadastrada com este código.",
       });
       return;
     }
@@ -205,7 +199,7 @@ const Stores = () => {
         toast({
           variant: "destructive",
           title: "Erro",
-          description: "Erro ao verificar CNPJ da loja.",
+          description: "Erro ao verificar CNPJ da fazenda.",
         });
         return;
       }
@@ -214,7 +208,7 @@ const Stores = () => {
         toast({
           variant: "destructive",
           title: "Erro",
-          description: "Já existe uma loja cadastrada com este CNPJ.",
+          description: "Já existe uma fazenda cadastrada com este CNPJ.",
         });
         return;
       }
@@ -223,25 +217,20 @@ const Stores = () => {
     setLoading(true);
     try {
       if (editingStore) {
-        const { error } = await supabase
-          .from("stores")
-          .update(formData)
-          .eq("id", editingStore.id);
+        const { error } = await supabase.from("stores").update(formData).eq("id", editingStore.id);
 
         if (error) throw error;
         toast({
           title: "Sucesso",
-          description: "Loja atualizada com sucesso!",
+          description: "Fazenda atualizada com sucesso!",
         });
       } else {
-        const { error } = await supabase
-          .from("stores")
-          .insert([formData]);
+        const { error } = await supabase.from("stores").insert([formData]);
 
         if (error) throw error;
         toast({
           title: "Sucesso",
-          description: "Loja cadastrada com sucesso!",
+          description: "Fazenda cadastrada com sucesso!",
         });
       }
 
@@ -253,7 +242,7 @@ const Stores = () => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar a loja.",
+        description: "Não foi possível salvar a fazenda.",
       });
     } finally {
       setLoading(false);
@@ -276,17 +265,14 @@ const Stores = () => {
   };
 
   const handleDelete = async (store: Store) => {
-    if (!confirm(`Tem certeza que deseja excluir a loja ${store.name}?`)) {
+    if (!confirm(`Tem certeza que deseja excluir a fazenda ${store.name}?`)) {
       return;
     }
 
     setLoading(true);
     try {
       console.log("Deleting store:", store.id);
-      const { error } = await supabase
-        .from("stores")
-        .delete()
-        .eq("id", store.id);
+      const { error } = await supabase.from("stores").delete().eq("id", store.id);
 
       if (error) {
         console.error("Delete error:", error);
@@ -296,16 +282,16 @@ const Stores = () => {
       console.log("Store deleted successfully");
       toast({
         title: "Sucesso",
-        description: "Loja excluída com sucesso!",
+        description: "Fazenda excluída com sucesso!",
       });
-      
+
       await fetchStores();
     } catch (error) {
       console.error("Error deleting store:", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível excluir a loja.",
+        description: "Não foi possível excluir a fazenda.",
       });
     } finally {
       setLoading(false);
@@ -334,21 +320,21 @@ const Stores = () => {
   const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const cleaned = value.replace(/\D/g, "");
-    
+
     if (cleaned.length <= 14) {
       const formatted = formatCnpj(cleaned);
       setFormData({ ...formData, cnpj: formatted });
     }
   };
 
-  const filteredStores = stores.filter(store => {
-    // Se não tem permissão de edição, filtra apenas as lojas vinculadas ao usuário
+  const filteredStores = stores.filter((store) => {
+    // Se não tem permissão de edição, filtra apenas as fazendas vinculadas ao usuário
     if (!canEdit && !userStoreIds.includes(store.id)) {
       return false;
     }
-    
+
     if (!searchTerm.trim()) return true; // Se não há termo de busca, mostra todos
-    
+
     const searchLower = searchTerm.toLowerCase();
     return (
       store.name.toLowerCase().includes(searchLower) ||
@@ -356,7 +342,7 @@ const Stores = () => {
       (store.cnpj && store.cnpj.includes(searchTerm))
     );
   });
-  
+
   console.log("All stores:", stores);
   console.log("Search term:", searchTerm);
   console.log("Filtered stores:", filteredStores);
@@ -379,8 +365,8 @@ const Stores = () => {
             Voltar
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-primary">Lojas</h1>
-            <p className="text-sm text-muted-foreground">Cadastro e gestão de lojas</p>
+            <h1 className="text-2xl font-bold text-primary">Fazendas</h1>
+            <p className="text-sm text-muted-foreground">Cadastro e gestão de fazendas</p>
           </div>
         </div>
       </header>
@@ -389,9 +375,7 @@ const Stores = () => {
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className={canEdit ? "grid w-full grid-cols-2" : "grid w-full grid-cols-1"}>
-            {canEdit && (
-              <TabsTrigger value="register">Cadastro</TabsTrigger>
-            )}
+            {canEdit && <TabsTrigger value="register">Cadastro</TabsTrigger>}
             <TabsTrigger value="list">Exibir Cadastros</TabsTrigger>
           </TabsList>
 
@@ -399,14 +383,9 @@ const Stores = () => {
           <TabsContent value="register">
             <Card>
               <CardHeader>
-                <CardTitle>
-                  {editingStore ? "Editar Loja" : "Nova Loja"}
-                </CardTitle>
+                <CardTitle>{editingStore ? "Editar Fazenda" : "Nova Fazenda"}</CardTitle>
                 <CardDescription>
-                  {editingStore 
-                    ? "Atualize as informações da loja" 
-                    : "Preencha os dados da nova loja"
-                  }
+                  {editingStore ? "Atualize as informações da fazenda" : "Preencha os dados da nova fazeda"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -414,12 +393,7 @@ const Stores = () => {
                   {/* Campo Matriz - sempre visível mas não editável */}
                   <div className="space-y-2">
                     <Label htmlFor="matrix">Matriz *</Label>
-                    <Input
-                      id="matrix"
-                      value={userMatrixName}
-                      disabled
-                      className="bg-muted"
-                    />
+                    <Input id="matrix" value={userMatrixName} disabled className="bg-muted" />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -430,10 +404,10 @@ const Stores = () => {
                         required
                         value={formData.code}
                         onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                        placeholder="Código único da loja"
+                        placeholder="Código único da fazenda"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="cnpj">CNPJ *</Label>
                       <Input
@@ -447,13 +421,13 @@ const Stores = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome da Loja *</Label>
+                    <Label htmlFor="name">Nome da Fazenda *</Label>
                     <Input
                       id="name"
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Nome da loja"
+                      placeholder="Nome da fazenda"
                     />
                   </div>
 
@@ -467,7 +441,7 @@ const Stores = () => {
                         onChange={(e) => setFormData({ ...formData, opening_date: e.target.value })}
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="manager_name">Gerente</Label>
                       <Input
@@ -489,7 +463,7 @@ const Stores = () => {
                         placeholder="Endereço completo"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="phone">Telefone</Label>
                       <Input
@@ -503,7 +477,7 @@ const Stores = () => {
 
                   <div className="flex space-x-2">
                     <Button type="submit" disabled={loading}>
-                      {loading ? "Salvando..." : (editingStore ? "Atualizar" : "Cadastrar")}
+                      {loading ? "Salvando..." : editingStore ? "Atualizar" : "Cadastrar"}
                     </Button>
                     {editingStore && (
                       <Button type="button" variant="outline" onClick={resetForm}>
@@ -520,10 +494,8 @@ const Stores = () => {
           <TabsContent value="list">
             <Card>
               <CardHeader>
-                <CardTitle>Lista de Lojas</CardTitle>
-                <CardDescription>
-                  Gerencie todas as lojas cadastradas
-                </CardDescription>
+                <CardTitle>Lista de Fazendas</CardTitle>
+                <CardDescription>Gerencie todas as fazendas cadastradas</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-2 mb-4">
@@ -548,9 +520,7 @@ const Stores = () => {
                         <TableHead>Telefone</TableHead>
                         <TableHead>Gerente</TableHead>
                         <TableHead>Data Abertura</TableHead>
-                        {(canEdit || canDelete) && (
-                          <TableHead className="text-right">Ações</TableHead>
-                        )}
+                        {(canEdit || canDelete) && <TableHead className="text-right">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -563,48 +533,32 @@ const Stores = () => {
                       ) : filteredStores.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center">
-                            {stores.length === 0 ? "Nenhuma loja cadastrada" : "Nenhuma loja encontrada para a busca"}
+                            {stores.length === 0
+                              ? "Nenhuma fazenda cadastrada"
+                              : "Nenhuma fazenda encontrada para a busca"}
                           </TableCell>
                         </TableRow>
                       ) : (
                         filteredStores.map((store) => (
                           <TableRow key={store.id}>
-                            <TableCell className="font-medium">
-                              {store.name}
-                            </TableCell>
+                            <TableCell className="font-medium">{store.name}</TableCell>
+                            <TableCell>{store.code}</TableCell>
+                            <TableCell>{store.cnpj || "-"}</TableCell>
+                            <TableCell>{store.phone || "-"}</TableCell>
+                            <TableCell>{store.manager_name || "-"}</TableCell>
                             <TableCell>
-                              {store.code}
-                            </TableCell>
-                            <TableCell>
-                              {store.cnpj || "-"}
-                            </TableCell>
-                            <TableCell>
-                              {store.phone || "-"}
-                            </TableCell>
-                            <TableCell>
-                              {store.manager_name || "-"}
-                            </TableCell>
-                            <TableCell>
-                              {store.opening_date ? new Date(store.opening_date).toLocaleDateString('pt-BR') : "-"}
+                              {store.opening_date ? new Date(store.opening_date).toLocaleDateString("pt-BR") : "-"}
                             </TableCell>
                             {(canEdit || canDelete) && (
                               <TableCell className="text-right">
                                 <div className="flex justify-end space-x-2">
                                   {canEdit && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEdit(store)}
-                                    >
+                                    <Button variant="outline" size="sm" onClick={() => handleEdit(store)}>
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                   )}
                                   {canDelete && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleDelete(store)}
-                                    >
+                                    <Button variant="outline" size="sm" onClick={() => handleDelete(store)}>
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   )}
