@@ -78,7 +78,7 @@ const AccountsPayableReport = () => {
         }
       }
     } catch (error) {
-      console.error("Erro ao carregar fazendass:", error);
+      console.error("Erro ao carregar fazendas:", error);
     }
   };
 
@@ -1069,7 +1069,7 @@ const AccountsPayableReport = () => {
                   onValueChange={(value) => setFilters((prev) => ({ ...prev, store_id: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecionar fazenda" />
+                    <SelectValue placeholder="Selecionar Fazenda" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
