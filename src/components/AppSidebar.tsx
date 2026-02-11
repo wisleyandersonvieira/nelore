@@ -17,7 +17,7 @@ import {
   Loader2,
   UserCircle,
   Sparkles,
-  Bug
+  Beef
 } from "lucide-react";
 import React from "react";
 import {
@@ -251,7 +251,7 @@ const AppSidebar = ({
         { id: "credores", label: "Credores", action: "openCreditors" },
         { id: "fornecedores", label: "Fornecedores", action: "openSuppliers" },
         { id: "grupos", label: "Grupos", action: "openGrupos" },
-        { id: "lojas", label: "Lojas", action: "openStores" },
+        { id: "lojas", label: "Fazendas", action: "openStores" },
         { id: "metas", label: "Metas", route: "/goals" },
         { id: "parametros", label: "Parâmetros", action: "openParameters" },
         { id: "produtos", label: "Produtos/Serviços", route: "/products" },
@@ -306,7 +306,7 @@ const AppSidebar = ({
     {
       id: "animais",
       title: "Animais",
-      icon: Bug,
+      icon: Beef,
       subMenus: [
         { id: "animais-cadastro", label: "Cadastro de Animais", route: "/animais/cadastro" },
         { id: "animais-lotes", label: "Lotes", route: "/animais/lotes" },
