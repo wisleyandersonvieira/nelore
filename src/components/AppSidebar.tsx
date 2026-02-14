@@ -216,12 +216,12 @@ const AppSidebar = ({
   };
 
   const menuItems: MenuItem[] = [
-    {
-      id: "caixa",
-      title: "Controle de Caixa",
-      icon: Calculator,
-      dynamicSubMenus: true,
-    },
+    // {
+    //   id: "caixa",
+    //   title: "Controle de Caixa",
+    //   icon: Calculator,
+    //   dynamicSubMenus: true,
+    // },
     {
       id: "financeiro",
       title: "Financeiro",
