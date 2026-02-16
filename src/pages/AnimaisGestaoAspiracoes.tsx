@@ -431,7 +431,11 @@ const AnimaisGestaoAspiracoes = () => {
           farm_id: secondFinalizeRecord.farm_id,
           farm_type: secondFinalizeRecord.farm_type,
           store_id: secondFinalizeRecord.store_id,
-        });
+          aspiration_date: secondFinalizeRecord.aspiration_date || null,
+          transfer_date: finalizeTransferDate ? format(finalizeTransferDate, "yyyy-MM-dd") : null,
+          veterinarian_id: finalizeVeterinarianId || null,
+          laboratory_id: secondFinalizeRecord.laboratory_id || null,
+        } as any);
         if (insertError) throw insertError;
       }
 

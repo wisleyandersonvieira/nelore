@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -32,6 +32,10 @@ interface EmbryoTransferRecord {
   code: number;
   name: string;
   expected_aspiration_month: string | null;
+  aspiration_date: string | null;
+  transfer_date: string | null;
+  veterinarian_id: string | null;
+  laboratory_id: string | null;
   breed_id: string | null;
   category_id: string | null;
   auction_id: string | null;
@@ -50,6 +54,8 @@ interface Category { id: string; name: string; }
 interface Auction { id: string; name: string; }
 interface BreedingAnimal { id: string; name: string; sex: string; sire_id: string | null; dam_id: string | null; }
 interface AnimalOption { id: string; name: string; ear_tag: number | null; registration: string | null; category_id: string | null; }
+interface Laboratory { id: string; name: string; }
+interface Veterinarian { id: string; name: string; }
 
 const AnimaisTransferenciaEmbriao = () => {
   const navigate = useNavigate();
@@ -76,7 +82,7 @@ const AnimaisTransferenciaEmbriao = () => {
   const [formData, setFormData] = useState({
     code: 0,
     name: "",
-    expected_aspiration_month: null as Date | null,
+    aspiration_date: null as Date | null,
     breed_id: "",
     category_id: "",
     auction_id: "",
@@ -87,6 +93,14 @@ const AnimaisTransferenciaEmbriao = () => {
     farm: "",
   });
 
+  // Dados Reprodução tab
+  const [reproData, setReproData] = useState({
+    aspiration_date: null as Date | null,
+    transfer_date: null as Date | null,
+    veterinarian_id: "",
+    laboratory_id: "",
+  });
+
   const [breeds, setBreeds] = useState<Breed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
@@ -94,6 +108,8 @@ const AnimaisTransferenciaEmbriao = () => {
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
   const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
+  const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
+  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
 
   useEffect(() => { fetchRecords(); fetchDropdownData(); }, []);
 
@@ -146,7 +162,7 @@ const AnimaisTransferenciaEmbriao = () => {
         .eq("store_id", profile.store_id)
         .order("code", { ascending: false });
       if (error) throw error;
-      setRecords(data || []);
+      setRecords((data as any[]) || []);
     } catch (error) {
       console.error("Error fetching records:", error);
       toast({ title: "Erro", description: "Erro ao carregar registros.", variant: "destructive" });
@@ -162,13 +178,15 @@ const AnimaisTransferenciaEmbriao = () => {
       const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
       if (!profile?.store_id) return;
 
-      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes] = await Promise.all([
+      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, vetRes, labRes] = await Promise.all([
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
+        supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
       ]);
 
       setBreeds(breedsRes.data || []);
@@ -179,6 +197,8 @@ const AnimaisTransferenciaEmbriao = () => {
       setSires(animals.filter(a => a.sex === "macho"));
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
+      setVeterinarians(vetRes.data || []);
+      setLaboratories(labRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -203,7 +223,8 @@ const AnimaisTransferenciaEmbriao = () => {
 
     if (mode === "create") {
       const nextCode = await getNextCode();
-      setFormData({ code: nextCode, name: "", expected_aspiration_month: null, breed_id: "", category_id: "", auction_id: "", auction_lot: "", dam_id: "", sire_id: "", recipient_id: "", farm: "" });
+      setFormData({ code: nextCode, name: "", aspiration_date: null, breed_id: "", category_id: "", auction_id: "", auction_lot: "", dam_id: "", sire_id: "", recipient_id: "", farm: "" });
+      setReproData({ aspiration_date: null, transfer_date: null, veterinarian_id: "", laboratory_id: "" });
       setSelectedRecord(null);
     } else if (record) {
       setSelectedRecord(record);
@@ -212,7 +233,7 @@ const AnimaisTransferenciaEmbriao = () => {
       setFormData({
         code: record.code,
         name: record.name,
-        expected_aspiration_month: record.expected_aspiration_month ? new Date(record.expected_aspiration_month) : null,
+        aspiration_date: record.aspiration_date ? new Date(record.aspiration_date + "T12:00:00") : null,
         breed_id: record.breed_id || "",
         category_id: record.category_id || "",
         auction_id: record.auction_id || "",
@@ -221,6 +242,12 @@ const AnimaisTransferenciaEmbriao = () => {
         sire_id: record.sire_id || "",
         recipient_id: record.recipient_id || "",
         farm: farmValue,
+      });
+      setReproData({
+        aspiration_date: record.aspiration_date ? new Date(record.aspiration_date + "T12:00:00") : null,
+        transfer_date: record.transfer_date ? new Date(record.transfer_date + "T12:00:00") : null,
+        veterinarian_id: record.veterinarian_id || "",
+        laboratory_id: record.laboratory_id || "",
       });
       // Load recipient name
       if (record.recipient_id) {
@@ -252,7 +279,7 @@ const AnimaisTransferenciaEmbriao = () => {
       const recordData = {
         code: formData.code,
         name: formData.name.trim(),
-        expected_aspiration_month: formData.expected_aspiration_month ? format(formData.expected_aspiration_month, "yyyy-MM-dd") : null,
+        aspiration_date: formData.aspiration_date ? format(formData.aspiration_date, "yyyy-MM-dd") : null,
         breed_id: formData.breed_id || null,
         category_id: formData.category_id || null,
         auction_id: formData.auction_id || null,
@@ -263,14 +290,17 @@ const AnimaisTransferenciaEmbriao = () => {
         farm_id: farmId,
         farm_type: farmType,
         store_id: profile.store_id,
+        transfer_date: reproData.transfer_date ? format(reproData.transfer_date, "yyyy-MM-dd") : null,
+        veterinarian_id: reproData.veterinarian_id || null,
+        laboratory_id: reproData.laboratory_id || null,
       };
 
       if (modalMode === "create") {
-        const { error } = await supabase.from("embryo_transfer_management").insert(recordData);
+        const { error } = await supabase.from("embryo_transfer_management").insert(recordData as any);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Registro criado com sucesso." });
       } else {
-        const { error } = await supabase.from("embryo_transfer_management").update(recordData).eq("id", selectedRecord!.id);
+        const { error } = await supabase.from("embryo_transfer_management").update(recordData as any).eq("id", selectedRecord!.id);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Registro atualizado com sucesso." });
       }
@@ -321,6 +351,12 @@ const AnimaisTransferenciaEmbriao = () => {
     return thirdPartyFarms.find(f => f.id === farmId)?.name || "-";
   };
 
+  const getDaysAfterTransfer = (transferDate: string | null) => {
+    if (!transferDate) return null;
+    const days = differenceInDays(new Date(), new Date(transferDate + "T12:00:00"));
+    return days;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -354,7 +390,8 @@ const AnimaisTransferenciaEmbriao = () => {
                   <TableHead>Nome</TableHead>
                   <TableHead>Raça</TableHead>
                   <TableHead>Fazenda</TableHead>
-                  <TableHead>Mês Prev. Aspiração</TableHead>
+                  <TableHead>Data Transferência</TableHead>
+                  <TableHead>Dias após Transf.</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -362,49 +399,61 @@ const AnimaisTransferenciaEmbriao = () => {
               <TableBody>
                 {records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Nenhum registro encontrado.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{record.code}</TableCell>
-                      <TableCell>{record.name}</TableCell>
-                      <TableCell>{getBreedName(record.breed_id)}</TableCell>
-                      <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
-                      <TableCell>
-                        {record.expected_aspiration_month
-                          ? format(new Date(record.expected_aspiration_month), "MM/yyyy", { locale: ptBR })
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn("px-2 py-1 rounded-full text-xs font-medium", record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800")}>
-                          {record.status === "in_progress" ? "Em Andamento" : "Finalizado"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {record.status === "in_progress" && (
-                            <>
-                              <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  records.map((record) => {
+                    const daysAfter = getDaysAfterTransfer(record.transfer_date);
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell>{record.code}</TableCell>
+                        <TableCell>{record.name}</TableCell>
+                        <TableCell>{getBreedName(record.breed_id)}</TableCell>
+                        <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                        <TableCell>
+                          {record.transfer_date
+                            ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy")
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {daysAfter !== null ? (
+                            <span className={cn(
+                              daysAfter > 35 && "font-bold text-destructive"
+                            )}>
+                              {daysAfter} dias
+                            </span>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800")}>
+                            {record.status === "in_progress" ? "Em Andamento" : "Finalizado"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {record.status === "in_progress" && (
+                              <>
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -422,8 +471,9 @@ const AnimaisTransferenciaEmbriao = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
+              <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
@@ -440,16 +490,19 @@ const AnimaisTransferenciaEmbriao = () => {
                   <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={modalMode === "view"} />
                 </div>
                 <div>
-                  <Label>Mês Previsto de Aspiração</Label>
+                  <Label>Data da Aspiração</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.expected_aspiration_month && "text-muted-foreground")} disabled={modalMode === "view"}>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.aspiration_date && "text-muted-foreground")} disabled={modalMode === "view"}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.expected_aspiration_month ? format(formData.expected_aspiration_month, "MM/yyyy", { locale: ptBR }) : "Selecione..."}
+                        {formData.aspiration_date ? format(formData.aspiration_date, "dd/MM/yyyy") : "Selecione..."}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={formData.expected_aspiration_month || undefined} onSelect={(date) => setFormData({ ...formData, expected_aspiration_month: date || null })} locale={ptBR} />
+                      <Calendar mode="single" selected={formData.aspiration_date || undefined} onSelect={(date) => {
+                        setFormData({ ...formData, aspiration_date: date || null });
+                        setReproData({ ...reproData, aspiration_date: date || null });
+                      }} locale={ptBR} className="pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -520,6 +573,56 @@ const AnimaisTransferenciaEmbriao = () => {
                       </Button>
                     )}
                   </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="reproducao" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Data Aspiração</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reproData.aspiration_date && "text-muted-foreground")} disabled={modalMode === "view"}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reproData.aspiration_date ? format(reproData.aspiration_date, "dd/MM/yyyy") : "Selecione..."}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={reproData.aspiration_date || undefined} onSelect={(date) => {
+                        setReproData({ ...reproData, aspiration_date: date || null });
+                        setFormData({ ...formData, aspiration_date: date || null });
+                      }} locale={ptBR} className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label>Data Transferência</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reproData.transfer_date && "text-muted-foreground")} disabled={modalMode === "view"}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reproData.transfer_date ? format(reproData.transfer_date, "dd/MM/yyyy") : "Selecione..."}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={reproData.transfer_date || undefined} onSelect={(date) => setReproData({ ...reproData, transfer_date: date || null })} locale={ptBR} className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label>Veterinário</Label>
+                  <Select value={reproData.veterinarian_id} onValueChange={(v) => setReproData({ ...reproData, veterinarian_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o veterinário..." /></SelectTrigger>
+                    <SelectContent>{veterinarians.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Laboratório</Label>
+                  <Select value={reproData.laboratory_id} onValueChange={(v) => setReproData({ ...reproData, laboratory_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
+                    <SelectContent>{laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
               </div>
             </TabsContent>
