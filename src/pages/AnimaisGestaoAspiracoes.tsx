@@ -88,6 +88,7 @@ const AnimaisGestaoAspiracoes = () => {
   const [embryoCount, setEmbryoCount] = useState(0);
   const [embryoRows, setEmbryoRows] = useState<{ sire_id: string; recipient_id: string; recipientName: string }[]>([]);
   const [finalizeVeterinarianId, setFinalizeVeterinarianId] = useState("");
+  const [finalizeTransferDate, setFinalizeTransferDate] = useState<Date | null>(null);
 
   // Recipient search modal
   const [activeEmbryoRowIndex, setActiveEmbryoRowIndex] = useState<number | null>(null);
@@ -397,7 +398,8 @@ const AnimaisGestaoAspiracoes = () => {
           embryo_count: embryoCount,
           embryo_details: embryoDetails as any,
           veterinarian_id: finalizeVeterinarianId || null,
-        })
+          transfer_date: finalizeTransferDate ? format(finalizeTransferDate, "yyyy-MM-dd") : null,
+        } as any)
         .eq("id", secondFinalizeRecord.id);
       if (updateError) throw updateError;
 
@@ -455,6 +457,7 @@ const AnimaisGestaoAspiracoes = () => {
       setEmbryoCount(0);
       setEmbryoRows([]);
       setFinalizeVeterinarianId("");
+      setFinalizeTransferDate(null);
       setSecondFinalizeOpen(true);
     }
   };
@@ -750,6 +753,10 @@ const AnimaisGestaoAspiracoes = () => {
                     <p className="font-medium">{selectedRecord.laboratory_id ? laboratories.find(l => l.id === selectedRecord.laboratory_id)?.name || "-" : "-"}</p>
                   </div>
                   <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Data da Transferência</Label>
+                    <p className="font-medium">{(selectedRecord as any).transfer_date ? format(new Date((selectedRecord as any).transfer_date + "T12:00:00"), "dd/MM/yyyy") : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-muted-foreground text-xs">Quantidade de Embriões</Label>
                     <p className="font-medium">{selectedRecord.embryo_count || "-"}</p>
                   </div>
@@ -882,6 +889,20 @@ const AnimaisGestaoAspiracoes = () => {
                     {veterinarians.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Data da Transferência</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !finalizeTransferDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {finalizeTransferDate ? format(finalizeTransferDate, "dd/MM/yyyy") : "Selecione a data..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={finalizeTransferDate || undefined} onSelect={(d) => setFinalizeTransferDate(d || null)} initialFocus className="pointer-events-auto" locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 

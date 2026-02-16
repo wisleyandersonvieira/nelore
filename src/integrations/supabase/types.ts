@@ -908,6 +908,7 @@ export type Database = {
           name: string
           status: string
           store_id: string
+          transfer_date: string | null
           updated_at: string
           veterinarian_id: string | null
         }
@@ -930,6 +931,7 @@ export type Database = {
           name: string
           status?: string
           store_id: string
+          transfer_date?: string | null
           updated_at?: string
           veterinarian_id?: string | null
         }
@@ -952,6 +954,7 @@ export type Database = {
           name?: string
           status?: string
           store_id?: string
+          transfer_date?: string | null
           updated_at?: string
           veterinarian_id?: string | null
         }
