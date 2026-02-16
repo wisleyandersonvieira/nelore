@@ -96,6 +96,7 @@ const AnimaisGestaoAspiracoes = () => {
   const debouncedRecipientSearch = useDebounce(recipientSearchTerm, 300);
   const [recipientResults, setRecipientResults] = useState<AnimalOption[]>([]);
   const [recipientSearchLoading, setRecipientSearchLoading] = useState(false);
+  const [recipientNamesCache, setRecipientNamesCache] = useState<Record<string, string>>({});
 
   // Form data
   const [formData, setFormData] = useState({
@@ -248,6 +249,25 @@ const AnimaisGestaoAspiracoes = () => {
         auction_id: record.auction_id || "", auction_lot: record.auction_lot || "",
         dam_id: record.dam_id || "", farm: farmValue,
       });
+
+      // Load recipient names for finalized records
+      if (mode === "view" && record.status === "finalized" && record.embryo_details) {
+        const details = record.embryo_details as EmbryoDetail[];
+        const recipientIds = details.map(d => d.recipient_id).filter(Boolean);
+        if (recipientIds.length > 0) {
+          const { data: animals } = await supabase
+            .from("animals")
+            .select("id, name, ear_tag")
+            .in("id", recipientIds);
+          if (animals) {
+            const cache: Record<string, string> = {};
+            animals.forEach(a => {
+              cache[a.id] = `${a.name}${a.ear_tag ? ` - Brinco: ${a.ear_tag}` : ""}`;
+            });
+            setRecipientNamesCache(cache);
+          }
+        }
+      }
     }
     setModalOpen(true);
   };
@@ -579,9 +599,12 @@ const AnimaisGestaoAspiracoes = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={cn("grid w-full", modalMode === "view" && selectedRecord?.status === "finalized" ? "grid-cols-5" : "grid-cols-4")}>
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
+              {modalMode === "view" && selectedRecord?.status === "finalized" && (
+                <TabsTrigger value="resultado">Resultado</TabsTrigger>
+              )}
               <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
@@ -709,6 +732,59 @@ const AnimaisGestaoAspiracoes = () => {
                 </div>
               )}
             </TabsContent>
+
+
+            {modalMode === "view" && selectedRecord?.status === "finalized" && (
+              <TabsContent value="resultado" className="space-y-6 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Data da Aspiração</Label>
+                    <p className="font-medium">{selectedRecord.aspiration_date ? format(new Date(selectedRecord.aspiration_date + "T00:00:00"), "dd/MM/yyyy") : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Veterinário</Label>
+                    <p className="font-medium">{selectedRecord.veterinarian_id ? veterinarians.find(v => v.id === selectedRecord.veterinarian_id)?.name || "-" : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Laboratório</Label>
+                    <p className="font-medium">{selectedRecord.laboratory_id ? laboratories.find(l => l.id === selectedRecord.laboratory_id)?.name || "-" : "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Quantidade de Embriões</Label>
+                    <p className="font-medium">{selectedRecord.embryo_count || "-"}</p>
+                  </div>
+                </div>
+
+                {selectedRecord.embryo_details && (selectedRecord.embryo_details as EmbryoDetail[]).length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-lg border-b pb-2">Embriões</h3>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">#</TableHead>
+                            <TableHead>Reprodutor (Pai)</TableHead>
+                            <TableHead>Receptora</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(selectedRecord.embryo_details as EmbryoDetail[]).map((embryo, idx) => {
+                            const sireName = sires.find(s => s.id === embryo.sire_id)?.name || "-";
+                            return (
+                              <TableRow key={idx}>
+                                <TableCell>{idx + 1}</TableCell>
+                                <TableCell>{sireName}</TableCell>
+                                <TableCell>{recipientNamesCache[embryo.recipient_id] || "-"}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            )}
 
             <TabsContent value="financeiro" className="mt-4">
               <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
