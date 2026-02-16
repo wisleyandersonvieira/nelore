@@ -743,6 +743,7 @@ export type Database = {
       }
       animals: {
         Row: {
+          aspiration_date: string | null
           auction_id: string | null
           auction_lot: string | null
           batch_id: string | null
@@ -761,6 +762,7 @@ export type Database = {
           first_weight: number | null
           id: string
           is_active: boolean
+          laboratory_id: string | null
           name: string
           observations: string | null
           photos: Json | null
@@ -769,9 +771,13 @@ export type Database = {
           sex: string
           sire_id: string | null
           store_id: string
+          transfer_date: string | null
+          ultrasound_date: string | null
           updated_at: string
+          veterinarian_id: string | null
         }
         Insert: {
+          aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           batch_id?: string | null
@@ -790,6 +796,7 @@ export type Database = {
           first_weight?: number | null
           id?: string
           is_active?: boolean
+          laboratory_id?: string | null
           name: string
           observations?: string | null
           photos?: Json | null
@@ -798,9 +805,13 @@ export type Database = {
           sex: string
           sire_id?: string | null
           store_id: string
+          transfer_date?: string | null
+          ultrasound_date?: string | null
           updated_at?: string
+          veterinarian_id?: string | null
         }
         Update: {
+          aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           batch_id?: string | null
@@ -819,6 +830,7 @@ export type Database = {
           first_weight?: number | null
           id?: string
           is_active?: boolean
+          laboratory_id?: string | null
           name?: string
           observations?: string | null
           photos?: Json | null
@@ -827,7 +839,10 @@ export type Database = {
           sex?: string
           sire_id?: string | null
           store_id?: string
+          transfer_date?: string | null
+          ultrasound_date?: string | null
           updated_at?: string
+          veterinarian_id?: string | null
         }
         Relationships: [
           {
@@ -866,6 +881,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "animals_laboratory_id_fkey"
+            columns: ["laboratory_id"]
+            isOneToOne: false
+            referencedRelation: "laboratories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "animals_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
@@ -884,6 +906,13 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_veterinarian_id_fkey"
+            columns: ["veterinarian_id"]
+            isOneToOne: false
+            referencedRelation: "veterinarians"
             referencedColumns: ["id"]
           },
         ]

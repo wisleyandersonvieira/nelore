@@ -72,6 +72,11 @@ interface Animal {
   farm_id: string | null;
   farm_type: string | null;
   recipient_id: string | null;
+  aspiration_date: string | null;
+  transfer_date: string | null;
+  veterinarian_id: string | null;
+  laboratory_id: string | null;
+  ultrasound_date: string | null;
 }
 
 interface Batch {
@@ -184,6 +189,17 @@ const AnimaisCadastro = () => {
   const [photoToDelete, setPhotoToDelete] = useState<{ url: string; isCover: boolean } | null>(null);
   const [animalWeighings, setAnimalWeighings] = useState<WeighingWithGMD[]>([]);
   const [loadingWeighings, setLoadingWeighings] = useState(false);
+  const [veterinarians, setVeterinarians] = useState<{ id: string; name: string }[]>([]);
+  const [laboratories, setLaboratories] = useState<{ id: string; name: string }[]>([]);
+
+  // Reproduction data state
+  const [reproData, setReproData] = useState({
+    aspiration_date: null as Date | null,
+    transfer_date: null as Date | null,
+    veterinarian_id: "",
+    laboratory_id: "",
+    ultrasound_date: null as Date | null,
+  });
 
   useEffect(() => {
     fetchAnimals();
@@ -236,7 +252,7 @@ const AnimaisCadastro = () => {
       if (!profile?.store_id) return;
 
       // Fetch all dropdown data in parallel
-      const [batchesRes, breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes] = await Promise.all([
+      const [batchesRes, breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, vetRes, labRes] = await Promise.all([
         supabase.from("animal_batches").select("id, name").eq("store_id", profile.store_id),
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
@@ -244,6 +260,8 @@ const AnimaisCadastro = () => {
         supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
+        supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
       ]);
 
       setBatches(batchesRes.data || []);
@@ -254,6 +272,8 @@ const AnimaisCadastro = () => {
       setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea"));
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
+      setVeterinarians(vetRes.data || []);
+      setLaboratories(labRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -381,6 +401,7 @@ const AnimaisCadastro = () => {
       });
       setSelectedAnimal(null);
       setSelectedRecipient(null);
+      setReproData({ aspiration_date: null, transfer_date: null, veterinarian_id: "", laboratory_id: "", ultrasound_date: null });
     } else if (animal) {
       setSelectedAnimal(animal);
       // Fetch weighings for this animal
@@ -415,6 +436,13 @@ const AnimaisCadastro = () => {
         is_active: animal.is_active ? "ativo" : "inativo",
         farm: animal.farm_id && animal.farm_type ? `${animal.farm_type === "own" ? "own" : "third"}-${animal.farm_id}` : "",
         recipient_id: animal.recipient_id || "",
+      });
+      setReproData({
+        aspiration_date: animal.aspiration_date ? new Date(animal.aspiration_date + "T12:00:00") : null,
+        transfer_date: animal.transfer_date ? new Date(animal.transfer_date + "T12:00:00") : null,
+        veterinarian_id: animal.veterinarian_id || "",
+        laboratory_id: animal.laboratory_id || "",
+        ultrasound_date: animal.ultrasound_date ? new Date(animal.ultrasound_date + "T12:00:00") : null,
       });
     }
 
@@ -550,6 +578,11 @@ const AnimaisCadastro = () => {
         farm_id: farmId,
         farm_type: farmType,
         recipient_id: formData.recipient_id || null,
+        aspiration_date: reproData.aspiration_date ? format(reproData.aspiration_date, "yyyy-MM-dd") : null,
+        transfer_date: reproData.transfer_date ? format(reproData.transfer_date, "yyyy-MM-dd") : null,
+        veterinarian_id: reproData.veterinarian_id || null,
+        laboratory_id: reproData.laboratory_id || null,
+        ultrasound_date: reproData.ultrasound_date ? format(reproData.ultrasound_date, "yyyy-MM-dd") : null,
       };
 
       if (modalMode === "create") {
@@ -1108,9 +1141,10 @@ const AnimaisCadastro = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
+              <TabsTrigger value="reproducao" disabled={modalMode === "create"}>Dados Reprodução</TabsTrigger>
               <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
               <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
@@ -1605,6 +1639,72 @@ const AnimaisCadastro = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            </TabsContent>
+
+            {/* Tab: Dados Reprodução */}
+            <TabsContent value="reproducao" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <DatePickerField
+                  label="Data da Aspiração"
+                  value={reproData.aspiration_date}
+                  onChange={(date) => setReproData({ ...reproData, aspiration_date: date || null })}
+                  disabled={isReadOnly}
+                />
+                <DatePickerField
+                  label="Data da Transferência"
+                  value={reproData.transfer_date}
+                  onChange={(date) => setReproData({ ...reproData, transfer_date: date || null })}
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Veterinário</Label>
+                  <Select
+                    value={reproData.veterinarian_id}
+                    onValueChange={(value) => setReproData({ ...reproData, veterinarian_id: value })}
+                    disabled={isReadOnly}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar veterinário" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {veterinarians.map((vet) => (
+                        <SelectItem key={vet.id} value={vet.id}>
+                          {vet.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Laboratório</Label>
+                  <Select
+                    value={reproData.laboratory_id}
+                    onValueChange={(value) => setReproData({ ...reproData, laboratory_id: value })}
+                    disabled={isReadOnly}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar laboratório" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {laboratories.map((lab) => (
+                        <SelectItem key={lab.id} value={lab.id}>
+                          {lab.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <DatePickerField
+                  label="Data do Ultrassom"
+                  value={reproData.ultrasound_date}
+                  onChange={(date) => setReproData({ ...reproData, ultrasound_date: date || null })}
+                  disabled={isReadOnly}
+                />
               </div>
             </TabsContent>
 
