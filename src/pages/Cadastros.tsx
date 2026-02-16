@@ -106,8 +106,8 @@ const Cadastros = () => {
     restricted: false
   }, {
     id: "lojas",
-    title: "Lojas",
-    description: "Cadastro e gestão de lojas",
+    title: "Fazendas",
+    description: "Cadastro e gestão de fazendas",
     icon: Store,
     color: "bg-pink-500",
     onClick: () => handleMenuClick("lojas", () => setStoresModalOpen(true)),
