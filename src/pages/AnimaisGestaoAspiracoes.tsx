@@ -5,45 +5,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface AspirationRecord {
   id: string;
@@ -59,30 +41,25 @@ interface AspirationRecord {
   farm_type: string | null;
   status: string;
   store_id: string;
+  aspiration_date: string | null;
+  laboratory_id: string | null;
+  veterinarian_id: string | null;
+  embryo_count: number | null;
+  embryo_details: EmbryoDetail[] | null;
 }
 
-interface Breed {
-  id: string;
-  name: string;
+interface EmbryoDetail {
+  sire_id: string;
+  recipient_id: string;
 }
 
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface Auction {
-  id: string;
-  name: string;
-}
-
-interface BreedingAnimal {
-  id: string;
-  name: string;
-  sex: string;
-  sire_id: string | null;
-  dam_id: string | null;
-}
+interface Breed { id: string; name: string; }
+interface Category { id: string; name: string; }
+interface Auction { id: string; name: string; }
+interface BreedingAnimal { id: string; name: string; sex: string; sire_id: string | null; dam_id: string | null; }
+interface Laboratory { id: string; name: string; }
+interface Veterinarian { id: string; name: string; }
+interface AnimalOption { id: string; name: string; ear_tag: number | null; registration: string | null; category_id: string | null; }
 
 const AnimaisGestaoAspiracoes = () => {
   const navigate = useNavigate();
@@ -93,10 +70,30 @@ const AnimaisGestaoAspiracoes = () => {
   const [selectedRecord, setSelectedRecord] = useState<AspirationRecord | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AspirationRecord | null>(null);
-  const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
-  const [recordToFinalize, setRecordToFinalize] = useState<AspirationRecord | null>(null);
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
+
+  // First finalize modal (pending → in_progress)
+  const [firstFinalizeOpen, setFirstFinalizeOpen] = useState(false);
+  const [firstFinalizeRecord, setFirstFinalizeRecord] = useState<AspirationRecord | null>(null);
+  const [firstFinalizeData, setFirstFinalizeData] = useState({
+    aspiration_date: null as Date | null,
+    laboratory_id: "",
+  });
+
+  // Second finalize modal (in_progress → finalized)
+  const [secondFinalizeOpen, setSecondFinalizeOpen] = useState(false);
+  const [secondFinalizeRecord, setSecondFinalizeRecord] = useState<AspirationRecord | null>(null);
+  const [embryoCount, setEmbryoCount] = useState(0);
+  const [embryoRows, setEmbryoRows] = useState<{ sire_id: string; recipient_id: string; recipientName: string }[]>([]);
+  const [finalizeVeterinarianId, setFinalizeVeterinarianId] = useState("");
+
+  // Recipient search per embryo row
+  const [activeEmbryoRowIndex, setActiveEmbryoRowIndex] = useState<number | null>(null);
+  const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
+  const debouncedRecipientSearch = useDebounce(recipientSearchTerm, 300);
+  const [recipientResults, setRecipientResults] = useState<AnimalOption[]>([]);
+  const [recipientSearchLoading, setRecipientSearchLoading] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -116,6 +113,9 @@ const AnimaisGestaoAspiracoes = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
+  const [sires, setSires] = useState<BreedingAnimal[]>([]);
+  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
+  const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
   const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
 
@@ -124,17 +124,44 @@ const AnimaisGestaoAspiracoes = () => {
     fetchDropdownData();
   }, []);
 
+  // Search recipients for embryo rows
+  useEffect(() => {
+    if (!debouncedRecipientSearch || debouncedRecipientSearch.length < 2 || !storeId) {
+      setRecipientResults([]);
+      return;
+    }
+    const searchRecipients = async () => {
+      setRecipientSearchLoading(true);
+      try {
+        const term = `%${debouncedRecipientSearch}%`;
+        const isNumeric = /^\d+$/.test(debouncedRecipientSearch);
+        let query = supabase
+          .from("animals")
+          .select("id, name, ear_tag, registration, category_id")
+          .eq("store_id", storeId)
+          .eq("is_active", true);
+        if (isNumeric) {
+          query = query.or(`name.ilike.${term},registration.ilike.${term},ear_tag.eq.${debouncedRecipientSearch}`);
+        } else {
+          query = query.or(`name.ilike.${term},registration.ilike.${term}`);
+        }
+        const { data, error } = await query.limit(20);
+        if (error) throw error;
+        setRecipientResults(data || []);
+      } catch (error) {
+        console.error("Error searching recipients:", error);
+      } finally {
+        setRecipientSearchLoading(false);
+      }
+    };
+    searchRecipients();
+  }, [debouncedRecipientSearch, storeId]);
+
   const fetchRecords = async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
+      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
       if (!profile?.store_id) return;
       setStoreId(profile.store_id);
 
@@ -143,16 +170,11 @@ const AnimaisGestaoAspiracoes = () => {
         .select("*")
         .eq("store_id", profile.store_id)
         .order("code", { ascending: false });
-
       if (error) throw error;
-      setRecords(data || []);
+      setRecords((data as unknown as AspirationRecord[]) || []);
     } catch (error) {
       console.error("Error fetching aspiration records:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar registros de aspiração.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao carregar registros de aspiração.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -162,31 +184,30 @@ const AnimaisGestaoAspiracoes = () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
+      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
       if (!profile?.store_id) return;
 
-      // Fetch all dropdown data in parallel
-      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes] = await Promise.all([
+      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, labsRes, vetsRes] = await Promise.all([
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
+        supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
       ]);
 
       setBreeds(breedsRes.data || []);
       setCategories(categoriesRes.data || []);
       setAuctions(auctionsRes.data || []);
-      setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea"));
+      const animals = breedingAnimalsRes.data || [];
+      setDams(animals.filter(a => a.sex === "femea"));
+      setSires(animals.filter(a => a.sex === "macho"));
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
+      setLaboratories(labsRes.data || []);
+      setVeterinarians(vetsRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -210,33 +231,20 @@ const AnimaisGestaoAspiracoes = () => {
     if (mode === "create") {
       const nextCode = await getNextCode();
       setFormData({
-        code: nextCode,
-        name: "",
-        expected_aspiration_month: null,
-        breed_id: "",
-        category_id: "",
-        auction_id: "",
-        auction_lot: "",
-        dam_id: "",
-        farm: "",
+        code: nextCode, name: "", expected_aspiration_month: null,
+        breed_id: "", category_id: "", auction_id: "", auction_lot: "", dam_id: "", farm: "",
       });
       setSelectedRecord(null);
     } else if (record) {
       setSelectedRecord(record);
       let farmValue = "";
-      if (record.farm_id && record.farm_type) {
-        farmValue = `${record.farm_type}-${record.farm_id}`;
-      }
+      if (record.farm_id && record.farm_type) farmValue = `${record.farm_type}-${record.farm_id}`;
       setFormData({
-        code: record.code,
-        name: record.name,
+        code: record.code, name: record.name,
         expected_aspiration_month: record.expected_aspiration_month ? new Date(record.expected_aspiration_month) : null,
-        breed_id: record.breed_id || "",
-        category_id: record.category_id || "",
-        auction_id: record.auction_id || "",
-        auction_lot: record.auction_lot || "",
-        dam_id: record.dam_id || "",
-        farm: farmValue,
+        breed_id: record.breed_id || "", category_id: record.category_id || "",
+        auction_id: record.auction_id || "", auction_lot: record.auction_lot || "",
+        dam_id: record.dam_id || "", farm: farmValue,
       });
     }
     setModalOpen(true);
@@ -244,43 +252,26 @@ const AnimaisGestaoAspiracoes = () => {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast({
-        title: "Erro",
-        description: "O nome é obrigatório.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "O nome é obrigatório.", variant: "destructive" });
       return;
     }
-
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
+      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
       if (!profile?.store_id) return;
 
-      // Parse farm value
       let farmId: string | null = null;
       let farmType: string | null = null;
       if (formData.farm) {
         const dashIndex = formData.farm.indexOf("-");
-        if (dashIndex > 0) {
-          farmType = formData.farm.substring(0, dashIndex);
-          farmId = formData.farm.substring(dashIndex + 1);
-        }
+        if (dashIndex > 0) { farmType = formData.farm.substring(0, dashIndex); farmId = formData.farm.substring(dashIndex + 1); }
       }
 
       const recordData = {
         code: formData.code,
         name: formData.name.trim(),
-        expected_aspiration_month: formData.expected_aspiration_month
-          ? format(formData.expected_aspiration_month, "yyyy-MM-dd")
-          : null,
+        expected_aspiration_month: formData.expected_aspiration_month ? format(formData.expected_aspiration_month, "yyyy-MM-dd") : null,
         breed_id: formData.breed_id || null,
         category_id: formData.category_id || null,
         auction_id: formData.auction_id || null,
@@ -296,33 +287,22 @@ const AnimaisGestaoAspiracoes = () => {
         if (error) throw error;
         toast({ title: "Sucesso", description: "Registro criado com sucesso." });
       } else {
-        const { error } = await supabase
-          .from("aspiration_management")
-          .update(recordData)
-          .eq("id", selectedRecord!.id);
+        const { error } = await supabase.from("aspiration_management").update(recordData).eq("id", selectedRecord!.id);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Registro atualizado com sucesso." });
       }
-
       setModalOpen(false);
       fetchRecords();
     } catch (error) {
       console.error("Error saving record:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar registro.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao salvar registro.", variant: "destructive" });
     }
   };
 
   const handleDelete = async () => {
     if (!recordToDelete) return;
     try {
-      const { error } = await supabase
-        .from("aspiration_management")
-        .delete()
-        .eq("id", recordToDelete.id);
+      const { error } = await supabase.from("aspiration_management").delete().eq("id", recordToDelete.id);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Registro excluído com sucesso." });
       setDeleteDialogOpen(false);
@@ -330,53 +310,154 @@ const AnimaisGestaoAspiracoes = () => {
       fetchRecords();
     } catch (error) {
       console.error("Error deleting record:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao excluir registro.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao excluir registro.", variant: "destructive" });
     }
   };
 
-  const handleFinalize = async () => {
-    if (!recordToFinalize) return;
-
+  // First finalize: pending → in_progress (set aspiration_date + laboratory)
+  const handleFirstFinalize = async () => {
+    if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
+      toast({ title: "Erro", description: "Data da aspiração e laboratório são obrigatórios.", variant: "destructive" });
+      return;
+    }
     try {
       const { error } = await supabase
         .from("aspiration_management")
-        .update({ status: "finalized" })
-        .eq("id", recordToFinalize.id);
+        .update({
+          status: "in_progress",
+          aspiration_date: format(firstFinalizeData.aspiration_date, "yyyy-MM-dd"),
+          laboratory_id: firstFinalizeData.laboratory_id,
+        })
+        .eq("id", firstFinalizeRecord.id);
       if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Registro de aspiração finalizado com sucesso.",
-      });
-
-      setFinalizeDialogOpen(false);
-      setRecordToFinalize(null);
+      toast({ title: "Sucesso", description: "Aspiração iniciada com sucesso." });
+      setFirstFinalizeOpen(false);
+      setFirstFinalizeRecord(null);
       fetchRecords();
     } catch (error) {
-      console.error("Error finalizing record:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao finalizar registro.",
-        variant: "destructive",
-      });
+      console.error("Error first finalize:", error);
+      toast({ title: "Erro", description: "Erro ao iniciar aspiração.", variant: "destructive" });
     }
   };
 
-  const getBreedName = (breedId: string | null) => {
-    if (!breedId) return "-";
-    return breeds.find((b) => b.id === breedId)?.name || "-";
+  // Second finalize: in_progress → finalized (set embryo details + create embryo transfer records)
+  const handleSecondFinalize = async () => {
+    if (!secondFinalizeRecord) return;
+    if (embryoCount <= 0) {
+      toast({ title: "Erro", description: "Quantidade de embriões é obrigatória.", variant: "destructive" });
+      return;
+    }
+    // Validate all rows have sire and recipient
+    for (let i = 0; i < embryoRows.length; i++) {
+      if (!embryoRows[i].sire_id || !embryoRows[i].recipient_id) {
+        toast({ title: "Erro", description: `Preencha reprodutor e receptora na linha ${i + 1}.`, variant: "destructive" });
+        return;
+      }
+    }
+
+    try {
+      const embryoDetails = embryoRows.map(r => ({ sire_id: r.sire_id, recipient_id: r.recipient_id }));
+
+      // Update aspiration to finalized
+      const { error: updateError } = await supabase
+        .from("aspiration_management")
+        .update({
+          status: "finalized",
+          embryo_count: embryoCount,
+          embryo_details: embryoDetails as any,
+          veterinarian_id: finalizeVeterinarianId || null,
+        })
+        .eq("id", secondFinalizeRecord.id);
+      if (updateError) throw updateError;
+
+      // Create embryo transfer records for each embryo row
+      for (let i = 0; i < embryoRows.length; i++) {
+        const row = embryoRows[i];
+        const sireName = sires.find(s => s.id === row.sire_id)?.name || "";
+        const transferName = `${secondFinalizeRecord.name} X ${sireName}`;
+
+        // Get next code for embryo_transfer_management
+        const { data: lastCode } = await supabase
+          .from("embryo_transfer_management")
+          .select("code")
+          .eq("store_id", secondFinalizeRecord.store_id)
+          .order("code", { ascending: false })
+          .limit(1);
+        const nextCode = lastCode && lastCode.length > 0 ? lastCode[0].code + 1 : 1;
+
+        const { error: insertError } = await supabase.from("embryo_transfer_management").insert({
+          code: nextCode,
+          name: transferName,
+          breed_id: secondFinalizeRecord.breed_id,
+          category_id: secondFinalizeRecord.category_id,
+          auction_id: secondFinalizeRecord.auction_id,
+          auction_lot: secondFinalizeRecord.auction_lot,
+          dam_id: secondFinalizeRecord.dam_id,
+          sire_id: row.sire_id,
+          recipient_id: row.recipient_id,
+          farm_id: secondFinalizeRecord.farm_id,
+          farm_type: secondFinalizeRecord.farm_type,
+          store_id: secondFinalizeRecord.store_id,
+        });
+        if (insertError) throw insertError;
+      }
+
+      toast({ title: "Sucesso", description: "Aspiração finalizada e registros de pós transferência criados com sucesso." });
+      setSecondFinalizeOpen(false);
+      setSecondFinalizeRecord(null);
+      fetchRecords();
+    } catch (error) {
+      console.error("Error second finalize:", error);
+      toast({ title: "Erro", description: "Erro ao finalizar aspiração.", variant: "destructive" });
+    }
   };
+
+  const handleFinalizeClick = (record: AspirationRecord) => {
+    if (record.status === "pending") {
+      setFirstFinalizeRecord(record);
+      setFirstFinalizeData({ aspiration_date: null, laboratory_id: "" });
+      setFirstFinalizeOpen(true);
+    } else if (record.status === "in_progress") {
+      setSecondFinalizeRecord(record);
+      setEmbryoCount(0);
+      setEmbryoRows([]);
+      setFinalizeVeterinarianId("");
+      setSecondFinalizeOpen(true);
+    }
+  };
+
+  const handleEmbryoCountChange = (count: number) => {
+    setEmbryoCount(count);
+    const newRows = Array.from({ length: count }, (_, i) => {
+      return embryoRows[i] || { sire_id: "", recipient_id: "", recipientName: "" };
+    });
+    setEmbryoRows(newRows);
+  };
+
+  const getBreedName = (breedId: string | null) => breedId ? breeds.find(b => b.id === breedId)?.name || "-" : "-";
 
   const getFarmName = (farmId: string | null, farmType: string | null) => {
     if (!farmId || !farmType) return "-";
-    if (farmType === "own") {
-      return ownFarms.find((f) => f.id === farmId)?.name || "-";
+    if (farmType === "own") return ownFarms.find(f => f.id === farmId)?.name || "-";
+    return thirdPartyFarms.find(f => f.id === farmId)?.name || "-";
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending": return "Pendente";
+      case "in_progress": return "Em Andamento";
+      case "finalized": return "Finalizado";
+      default: return status;
     }
-    return thirdPartyFarms.find((f) => f.id === farmId)?.name || "-";
+  };
+
+  const getStatusClasses = (status: string) => {
+    switch (status) {
+      case "pending": return "bg-blue-100 text-blue-800";
+      case "in_progress": return "bg-yellow-100 text-yellow-800";
+      case "finalized": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
   };
 
   return (
@@ -437,61 +518,32 @@ const AnimaisGestaoAspiracoes = () => {
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            record.status === "in_progress"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-green-100 text-green-800"
-                          )}
-                        >
-                          {record.status === "in_progress" ? "Em Andamento" : "Finalizado"}
+                        <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusClasses(record.status))}>
+                          {getStatusLabel(record.status)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenModal("view", record)}
-                            title="Visualizar"
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {record.status === "in_progress" && (
+                          {record.status === "pending" && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenModal("edit", record)}
-                                title="Editar"
-                              >
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setRecordToDelete(record);
-                                  setDeleteDialogOpen(true);
-                                }}
-                                title="Excluir"
-                              >
+                              <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setRecordToFinalize(record);
-                                  setFinalizeDialogOpen(true);
-                                }}
-                                title="Finalizar"
-                                className="text-green-600 hover:text-green-700"
-                              >
+                              <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="text-green-600 hover:text-green-700">
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             </>
+                          )}
+                          {record.status === "in_progress" && (
+                            <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Finalizar" className="text-green-600 hover:text-green-700">
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
@@ -504,16 +556,12 @@ const AnimaisGestaoAspiracoes = () => {
         )}
       </main>
 
-      {/* Modal */}
+      {/* Create/Edit/View Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {modalMode === "view"
-                ? "Visualizar Registro"
-                : modalMode === "edit"
-                ? "Editar Registro"
-                : "Novo Registro de Aspiração"}
+              {modalMode === "view" ? "Visualizar Registro" : modalMode === "edit" ? "Editar Registro" : "Novo Registro de Aspiração"}
             </DialogTitle>
           </DialogHeader>
 
@@ -521,12 +569,8 @@ const AnimaisGestaoAspiracoes = () => {
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
-              <TabsTrigger value="financeiro" disabled>
-                Financeiro
-              </TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>
-                Proprietários
-              </TabsTrigger>
+              <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
+              <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dados" className="space-y-4 mt-4">
@@ -537,37 +581,19 @@ const AnimaisGestaoAspiracoes = () => {
                 </div>
                 <div>
                   <Label>Nome *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={modalMode === "view"}
-                  />
+                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={modalMode === "view"} />
                 </div>
                 <div>
                   <Label>Mês Previsto de Aspiração</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.expected_aspiration_month && "text-muted-foreground"
-                        )}
-                        disabled={modalMode === "view"}
-                      >
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.expected_aspiration_month && "text-muted-foreground")} disabled={modalMode === "view"}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.expected_aspiration_month
-                          ? format(formData.expected_aspiration_month, "MM/yyyy", { locale: ptBR })
-                          : "Selecione..."}
+                        {formData.expected_aspiration_month ? format(formData.expected_aspiration_month, "MM/yyyy", { locale: ptBR }) : "Selecione..."}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={formData.expected_aspiration_month || undefined}
-                        onSelect={(date) => setFormData({ ...formData, expected_aspiration_month: date || null })}
-                        locale={ptBR}
-                      />
+                      <Calendar mode="single" selected={formData.expected_aspiration_month || undefined} onSelect={(date) => setFormData({ ...formData, expected_aspiration_month: date || null })} locale={ptBR} />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -576,75 +602,33 @@ const AnimaisGestaoAspiracoes = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Raça</Label>
-                  <Select
-                    value={formData.breed_id}
-                    onValueChange={(value) => setFormData({ ...formData, breed_id: value })}
-                    disabled={modalMode === "view"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {breeds.map((breed) => (
-                        <SelectItem key={breed.id} value={breed.id}>
-                          {breed.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select value={formData.breed_id} onValueChange={(v) => setFormData({ ...formData, breed_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>{breeds.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label>Categoria</Label>
-                  <Select
-                    value={formData.category_id}
-                    onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                    disabled={modalMode === "view"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select value={formData.category_id} onValueChange={(v) => setFormData({ ...formData, category_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label>Fazenda</Label>
-                  <Select
-                    value={formData.farm}
-                    onValueChange={(value) => setFormData({ ...formData, farm: value })}
-                    disabled={modalMode === "view"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
+                  <Select value={formData.farm} onValueChange={(v) => setFormData({ ...formData, farm: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       {ownFarms.length > 0 && (
                         <>
-                          <SelectItem value="header-own" disabled className="font-semibold">
-                            Fazendas Próprias
-                          </SelectItem>
-                          {ownFarms.map((farm) => (
-                            <SelectItem key={`own-${farm.id}`} value={`own-${farm.id}`}>
-                              {farm.name}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="header-own" disabled className="font-semibold">Fazendas Próprias</SelectItem>
+                          {ownFarms.map(f => <SelectItem key={`own-${f.id}`} value={`own-${f.id}`}>{f.name}</SelectItem>)}
                         </>
                       )}
                       {thirdPartyFarms.length > 0 && (
                         <>
-                          <SelectItem value="header-third" disabled className="font-semibold border-t mt-2 pt-2">
-                            Fazendas Terceiras
-                          </SelectItem>
-                          {thirdPartyFarms.map((farm) => (
-                            <SelectItem key={`third_party-${farm.id}`} value={`third_party-${farm.id}`}>
-                              {farm.name}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="header-third" disabled className="font-semibold border-t mt-2 pt-2">Fazendas Terceiras</SelectItem>
+                          {thirdPartyFarms.map(f => <SelectItem key={`third_party-${f.id}`} value={`third_party-${f.id}`}>{f.name}</SelectItem>)}
                         </>
                       )}
                     </SelectContent>
@@ -655,72 +639,43 @@ const AnimaisGestaoAspiracoes = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Leilão</Label>
-                  <Select
-                    value={formData.auction_id}
-                    onValueChange={(value) => setFormData({ ...formData, auction_id: value })}
-                    disabled={modalMode === "view"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {auctions.map((auction) => (
-                        <SelectItem key={auction.id} value={auction.id}>
-                          {auction.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select value={formData.auction_id} onValueChange={(v) => setFormData({ ...formData, auction_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label>Lote Leilão</Label>
-                  <Input
-                    value={formData.auction_lot}
-                    onChange={(e) => setFormData({ ...formData, auction_lot: e.target.value })}
-                    disabled={modalMode === "view"}
-                  />
+                  <Input value={formData.auction_lot} onChange={(e) => setFormData({ ...formData, auction_lot: e.target.value })} disabled={modalMode === "view"} />
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="genealogia" className="space-y-6 mt-4">
-              {/* Pais - apenas Matriz */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2">Doadora</h3>
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Nome da Matriz (Mãe)</Label>
-                    <Select
-                      value={formData.dam_id}
-                      onValueChange={(value) => setFormData({ ...formData, dam_id: value })}
-                      disabled={modalMode === "view"}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar matriz" />
-                      </SelectTrigger>
+                    <Select value={formData.dam_id} onValueChange={(v) => setFormData({ ...formData, dam_id: v })} disabled={modalMode === "view"}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar matriz" /></SelectTrigger>
                       <SelectContent className="bg-background z-50">
-                        {dams.map((dam) => (
-                          <SelectItem key={dam.id} value={dam.id}>
-                            {dam.name}
-                          </SelectItem>
-                        ))}
+                        {dams.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </div>
 
-              {/* Avós - exibição somente leitura */}
               {formData.dam_id && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg border-b pb-2">Avós (somente exibição)</h3>
                   <div className="grid grid-cols-1 gap-6">
-                    {/* Avós Maternos */}
                     {(() => {
-                      const selectedDam = dams.find(d => d.id === formData.dam_id);
-                      const damGrandsire = selectedDam?.sire_id ? dams.find(a => a.id === selectedDam.sire_id) : null;
-                      const damGranddam = selectedDam?.dam_id ? dams.find(a => a.id === selectedDam.dam_id) : null;
-                      
+                      const allAnimals = [...dams, ...sires];
+                      const selectedDam = allAnimals.find(d => d.id === formData.dam_id);
+                      const damGrandsire = selectedDam?.sire_id ? allAnimals.find(a => a.id === selectedDam.sire_id) : null;
+                      const damGranddam = selectedDam?.dam_id ? allAnimals.find(a => a.id === selectedDam.dam_id) : null;
                       return (
                         <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
                           <h4 className="font-medium text-sm text-muted-foreground">Avós Maternos (Pais da Matriz)</h4>
@@ -743,23 +698,16 @@ const AnimaisGestaoAspiracoes = () => {
             </TabsContent>
 
             <TabsContent value="financeiro" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">
-                Funcionalidade em desenvolvimento.
-              </div>
+              <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
             </TabsContent>
-
             <TabsContent value="proprietarios" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">
-                Funcionalidade em desenvolvimento.
-              </div>
+              <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
             </TabsContent>
           </Tabs>
 
           {modalMode !== "view" && (
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => setModalOpen(false)}>
-                Cancelar
-              </Button>
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
               <Button onClick={handleSave}>Salvar</Button>
             </div>
           )}
@@ -782,26 +730,164 @@ const AnimaisGestaoAspiracoes = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Finalize Dialog */}
-      <Dialog open={finalizeDialogOpen} onOpenChange={setFinalizeDialogOpen}>
+      {/* First Finalize Modal: pending → in_progress */}
+      <Dialog open={firstFinalizeOpen} onOpenChange={setFirstFinalizeOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Finalizar Registro de Aspiração</DialogTitle>
+            <DialogTitle>Iniciar Aspiração</DialogTitle>
           </DialogHeader>
-          
           <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Tem certeza que deseja finalizar este registro de aspiração?
-            </p>
+            <div>
+              <Label>Data da Aspiração *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !firstFinalizeData.aspiration_date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {firstFinalizeData.aspiration_date ? format(firstFinalizeData.aspiration_date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={firstFinalizeData.aspiration_date || undefined} onSelect={(d) => setFirstFinalizeData({ ...firstFinalizeData, aspiration_date: d || null })} locale={ptBR} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>Laboratório *</Label>
+              <Select value={firstFinalizeData.laboratory_id} onValueChange={(v) => setFirstFinalizeData({ ...firstFinalizeData, laboratory_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
+                <SelectContent>
+                  {laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFinalizeDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleFinalize}>
-              Finalizar
-            </Button>
+            <Button variant="outline" onClick={() => setFirstFinalizeOpen(false)}>Cancelar</Button>
+            <Button onClick={handleFirstFinalize}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Second Finalize Modal: in_progress → finalized */}
+      <Dialog open={secondFinalizeOpen} onOpenChange={setSecondFinalizeOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Finalizar Aspiração</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Quantidade de Embriões *</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={embryoCount || ""}
+                  onChange={(e) => handleEmbryoCountChange(parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <Label>Veterinário</Label>
+                <Select value={finalizeVeterinarianId} onValueChange={setFinalizeVeterinarianId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o veterinário..." /></SelectTrigger>
+                  <SelectContent>
+                    {veterinarians.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {embryoCount > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Reprodutor (Pai)</TableHead>
+                      <TableHead>Receptora</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {embryoRows.map((row, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.sire_id}
+                            onValueChange={(v) => {
+                              const updated = [...embryoRows];
+                              updated[index] = { ...updated[index], sire_id: v };
+                              setEmbryoRows(updated);
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                              {sires.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              value={row.recipientName}
+                              placeholder="Buscar receptora..."
+                              onChange={(e) => {
+                                const updated = [...embryoRows];
+                                updated[index] = { ...updated[index], recipientName: e.target.value };
+                                setEmbryoRows(updated);
+                                setActiveEmbryoRowIndex(index);
+                                setRecipientSearchTerm(e.target.value);
+                              }}
+                              onFocus={() => setActiveEmbryoRowIndex(index)}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                setActiveEmbryoRowIndex(index);
+                                setRecipientSearchTerm(row.recipientName);
+                              }}
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {activeEmbryoRowIndex === index && recipientResults.length > 0 && (
+                            <div className="absolute z-50 mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-y-auto w-64">
+                              {recipientResults.map((animal) => (
+                                <button
+                                  key={animal.id}
+                                  className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                                  onClick={() => {
+                                    const updated = [...embryoRows];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      recipient_id: animal.id,
+                                      recipientName: `${animal.name}${animal.ear_tag ? ` (${animal.ear_tag})` : ""}`,
+                                    };
+                                    setEmbryoRows(updated);
+                                    setActiveEmbryoRowIndex(null);
+                                    setRecipientResults([]);
+                                    setRecipientSearchTerm("");
+                                  }}
+                                >
+                                  <span className="font-medium">{animal.name}</span>
+                                  {animal.ear_tag && <span className="text-muted-foreground ml-1">Brinco: {animal.ear_tag}</span>}
+                                  {animal.registration && <span className="text-muted-foreground ml-1">Reg: {animal.registration}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSecondFinalizeOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSecondFinalize}>Finalizar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
