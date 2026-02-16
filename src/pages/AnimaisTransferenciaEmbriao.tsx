@@ -107,13 +107,20 @@ const AnimaisTransferenciaEmbriao = () => {
       setRecipientSearchLoading(true);
       try {
         const term = `%${debouncedRecipientSearch}%`;
-        const { data, error } = await supabase
+        const isNumeric = /^\d+$/.test(debouncedRecipientSearch);
+        let query = supabase
           .from("animals")
           .select("id, name, ear_tag, registration, category_id")
           .eq("store_id", storeId)
-          .eq("is_active", true)
-          .or(`name.ilike.${term},registration.ilike.${term},ear_tag::text.ilike.${term}`)
-          .limit(20);
+          .eq("is_active", true);
+
+        if (isNumeric) {
+          query = query.or(`name.ilike.${term},registration.ilike.${term},ear_tag.eq.${debouncedRecipientSearch}`);
+        } else {
+          query = query.or(`name.ilike.${term},registration.ilike.${term}`);
+        }
+
+        const { data, error } = await query.limit(20);
         if (error) throw error;
         setRecipientResults(data || []);
       } catch (error) {
