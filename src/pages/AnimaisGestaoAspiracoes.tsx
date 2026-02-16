@@ -70,6 +70,7 @@ const AnimaisGestaoAspiracoes = () => {
   const [selectedRecord, setSelectedRecord] = useState<AspirationRecord | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<AspirationRecord | null>(null);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
 
@@ -251,10 +252,12 @@ const AnimaisGestaoAspiracoes = () => {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!formData.name.trim()) {
       toast({ title: "Erro", description: "O nome é obrigatório.", variant: "destructive" });
       return;
     }
+    setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
@@ -296,6 +299,8 @@ const AnimaisGestaoAspiracoes = () => {
     } catch (error) {
       console.error("Error saving record:", error);
       toast({ title: "Erro", description: "Erro ao salvar registro.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -316,10 +321,12 @@ const AnimaisGestaoAspiracoes = () => {
 
   // First finalize: pending → in_progress (set aspiration_date + laboratory)
   const handleFirstFinalize = async () => {
+    if (saving) return;
     if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
       toast({ title: "Erro", description: "Data da aspiração e laboratório são obrigatórios.", variant: "destructive" });
       return;
     }
+    setSaving(true);
     try {
       const { error } = await supabase
         .from("aspiration_management")
@@ -337,11 +344,14 @@ const AnimaisGestaoAspiracoes = () => {
     } catch (error) {
       console.error("Error first finalize:", error);
       toast({ title: "Erro", description: "Erro ao iniciar aspiração.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
   // Second finalize: in_progress → finalized (set embryo details + create embryo transfer records)
   const handleSecondFinalize = async () => {
+    if (saving) return;
     if (!secondFinalizeRecord) return;
     if (embryoCount <= 0) {
       toast({ title: "Erro", description: "Quantidade de embriões é obrigatória.", variant: "destructive" });
@@ -354,7 +364,7 @@ const AnimaisGestaoAspiracoes = () => {
         return;
       }
     }
-
+    setSaving(true);
     try {
       const embryoDetails = embryoRows.map(r => ({ sire_id: r.sire_id, recipient_id: r.recipient_id }));
 
@@ -409,6 +419,8 @@ const AnimaisGestaoAspiracoes = () => {
     } catch (error) {
       console.error("Error second finalize:", error);
       toast({ title: "Erro", description: "Erro ao finalizar aspiração.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -707,8 +719,8 @@ const AnimaisGestaoAspiracoes = () => {
 
           {modalMode !== "view" && (
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSave}>Salvar</Button>
+              <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
             </div>
           )}
         </DialogContent>
@@ -762,8 +774,8 @@ const AnimaisGestaoAspiracoes = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFirstFinalizeOpen(false)}>Cancelar</Button>
-            <Button onClick={handleFirstFinalize}>Salvar</Button>
+            <Button variant="outline" onClick={() => setFirstFinalizeOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={handleFirstFinalize} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -886,8 +898,8 @@ const AnimaisGestaoAspiracoes = () => {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSecondFinalizeOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSecondFinalize}>Finalizar</Button>
+            <Button variant="outline" onClick={() => setSecondFinalizeOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={handleSecondFinalize} disabled={saving}>{saving ? "Finalizando..." : "Finalizar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
