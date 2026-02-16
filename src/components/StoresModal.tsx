@@ -209,7 +209,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível carregar as lojas.",
+        description: "Não foi possível carregar as fazendas.",
       });
     } finally {
       setLoading(false);
@@ -315,7 +315,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Nome da loja é obrigatório.",
+        description: "Nome da fazenda é obrigatório.",
       });
       return;
     }
@@ -324,7 +324,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Código da loja é obrigatório.",
+        description: "Código da fazenda é obrigatório.",
       });
       return;
     }
@@ -341,7 +341,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao verificar código da loja.",
+        description: "Erro ao verificar código da fazenda.",
       });
       return;
     }
@@ -350,7 +350,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Já existe uma loja cadastrada com este código nesta matriz.",
+        description: "Já existe uma fazenda cadastrada com este código nesta matriz.",
       });
       return;
     }
@@ -367,7 +367,7 @@ export const StoresModal = ({
         toast({
           variant: "destructive",
           title: "Erro",
-          description: "Erro ao verificar CNPJ da loja.",
+          description: "Erro ao verificar CNPJ da fazenda.",
         });
         return;
       }
@@ -376,7 +376,7 @@ export const StoresModal = ({
         toast({
           variant: "destructive",
           title: "Erro",
-          description: "Já existe uma loja cadastrada com este CNPJ.",
+          description: "Já existe uma fazenda cadastrada com este CNPJ.",
         });
         return;
       }
@@ -403,7 +403,7 @@ export const StoresModal = ({
 
         toast({
           title: "Sucesso",
-          description: "Loja atualizada com sucesso!",
+          description: "Fazenda atualizada com sucesso!",
         });
       } else {
         const { data, error } = await supabase
@@ -417,7 +417,7 @@ export const StoresModal = ({
 
         toast({
           title: "Sucesso",
-          description: "Loja cadastrada com sucesso!",
+          description: "Fazenda cadastrada com sucesso!",
         });
       }
 
@@ -445,7 +445,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar a loja.",
+        description: "Não foi possível salvar a fazenda.",
       });
     } finally {
       setLoading(false);
@@ -484,7 +484,7 @@ export const StoresModal = ({
         toast({
           variant: "destructive",
           title: "Exclusão não permitida",
-          description: "Esta loja possui contas a pagar vinculadas e não pode ser excluída.",
+          description: "Esta fazenda possui contas a pagar vinculadas e não pode ser excluída.",
         });
         setLoading(false);
         return;
@@ -503,13 +503,13 @@ export const StoresModal = ({
         toast({
           variant: "destructive",
           title: "Exclusão não permitida",
-          description: "Esta loja possui controles de caixa vinculados e não pode ser excluída.",
+          description: "Esta fazenda possui controles de caixa vinculados e não pode ser excluída.",
         });
         setLoading(false);
         return;
       }
 
-      if (!confirm(`Tem certeza que deseja excluir a loja ${store.name}?`)) {
+      if (!confirm(`Tem certeza que deseja excluir a fazenda ${store.name}?`)) {
         setLoading(false);
         return;
       }
@@ -522,7 +522,7 @@ export const StoresModal = ({
       if (error) throw error;
       toast({
         title: "Sucesso",
-        description: "Loja excluída com sucesso!",
+        description: "Fazenda excluída com sucesso!",
       });
       
       await fetchStores();
@@ -530,7 +530,7 @@ export const StoresModal = ({
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível excluir a loja.",
+        description: "Não foi possível excluir a fazenda.",
       });
     } finally {
       setLoading(false);
@@ -589,9 +589,9 @@ export const StoresModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Lojas</DialogTitle>
+          <DialogTitle>Fazendas</DialogTitle>
           <DialogDescription>
-            Cadastro e gestão de lojas
+            Cadastro e gestão de fazendas
           </DialogDescription>
         </DialogHeader>
 
@@ -608,12 +608,12 @@ export const StoresModal = ({
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {editingStore ? "Editar Loja" : "Nova Loja"}
+                  {editingStore ? "Editar Fazenda" : "Nova Fazenda"}
                 </CardTitle>
                 <CardDescription>
                   {editingStore 
-                    ? "Atualize as informações da loja" 
-                    : "Preencha os dados da nova loja"
+                    ? "Atualize as informações da fazenda" 
+                    : "Preencha os dados da nova fazenda"
                   }
                 </CardDescription>
               </CardHeader>
@@ -638,7 +638,7 @@ export const StoresModal = ({
                         required
                         value={formData.code}
                         onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                        placeholder="Código único da loja"
+                        placeholder="Código único da fazenda"
                       />
                     </div>
                     
@@ -655,13 +655,13 @@ export const StoresModal = ({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome da Loja *</Label>
+                    <Label htmlFor="name">Nome da Fazenda *</Label>
                     <Input
                       id="name"
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Nome da loja"
+                      placeholder="Nome da fazenda"
                     />
                   </div>
 
@@ -807,9 +807,9 @@ export const StoresModal = ({
           <TabsContent value="list">
             <Card>
               <CardHeader>
-                <CardTitle>Lista de Lojas</CardTitle>
+                <CardTitle>Lista de Fazendas</CardTitle>
                 <CardDescription>
-                  Gerencie todas as lojas cadastradas
+                  Gerencie todas as fazendas cadastradas
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -848,7 +848,7 @@ export const StoresModal = ({
                       ) : filteredStores.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center">
-                            {stores.length === 0 ? "Nenhuma loja cadastrada" : "Nenhuma loja encontrada para a busca"}
+                            {stores.length === 0 ? "Nenhuma fazenda cadastrada" : "Nenhuma fazenda encontrada para a busca"}
                           </TableCell>
                         </TableRow>
                       ) : (
