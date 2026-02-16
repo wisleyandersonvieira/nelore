@@ -112,6 +112,9 @@ const AnimaisGestaoPrenhez = () => {
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   const [recordToFinalize, setRecordToFinalize] = useState<PregnancyRecord | null>(null);
   const [finalizeBirthDate, setFinalizeBirthDate] = useState<Date | null>(null);
+  const [finalizeValidation, setFinalizeValidation] = useState<string>("");
+  const [finalizeName, setFinalizeName] = useState<string>("");
+  const [finalizeWeight, setFinalizeWeight] = useState<string>("");
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
 
@@ -425,12 +428,52 @@ const AnimaisGestaoPrenhez = () => {
 
   const handleOpenFinalizeDialog = (record: PregnancyRecord) => {
     setRecordToFinalize(record);
-    setFinalizeBirthDate(record.expected_birth_month ? new Date(record.expected_birth_month) : null);
+    setFinalizeBirthDate(null);
+    setFinalizeValidation("");
+    setFinalizeName("");
+    setFinalizeWeight("");
     setFinalizeDialogOpen(true);
   };
 
   const handleFinalize = async () => {
-    if (!recordToFinalize || !storeId || !finalizeBirthDate) {
+    if (!recordToFinalize || !storeId || !finalizeValidation) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione a validação (Vivo ou Natimorto).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (finalizeValidation === "natimorto") {
+      try {
+        const { error: updateError } = await supabase
+          .from("pregnancy_management")
+          .update({ status: "finalized_stillborn" })
+          .eq("id", recordToFinalize.id);
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Sucesso",
+          description: "Registro finalizado como Natimorto.",
+        });
+
+        setFinalizeDialogOpen(false);
+        setRecordToFinalize(null);
+        fetchRecords();
+      } catch (error) {
+        console.error("Error finalizing record:", error);
+        toast({
+          title: "Erro",
+          description: "Erro ao finalizar registro.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Vivo flow
+    if (!finalizeBirthDate) {
       toast({
         title: "Erro",
         description: "Por favor, informe a data de nascimento do animal.",
@@ -440,15 +483,16 @@ const AnimaisGestaoPrenhez = () => {
     }
 
     try {
-      // Get next animal code
       const { data: codeData } = await supabase.rpc("get_next_animal_code", {
         store_uuid: storeId,
       }) as { data: number | null };
 
-      // Create animal from pregnancy record
-      const animalData = {
+      const animalName = finalizeName.trim() || recordToFinalize.name;
+      const birthDateStr = format(finalizeBirthDate, "yyyy-MM-dd");
+
+      const animalInsertData: Record<string, unknown> = {
         code: codeData || 1,
-        name: recordToFinalize.name,
+        name: animalName,
         sex: recordToFinalize.sex,
         breed_id: recordToFinalize.breed_id,
         category_id: recordToFinalize.category_id,
@@ -459,10 +503,9 @@ const AnimaisGestaoPrenhez = () => {
         farm_id: recordToFinalize.farm_id,
         farm_type: recordToFinalize.farm_type,
         recipient_id: recordToFinalize.recipient_id,
-        birth_date: format(finalizeBirthDate, "yyyy-MM-dd"),
+        birth_date: birthDateStr,
         store_id: storeId,
         is_active: true,
-        // Reproduction data
         aspiration_date: recordToFinalize.aspiration_date,
         transfer_date: recordToFinalize.transfer_date,
         veterinarian_id: recordToFinalize.veterinarian_id,
@@ -470,10 +513,15 @@ const AnimaisGestaoPrenhez = () => {
         ultrasound_date: recordToFinalize.ultrasound_date,
       };
 
-      const { error: animalError } = await supabase.from("animals").insert(animalData);
+      const weight = parseFloat(finalizeWeight);
+      if (finalizeWeight && !isNaN(weight) && weight > 0) {
+        animalInsertData.first_weight = weight;
+        animalInsertData.first_weighing_date = birthDateStr;
+      }
+
+      const { error: animalError } = await supabase.from("animals").insert(animalInsertData as any);
       if (animalError) throw animalError;
 
-      // Update pregnancy record status
       const { error: updateError } = await supabase
         .from("pregnancy_management")
         .update({ status: "finalized" })
@@ -606,10 +654,16 @@ const AnimaisGestaoPrenhez = () => {
                             "px-2 py-1 rounded-full text-xs font-medium",
                             record.status === "in_progress"
                               ? "bg-yellow-100 text-yellow-800"
+                              : record.status === "finalized_stillborn"
+                              ? "bg-red-100 text-red-800"
                               : "bg-green-100 text-green-800"
                           )}
                         >
-                          {record.status === "in_progress" ? "Em Andamento" : "Finalizado"}
+                          {record.status === "in_progress"
+                            ? "Em Andamento"
+                            : record.status === "finalized_stillborn"
+                            ? "Finalizado: Natimorto"
+                            : "Finalizado"}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -1187,7 +1241,7 @@ const AnimaisGestaoPrenhez = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Finalize Dialog with Birth Date */}
+      {/* Finalize Dialog */}
       <Dialog open={finalizeDialogOpen} onOpenChange={setFinalizeDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1195,45 +1249,94 @@ const AnimaisGestaoPrenhez = () => {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Ao finalizar, um novo animal será criado no cadastro de animais com os dados deste registro de prenhez.
-            </p>
-            
             <div className="space-y-2">
-              <Label>Data de Nascimento *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !finalizeBirthDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {finalizeBirthDate
-                      ? format(finalizeBirthDate, "dd/MM/yyyy", { locale: ptBR })
-                      : "Selecione a data de nascimento..."}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={finalizeBirthDate || undefined}
-                    onSelect={(date) => setFinalizeBirthDate(date || null)}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label>Validação *</Label>
+              <Select value={finalizeValidation} onValueChange={(value) => {
+                setFinalizeValidation(value);
+                if (value === "natimorto") {
+                  setFinalizeBirthDate(null);
+                  setFinalizeName("");
+                  setFinalizeWeight("");
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vivo">Vivo</SelectItem>
+                  <SelectItem value="natimorto">Natimorto</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {finalizeValidation === "natimorto" && (
+              <p className="text-sm text-destructive">
+                O registro será finalizado como Natimorto. Nenhum animal será criado no cadastro.
+              </p>
+            )}
+
+            {finalizeValidation === "vivo" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Data de Nascimento *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !finalizeBirthDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {finalizeBirthDate
+                          ? format(finalizeBirthDate, "dd/MM/yyyy", { locale: ptBR })
+                          : "Selecione a data de nascimento..."}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={finalizeBirthDate || undefined}
+                        onSelect={(date) => setFinalizeBirthDate(date || null)}
+                        locale={ptBR}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input
+                    value={finalizeName}
+                    onChange={(e) => setFinalizeName(e.target.value)}
+                    placeholder={recordToFinalize?.name || "Será usado o nome da prenhez"}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Peso (kg)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={finalizeWeight}
+                    onChange={(e) => setFinalizeWeight(e.target.value)}
+                    placeholder="Peso ao nascer"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setFinalizeDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleFinalize} disabled={!finalizeBirthDate}>
+            <Button
+              onClick={handleFinalize}
+              disabled={!finalizeValidation || (finalizeValidation === "vivo" && !finalizeBirthDate)}
+            >
               Finalizar
             </Button>
           </DialogFooter>
