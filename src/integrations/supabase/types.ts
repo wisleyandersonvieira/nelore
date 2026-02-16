@@ -890,6 +890,7 @@ export type Database = {
       }
       aspiration_management: {
         Row: {
+          aspiration_date: string | null
           auction_id: string | null
           auction_lot: string | null
           breed_id: string | null
@@ -897,16 +898,21 @@ export type Database = {
           code: number
           created_at: string
           dam_id: string | null
+          embryo_count: number | null
+          embryo_details: Json | null
           expected_aspiration_month: string | null
           farm_id: string | null
           farm_type: string | null
           id: string
+          laboratory_id: string | null
           name: string
           status: string
           store_id: string
           updated_at: string
+          veterinarian_id: string | null
         }
         Insert: {
+          aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           breed_id?: string | null
@@ -914,16 +920,21 @@ export type Database = {
           code: number
           created_at?: string
           dam_id?: string | null
+          embryo_count?: number | null
+          embryo_details?: Json | null
           expected_aspiration_month?: string | null
           farm_id?: string | null
           farm_type?: string | null
           id?: string
+          laboratory_id?: string | null
           name: string
           status?: string
           store_id: string
           updated_at?: string
+          veterinarian_id?: string | null
         }
         Update: {
+          aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           breed_id?: string | null
@@ -931,14 +942,18 @@ export type Database = {
           code?: number
           created_at?: string
           dam_id?: string | null
+          embryo_count?: number | null
+          embryo_details?: Json | null
           expected_aspiration_month?: string | null
           farm_id?: string | null
           farm_type?: string | null
           id?: string
+          laboratory_id?: string | null
           name?: string
           status?: string
           store_id?: string
           updated_at?: string
+          veterinarian_id?: string | null
         }
         Relationships: [
           {
@@ -970,10 +985,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "aspiration_management_laboratory_id_fkey"
+            columns: ["laboratory_id"]
+            isOneToOne: false
+            referencedRelation: "laboratories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "aspiration_management_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_management_veterinarian_id_fkey"
+            columns: ["veterinarian_id"]
+            isOneToOne: false
+            referencedRelation: "veterinarians"
             referencedColumns: ["id"]
           },
         ]
