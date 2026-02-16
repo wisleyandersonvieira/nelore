@@ -1,0 +1,1 @@
+ALTER TABLE public.aspiration_management ADD COLUMN transfer_date date;
