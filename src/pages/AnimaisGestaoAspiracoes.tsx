@@ -89,8 +89,9 @@ const AnimaisGestaoAspiracoes = () => {
   const [embryoRows, setEmbryoRows] = useState<{ sire_id: string; recipient_id: string; recipientName: string }[]>([]);
   const [finalizeVeterinarianId, setFinalizeVeterinarianId] = useState("");
 
-  // Recipient search per embryo row
+  // Recipient search modal
   const [activeEmbryoRowIndex, setActiveEmbryoRowIndex] = useState<number | null>(null);
+  const [recipientSearchOpen, setRecipientSearchOpen] = useState(false);
   const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
   const debouncedRecipientSearch = useDebounce(recipientSearchTerm, 300);
   const [recipientResults, setRecipientResults] = useState<AnimalOption[]>([]);
@@ -837,25 +838,13 @@ const AnimaisGestaoAspiracoes = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="relative">
+                        <TableCell>
                           <div className="flex gap-2 items-center">
                             <Input
                               value={row.recipientName}
-                              placeholder="Buscar receptora..."
-                              onChange={(e) => {
-                                const updated = [...embryoRows];
-                                updated[index] = { ...updated[index], recipientName: e.target.value, recipient_id: "" };
-                                setEmbryoRows(updated);
-                                setActiveEmbryoRowIndex(index);
-                                setRecipientSearchTerm(e.target.value);
-                              }}
-                              onFocus={() => {
-                                setActiveEmbryoRowIndex(index);
-                                if (row.recipientName.length >= 2) {
-                                  setRecipientSearchTerm("");
-                                  setTimeout(() => setRecipientSearchTerm(row.recipientName), 10);
-                                }
-                              }}
+                              placeholder="Selecione uma receptora..."
+                              readOnly
+                              className="flex-1"
                             />
                             <Button
                               type="button"
@@ -863,41 +852,14 @@ const AnimaisGestaoAspiracoes = () => {
                               size="icon"
                               onClick={() => {
                                 setActiveEmbryoRowIndex(index);
-                                if (row.recipientName.length >= 2) {
-                                  setRecipientSearchTerm("");
-                                  setTimeout(() => setRecipientSearchTerm(row.recipientName), 10);
-                                }
+                                setRecipientSearchTerm("");
+                                setRecipientResults([]);
+                                setRecipientSearchOpen(true);
                               }}
                             >
                               <Search className="h-4 w-4" />
                             </Button>
                           </div>
-                          {activeEmbryoRowIndex === index && recipientResults.length > 0 && (
-                            <div className="absolute z-50 mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-y-auto w-64">
-                              {recipientResults.map((animal) => (
-                                <button
-                                  key={animal.id}
-                                  className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
-                                  onClick={() => {
-                                    const updated = [...embryoRows];
-                                    updated[index] = {
-                                      ...updated[index],
-                                      recipient_id: animal.id,
-                                      recipientName: `${animal.name}${animal.ear_tag ? ` (${animal.ear_tag})` : ""}`,
-                                    };
-                                    setEmbryoRows(updated);
-                                    setActiveEmbryoRowIndex(null);
-                                    setRecipientResults([]);
-                                    setRecipientSearchTerm("");
-                                  }}
-                                >
-                                  <span className="font-medium">{animal.name}</span>
-                                  {animal.ear_tag && <span className="text-muted-foreground ml-1">Brinco: {animal.ear_tag}</span>}
-                                  {animal.registration && <span className="text-muted-foreground ml-1">Reg: {animal.registration}</span>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -910,6 +872,67 @@ const AnimaisGestaoAspiracoes = () => {
             <Button variant="outline" onClick={() => setSecondFinalizeOpen(false)} disabled={saving}>Cancelar</Button>
             <Button onClick={handleSecondFinalize} disabled={saving}>{saving ? "Finalizando..." : "Finalizar"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recipient Search Dialog */}
+      <Dialog open={recipientSearchOpen} onOpenChange={setRecipientSearchOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Buscar Receptora</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Pesquisar por nome, registro ou brinco..."
+              value={recipientSearchTerm}
+              onChange={(e) => setRecipientSearchTerm(e.target.value)}
+              autoFocus
+            />
+            <div className="max-h-64 overflow-y-auto border rounded-lg">
+              {recipientSearchLoading ? (
+                <div className="text-center py-4 text-muted-foreground">Buscando...</div>
+              ) : recipientResults.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  {recipientSearchTerm.length < 2 ? "Digite ao menos 2 caracteres..." : "Nenhum animal encontrado."}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Brinco</TableHead>
+                      <TableHead>Registro</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recipientResults.map(animal => (
+                      <TableRow key={animal.id} className="cursor-pointer hover:bg-muted/50" onClick={() => {
+                        if (activeEmbryoRowIndex !== null) {
+                          const updated = [...embryoRows];
+                          updated[activeEmbryoRowIndex] = {
+                            ...updated[activeEmbryoRowIndex],
+                            recipient_id: animal.id,
+                            recipientName: `${animal.name}${animal.ear_tag ? ` - Brinco: ${animal.ear_tag}` : ""}`,
+                          };
+                          setEmbryoRows(updated);
+                        }
+                        setRecipientSearchOpen(false);
+                        setActiveEmbryoRowIndex(null);
+                      }}>
+                        <TableCell>{animal.name}</TableCell>
+                        <TableCell>{animal.ear_tag || "-"}</TableCell>
+                        <TableCell>{animal.registration || "-"}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">Selecionar</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
