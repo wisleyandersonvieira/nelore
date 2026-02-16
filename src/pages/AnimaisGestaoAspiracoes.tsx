@@ -46,6 +46,7 @@ interface AspirationRecord {
   veterinarian_id: string | null;
   embryo_count: number | null;
   embryo_details: EmbryoDetail[] | null;
+  transfer_date: string | null;
 }
 
 interface EmbryoDetail {
@@ -528,23 +529,26 @@ const AnimaisGestaoAspiracoes = () => {
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow>
+                 <TableRow>
                   <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Raça</TableHead>
                   <TableHead>Fazenda</TableHead>
                   <TableHead>Mês Prev. Aspiração</TableHead>
+                  <TableHead>Data Aspiração</TableHead>
+                  <TableHead>Data Transferência</TableHead>
+                  <TableHead>Qtd. Embriões</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {records.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum registro encontrado.
-                    </TableCell>
-                  </TableRow>
+                   <TableRow>
+                     <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                       Nenhum registro encontrado.
+                     </TableCell>
+                   </TableRow>
                 ) : (
                   records.map((record) => (
                     <TableRow key={record.id}>
@@ -554,8 +558,21 @@ const AnimaisGestaoAspiracoes = () => {
                       <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
                       <TableCell>
                         {record.expected_aspiration_month
-                          ? format(new Date(record.expected_aspiration_month), "MM/yyyy", { locale: ptBR })
+                          ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
                           : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {record.aspiration_date
+                          ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {record.transfer_date
+                          ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {record.embryo_count ?? "-"}
                       </TableCell>
                       <TableCell>
                         <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusClasses(record.status))}>
