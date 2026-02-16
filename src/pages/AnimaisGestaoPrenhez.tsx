@@ -62,6 +62,11 @@ interface PregnancyRecord {
   recipient_id: string | null;
   status: string;
   store_id: string;
+  aspiration_date: string | null;
+  transfer_date: string | null;
+  veterinarian_id: string | null;
+  laboratory_id: string | null;
+  ultrasound_date: string | null;
 }
 
 interface Breed {
@@ -133,6 +138,15 @@ const AnimaisGestaoPrenhez = () => {
     recipient_id: "",
   });
 
+  // Reproduction data
+  const [reproData, setReproData] = useState({
+    aspiration_date: null as Date | null,
+    transfer_date: null as Date | null,
+    veterinarian_id: "",
+    laboratory_id: "",
+    ultrasound_date: null as Date | null,
+  });
+
   // Dropdown options
   const [breeds, setBreeds] = useState<Breed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -141,6 +155,8 @@ const AnimaisGestaoPrenhez = () => {
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
   const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
+  const [veterinarians, setVeterinarians] = useState<{ id: string; name: string }[]>([]);
+  const [laboratories, setLaboratories] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     fetchRecords();
@@ -195,7 +211,7 @@ const AnimaisGestaoPrenhez = () => {
       if (!profile?.store_id) return;
 
       // Fetch all dropdown data in parallel
-      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, animalsRes] = await Promise.all([
+      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, animalsRes, vetRes, labRes] = await Promise.all([
         supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
         supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
@@ -203,6 +219,8 @@ const AnimaisGestaoPrenhez = () => {
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
         supabase.from("animals").select("id, code, name, ear_tag, category_id").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
       ]);
 
       setBreeds(breedsRes.data || []);
@@ -213,6 +231,8 @@ const AnimaisGestaoPrenhez = () => {
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
       setAnimals(animalsRes.data || []);
+      setVeterinarians(vetRes.data || []);
+      setLaboratories(labRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -249,6 +269,7 @@ const AnimaisGestaoPrenhez = () => {
         farm: "",
         recipient_id: "",
       });
+      setReproData({ aspiration_date: null, transfer_date: null, veterinarian_id: "", laboratory_id: "", ultrasound_date: null });
       setSelectedRecord(null);
       setSelectedRecipient(null);
     } else if (record) {
@@ -270,6 +291,13 @@ const AnimaisGestaoPrenhez = () => {
         dam_id: record.dam_id || "",
         farm: farmValue,
         recipient_id: record.recipient_id || "",
+      });
+      setReproData({
+        aspiration_date: record.aspiration_date ? new Date(record.aspiration_date + "T12:00:00") : null,
+        transfer_date: record.transfer_date ? new Date(record.transfer_date + "T12:00:00") : null,
+        veterinarian_id: record.veterinarian_id || "",
+        laboratory_id: record.laboratory_id || "",
+        ultrasound_date: record.ultrasound_date ? new Date(record.ultrasound_date + "T12:00:00") : null,
       });
       // Find the recipient animal if exists
       if (record.recipient_id) {
@@ -341,6 +369,11 @@ const AnimaisGestaoPrenhez = () => {
         farm_type: farmType,
         recipient_id: formData.recipient_id || null,
         store_id: profile.store_id,
+        aspiration_date: reproData.aspiration_date ? format(reproData.aspiration_date, "yyyy-MM-dd") : null,
+        transfer_date: reproData.transfer_date ? format(reproData.transfer_date, "yyyy-MM-dd") : null,
+        veterinarian_id: reproData.veterinarian_id || null,
+        laboratory_id: reproData.laboratory_id || null,
+        ultrasound_date: reproData.ultrasound_date ? format(reproData.ultrasound_date, "yyyy-MM-dd") : null,
       };
 
       if (modalMode === "create") {
@@ -639,8 +672,9 @@ const AnimaisGestaoPrenhez = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
+              <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="financeiro" disabled>
                 Financeiro
@@ -853,6 +887,67 @@ const AnimaisGestaoPrenhez = () => {
                       </Button>
                     )}
                   </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="reproducao" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Data Aspiração</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reproData.aspiration_date && "text-muted-foreground")} disabled={modalMode === "view"}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reproData.aspiration_date ? format(reproData.aspiration_date, "dd/MM/yyyy") : "Selecione..."}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={reproData.aspiration_date || undefined} onSelect={(d) => setReproData({ ...reproData, aspiration_date: d || null })} locale={ptBR} className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label>Data Transferência</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reproData.transfer_date && "text-muted-foreground")} disabled={modalMode === "view"}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reproData.transfer_date ? format(reproData.transfer_date, "dd/MM/yyyy") : "Selecione..."}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={reproData.transfer_date || undefined} onSelect={(d) => setReproData({ ...reproData, transfer_date: d || null })} locale={ptBR} className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label>Veterinário</Label>
+                  <Select value={reproData.veterinarian_id} onValueChange={(v) => setReproData({ ...reproData, veterinarian_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o veterinário..." /></SelectTrigger>
+                    <SelectContent>{veterinarians.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Laboratório</Label>
+                  <Select value={reproData.laboratory_id} onValueChange={(v) => setReproData({ ...reproData, laboratory_id: v })} disabled={modalMode === "view"}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
+                    <SelectContent>{laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Data de Ultrassom</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reproData.ultrasound_date && "text-muted-foreground")} disabled={modalMode === "view"}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reproData.ultrasound_date ? format(reproData.ultrasound_date, "dd/MM/yyyy") : "Selecione..."}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={reproData.ultrasound_date || undefined} onSelect={(d) => setReproData({ ...reproData, ultrasound_date: d || null })} locale={ptBR} className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </TabsContent>
