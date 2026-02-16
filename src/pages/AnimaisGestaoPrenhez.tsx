@@ -458,9 +458,16 @@ const AnimaisGestaoPrenhez = () => {
         dam_id: recordToFinalize.dam_id,
         farm_id: recordToFinalize.farm_id,
         farm_type: recordToFinalize.farm_type,
+        recipient_id: recordToFinalize.recipient_id,
         birth_date: format(finalizeBirthDate, "yyyy-MM-dd"),
         store_id: storeId,
         is_active: true,
+        // Reproduction data
+        aspiration_date: recordToFinalize.aspiration_date,
+        transfer_date: recordToFinalize.transfer_date,
+        veterinarian_id: recordToFinalize.veterinarian_id,
+        laboratory_id: recordToFinalize.laboratory_id,
+        ultrasound_date: recordToFinalize.ultrasound_date,
       };
 
       const { error: animalError } = await supabase.from("animals").insert(animalData);
