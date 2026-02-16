@@ -68,6 +68,9 @@ const AnimaisTransferenciaEmbriao = () => {
   const [recordToDelete, setRecordToDelete] = useState<EmbryoTransferRecord | null>(null);
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   const [recordToFinalize, setRecordToFinalize] = useState<EmbryoTransferRecord | null>(null);
+  const [finalizeUltrasoundDate, setFinalizeUltrasoundDate] = useState<Date | null>(null);
+  const [finalizeValidation, setFinalizeValidation] = useState<"prenha" | "vazia" | "">("");
+  const [finalizeExpectedBirthMonth, setFinalizeExpectedBirthMonth] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
 
@@ -329,12 +332,74 @@ const AnimaisTransferenciaEmbriao = () => {
 
   const handleFinalize = async () => {
     if (!recordToFinalize) return;
+    if (!finalizeUltrasoundDate || !finalizeValidation) {
+      toast({ title: "Erro", description: "Preencha a data de ultrassom e a validação.", variant: "destructive" });
+      return;
+    }
+    if (finalizeValidation === "prenha" && !finalizeExpectedBirthMonth) {
+      toast({ title: "Erro", description: "Informe o mês previsto de nascimento.", variant: "destructive" });
+      return;
+    }
+
     try {
-      const { error } = await supabase.from("embryo_transfer_management").update({ status: "finalized" }).eq("id", recordToFinalize.id);
+      const newStatus = finalizeValidation === "prenha" ? "finalized_pregnant" : "finalized_empty";
+
+      // Update embryo transfer record
+      const { error } = await supabase.from("embryo_transfer_management").update({
+        status: newStatus,
+        ultrasound_date: format(finalizeUltrasoundDate, "yyyy-MM-dd"),
+      } as any).eq("id", recordToFinalize.id);
       if (error) throw error;
-      toast({ title: "Sucesso", description: "Registro finalizado com sucesso." });
+
+      // If pregnant, create pregnancy record
+      if (finalizeValidation === "prenha" && storeId) {
+        // Get next code for pregnancy
+        const { data: codeData } = await supabase
+          .from("pregnancy_management")
+          .select("code")
+          .eq("store_id", storeId)
+          .order("code", { ascending: false })
+          .limit(1);
+        const nextCode = codeData && codeData.length > 0 ? codeData[0].code + 1 : 1;
+
+        const pregnancyData = {
+          code: nextCode,
+          name: recordToFinalize.name,
+          sex: "femea",
+          expected_birth_month: finalizeExpectedBirthMonth ? format(finalizeExpectedBirthMonth, "yyyy-MM-dd") : null,
+          breed_id: recordToFinalize.breed_id,
+          category_id: recordToFinalize.category_id,
+          auction_id: recordToFinalize.auction_id,
+          auction_lot: recordToFinalize.auction_lot,
+          sire_id: recordToFinalize.sire_id,
+          dam_id: recordToFinalize.dam_id,
+          farm_id: recordToFinalize.farm_id,
+          farm_type: recordToFinalize.farm_type,
+          recipient_id: recordToFinalize.recipient_id,
+          store_id: storeId,
+          status: "in_progress",
+          aspiration_date: recordToFinalize.aspiration_date,
+          transfer_date: recordToFinalize.transfer_date,
+          veterinarian_id: recordToFinalize.veterinarian_id,
+          laboratory_id: recordToFinalize.laboratory_id,
+          ultrasound_date: format(finalizeUltrasoundDate, "yyyy-MM-dd"),
+        };
+
+        const { error: pregnancyError } = await supabase.from("pregnancy_management").insert(pregnancyData as any);
+        if (pregnancyError) throw pregnancyError;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: finalizeValidation === "prenha"
+          ? "Registro finalizado como Prenha. Novo registro criado na Gestão de Prenhez."
+          : "Registro finalizado como Vazia.",
+      });
       setFinalizeDialogOpen(false);
       setRecordToFinalize(null);
+      setFinalizeUltrasoundDate(null);
+      setFinalizeValidation("");
+      setFinalizeExpectedBirthMonth(null);
       fetchRecords();
     } catch (error) {
       console.error("Error finalizing record:", error);
@@ -427,8 +492,16 @@ const AnimaisTransferenciaEmbriao = () => {
                           ) : "-"}
                         </TableCell>
                         <TableCell>
-                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800")}>
-                            {record.status === "in_progress" ? "Em Andamento" : "Finalizado"}
+                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium",
+                            record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
+                            record.status === "finalized_pregnant" ? "bg-green-100 text-green-800" :
+                            record.status === "finalized_empty" ? "bg-red-100 text-red-800" :
+                            "bg-green-100 text-green-800"
+                          )}>
+                            {record.status === "in_progress" ? "Em Andamento" :
+                             record.status === "finalized_pregnant" ? "Finalizada: Prenha" :
+                             record.status === "finalized_empty" ? "Finalizada: Vazia" :
+                             "Finalizado"}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
@@ -444,7 +517,7 @@ const AnimaisTransferenciaEmbriao = () => {
                                 <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
+                                <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeUltrasoundDate(null); setFinalizeValidation(""); setFinalizeExpectedBirthMonth(null); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>
                               </>
@@ -779,13 +852,52 @@ const AnimaisTransferenciaEmbriao = () => {
       {/* Finalize Dialog */}
       <Dialog open={finalizeDialogOpen} onOpenChange={setFinalizeDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Finalizar Registro</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Finalizar Registro de Pós TE</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">Tem certeza que deseja finalizar este registro?</p>
+            <div>
+              <Label>Data de Ultrassom *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !finalizeUltrasoundDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {finalizeUltrasoundDate ? format(finalizeUltrasoundDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={finalizeUltrasoundDate || undefined} onSelect={(d) => setFinalizeUltrasoundDate(d || null)} locale={ptBR} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>Validação *</Label>
+              <Select value={finalizeValidation} onValueChange={(v) => { setFinalizeValidation(v as "prenha" | "vazia"); if (v === "vazia") setFinalizeExpectedBirthMonth(null); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prenha">Prenha</SelectItem>
+                  <SelectItem value="vazia">Não Prenha (Vazia)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {finalizeValidation === "prenha" && (
+              <div>
+                <Label>Mês Previsto de Nascimento *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !finalizeExpectedBirthMonth && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {finalizeExpectedBirthMonth ? format(finalizeExpectedBirthMonth, "MM/yyyy", { locale: ptBR }) : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={finalizeExpectedBirthMonth || undefined} onSelect={(d) => setFinalizeExpectedBirthMonth(d || null)} locale={ptBR} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFinalizeDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleFinalize}>Finalizar</Button>
+            <Button onClick={handleFinalize} disabled={!finalizeUltrasoundDate || !finalizeValidation}>Finalizar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

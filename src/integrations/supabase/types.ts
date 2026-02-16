@@ -2399,6 +2399,7 @@ export type Database = {
           status: string
           store_id: string
           transfer_date: string | null
+          ultrasound_date: string | null
           updated_at: string
           veterinarian_id: string | null
         }
@@ -2422,6 +2423,7 @@ export type Database = {
           status?: string
           store_id: string
           transfer_date?: string | null
+          ultrasound_date?: string | null
           updated_at?: string
           veterinarian_id?: string | null
         }
@@ -2445,6 +2447,7 @@ export type Database = {
           status?: string
           store_id?: string
           transfer_date?: string | null
+          ultrasound_date?: string | null
           updated_at?: string
           veterinarian_id?: string | null
         }
@@ -3198,6 +3201,7 @@ export type Database = {
       }
       pregnancy_management: {
         Row: {
+          aspiration_date: string | null
           auction_id: string | null
           auction_lot: string | null
           breed_id: string | null
@@ -3209,15 +3213,20 @@ export type Database = {
           farm_id: string | null
           farm_type: string | null
           id: string
+          laboratory_id: string | null
           name: string
           recipient_id: string | null
           sex: string
           sire_id: string | null
           status: string
           store_id: string
+          transfer_date: string | null
+          ultrasound_date: string | null
           updated_at: string
+          veterinarian_id: string | null
         }
         Insert: {
+          aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           breed_id?: string | null
@@ -3229,15 +3238,20 @@ export type Database = {
           farm_id?: string | null
           farm_type?: string | null
           id?: string
+          laboratory_id?: string | null
           name: string
           recipient_id?: string | null
           sex: string
           sire_id?: string | null
           status?: string
           store_id: string
+          transfer_date?: string | null
+          ultrasound_date?: string | null
           updated_at?: string
+          veterinarian_id?: string | null
         }
         Update: {
+          aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           breed_id?: string | null
@@ -3249,13 +3263,17 @@ export type Database = {
           farm_id?: string | null
           farm_type?: string | null
           id?: string
+          laboratory_id?: string | null
           name?: string
           recipient_id?: string | null
           sex?: string
           sire_id?: string | null
           status?: string
           store_id?: string
+          transfer_date?: string | null
+          ultrasound_date?: string | null
           updated_at?: string
+          veterinarian_id?: string | null
         }
         Relationships: [
           {
@@ -3287,6 +3305,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pregnancy_management_laboratory_id_fkey"
+            columns: ["laboratory_id"]
+            isOneToOne: false
+            referencedRelation: "laboratories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pregnancy_management_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
@@ -3305,6 +3330,13 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_management_veterinarian_id_fkey"
+            columns: ["veterinarian_id"]
+            isOneToOne: false
+            referencedRelation: "veterinarians"
             referencedColumns: ["id"]
           },
         ]
