@@ -3899,10 +3899,10 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </Popover>
                     </div>
                     <div>
-                      <Label htmlFor="filter-store">Loja</Label>
+                      <Label htmlFor="filter-store">Fazenda</Label>
                       <Select value={filterStore} onValueChange={setFilterStore}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione a loja" />
+                          <SelectValue placeholder="Selecione a fazenda" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todas</SelectItem>
@@ -4668,22 +4668,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </TabsContent>
 
                 <TabsContent value="items" className="space-y-4">
-                  {/* Seção de Loja Padrão */}
+                  {/* Seção de Fazenda Padrão */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Loja Padrão (Opcional)</CardTitle>
+                      <CardTitle>Fazenda Padrão (Opcional)</CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Selecione uma loja padrão para aplicar automaticamente a todos os itens. 
+                        Selecione uma fazenda padrão para aplicar automaticamente a todos os itens. 
                         {items.length > 0 && " Será aplicada aos itens existentes também."}
                       </p>
                     </CardHeader>
                     <CardContent>
                       <div className="flex gap-4 items-end">
                         <div className="flex-1 space-y-2">
-                          <Label>Loja Padrão</Label>
+                          <Label>Fazenda Padrão</Label>
                           <Select value={defaultStore} onValueChange={handleDefaultStoreChange}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Nenhuma loja padrão selecionada" />
+                              <SelectValue placeholder="Nenhuma fazenda padrão selecionada" />
                             </SelectTrigger>
                             <SelectContent>
                               {stores.map((store) => (
@@ -4701,12 +4701,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               size="sm"
                               onClick={() => handleDefaultStoreChange("")}
                             >
-                              Limpar Loja Padrão
+                              Limpar Fazenda Padrão
                             </Button>
                           )}
                           {defaultStore && (
                             <div className="text-sm text-green-600 font-medium">
-                              ✓ Loja padrão ativa
+                              ✓ Fazenda padrão ativa
                             </div>
                           )}
                         </div>
@@ -4794,7 +4794,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
                         <div className="space-y-2">
                           <Label>
-                            Loja {defaultStore && <span className="text-sm text-muted-foreground">(opcional - loja padrão ativa)</span>}
+                            Fazenda {defaultStore && <span className="text-sm text-muted-foreground">(opcional - fazenda padrão ativa)</span>}
                           </Label>
                           <Select value={selectedStore} onValueChange={setSelectedStore} disabled={!!defaultStore || isViewOnly}>
                             <SelectTrigger>
@@ -4831,7 +4831,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         <TableHead>Quantidade</TableHead>
                         <TableHead>Valor Unit.</TableHead>
                         <TableHead>Total</TableHead>
-                        <TableHead>Loja</TableHead>
+                        <TableHead>Fazenda</TableHead>
                         {!isViewOnly && <TableHead>Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
