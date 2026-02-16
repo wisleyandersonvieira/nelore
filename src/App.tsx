@@ -42,6 +42,8 @@ import AnimaisRacas from "./pages/AnimaisRacas";
 import AnimaisCategorias from "./pages/AnimaisCategorias";
 import AnimaisLeiloes from "./pages/AnimaisLeiloes";
 import AnimaisFazendasTerceiras from "./pages/AnimaisFazendasTerceiras";
+import AnimaisLaboratorios from "./pages/AnimaisLaboratorios";
+import AnimaisVeterinarios from "./pages/AnimaisVeterinarios";
 import AnimaisGestaoPrenhez from "./pages/AnimaisGestaoPrenhez";
 import AnimaisGestaoAspiracoes from "./pages/AnimaisGestaoAspiracoes";
 import AnimaisTransferenciaEmbriao from "./pages/AnimaisTransferenciaEmbriao";
@@ -109,6 +111,8 @@ function App() {
               <Route path="/animais/cadastros-gerais/categorias" element={<AnimaisCategorias />} />
               <Route path="/animais/cadastros-gerais/leiloes" element={<AnimaisLeiloes />} />
               <Route path="/animais/cadastros-gerais/fazendas-terceiras" element={<AnimaisFazendasTerceiras />} />
+              <Route path="/animais/cadastros-gerais/laboratorios" element={<AnimaisLaboratorios />} />
+              <Route path="/animais/cadastros-gerais/veterinarios" element={<AnimaisVeterinarios />} />
               <Route path="/reports/income-expense" element={<IncomeExpenseReport />} />
               <Route path="/reports/balance-position" element={<BalancePositionReport />} />
               <Route path="/reports/accounting-export" element={<AccountingExportReport />} />

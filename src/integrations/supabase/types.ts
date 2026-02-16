@@ -2821,6 +2821,62 @@ export type Database = {
           },
         ]
       }
+      laboratories: {
+        Row: {
+          city: string | null
+          code: number
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          observations: string | null
+          phone: string | null
+          state: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          code: number
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          observations?: string | null
+          phone?: string | null
+          state?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          code?: number
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          observations?: string | null
+          phone?: string | null
+          state?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laboratories_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leiloes: {
         Row: {
           city: string
@@ -4401,6 +4457,59 @@ export type Database = {
           },
         ]
       }
+      veterinarians: {
+        Row: {
+          city: string | null
+          code: number
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          observations: string | null
+          phone: string | null
+          state: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          code: number
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          observations?: string | null
+          phone?: string | null
+          state?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          code?: number
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          observations?: string | null
+          phone?: string | null
+          state?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veterinarians_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weighing_records: {
         Row: {
           animal_id: string
@@ -4534,6 +4643,10 @@ export type Database = {
         Args: { store_uuid: string }
         Returns: number
       }
+      get_next_laboratory_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
       get_next_leilao_code: { Args: { store_uuid: string }; Returns: number }
       get_next_product_code: { Args: never; Returns: number }
       get_next_product_code_by_matrix: {
@@ -4543,6 +4656,10 @@ export type Database = {
       get_next_third_party_farm_code:
         | { Args: never; Returns: number }
         | { Args: { store_uuid: string }; Returns: number }
+      get_next_veterinarian_code: {
+        Args: { store_uuid: string }
+        Returns: number
+      }
       get_store_members: {
         Args: { store_ids: string[] }
         Returns: {

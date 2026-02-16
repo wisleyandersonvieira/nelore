@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Dog, Tag, Gavel, Home } from "lucide-react";
+import { ArrowLeft, Dog, Tag, Gavel, Home, FlaskConical, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -34,6 +34,20 @@ const AnimaisCadastrosGerais = () => {
       icon: Home,
       color: "bg-orange-500",
       route: "/animais/cadastros-gerais/fazendas-terceiras",
+    },
+    {
+      title: "Laboratório",
+      description: "Cadastro de laboratórios",
+      icon: FlaskConical,
+      color: "bg-blue-500",
+      route: "/animais/cadastros-gerais/laboratorios",
+    },
+    {
+      title: "Veterinário",
+      description: "Cadastro de veterinários",
+      icon: Stethoscope,
+      color: "bg-green-600",
+      route: "/animais/cadastros-gerais/veterinarios",
     },
   ];
 
