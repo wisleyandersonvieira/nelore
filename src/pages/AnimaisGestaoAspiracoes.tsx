@@ -837,19 +837,25 @@ const AnimaisGestaoAspiracoes = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="relative">
                           <div className="flex gap-2 items-center">
                             <Input
                               value={row.recipientName}
                               placeholder="Buscar receptora..."
                               onChange={(e) => {
                                 const updated = [...embryoRows];
-                                updated[index] = { ...updated[index], recipientName: e.target.value };
+                                updated[index] = { ...updated[index], recipientName: e.target.value, recipient_id: "" };
                                 setEmbryoRows(updated);
                                 setActiveEmbryoRowIndex(index);
                                 setRecipientSearchTerm(e.target.value);
                               }}
-                              onFocus={() => setActiveEmbryoRowIndex(index)}
+                              onFocus={() => {
+                                setActiveEmbryoRowIndex(index);
+                                if (row.recipientName.length >= 2) {
+                                  setRecipientSearchTerm("");
+                                  setTimeout(() => setRecipientSearchTerm(row.recipientName), 10);
+                                }
+                              }}
                             />
                             <Button
                               type="button"
@@ -857,7 +863,10 @@ const AnimaisGestaoAspiracoes = () => {
                               size="icon"
                               onClick={() => {
                                 setActiveEmbryoRowIndex(index);
-                                setRecipientSearchTerm(row.recipientName);
+                                if (row.recipientName.length >= 2) {
+                                  setRecipientSearchTerm("");
+                                  setTimeout(() => setRecipientSearchTerm(row.recipientName), 10);
+                                }
                               }}
                             >
                               <Search className="h-4 w-4" />
