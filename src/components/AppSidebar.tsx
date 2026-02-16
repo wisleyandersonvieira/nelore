@@ -315,6 +315,7 @@ const AppSidebar = ({
         { id: "animais-matrizes", label: "Matrizes", route: "/animais/matrizes" },
         { id: "animais-prenhez", label: "Gestão de Prenhez", route: "/animais/prenhez" },
         { id: "animais-aspiracoes", label: "Gestão de Aspirações", route: "/animais/aspiracoes" },
+        { id: "animais-transferencia-embriao", label: "Pós Transferência de Embrião", route: "/animais/transferencia-embriao" },
         { id: "animais-cadastros-gerais", label: "Cadastros Gerais", route: "/animais/cadastros-gerais" },
       ],
     },

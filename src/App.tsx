@@ -44,6 +44,7 @@ import AnimaisLeiloes from "./pages/AnimaisLeiloes";
 import AnimaisFazendasTerceiras from "./pages/AnimaisFazendasTerceiras";
 import AnimaisGestaoPrenhez from "./pages/AnimaisGestaoPrenhez";
 import AnimaisGestaoAspiracoes from "./pages/AnimaisGestaoAspiracoes";
+import AnimaisTransferenciaEmbriao from "./pages/AnimaisTransferenciaEmbriao";
 import Tasks from "./pages/Tasks";
 import IncomeExpenseReport from "./pages/IncomeExpenseReport";
 import Goals from "./pages/Goals";
@@ -102,6 +103,7 @@ function App() {
               <Route path="/animais/matrizes" element={<AnimaisMatrizes />} />
               <Route path="/animais/prenhez" element={<AnimaisGestaoPrenhez />} />
               <Route path="/animais/aspiracoes" element={<AnimaisGestaoAspiracoes />} />
+              <Route path="/animais/transferencia-embriao" element={<AnimaisTransferenciaEmbriao />} />
               <Route path="/animais/cadastros-gerais" element={<AnimaisCadastrosGerais />} />
               <Route path="/animais/cadastros-gerais/racas" element={<AnimaisRacas />} />
               <Route path="/animais/cadastros-gerais/categorias" element={<AnimaisCategorias />} />
