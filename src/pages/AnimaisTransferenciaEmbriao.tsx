@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search } from "lucide-react";
+import {
+  Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
+} from "@/components/ui/pagination";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface EmbryoTransferRecord {
   id: string;
@@ -57,6 +63,9 @@ interface AnimalOption { id: string; name: string; ear_tag: number | null; regis
 interface Laboratory { id: string; name: string; }
 interface Veterinarian { id: string; name: string; }
 
+const ITEMS_PER_PAGE = 15;
+const INITIAL_ITEMS = 10;
+
 const AnimaisTransferenciaEmbriao = () => {
   const navigate = useNavigate();
   const [records, setRecords] = useState<EmbryoTransferRecord[]>([]);
@@ -74,6 +83,21 @@ const AnimaisTransferenciaEmbriao = () => {
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
 
+  // Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [hasFiltered, setHasFiltered] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterName, setFilterName] = useState("");
+  const [filterBreed, setFilterBreed] = useState("");
+  const [filterFarm, setFilterFarm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterAuction, setFilterAuction] = useState("");
+  const [filterDam, setFilterDam] = useState("");
+  const [filterSire, setFilterSire] = useState("");
+  const [filterRecipient, setFilterRecipient] = useState("");
+  const [filterTransferDateStart, setFilterTransferDateStart] = useState<Date | null>(null);
+  const [filterTransferDateEnd, setFilterTransferDateEnd] = useState<Date | null>(null);
+
   // Receptora search
   const [recipientSearchOpen, setRecipientSearchOpen] = useState(false);
   const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
@@ -81,6 +105,9 @@ const AnimaisTransferenciaEmbriao = () => {
   const [recipientResults, setRecipientResults] = useState<AnimalOption[]>([]);
   const [selectedRecipient, setSelectedRecipient] = useState<AnimalOption | null>(null);
   const [recipientSearchLoading, setRecipientSearchLoading] = useState(false);
+
+  // Recipient names cache for display
+  const [recipientNames, setRecipientNames] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
     code: 0,
@@ -115,6 +142,22 @@ const AnimaisTransferenciaEmbriao = () => {
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
 
   useEffect(() => { fetchRecords(); fetchDropdownData(); }, []);
+
+  // Load recipient names for table display
+  useEffect(() => {
+    const ids = records.map(r => r.recipient_id).filter(Boolean) as string[];
+    const uniqueIds = [...new Set(ids)].filter(id => !recipientNames[id]);
+    if (uniqueIds.length === 0) return;
+    const loadNames = async () => {
+      const { data } = await supabase.from("animals").select("id, name").in("id", uniqueIds);
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach(a => { map[a.id] = a.name; });
+        setRecipientNames(prev => ({ ...prev, ...map }));
+      }
+    };
+    loadNames();
+  }, [records]);
 
   // Search recipients
   useEffect(() => {
@@ -252,7 +295,6 @@ const AnimaisTransferenciaEmbriao = () => {
         veterinarian_id: record.veterinarian_id || "",
         laboratory_id: record.laboratory_id || "",
       });
-      // Load recipient name
       if (record.recipient_id) {
         const { data } = await supabase.from("animals").select("id, name, ear_tag, registration, category_id").eq("id", record.recipient_id).single();
         if (data) setSelectedRecipient(data);
@@ -344,16 +386,13 @@ const AnimaisTransferenciaEmbriao = () => {
     try {
       const newStatus = finalizeValidation === "prenha" ? "finalized_pregnant" : "finalized_empty";
 
-      // Update embryo transfer record
       const { error } = await supabase.from("embryo_transfer_management").update({
         status: newStatus,
         ultrasound_date: format(finalizeUltrasoundDate, "yyyy-MM-dd"),
       } as any).eq("id", recordToFinalize.id);
       if (error) throw error;
 
-      // If pregnant, create pregnancy record
       if (finalizeValidation === "prenha" && storeId) {
-        // Get next code for pregnancy
         const { data: codeData } = await supabase
           .from("pregnancy_management")
           .select("code")
@@ -422,6 +461,118 @@ const AnimaisTransferenciaEmbriao = () => {
     return days;
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "in_progress": return "Em Andamento";
+      case "finalized_pregnant": return "Finalizada: Prenha";
+      case "finalized_empty": return "Finalizada: Vazia";
+      default: return "Finalizado";
+    }
+  };
+
+  const getDamName = (damId: string | null) => damId ? dams.find(d => d.id === damId)?.name || "-" : "-";
+  const getSireName = (sireId: string | null) => sireId ? sires.find(s => s.id === sireId)?.name || "-" : "-";
+  const getAuctionName = (auctionId: string | null) => auctionId ? auctions.find(a => a.id === auctionId)?.name || "-" : "-";
+  const getRecipientName = (recipientId: string | null) => recipientId ? recipientNames[recipientId] || "-" : "-";
+
+  // Filtered records
+  const filteredRecords = useMemo(() => {
+    if (!hasFiltered) return records.slice(0, INITIAL_ITEMS);
+
+    return records.filter(r => {
+      if (filterName && !r.name.toLowerCase().includes(filterName.toLowerCase())) return false;
+      if (filterBreed && r.breed_id !== filterBreed) return false;
+      if (filterFarm && (() => {
+        if (!r.farm_id || !r.farm_type) return true;
+        return `${r.farm_type}-${r.farm_id}` !== filterFarm;
+      })()) return false;
+      if (filterStatus && r.status !== filterStatus) return false;
+      if (filterAuction && r.auction_id !== filterAuction) return false;
+      if (filterDam && r.dam_id !== filterDam) return false;
+      if (filterSire && r.sire_id !== filterSire) return false;
+      if (filterRecipient && !getRecipientName(r.recipient_id).toLowerCase().includes(filterRecipient.toLowerCase())) return false;
+
+      if (filterTransferDateStart && r.transfer_date) {
+        if (new Date(r.transfer_date + "T12:00:00") < filterTransferDateStart) return false;
+      }
+      if (filterTransferDateStart && !r.transfer_date) return false;
+
+      if (filterTransferDateEnd && r.transfer_date) {
+        if (new Date(r.transfer_date + "T12:00:00") > filterTransferDateEnd) return false;
+      }
+      if (filterTransferDateEnd && !r.transfer_date) return false;
+
+      return true;
+    });
+  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterStatus, filterAuction, filterDam, filterSire, filterRecipient, filterTransferDateStart, filterTransferDateEnd, recipientNames]);
+
+  const totalPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
+  const paginatedRecords = filteredRecords.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const handleFilter = () => {
+    setHasFiltered(true);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setFilterName("");
+    setFilterBreed("");
+    setFilterFarm("");
+    setFilterStatus("");
+    setFilterAuction("");
+    setFilterDam("");
+    setFilterSire("");
+    setFilterRecipient("");
+    setFilterTransferDateStart(null);
+    setFilterTransferDateEnd(null);
+    setHasFiltered(false);
+    setCurrentPage(1);
+  };
+
+  const getExportData = () => {
+    return filteredRecords.map(r => ({
+      "Código": r.code,
+      "Nome": r.name,
+      "Raça": getBreedName(r.breed_id),
+      "Fazenda": getFarmName(r.farm_id, r.farm_type),
+      "Data Transferência": r.transfer_date ? format(new Date(r.transfer_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+      "Dias após Transf.": getDaysAfterTransfer(r.transfer_date) !== null ? `${getDaysAfterTransfer(r.transfer_date)} dias` : "-",
+      "Status": getStatusLabel(r.status),
+    }));
+  };
+
+  const exportExcel = () => {
+    const data = getExportData();
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pós Transferência");
+    XLSX.writeFile(wb, "pos_transferencia_embriao.xlsx");
+    toast({ title: "Sucesso", description: "Relatório Excel gerado com sucesso." });
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16);
+    doc.text("Relatório - Pós Transferência de Embrião", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 22);
+
+    const data = getExportData();
+    const headers = Object.keys(data[0] || {});
+    const rows = data.map(d => headers.map(h => String((d as any)[h])));
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save("pos_transferencia_embriao.pdf");
+    toast({ title: "Sucesso", description: "Relatório PDF gerado com sucesso." });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -437,100 +588,257 @@ const AnimaisTransferenciaEmbriao = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="h-4 w-4 mr-2" />
+              {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
+            </Button>
+            {hasFiltered && (
+              <>
+                <Button variant="outline" onClick={exportExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+                <Button variant="outline" onClick={exportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+              </>
+            )}
+          </div>
           <Button onClick={() => handleOpenModal("create")}>
             <Plus className="h-4 w-4 mr-2" />
             Cadastrar
           </Button>
         </div>
 
+        {/* Filters */}
+        {showFilters && (
+          <div className="border rounded-lg p-4 mb-6 bg-card space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div>
+                <Label>Nome</Label>
+                <Input value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Filtrar por nome..." />
+              </div>
+              <div>
+                <Label>Raça</Label>
+                <Select value={filterBreed} onValueChange={setFilterBreed}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {breeds.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Fazenda</Label>
+                <Select value={filterFarm} onValueChange={setFilterFarm}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {ownFarms.map(f => <SelectItem key={`own-${f.id}`} value={`own-${f.id}`}>{f.name}</SelectItem>)}
+                    {thirdPartyFarms.map(f => <SelectItem key={`tp-${f.id}`} value={`third_party-${f.id}`}>{f.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="in_progress">Em Andamento</SelectItem>
+                    <SelectItem value="finalized_pregnant">Finalizada: Prenha</SelectItem>
+                    <SelectItem value="finalized_empty">Finalizada: Vazia</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Leilão</Label>
+                <Select value={filterAuction} onValueChange={setFilterAuction}>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Nome da Mãe</Label>
+                <Select value={filterDam} onValueChange={setFilterDam}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {dams.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Nome do Pai</Label>
+                <Select value={filterSire} onValueChange={setFilterSire}>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {sires.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Receptora</Label>
+                <Input value={filterRecipient} onChange={e => setFilterRecipient(e.target.value)} placeholder="Filtrar por receptora..." />
+              </div>
+              <div>
+                <Label>Data Transferência (Início)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filterTransferDateStart && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterTransferDateStart ? format(filterTransferDateStart, "dd/MM/yyyy") : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filterTransferDateStart || undefined} onSelect={d => setFilterTransferDateStart(d || null)} locale={ptBR} /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Data Transferência (Fim)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filterTransferDateEnd && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterTransferDateEnd ? format(filterTransferDateEnd, "dd/MM/yyyy") : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filterTransferDateEnd || undefined} onSelect={d => setFilterTransferDateEnd(d || null)} locale={ptBR} /></PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={handleClearFilters}>Limpar Filtros</Button>
+              <Button onClick={handleFilter}>
+                <Search className="h-4 w-4 mr-2" />
+                Filtrar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!hasFiltered && (
+          <p className="text-sm text-muted-foreground mb-4">Exibindo os {INITIAL_ITEMS} últimos registros. Use os filtros para ver todos.</p>
+        )}
+
         {loading ? (
           <div className="text-center py-8">Carregando...</div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Raça</TableHead>
-                  <TableHead>Fazenda</TableHead>
-                  <TableHead>Data Transferência</TableHead>
-                  <TableHead>Dias após Transf.</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.length === 0 ? (
+          <>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Nenhum registro encontrado.
-                    </TableCell>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Raça</TableHead>
+                    <TableHead>Fazenda</TableHead>
+                    <TableHead>Data Transferência</TableHead>
+                    <TableHead>Dias após Transf.</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ) : (
-                  records.map((record) => {
-                    const daysAfter = getDaysAfterTransfer(record.transfer_date);
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell>{record.code}</TableCell>
-                        <TableCell>{record.name}</TableCell>
-                        <TableCell>{getBreedName(record.breed_id)}</TableCell>
-                        <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
-                        <TableCell>
-                          {record.transfer_date
-                            ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy")
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          {daysAfter !== null ? (
-                            <span className={cn(
-                              daysAfter > 35 && "font-bold text-destructive"
+                </TableHeader>
+                <TableBody>
+                  {paginatedRecords.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        Nenhum registro encontrado.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedRecords.map((record) => {
+                      const daysAfter = getDaysAfterTransfer(record.transfer_date);
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.code}</TableCell>
+                          <TableCell>{record.name}</TableCell>
+                          <TableCell>{getBreedName(record.breed_id)}</TableCell>
+                          <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                          <TableCell>
+                            {record.transfer_date
+                              ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy")
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {daysAfter !== null ? (
+                              <span className={cn(
+                                daysAfter > 35 && "font-bold text-destructive"
+                              )}>
+                                {daysAfter} dias
+                              </span>
+                            ) : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn("px-2 py-1 rounded-full text-xs font-medium",
+                              record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
+                              record.status === "finalized_pregnant" ? "bg-green-100 text-green-800" :
+                              record.status === "finalized_empty" ? "bg-red-100 text-red-800" :
+                              "bg-green-100 text-green-800"
                             )}>
-                              {daysAfter} dias
+                              {getStatusLabel(record.status)}
                             </span>
-                          ) : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium",
-                            record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
-                            record.status === "finalized_pregnant" ? "bg-green-100 text-green-800" :
-                            record.status === "finalized_empty" ? "bg-red-100 text-red-800" :
-                            "bg-green-100 text-green-800"
-                          )}>
-                            {record.status === "in_progress" ? "Em Andamento" :
-                             record.status === "finalized_pregnant" ? "Finalizada: Prenha" :
-                             record.status === "finalized_empty" ? "Finalizada: Vazia" :
-                             "Finalizado"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {record.status === "in_progress" && (
-                              <>
-                                <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeUltrasoundDate(null); setFinalizeValidation(""); setFinalizeExpectedBirthMonth(null); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {record.status === "in_progress" && (
+                                <>
+                                  <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeUltrasoundDate(null); setFinalizeValidation(""); setFinalizeExpectedBirthMonth(null); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length)} de {filteredRecords.length} registros
+                </p>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={cn(currentPage === 1 && "pointer-events-none opacity-50")} />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <PaginationItem key={page}>
+                        <PaginationLink isActive={page === currentPage} onClick={() => setCurrentPage(page)}>
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={cn(currentPage === totalPages && "pointer-events-none opacity-50")} />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -721,7 +1029,6 @@ const AnimaisTransferenciaEmbriao = () => {
                 </div>
               </div>
 
-              {/* Avós */}
               {(formData.dam_id || formData.sire_id) && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg border-b pb-2">Avós (somente exibição)</h3>
