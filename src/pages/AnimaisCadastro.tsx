@@ -38,7 +38,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -191,6 +192,25 @@ const AnimaisCadastro = () => {
   const [loadingWeighings, setLoadingWeighings] = useState(false);
   const [veterinarians, setVeterinarians] = useState<{ id: string; name: string }[]>([]);
   const [laboratories, setLaboratories] = useState<{ id: string; name: string }[]>([]);
+
+  // Financial data state
+  interface FinancialRecord {
+    id: string;
+    description: string;
+    amount: number;
+    due_date: string;
+    payment_date: string | null;
+    status: string;
+    supplier_name: string | null;
+    store_name: string | null;
+    allocation_type: string;
+    item_quantity: number;
+    item_unit_price: number;
+    item_total_price: number;
+  }
+  const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
+  const [loadingFinancial, setLoadingFinancial] = useState(false);
+  const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
 
   // Reproduction data state
   const [reproData, setReproData] = useState({
@@ -368,10 +388,97 @@ const AnimaisCadastro = () => {
     }
   };
 
+  const fetchAnimalFinancial = async (animalId: string) => {
+    setLoadingFinancial(true);
+    try {
+      // Fetch allocations for this animal
+      const { data: allocations, error: allocError } = await supabase
+        .from("accounts_payable_item_allocations")
+        .select(`
+          id,
+          allocation_type,
+          account_payable_item_id,
+          accounts_payable_items!inner (
+            quantity,
+            unit_price,
+            total_price,
+            account_payable_id,
+            accounts_payable!inner (
+              description,
+              amount,
+              due_date,
+              payment_date,
+              status,
+              supplier_id,
+              store_id
+            )
+          )
+        `)
+        .eq("animal_id", animalId);
+
+      if (allocError) throw allocError;
+
+      if (!allocations || allocations.length === 0) {
+        setFinancialRecords([]);
+        setLoadingFinancial(false);
+        return;
+      }
+
+      // Get unique supplier and store IDs
+      const supplierIds = new Set<string>();
+      const storeIds = new Set<string>();
+      allocations.forEach((a: any) => {
+        const ap = a.accounts_payable_items?.accounts_payable;
+        if (ap?.supplier_id) supplierIds.add(ap.supplier_id);
+        if (ap?.store_id) storeIds.add(ap.store_id);
+      });
+
+      // Fetch suppliers and stores in parallel
+      const [suppliersRes, storesRes] = await Promise.all([
+        supplierIds.size > 0
+          ? supabase.from("suppliers").select("id, name").in("id", Array.from(supplierIds))
+          : { data: [] },
+        storeIds.size > 0
+          ? supabase.from("stores").select("id, name").in("id", Array.from(storeIds))
+          : { data: [] },
+      ]);
+
+      const suppliersMap = new Map((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
+      const storesMap = new Map((storesRes.data || []).map((s: any) => [s.id, s.name]));
+
+      const records: FinancialRecord[] = allocations.map((a: any) => {
+        const item = a.accounts_payable_items;
+        const ap = item?.accounts_payable;
+        return {
+          id: a.id,
+          description: ap?.description || "",
+          amount: ap?.amount || 0,
+          due_date: ap?.due_date || "",
+          payment_date: ap?.payment_date || null,
+          status: ap?.status || "",
+          supplier_name: ap?.supplier_id ? suppliersMap.get(ap.supplier_id) || null : null,
+          store_name: ap?.store_id ? storesMap.get(ap.store_id) || null : null,
+          allocation_type: a.allocation_type,
+          item_quantity: item?.quantity || 0,
+          item_unit_price: item?.unit_price || 0,
+          item_total_price: item?.total_price || 0,
+        };
+      });
+
+      setFinancialRecords(records);
+    } catch (error) {
+      console.error("Error fetching animal financial:", error);
+      setFinancialRecords([]);
+    } finally {
+      setLoadingFinancial(false);
+    }
+  };
+
   const handleOpenModal = async (mode: "view" | "edit" | "create", animal?: Animal) => {
     setModalMode(mode);
     setActiveTab("dados");
     setAnimalWeighings([]);
+    setFinancialRecords([]);
 
     if (mode === "create") {
       const nextCode = await getNextCode();
@@ -406,6 +513,7 @@ const AnimaisCadastro = () => {
       setSelectedAnimal(animal);
       // Fetch weighings for this animal
       fetchAnimalWeighings(animal.id, animal.first_weighing_date, animal.first_weight);
+      fetchAnimalFinancial(animal.id);
       // Set recipient if exists
       if (animal.recipient_id) {
         const recipient = animals.find(a => a.id === animal.recipient_id);
@@ -1147,7 +1255,7 @@ const AnimaisCadastro = () => {
               <TabsTrigger value="reproducao" disabled={modalMode === "create"}>Dados Reprodução</TabsTrigger>
               <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
-              <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
+              <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
 
@@ -1753,11 +1861,145 @@ const AnimaisCadastro = () => {
               )}
             </TabsContent>
 
-            {/* Tab: Financeiro (disabled) */}
-            <TabsContent value="financeiro" className="mt-4">
-              <p className="text-muted-foreground text-center py-8">
-                Esta aba será configurada posteriormente.
-              </p>
+            {/* Tab: Financeiro */}
+            <TabsContent value="financeiro" className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Financeiro
+                </h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant={financialViewMode === "geral" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setFinancialViewMode("geral")}
+                  >
+                    Visualizar Geral
+                  </Button>
+                  <Button
+                    variant={financialViewMode === "pagos" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setFinancialViewMode("pagos")}
+                  >
+                    Pagos até Hoje
+                  </Button>
+                </div>
+              </div>
+
+              {loadingFinancial ? (
+                <p className="text-center text-muted-foreground py-8">Carregando dados financeiros...</p>
+              ) : (() => {
+                const today = format(new Date(), "yyyy-MM-dd");
+                const filteredRecords = financialViewMode === "pagos"
+                  ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
+                  : financialRecords;
+
+                // For now, all allocations from accounts_payable are expenses
+                const despesas = filteredRecords;
+                const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+                // Placeholder for future receitas
+                const totalReceitas = 0;
+                const saldo = totalReceitas - totalDespesas;
+
+                return (
+                  <>
+                    {/* Despesas */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-base border-b pb-1">Despesas</h4>
+                      {despesas.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4">Nenhuma despesa registrada.</p>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Descrição</TableHead>
+                                <TableHead>Fornecedor</TableHead>
+                                <TableHead>Loja</TableHead>
+                                <TableHead>Tipo Alocação</TableHead>
+                                <TableHead className="text-right">Qtd</TableHead>
+                                <TableHead className="text-right">Vlr Unit.</TableHead>
+                                <TableHead className="text-right">Vlr Total</TableHead>
+                                <TableHead>Vencimento</TableHead>
+                                <TableHead>Pagamento</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {despesas.map((record) => (
+                                <TableRow key={record.id}>
+                                  <TableCell>{record.description}</TableCell>
+                                  <TableCell>{record.supplier_name || "-"}</TableCell>
+                                  <TableCell>{record.store_name || "-"}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">
+                                      {record.allocation_type === "animal" ? "Animal" :
+                                       record.allocation_type === "pregnancy" ? "Prenhez" :
+                                       record.allocation_type === "embryo_transfer" ? "Pós Transf. Emb." :
+                                       record.allocation_type === "aspiration" ? "Aspiração" : record.allocation_type}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">{record.item_quantity}</TableCell>
+                                  <TableCell className="text-right">
+                                    {record.item_unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  </TableCell>
+                                  <TableCell>
+                                    {record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    {record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={record.status === "paid" ? "default" : "secondary"}>
+                                      {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Receitas (placeholder for future) */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-base border-b pb-1">Receitas</h4>
+                      <p className="text-center text-muted-foreground py-4">Nenhuma receita registrada.</p>
+                    </div>
+
+                    {/* Saldo */}
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Receitas</p>
+                          <p className="text-lg font-semibold text-primary">
+                            {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Despesas</p>
+                          <p className="text-lg font-semibold text-destructive">
+                            {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Saldo</p>
+                          <p className={cn(
+                            "text-lg font-semibold",
+                            saldo >= 0 ? "text-primary" : "text-destructive"
+                          )}>
+                            {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </TabsContent>
 
             {/* Tab: Proprietários (disabled) */}
