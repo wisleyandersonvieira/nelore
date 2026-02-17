@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,12 +38,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface PregnancyRecord {
   id: string;
@@ -160,6 +163,127 @@ const AnimaisGestaoPrenhez = () => {
   const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
   const [veterinarians, setVeterinarians] = useState<{ id: string; name: string }[]>([]);
   const [laboratories, setLaboratories] = useState<{ id: string; name: string }[]>([]);
+
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [hasFiltered, setHasFiltered] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterName, setFilterName] = useState("");
+  const [filterBreed, setFilterBreed] = useState("");
+  const [filterFarm, setFilterFarm] = useState("");
+  const [filterBirthMonthStart, setFilterBirthMonthStart] = useState<Date | null>(null);
+  const [filterBirthMonthEnd, setFilterBirthMonthEnd] = useState<Date | null>(null);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterAuction, setFilterAuction] = useState("");
+  const [filterDam, setFilterDam] = useState("");
+  const [filterSire, setFilterSire] = useState("");
+  const [filterRecipient, setFilterRecipient] = useState("");
+  const RECORDS_PER_PAGE = 15;
+
+  const filteredRecords = useMemo(() => {
+    if (!hasFiltered) return records.slice(0, 10);
+    return records.filter((r) => {
+      if (filterName && !r.name.toLowerCase().includes(filterName.toLowerCase())) return false;
+      if (filterBreed && filterBreed !== "all" && r.breed_id !== filterBreed) return false;
+      if (filterFarm && filterFarm !== "all" && !(r.farm_id && r.farm_type && `${r.farm_type}-${r.farm_id}` === filterFarm)) return false;
+      if (filterStatus && filterStatus !== "all" && r.status !== filterStatus) return false;
+      if (filterAuction && filterAuction !== "all" && r.auction_id !== filterAuction) return false;
+      if (filterDam && filterDam !== "all" && r.dam_id !== filterDam) return false;
+      if (filterSire && filterSire !== "all" && r.sire_id !== filterSire) return false;
+      if (filterRecipient && filterRecipient !== "all" && r.recipient_id !== filterRecipient) return false;
+      if (filterBirthMonthStart && r.expected_birth_month) {
+        if (new Date(r.expected_birth_month + "T12:00:00") < filterBirthMonthStart) return false;
+      }
+      if (filterBirthMonthEnd && r.expected_birth_month) {
+        if (new Date(r.expected_birth_month + "T12:00:00") > filterBirthMonthEnd) return false;
+      }
+      return true;
+    });
+  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterBirthMonthStart, filterBirthMonthEnd, filterStatus, filterAuction, filterDam, filterSire, filterRecipient]);
+
+  const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
+  const paginatedRecords = filteredRecords.slice((currentPage - 1) * RECORDS_PER_PAGE, currentPage * RECORDS_PER_PAGE);
+
+  const handleFilter = () => {
+    setHasFiltered(true);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setFilterName("");
+    setFilterBreed("");
+    setFilterFarm("");
+    setFilterBirthMonthStart(null);
+    setFilterBirthMonthEnd(null);
+    setFilterStatus("");
+    setFilterAuction("");
+    setFilterDam("");
+    setFilterSire("");
+    setFilterRecipient("");
+    setHasFiltered(false);
+    setCurrentPage(1);
+  };
+
+  const getSireName = (sireId: string | null) => {
+    if (!sireId) return "-";
+    return sires.find((s) => s.id === sireId)?.name || "-";
+  };
+
+  const getDamName = (damId: string | null) => {
+    if (!damId) return "-";
+    return dams.find((d) => d.id === damId)?.name || "-";
+  };
+
+  const getAuctionName = (auctionId: string | null) => {
+    if (!auctionId) return "-";
+    return auctions.find((a) => a.id === auctionId)?.name || "-";
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (status === "in_progress") return "Em Andamento";
+    if (status === "finalized_stillborn") return "Finalizado: Natimorto";
+    return "Finalizado";
+  };
+
+  const exportExcel = () => {
+    const data = filteredRecords.map((r) => ({
+      "Código": r.code,
+      "Nome": r.name,
+      "Raça": getBreedName(r.breed_id),
+      "Fazenda": getFarmName(r.farm_id, r.farm_type),
+      "Mês Prev. Nascimento": r.expected_birth_month ? format(new Date(r.expected_birth_month), "MM/yyyy") : "-",
+      "Status": getStatusLabel(r.status),
+      "Leilão": getAuctionName(r.auction_id),
+      "Nome da Mãe": getDamName(r.dam_id),
+      "Nome do Pai": getSireName(r.sire_id),
+      "Receptora": getRecipientName(r.recipient_id),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Prenhez");
+    XLSX.writeFile(wb, "gestao_prenhez.xlsx");
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(16);
+    doc.text("Gestão de Prenhez", 14, 15);
+    const headers = [["Código", "Nome", "Raça", "Fazenda", "Mês Prev. Nasc.", "Status", "Leilão", "Mãe", "Pai", "Receptora"]];
+    const data = filteredRecords.map((r) => [
+      r.code,
+      r.name,
+      getBreedName(r.breed_id),
+      getFarmName(r.farm_id, r.farm_type),
+      r.expected_birth_month ? format(new Date(r.expected_birth_month), "MM/yyyy") : "-",
+      getStatusLabel(r.status),
+      getAuctionName(r.auction_id),
+      getDamName(r.dam_id),
+      getSireName(r.sire_id),
+      getRecipientName(r.recipient_id),
+    ]);
+    autoTable(doc, { head: headers, body: data, startY: 22, styles: { fontSize: 8 } });
+    doc.save("gestao_prenhez.pdf");
+  };
 
   useEffect(() => {
     fetchRecords();
@@ -606,116 +730,267 @@ const AnimaisGestaoPrenhez = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="h-4 w-4 mr-2" />
+              {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
+            </Button>
+            {hasFiltered && (
+              <>
+                <Button variant="outline" onClick={exportExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+                <Button variant="outline" onClick={exportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+              </>
+            )}
+          </div>
           <Button onClick={() => handleOpenModal("create")}>
             <Plus className="h-4 w-4 mr-2" />
             Cadastrar
           </Button>
         </div>
 
+        {showFilters && (
+          <div className="border rounded-lg p-4 mb-6 bg-card space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>Nome</Label>
+                <Input value={filterName} onChange={(e) => setFilterName(e.target.value)} placeholder="Filtrar por nome..." />
+              </div>
+              <div>
+                <Label>Raça</Label>
+                <Select value={filterBreed} onValueChange={setFilterBreed}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {breeds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Fazenda</Label>
+                <Select value={filterFarm} onValueChange={setFilterFarm}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {ownFarms.map((f) => <SelectItem key={`own-${f.id}`} value={`own-${f.id}`}>{f.name}</SelectItem>)}
+                    {thirdPartyFarms.map((f) => <SelectItem key={`third_party-${f.id}`} value={`third_party-${f.id}`}>{f.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="in_progress">Em Andamento</SelectItem>
+                    <SelectItem value="finalized">Finalizado</SelectItem>
+                    <SelectItem value="finalized_stillborn">Natimorto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>Mês Prev. Nascimento Inicial</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filterBirthMonthStart && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterBirthMonthStart ? format(filterBirthMonthStart, "MM/yyyy") : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filterBirthMonthStart || undefined} onSelect={(d) => setFilterBirthMonthStart(d || null)} locale={ptBR} /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Mês Prev. Nascimento Final</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filterBirthMonthEnd && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterBirthMonthEnd ? format(filterBirthMonthEnd, "MM/yyyy") : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filterBirthMonthEnd || undefined} onSelect={(d) => setFilterBirthMonthEnd(d || null)} locale={ptBR} /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Leilão</Label>
+                <Select value={filterAuction} onValueChange={setFilterAuction}>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {auctions.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Nome da Mãe</Label>
+                <Select value={filterDam} onValueChange={setFilterDam}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {dams.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label>Nome do Pai</Label>
+                <Select value={filterSire} onValueChange={setFilterSire}>
+                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {sires.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Receptora</Label>
+                <Select value={filterRecipient} onValueChange={setFilterRecipient}>
+                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {animals.map((a) => <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleFilter}>
+                <Search className="h-4 w-4 mr-2" />
+                Filtrar
+              </Button>
+              <Button variant="outline" onClick={handleClearFilters}>Limpar Filtros</Button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-8">Carregando...</div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Raça</TableHead>
-                  <TableHead>Fazenda</TableHead>
-                  <TableHead>Mês Prev. Nascimento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.length === 0 ? (
+          <>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum registro encontrado.
-                    </TableCell>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Raça</TableHead>
+                    <TableHead>Fazenda</TableHead>
+                    <TableHead>Mês Prev. Nascimento</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ) : (
-                  records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{record.code}</TableCell>
-                      <TableCell>{record.name}</TableCell>
-                      <TableCell>{getBreedName(record.breed_id)}</TableCell>
-                      <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
-                      <TableCell>
-                        {record.expected_birth_month
-                          ? format(new Date(record.expected_birth_month), "MM/yyyy", { locale: ptBR })
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            record.status === "in_progress"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : record.status === "finalized_stillborn"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-green-100 text-green-800"
-                          )}
-                        >
-                          {record.status === "in_progress"
-                            ? "Em Andamento"
-                            : record.status === "finalized_stillborn"
-                            ? "Finalizado: Natimorto"
-                            : "Finalizado"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenModal("view", record)}
-                            title="Visualizar"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {record.status === "in_progress" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenModal("edit", record)}
-                                title="Editar"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setRecordToDelete(record);
-                                  setDeleteDialogOpen(true);
-                                }}
-                                title="Excluir"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenFinalizeDialog(record)}
-                                title="Finalizar"
-                                className="text-green-600 hover:text-green-700"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {paginatedRecords.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        Nenhum registro encontrado.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : (
+                    paginatedRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell>{record.code}</TableCell>
+                        <TableCell>{record.name}</TableCell>
+                        <TableCell>{getBreedName(record.breed_id)}</TableCell>
+                        <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                        <TableCell>
+                          {record.expected_birth_month
+                            ? format(new Date(record.expected_birth_month), "MM/yyyy", { locale: ptBR })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "px-2 py-1 rounded-full text-xs font-medium",
+                              record.status === "in_progress"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : record.status === "finalized_stillborn"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-green-100 text-green-800"
+                            )}
+                          >
+                            {getStatusLabel(record.status)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenModal("view", record)}
+                              title="Visualizar"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {record.status === "in_progress" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenModal("edit", record)}
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setRecordToDelete(record);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenFinalizeDialog(record)}
+                                  title="Finalizar"
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <span className="text-sm text-muted-foreground">
+                  Página {currentPage} de {totalPages} ({filteredRecords.length} registros)
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(currentPage - 1)}>
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(currentPage + 1)}>
+                    Próxima <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
