@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search } from "lucide-react";
+import {
+  Pagination, PaginationContent, PaginationItem, PaginationLink,
+  PaginationNext, PaginationPrevious,
+} from "@/components/ui/pagination";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface AspirationRecord {
   id: string;
@@ -62,6 +69,8 @@ interface Laboratory { id: string; name: string; }
 interface Veterinarian { id: string; name: string; }
 interface AnimalOption { id: string; name: string; ear_tag: number | null; registration: string | null; category_id: string | null; }
 
+const ITEMS_PER_PAGE = 15;
+
 const AnimaisGestaoAspiracoes = () => {
   const navigate = useNavigate();
   const [records, setRecords] = useState<AspirationRecord[]>([]);
@@ -74,6 +83,25 @@ const AnimaisGestaoAspiracoes = () => {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
+
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [hasFiltered, setHasFiltered] = useState(false);
+  const [filterName, setFilterName] = useState("");
+  const [filterBreed, setFilterBreed] = useState("");
+  const [filterFarm, setFilterFarm] = useState("");
+  const [filterExpectedMonthStart, setFilterExpectedMonthStart] = useState<Date | null>(null);
+  const [filterExpectedMonthEnd, setFilterExpectedMonthEnd] = useState<Date | null>(null);
+  const [filterAspirationDateStart, setFilterAspirationDateStart] = useState<Date | null>(null);
+  const [filterAspirationDateEnd, setFilterAspirationDateEnd] = useState<Date | null>(null);
+  const [filterTransferDateStart, setFilterTransferDateStart] = useState<Date | null>(null);
+  const [filterTransferDateEnd, setFilterTransferDateEnd] = useState<Date | null>(null);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterAuction, setFilterAuction] = useState("");
+  const [filterDamName, setFilterDamName] = useState("");
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
 
   // First finalize modal (pending → in_progress)
   const [firstFinalizeOpen, setFirstFinalizeOpen] = useState(false);
@@ -218,6 +246,213 @@ const AnimaisGestaoAspiracoes = () => {
     }
   };
 
+  // Filtering logic
+  const filteredRecords = useMemo(() => {
+    let filtered = [...records];
+
+    if (!hasFiltered) {
+      // Show only last 5 records on initial load
+      return filtered.slice(0, 5);
+    }
+
+    if (filterName.trim()) {
+      filtered = filtered.filter(r => r.name.toLowerCase().includes(filterName.toLowerCase()));
+    }
+    if (filterBreed) {
+      filtered = filtered.filter(r => r.breed_id === filterBreed);
+    }
+    if (filterFarm) {
+      filtered = filtered.filter(r => {
+        if (!r.farm_id || !r.farm_type) return false;
+        return `${r.farm_type}-${r.farm_id}` === filterFarm;
+      });
+    }
+    if (filterExpectedMonthStart) {
+      filtered = filtered.filter(r => {
+        if (!r.expected_aspiration_month) return false;
+        return new Date(r.expected_aspiration_month + "T12:00:00") >= filterExpectedMonthStart;
+      });
+    }
+    if (filterExpectedMonthEnd) {
+      filtered = filtered.filter(r => {
+        if (!r.expected_aspiration_month) return false;
+        return new Date(r.expected_aspiration_month + "T12:00:00") <= filterExpectedMonthEnd;
+      });
+    }
+    if (filterAspirationDateStart) {
+      filtered = filtered.filter(r => {
+        if (!r.aspiration_date) return false;
+        return new Date(r.aspiration_date + "T12:00:00") >= filterAspirationDateStart;
+      });
+    }
+    if (filterAspirationDateEnd) {
+      filtered = filtered.filter(r => {
+        if (!r.aspiration_date) return false;
+        return new Date(r.aspiration_date + "T12:00:00") <= filterAspirationDateEnd;
+      });
+    }
+    if (filterTransferDateStart) {
+      filtered = filtered.filter(r => {
+        if (!r.transfer_date) return false;
+        return new Date(r.transfer_date + "T12:00:00") >= filterTransferDateStart;
+      });
+    }
+    if (filterTransferDateEnd) {
+      filtered = filtered.filter(r => {
+        if (!r.transfer_date) return false;
+        return new Date(r.transfer_date + "T12:00:00") <= filterTransferDateEnd;
+      });
+    }
+    if (filterStatus) {
+      filtered = filtered.filter(r => r.status === filterStatus);
+    }
+    if (filterAuction) {
+      filtered = filtered.filter(r => r.auction_id === filterAuction);
+    }
+    if (filterDamName.trim()) {
+      filtered = filtered.filter(r => {
+        if (!r.dam_id) return false;
+        const dam = dams.find(d => d.id === r.dam_id);
+        return dam?.name.toLowerCase().includes(filterDamName.toLowerCase()) || false;
+      });
+    }
+
+    return filtered;
+  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterExpectedMonthStart, filterExpectedMonthEnd, filterAspirationDateStart, filterAspirationDateEnd, filterTransferDateStart, filterTransferDateEnd, filterStatus, filterAuction, filterDamName, dams]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE));
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRecords.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRecords, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredRecords.length]);
+
+  const handleApplyFilters = () => {
+    setHasFiltered(true);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setFilterName("");
+    setFilterBreed("");
+    setFilterFarm("");
+    setFilterExpectedMonthStart(null);
+    setFilterExpectedMonthEnd(null);
+    setFilterAspirationDateStart(null);
+    setFilterAspirationDateEnd(null);
+    setFilterTransferDateStart(null);
+    setFilterTransferDateEnd(null);
+    setFilterStatus("");
+    setFilterAuction("");
+    setFilterDamName("");
+    setHasFiltered(false);
+    setCurrentPage(1);
+  };
+
+  // Helper functions
+  const getBreedName = (breedId: string | null) => breedId ? breeds.find(b => b.id === breedId)?.name || "-" : "-";
+  const getDamName = (damId: string | null) => damId ? dams.find(d => d.id === damId)?.name || "-" : "-";
+  const getAuctionName = (auctionId: string | null) => auctionId ? auctions.find(a => a.id === auctionId)?.name || "-" : "-";
+
+  const getFarmName = (farmId: string | null, farmType: string | null) => {
+    if (!farmId || !farmType) return "-";
+    if (farmType === "own") return ownFarms.find(f => f.id === farmId)?.name || "-";
+    return thirdPartyFarms.find(f => f.id === farmId)?.name || "-";
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending": return "Pendente";
+      case "in_progress": return "Em Andamento";
+      case "finalized": return "Finalizado";
+      default: return status;
+    }
+  };
+
+  const getStatusClasses = (status: string) => {
+    switch (status) {
+      case "pending": return "bg-blue-100 text-blue-800";
+      case "in_progress": return "bg-yellow-100 text-yellow-800";
+      case "finalized": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Report export functions
+  const getReportData = () => {
+    return filteredRecords.map(record => ({
+      "Código": record.code,
+      "Nome": record.name,
+      "Raça": getBreedName(record.breed_id),
+      "Fazenda": getFarmName(record.farm_id, record.farm_type),
+      "Mês Prev. Aspiração": record.expected_aspiration_month
+        ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
+        : "-",
+      "Data Aspiração": record.aspiration_date
+        ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+        : "-",
+      "Data Transferência": record.transfer_date
+        ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+        : "-",
+      "Qtd. Embriões": record.embryo_count ?? "-",
+      "Status": getStatusLabel(record.status),
+    }));
+  };
+
+  const handleExportExcel = () => {
+    const data = getReportData();
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Aspirações");
+    XLSX.writeFile(wb, `aspiracoes_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`);
+    toast({ title: "Sucesso", description: "Relatório Excel exportado." });
+  };
+
+  const handleExportPDF = () => {
+    const data = getReportData();
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16);
+    doc.text("Relatório de Aspirações", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 22);
+
+    const columns = Object.keys(data[0] || {});
+    const rows = data.map(row => columns.map(col => String((row as any)[col])));
+
+    autoTable(doc, {
+      head: [columns],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`aspiracoes_${format(new Date(), "yyyyMMdd_HHmmss")}.pdf`);
+    toast({ title: "Sucesso", description: "Relatório PDF exportado." });
+  };
+
+  // Date picker helper component
+  const DateFilterPicker = ({ label, value, onChange }: { label: string; value: Date | null; onChange: (d: Date | null) => void }) => (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-9 text-sm", !value && "text-muted-foreground")}>
+            <CalendarIcon className="mr-2 h-3 w-3" />
+            {value ? format(value, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0">
+          <Calendar mode="single" selected={value || undefined} onSelect={(d) => onChange(d || null)} locale={ptBR} className="pointer-events-auto" />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
   const getNextCode = async () => {
     if (!storeId) return 1;
     const { data } = await supabase
@@ -252,7 +487,6 @@ const AnimaisGestaoAspiracoes = () => {
         dam_id: record.dam_id || "", farm: farmValue,
       });
 
-      // Load recipient names for finalized records
       if (mode === "view" && record.status === "finalized" && record.embryo_details) {
         const details = record.embryo_details as EmbryoDetail[];
         const recipientIds = details.map(d => d.recipient_id).filter(Boolean);
@@ -342,7 +576,6 @@ const AnimaisGestaoAspiracoes = () => {
     }
   };
 
-  // First finalize: pending → in_progress (set aspiration_date + laboratory)
   const handleFirstFinalize = async () => {
     if (saving) return;
     if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
@@ -372,7 +605,6 @@ const AnimaisGestaoAspiracoes = () => {
     }
   };
 
-  // Second finalize: in_progress → finalized (set embryo details + create embryo transfer records)
   const handleSecondFinalize = async () => {
     if (saving) return;
     if (!secondFinalizeRecord) return;
@@ -380,7 +612,6 @@ const AnimaisGestaoAspiracoes = () => {
       toast({ title: "Erro", description: "Quantidade de embriões é obrigatória.", variant: "destructive" });
       return;
     }
-    // Validate all rows have sire and recipient
     for (let i = 0; i < embryoRows.length; i++) {
       if (!embryoRows[i].sire_id || !embryoRows[i].recipient_id) {
         toast({ title: "Erro", description: `Preencha reprodutor e receptora na linha ${i + 1}.`, variant: "destructive" });
@@ -391,7 +622,6 @@ const AnimaisGestaoAspiracoes = () => {
     try {
       const embryoDetails = embryoRows.map(r => ({ sire_id: r.sire_id, recipient_id: r.recipient_id }));
 
-      // Update aspiration to finalized
       const { error: updateError } = await supabase
         .from("aspiration_management")
         .update({
@@ -404,13 +634,11 @@ const AnimaisGestaoAspiracoes = () => {
         .eq("id", secondFinalizeRecord.id);
       if (updateError) throw updateError;
 
-      // Create embryo transfer records for each embryo row
       for (let i = 0; i < embryoRows.length; i++) {
         const row = embryoRows[i];
         const sireName = sires.find(s => s.id === row.sire_id)?.name || "";
         const transferName = `${secondFinalizeRecord.name} X ${sireName}`;
 
-        // Get next code for embryo_transfer_management
         const { data: lastCode } = await supabase
           .from("embryo_transfer_management")
           .select("code")
@@ -475,32 +703,6 @@ const AnimaisGestaoAspiracoes = () => {
     setEmbryoRows(newRows);
   };
 
-  const getBreedName = (breedId: string | null) => breedId ? breeds.find(b => b.id === breedId)?.name || "-" : "-";
-
-  const getFarmName = (farmId: string | null, farmType: string | null) => {
-    if (!farmId || !farmType) return "-";
-    if (farmType === "own") return ownFarms.find(f => f.id === farmId)?.name || "-";
-    return thirdPartyFarms.find(f => f.id === farmId)?.name || "-";
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "pending": return "Pendente";
-      case "in_progress": return "Em Andamento";
-      case "finalized": return "Finalizado";
-      default: return status;
-    }
-  };
-
-  const getStatusClasses = (status: string) => {
-    switch (status) {
-      case "pending": return "bg-blue-100 text-blue-800";
-      case "in_progress": return "bg-yellow-100 text-yellow-800";
-      case "finalized": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -516,100 +718,270 @@ const AnimaisGestaoAspiracoes = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="h-4 w-4 mr-2" />
+              {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
+            </Button>
+            {hasFiltered && filteredRecords.length > 0 && (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleExportExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+                <Button variant="outline" onClick={handleExportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+              </div>
+            )}
+          </div>
           <Button onClick={() => handleOpenModal("create")}>
             <Plus className="h-4 w-4 mr-2" />
             Cadastrar
           </Button>
         </div>
 
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="border rounded-lg p-4 mb-6 bg-card space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div>
+                <Label className="text-xs">Nome</Label>
+                <Input value={filterName} onChange={(e) => setFilterName(e.target.value)} placeholder="Filtrar por nome..." className="h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Raça</Label>
+                <Select value={filterBreed} onValueChange={setFilterBreed}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {breeds.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Fazenda</Label>
+                <Select value={filterFarm} onValueChange={setFilterFarm}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {ownFarms.length > 0 && (
+                      <>
+                        <SelectItem value="header-own" disabled className="font-semibold">Fazendas Próprias</SelectItem>
+                        {ownFarms.map(f => <SelectItem key={`own-${f.id}`} value={`own-${f.id}`}>{f.name}</SelectItem>)}
+                      </>
+                    )}
+                    {thirdPartyFarms.length > 0 && (
+                      <>
+                        <SelectItem value="header-third" disabled className="font-semibold border-t mt-2 pt-2">Fazendas Terceiras</SelectItem>
+                        {thirdPartyFarms.map(f => <SelectItem key={`tp-${f.id}`} value={`third_party-${f.id}`}>{f.name}</SelectItem>)}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="in_progress">Em Andamento</SelectItem>
+                    <SelectItem value="finalized">Finalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Leilão</Label>
+                <Select value={filterAuction} onValueChange={setFilterAuction}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Nome da Mãe</Label>
+                <Input value={filterDamName} onChange={(e) => setFilterDamName(e.target.value)} placeholder="Filtrar por mãe..." className="h-9" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Mês Prev. Aspiração</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <DateFilterPicker label="Início" value={filterExpectedMonthStart} onChange={setFilterExpectedMonthStart} />
+                  <DateFilterPicker label="Fim" value={filterExpectedMonthEnd} onChange={setFilterExpectedMonthEnd} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Data Aspiração</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <DateFilterPicker label="Início" value={filterAspirationDateStart} onChange={setFilterAspirationDateStart} />
+                  <DateFilterPicker label="Fim" value={filterAspirationDateEnd} onChange={setFilterAspirationDateEnd} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Data Transferência</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <DateFilterPicker label="Início" value={filterTransferDateStart} onChange={setFilterTransferDateStart} />
+                  <DateFilterPicker label="Fim" value={filterTransferDateEnd} onChange={setFilterTransferDateEnd} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={handleClearFilters}>Limpar Filtros</Button>
+              <Button onClick={handleApplyFilters}>
+                <Search className="h-4 w-4 mr-2" />
+                Filtrar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!hasFiltered && (
+          <p className="text-sm text-muted-foreground mb-4">Exibindo as 5 últimas aspirações. Use os filtros para buscar registros específicos.</p>
+        )}
+
         {loading ? (
           <div className="text-center py-8">Carregando...</div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                 <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Raça</TableHead>
-                  <TableHead>Fazenda</TableHead>
-                  <TableHead>Mês Prev. Aspiração</TableHead>
-                  <TableHead>Data Aspiração</TableHead>
-                  <TableHead>Data Transferência</TableHead>
-                  <TableHead>Qtd. Embriões</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.length === 0 ? (
+          <>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
                    <TableRow>
-                     <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                       Nenhum registro encontrado.
-                     </TableCell>
-                   </TableRow>
-                ) : (
-                  records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{record.code}</TableCell>
-                      <TableCell>{record.name}</TableCell>
-                      <TableCell>{getBreedName(record.breed_id)}</TableCell>
-                      <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
-                      <TableCell>
-                        {record.expected_aspiration_month
-                          ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {record.aspiration_date
-                          ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {record.transfer_date
-                          ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {record.embryo_count ?? "-"}
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusClasses(record.status))}>
-                          {getStatusLabel(record.status)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {record.status === "pending" && (
-                            <>
-                              <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="text-green-600 hover:text-green-700">
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Raça</TableHead>
+                    <TableHead>Fazenda</TableHead>
+                    <TableHead>Mês Prev. Aspiração</TableHead>
+                    <TableHead>Data Aspiração</TableHead>
+                    <TableHead>Data Transferência</TableHead>
+                    <TableHead>Qtd. Embriões</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedRecords.length === 0 ? (
+                     <TableRow>
+                       <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                         Nenhum registro encontrado.
+                       </TableCell>
+                     </TableRow>
+                  ) : (
+                    paginatedRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell>{record.code}</TableCell>
+                        <TableCell>{record.name}</TableCell>
+                        <TableCell>{getBreedName(record.breed_id)}</TableCell>
+                        <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                        <TableCell>
+                          {record.expected_aspiration_month
+                            ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {record.aspiration_date
+                            ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {record.transfer_date
+                            ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {record.embryo_count ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusClasses(record.status))}>
+                            {getStatusLabel(record.status)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {record.status === "pending" && (
+                              <>
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="text-green-600 hover:text-green-700">
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            {record.status === "in_progress" && (
+                              <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Finalizar" className="text-green-600 hover:text-green-700">
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
-                            </>
-                          )}
-                          {record.status === "in_progress" && (
-                            <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Finalizar" className="text-green-600 hover:text-green-700">
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length)} de {filteredRecords.length} registros
+                </p>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className={cn(currentPage === 1 && "pointer-events-none opacity-50", "cursor-pointer")}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
+                      .map((page, idx, arr) => {
+                        const elements = [];
+                        if (idx > 0 && page - arr[idx - 1] > 1) {
+                          elements.push(<PaginationItem key={`ellipsis-${page}`}><span className="px-2">...</span></PaginationItem>);
+                        }
+                        elements.push(
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              isActive={page === currentPage}
+                              onClick={() => setCurrentPage(page)}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                        return elements;
+                      })}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className={cn(currentPage === totalPages && "pointer-events-none opacity-50", "cursor-pointer")}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -756,7 +1128,6 @@ const AnimaisGestaoAspiracoes = () => {
                 </div>
               )}
             </TabsContent>
-
 
             {modalMode === "view" && selectedRecord?.status === "finalized" && (
               <TabsContent value="resultado" className="space-y-6 mt-4">
