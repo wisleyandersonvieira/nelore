@@ -215,6 +215,78 @@ export type Database = {
           },
         ]
       }
+      accounts_payable_item_allocations: {
+        Row: {
+          account_payable_item_id: string
+          allocation_type: string
+          animal_id: string | null
+          aspiration_id: string | null
+          created_at: string
+          embryo_transfer_id: string | null
+          id: string
+          pregnancy_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_payable_item_id: string
+          allocation_type: string
+          animal_id?: string | null
+          aspiration_id?: string | null
+          created_at?: string
+          embryo_transfer_id?: string | null
+          id?: string
+          pregnancy_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_payable_item_id?: string
+          allocation_type?: string
+          animal_id?: string | null
+          aspiration_id?: string | null
+          created_at?: string
+          embryo_transfer_id?: string | null
+          id?: string
+          pregnancy_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_item_allocations_account_payable_item_id_fkey"
+            columns: ["account_payable_item_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_item_allocations_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_item_allocations_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_item_allocations_embryo_transfer_id_fkey"
+            columns: ["embryo_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "embryo_transfer_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_item_allocations_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_payable_items: {
         Row: {
           account_payable_id: string
