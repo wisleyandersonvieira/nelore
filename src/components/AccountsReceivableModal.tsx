@@ -3167,6 +3167,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 <TableHead>Total</TableHead>
                                 <TableHead>Fazenda</TableHead>
                                 <TableHead>Alocação</TableHead>
+                                <TableHead>Animal</TableHead>
                                 {!isViewOnly && !isAttachmentOnlyEdit && <TableHead>Ações</TableHead>}
                               </TableRow>
                             </TableHeader>
@@ -3180,10 +3181,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                   <TableCell>{item.store_name}</TableCell>
                                   <TableCell>
                                     {item.allocation_type ? (
-                                      <span className="text-xs">
-                                        <span className="font-medium">{getAllocationLabel(item.allocation_type)}</span>
-                                        {item.allocation_name && `: ${item.allocation_name}`}
+                                      <span className="text-xs font-medium">
+                                        {getAllocationLabel(item.allocation_type)}
                                       </span>
+                                    ) : "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.allocation_name ? (
+                                      <span className="text-xs">{item.allocation_name}</span>
                                     ) : "-"}
                                   </TableCell>
                                   {!isViewOnly && !isAttachmentOnlyEdit && (
