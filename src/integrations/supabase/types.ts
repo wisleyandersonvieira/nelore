@@ -910,6 +910,7 @@ export type Database = {
           name: string
           observations: string | null
           photos: Json | null
+          pregnancy_id: string | null
           recipient_id: string | null
           registration: string | null
           sex: string
@@ -944,6 +945,7 @@ export type Database = {
           name: string
           observations?: string | null
           photos?: Json | null
+          pregnancy_id?: string | null
           recipient_id?: string | null
           registration?: string | null
           sex: string
@@ -978,6 +980,7 @@ export type Database = {
           name?: string
           observations?: string | null
           photos?: Json | null
+          pregnancy_id?: string | null
           recipient_id?: string | null
           registration?: string | null
           sex?: string
@@ -1029,6 +1032,13 @@ export type Database = {
             columns: ["laboratory_id"]
             isOneToOne: false
             referencedRelation: "laboratories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animals_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
             referencedColumns: ["id"]
           },
           {

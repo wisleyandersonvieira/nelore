@@ -78,6 +78,7 @@ interface Animal {
   veterinarian_id: string | null;
   laboratory_id: string | null;
   ultrasound_date: string | null;
+  pregnancy_id: string | null;
 }
 
 interface Batch {
@@ -203,12 +204,18 @@ const AnimaisCadastro = () => {
     payment_date: string | null;
     status: string;
     supplier_name: string | null;
+    creditor_name: string | null;
     store_name: string | null;
     allocation_type: string;
     item_quantity: number;
     item_unit_price: number;
     item_total_price: number;
     account_payable_id: string;
+    account_receivable_id: string;
+    paid_amount: number;
+    record_type: 'expense' | 'revenue';
+    is_rateio?: boolean;
+    rateio_label?: string;
   }
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
@@ -390,89 +397,147 @@ const AnimaisCadastro = () => {
     }
   };
 
-  const fetchAnimalFinancial = async (animalId: string) => {
+  const fetchAnimalFinancial = async (animalId: string, pregnancyId?: string | null) => {
     setLoadingFinancial(true);
     try {
-      // Fetch allocations for this animal
-      const { data: allocations, error: allocError } = await supabase
+      const allRecords: FinancialRecord[] = [];
+
+      // 1. Fetch direct animal allocations (expenses)
+      const { data: expAllocations } = await supabase
         .from("accounts_payable_item_allocations")
-        .select(`
-          id,
-          allocation_type,
-          account_payable_item_id,
-          accounts_payable_items!inner (
-            quantity,
-            unit_price,
-            total_price,
-            account_payable_id,
-            product_id,
-            accounts_payable!inner (
-              id,
-              description,
-              document_number,
-              amount,
-              due_date,
-              payment_date,
-              status,
-              supplier_id,
-              store_id
-            )
-          )
-        `)
+        .select(`id, allocation_type, account_payable_item_id, accounts_payable_items!inner ( quantity, unit_price, total_price, account_payable_id, accounts_payable!inner ( id, description, document_number, amount, due_date, payment_date, status, supplier_id, store_id ) )`)
         .eq("animal_id", animalId);
 
-      if (allocError) throw allocError;
+      // 1b. Fetch direct animal allocations (revenues)
+      const { data: revAllocations } = await supabase
+        .from("accounts_receivable_item_allocations")
+        .select(`id, allocation_type, account_receivable_item_id, accounts_receivable_items!inner ( quantity, unit_price, total_price, account_receivable_id, accounts_receivable!inner ( id, description, document_number, amount, due_date, payment_date, status, creditor_id, store_id ) )`)
+        .eq("animal_id", animalId);
 
-      if (!allocations || allocations.length === 0) {
-        setFinancialRecords([]);
-        setLoadingFinancial(false);
-        return;
+      // Process expense allocations
+      if (expAllocations && expAllocations.length > 0) {
+        const supplierIds = new Set<string>();
+        const storeIds = new Set<string>();
+        expAllocations.forEach((a: any) => {
+          const ap = a.accounts_payable_items?.accounts_payable;
+          if (ap?.supplier_id) supplierIds.add(ap.supplier_id);
+          if (ap?.store_id) storeIds.add(ap.store_id);
+        });
+        const [suppliersRes, storesRes] = await Promise.all([
+          supplierIds.size > 0 ? supabase.from("suppliers").select("id, name").in("id", Array.from(supplierIds)) : { data: [] },
+          storeIds.size > 0 ? supabase.from("stores").select("id, name").in("id", Array.from(storeIds)) : { data: [] },
+        ]);
+        const suppliersMap = new Map((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
+        const storesMap = new Map((storesRes.data || []).map((s: any) => [s.id, s.name]));
+
+        const apIds = [...new Set(expAllocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
+        const paidMap = new Map<string, number>();
+        if (apIds.length > 0) {
+          const today = format(new Date(), "yyyy-MM-dd");
+          const { data: payments } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", apIds).lte("payment_date", today);
+          (payments || []).forEach((p: any) => { paidMap.set(p.account_payable_id, (paidMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0)); });
+        }
+
+        expAllocations.forEach((a: any) => {
+          const item = a.accounts_payable_items; const ap = item?.accounts_payable; const apId = ap?.id || "";
+          allRecords.push({ id: a.id, description: ap?.description || "", document_number: ap?.document_number || null, amount: ap?.amount || 0, due_date: ap?.due_date || "", payment_date: ap?.payment_date || null, status: ap?.status || "", supplier_name: ap?.supplier_id ? suppliersMap.get(ap.supplier_id) || null : null, creditor_name: null, store_name: ap?.store_id ? storesMap.get(ap.store_id) || null : null, allocation_type: a.allocation_type, item_quantity: item?.quantity || 0, item_unit_price: item?.unit_price || 0, item_total_price: item?.total_price || 0, account_payable_id: apId, account_receivable_id: "", paid_amount: paidMap.get(apId) || 0, record_type: 'expense' });
+        });
       }
 
-      // Get unique supplier and store IDs
-      const supplierIds = new Set<string>();
-      const storeIds = new Set<string>();
-      allocations.forEach((a: any) => {
-        const ap = a.accounts_payable_items?.accounts_payable;
-        if (ap?.supplier_id) supplierIds.add(ap.supplier_id);
-        if (ap?.store_id) storeIds.add(ap.store_id);
-      });
+      // Process revenue allocations
+      if (revAllocations && revAllocations.length > 0) {
+        const creditorIds = new Set<string>();
+        revAllocations.forEach((a: any) => { const cid = a.accounts_receivable_items?.accounts_receivable?.creditor_id; if (cid) creditorIds.add(cid); });
+        const creditorsMap = new Map<string, string>();
+        if (creditorIds.size > 0) {
+          const { data: creditors } = await supabase.from("creditors").select("id, name").in("id", Array.from(creditorIds));
+          (creditors || []).forEach((c: any) => creditorsMap.set(c.id, c.name));
+        }
+        const arIds = [...new Set(revAllocations.map((a: any) => a.accounts_receivable_items?.accounts_receivable?.id).filter(Boolean))];
+        const paidRecMap = new Map<string, number>();
+        if (arIds.length > 0) {
+          const today = format(new Date(), "yyyy-MM-dd");
+          const { data: payments } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", arIds).lte("payment_date", today);
+          (payments || []).forEach((p: any) => { paidRecMap.set(p.account_receivable_id, (paidRecMap.get(p.account_receivable_id) || 0) + (p.amount_paid || 0)); });
+        }
+        revAllocations.forEach((a: any) => {
+          const item = a.accounts_receivable_items; const ar = item?.accounts_receivable; const arId = ar?.id || "";
+          allRecords.push({ id: a.id, description: ar?.description || "", document_number: ar?.document_number || null, amount: ar?.amount || 0, due_date: ar?.due_date || "", payment_date: ar?.payment_date || null, status: ar?.status || "", supplier_name: null, creditor_name: ar?.creditor_id ? creditorsMap.get(ar.creditor_id) || null : null, store_name: null, allocation_type: a.allocation_type, item_quantity: item?.quantity || 0, item_unit_price: item?.unit_price || 0, item_total_price: item?.total_price || 0, account_payable_id: "", account_receivable_id: arId, paid_amount: paidRecMap.get(arId) || 0, record_type: 'revenue' });
+        });
+      }
 
-      // Fetch suppliers and stores in parallel
-      const [suppliersRes, storesRes] = await Promise.all([
-        supplierIds.size > 0
-          ? supabase.from("suppliers").select("id, name").in("id", Array.from(supplierIds))
-          : { data: [] },
-        storeIds.size > 0
-          ? supabase.from("stores").select("id, name").in("id", Array.from(storeIds))
-          : { data: [] },
-      ]);
+      // 2. If animal has pregnancy_id, fetch rateios from pregnancy chain
+      if (pregnancyId) {
+        // Fetch pregnancy allocations (direct - no division since 1:1)
+        const { data: prenExpAlloc } = await supabase.from("accounts_payable_item_allocations").select(`id, allocation_type, accounts_payable_items!inner ( total_price, account_payable_id, accounts_payable!inner ( id, status ) )`).eq("pregnancy_id", pregnancyId);
+        const { data: prenRevAlloc } = await supabase.from("accounts_receivable_item_allocations").select(`id, allocation_type, accounts_receivable_items!inner ( total_price, account_receivable_id, accounts_receivable!inner ( id, status ) )`).eq("pregnancy_id", pregnancyId);
 
-      const suppliersMap = new Map((suppliersRes.data || []).map((s: any) => [s.id, s.name]));
-      const storesMap = new Map((storesRes.data || []).map((s: any) => [s.id, s.name]));
-
-      const records: FinancialRecord[] = allocations.map((a: any) => {
-        const item = a.accounts_payable_items;
-        const ap = item?.accounts_payable;
-        return {
-          id: a.id,
-          description: ap?.description || "",
-          document_number: ap?.document_number || null,
-          amount: ap?.amount || 0,
-          due_date: ap?.due_date || "",
-          payment_date: ap?.payment_date || null,
-          status: ap?.status || "",
-          supplier_name: ap?.supplier_id ? suppliersMap.get(ap.supplier_id) || null : null,
-          store_name: ap?.store_id ? storesMap.get(ap.store_id) || null : null,
-          allocation_type: a.allocation_type,
-          item_quantity: item?.quantity || 0,
-          item_unit_price: item?.unit_price || 0,
-          item_total_price: item?.total_price || 0,
-          account_payable_id: ap?.id || "",
+        const addRateioSummary = async (allocations: any[], revAllocations: any[], label: string, allocType: string, idSuffix: string, divisor: number = 1) => {
+          let totalExp = 0; let paidExp = 0;
+          if (allocations && allocations.length > 0) {
+            const apMap = new Map<string, { total: number; status: string }>();
+            allocations.forEach((a: any) => { const p = a.accounts_payable_items?.total_price || 0; totalExp += p; const apId = a.accounts_payable_items?.accounts_payable?.id; const st = a.accounts_payable_items?.accounts_payable?.status || ""; if (apId) { const e = apMap.get(apId); if (e) e.total += p; else apMap.set(apId, { total: p, status: st }); } });
+            const ids = Array.from(apMap.keys());
+            if (ids.length > 0) {
+              const today = format(new Date(), "yyyy-MM-dd");
+              const { data: pay } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", ids).lte("payment_date", today);
+              const payMap = new Map<string, number>(); (pay || []).forEach((p: any) => { payMap.set(p.account_payable_id, (payMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0)); });
+              apMap.forEach((info, apId) => { const s = payMap.get(apId) || 0; if (s > 0) paidExp += s; else if (info.status === "paid") paidExp += info.total; });
+            }
+          }
+          let totalRev = 0; let paidRev = 0;
+          if (revAllocations && revAllocations.length > 0) {
+            const arMap = new Map<string, { total: number; status: string }>();
+            revAllocations.forEach((a: any) => { const p = a.accounts_receivable_items?.total_price || 0; totalRev += p; const arId = a.accounts_receivable_items?.accounts_receivable?.id; const st = a.accounts_receivable_items?.accounts_receivable?.status || ""; if (arId) { const e = arMap.get(arId); if (e) e.total += p; else arMap.set(arId, { total: p, status: st }); } });
+            const ids = Array.from(arMap.keys());
+            if (ids.length > 0) {
+              const today = format(new Date(), "yyyy-MM-dd");
+              const { data: pay } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", ids).lte("payment_date", today);
+              const payMap = new Map<string, number>(); (pay || []).forEach((p: any) => { payMap.set(p.account_receivable_id, (payMap.get(p.account_receivable_id) || 0) + (p.amount_paid || 0)); });
+              arMap.forEach((info, arId) => { const s = payMap.get(arId) || 0; if (s > 0) paidRev += s; else if (info.status === "paid") paidRev += info.total; });
+            }
+          }
+          if (totalExp > 0) {
+            allRecords.push({ id: `rateio-${allocType}-exp-${idSuffix}`, description: "", document_number: null, amount: 0, due_date: "", payment_date: null, status: "", supplier_name: label, creditor_name: null, store_name: null, allocation_type: allocType, item_quantity: 0, item_unit_price: 0, item_total_price: totalExp / divisor, account_payable_id: "", account_receivable_id: "", paid_amount: paidExp / divisor, record_type: 'expense', is_rateio: true, rateio_label: label });
+          }
+          if (totalRev > 0) {
+            allRecords.push({ id: `rateio-${allocType}-rev-${idSuffix}`, description: "", document_number: null, amount: 0, due_date: "", payment_date: null, status: "", supplier_name: null, creditor_name: label, store_name: null, allocation_type: allocType, item_quantity: 0, item_unit_price: 0, item_total_price: totalRev / divisor, account_payable_id: "", account_receivable_id: "", paid_amount: paidRev / divisor, record_type: 'revenue', is_rateio: true, rateio_label: label });
+          }
         };
-      });
 
-      setFinancialRecords(records);
+        // Add Prenhez rateio (1:1, no division)
+        await addRateioSummary(prenExpAlloc || [], prenRevAlloc || [], "Rateio Gestão de Prenhez", "pregnancy_rateio", pregnancyId);
+
+        // Get embryo_transfer_id from pregnancy
+        const { data: pregnancyData } = await supabase.from("pregnancy_management").select("embryo_transfer_id").eq("id", pregnancyId).single();
+        const embryoTransferId = pregnancyData?.embryo_transfer_id;
+
+        if (embryoTransferId) {
+          // Fetch Pós TE allocations
+          const { data: teExpAlloc } = await supabase.from("accounts_payable_item_allocations").select(`id, allocation_type, accounts_payable_items!inner ( total_price, account_payable_id, accounts_payable!inner ( id, status ) )`).eq("embryo_transfer_id", embryoTransferId);
+          const { data: teRevAlloc } = await supabase.from("accounts_receivable_item_allocations").select(`id, allocation_type, accounts_receivable_items!inner ( total_price, account_receivable_id, accounts_receivable!inner ( id, status ) )`).eq("embryo_transfer_id", embryoTransferId);
+          await addRateioSummary(teExpAlloc || [], teRevAlloc || [], "Rateio Pós TE", "te_rateio", embryoTransferId);
+
+          // Get aspiration_id from embryo transfer
+          const { data: teData } = await supabase.from("embryo_transfer_management").select("aspiration_id").eq("id", embryoTransferId).single();
+          const aspirationId = teData?.aspiration_id;
+
+          if (aspirationId) {
+            // Get embryo count and subtract empty siblings for dynamic divisor
+            const { data: aspirationData } = await supabase.from("aspiration_management").select("embryo_count").eq("id", aspirationId).single();
+            const totalEmbryoCount = aspirationData?.embryo_count || 1;
+            const { data: emptySiblings } = await supabase.from("embryo_transfer_management").select("id").eq("aspiration_id", aspirationId).eq("status", "finalized_empty");
+            const emptyCount = emptySiblings?.length || 0;
+            const embryoCount = Math.max(totalEmbryoCount - emptyCount, 1);
+
+            const { data: aspExpAlloc } = await supabase.from("accounts_payable_item_allocations").select(`id, allocation_type, accounts_payable_items!inner ( total_price, account_payable_id, accounts_payable!inner ( id, status ) )`).eq("aspiration_id", aspirationId);
+            const { data: aspRevAlloc } = await supabase.from("accounts_receivable_item_allocations").select(`id, allocation_type, accounts_receivable_items!inner ( total_price, account_receivable_id, accounts_receivable!inner ( id, status ) )`).eq("aspiration_id", aspirationId);
+            await addRateioSummary(aspExpAlloc || [], aspRevAlloc || [], "Rateio de Aspiração", "aspiration_rateio", aspirationId, embryoCount);
+          }
+        }
+      }
+
+      setFinancialRecords(allRecords);
     } catch (error) {
       console.error("Error fetching animal financial:", error);
       setFinancialRecords([]);
@@ -520,7 +585,7 @@ const AnimaisCadastro = () => {
       setSelectedAnimal(animal);
       // Fetch weighings for this animal
       fetchAnimalWeighings(animal.id, animal.first_weighing_date, animal.first_weight);
-      fetchAnimalFinancial(animal.id);
+      fetchAnimalFinancial(animal.id, animal.pregnancy_id);
       // Set recipient if exists
       if (animal.recipient_id) {
         const recipient = animals.find(a => a.id === animal.recipient_id);
@@ -798,15 +863,21 @@ const AnimaisCadastro = () => {
       case "pregnancy": return "Prenhez";
       case "embryo_transfer": return "Pós Transf. Emb.";
       case "aspiration": return "Aspiração";
+      case "aspiration_rateio": return "Rateio Aspiração";
+      case "te_rateio": return "Rateio Pós TE";
+      case "pregnancy_rateio": return "Rateio Prenhez";
       default: return type;
     }
   };
 
   const getFilteredFinancialRecords = () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-    return financialViewMode === "pagos"
-      ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
-      : financialRecords;
+    if (financialViewMode === "pagos") {
+      return financialRecords.filter(r => r.paid_amount > 0 || r.status === "paid").map(r => {
+        const effectivePaid = r.paid_amount > 0 ? r.paid_amount : (r.status === "paid" ? r.item_total_price : 0);
+        return { ...r, paid_amount: effectivePaid };
+      });
+    }
+    return financialRecords;
   };
 
   const generateFinancialPDF = async (tipo: "resumido" | "detalhado") => {
@@ -825,90 +896,75 @@ const AnimaisCadastro = () => {
       doc.text(`Modo: ${financialViewMode === "pagos" ? "Pagos até Hoje" : "Geral"}`, 14, 34);
 
       const records = getFilteredFinancialRecords();
-      const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
+      const despesas = records.filter(r => r.record_type === 'expense');
+      const receitas = records.filter(r => r.record_type === 'revenue');
+      const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+      const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+      const saldo = financialViewMode === "pagos" ? totalPagoReceitas - totalPagoDespesas : totalReceitas - totalDespesas;
 
       if (tipo === "resumido") {
-        autoTable(doc, {
-          startY: 42,
-          head: [["Número", "Fornecedor", "Tipo Alocação", "Vlr Total", "Vencimento", "Pagamento", "Status"]],
-          body: records.map(r => [
-            r.document_number || "-",
-            r.supplier_name || "-",
-            getAllocationTypeLabel(r.allocation_type),
-            r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-            r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-            r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-            r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
-          ]),
-          foot: [["", "", "Total Despesas:", totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "", "", ""]],
-          theme: "grid",
-          headStyles: { fillColor: [66, 66, 66] },
-          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        });
+        let startY = 42;
+        if (despesas.length > 0) {
+          doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Despesas", 14, startY); startY += 6;
+          autoTable(doc, { startY, head: [["Número", "Fornecedor", "Tipo", "Vlr Total", ...(financialViewMode === "pagos" ? ["Pago"] : []), "Vencimento", "Pagamento", "Status"]], body: despesas.map(r => [r.is_rateio ? "" : (r.document_number || "-"), r.is_rateio ? (r.rateio_label || "") : (r.supplier_name || "-"), getAllocationTypeLabel(r.allocation_type), r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), ...(financialViewMode === "pagos" ? [r.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })] : []), r.is_rateio ? "" : (r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"), r.is_rateio ? "" : (r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"), r.is_rateio ? "" : (r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente")]), theme: "grid", headStyles: { fillColor: [66, 66, 66] } });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+        if (receitas.length > 0) {
+          if (startY > 250) { doc.addPage(); startY = 20; }
+          doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Receitas", 14, startY); startY += 6;
+          autoTable(doc, { startY, head: [["Número", "Credor", "Tipo", "Vlr Total", ...(financialViewMode === "pagos" ? ["Recebido"] : []), "Vencimento", "Pagamento", "Status"]], body: receitas.map(r => [r.is_rateio ? "" : (r.document_number || "-"), r.is_rateio ? (r.rateio_label || "") : (r.creditor_name || "-"), getAllocationTypeLabel(r.allocation_type), r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), ...(financialViewMode === "pagos" ? [r.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })] : []), r.is_rateio ? "" : (r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"), r.is_rateio ? "" : (r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"), r.is_rateio ? "" : (r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente")]), theme: "grid", headStyles: { fillColor: [66, 66, 66] } });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+        if (startY > 260) { doc.addPage(); startY = 20; }
+        const summaryHead = financialViewMode === "pagos" ? [["Total Desp. Pagas", "Total Rec. Recebidas", "Saldo"]] : [["Total Despesas", "Total Receitas", "Saldo"]];
+        const summaryBody = financialViewMode === "pagos"
+          ? [[totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]]
+          : [[totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]];
+        autoTable(doc, { startY, head: summaryHead, body: summaryBody, theme: "grid", headStyles: { fillColor: [100, 100, 100] }, bodyStyles: { fontStyle: "bold" } });
       } else {
-        // Detalhado: fetch products for each accounts_payable
-        const accountPayableIds = [...new Set(records.map(r => r.account_payable_id))];
-        
-        const { data: allItems } = await supabase
-          .from("accounts_payable_items")
-          .select("*, products(name)")
-          .in("account_payable_id", accountPayableIds);
-
+        const expenseAPIds = [...new Set(despesas.filter(r => !r.is_rateio).map(r => r.account_payable_id).filter(Boolean))];
+        const { data: allItems } = expenseAPIds.length > 0 ? await supabase.from("accounts_payable_items").select("*, products(name)").in("account_payable_id", expenseAPIds) : { data: [] };
         const itemsByAP = new Map<string, any[]>();
-        (allItems || []).forEach((item: any) => {
-          const list = itemsByAP.get(item.account_payable_id) || [];
-          list.push(item);
-          itemsByAP.set(item.account_payable_id, list);
-        });
+        (allItems || []).forEach((item: any) => { const list = itemsByAP.get(item.account_payable_id) || []; list.push(item); itemsByAP.set(item.account_payable_id, list); });
 
         let currentY = 42;
-
-        records.forEach((record, index) => {
-          if (currentY > 250) {
-            doc.addPage();
-            currentY = 20;
-          }
-
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "bold");
-          doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`, 14, currentY);
-          currentY += 6;
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY);
-          currentY += 4;
-          doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
-          currentY += 6;
-
-          const items = itemsByAP.get(record.account_payable_id) || [];
-          if (items.length > 0) {
-            autoTable(doc, {
-              startY: currentY,
-              head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]],
-              body: items.map((it: any) => [
-                it.products?.name || "-",
-                it.quantity,
-                it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-                it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-              ]),
-              theme: "grid",
-              headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
-              bodyStyles: { fontSize: 8 },
-              margin: { left: 20, right: 20 },
-            });
-            currentY = (doc as any).lastAutoTable.finalY + 8;
-          } else {
-            currentY += 4;
-          }
-        });
-
-        if (currentY > 260) {
-          doc.addPage();
-          currentY = 20;
+        if (despesas.length > 0) {
+          doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Despesas", 14, currentY); currentY += 8;
+          despesas.forEach((record, index) => {
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text(`${index + 1}. ${record.is_rateio ? (record.rateio_label || "Rateio") : `Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`}`, 14, currentY); currentY += 6;
+            if (!record.is_rateio) {
+              doc.setFontSize(9); doc.setFont("helvetica", "normal");
+              doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY); currentY += 4;
+            }
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${financialViewMode === "pagos" ? ` | Pago: ${record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}`, 14, currentY); currentY += 6;
+            if (!record.is_rateio) {
+              const items = itemsByAP.get(record.account_payable_id) || [];
+              if (items.length > 0) {
+                autoTable(doc, { startY: currentY, head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]], body: items.map((it: any) => [it.products?.name || "-", it.quantity, it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]), theme: "grid", headStyles: { fillColor: [100, 100, 100], fontSize: 8 }, bodyStyles: { fontSize: 8 }, margin: { left: 20, right: 20 } });
+                currentY = (doc as any).lastAutoTable.finalY + 8;
+              } else { currentY += 4; }
+            }
+          });
         }
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+        if (receitas.length > 0) {
+          if (currentY > 250) { doc.addPage(); currentY = 20; }
+          doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Receitas", 14, currentY); currentY += 8;
+          receitas.forEach((record, index) => {
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text(`${index + 1}. ${record.is_rateio ? (record.rateio_label || "Rateio") : `Número: ${record.document_number || "-"} | Credor: ${record.creditor_name || "-"}`}`, 14, currentY); currentY += 6;
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${financialViewMode === "pagos" ? ` | Recebido: ${record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}`, 14, currentY); currentY += 6;
+          });
+        }
+        if (currentY > 260) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} | Total Receitas: ${totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} | Saldo: ${saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
       }
 
       doc.save(`financeiro_${animalName.replace(/\s+/g, "_")}_${tipo}.pdf`);
@@ -923,32 +979,41 @@ const AnimaisCadastro = () => {
     try {
       const XLSX = await import("xlsx");
       const records = getFilteredFinancialRecords();
-      
-      const data = records.map(r => ({
-        "Número": r.document_number || "-",
-        "Fornecedor": r.supplier_name || "-",
+      const despesas = records.filter(r => r.record_type === 'expense');
+      const receitas = records.filter(r => r.record_type === 'revenue');
+
+      const despData = despesas.map(r => ({
+        "Número": r.is_rateio ? "" : (r.document_number || "-"),
+        "Fornecedor": r.is_rateio ? (r.rateio_label || "") : (r.supplier_name || "-"),
         "Tipo Alocação": getAllocationTypeLabel(r.allocation_type),
         "Valor Total": r.item_total_price,
-        "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-        "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-        "Status": r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
+        ...(financialViewMode === "pagos" ? { "Pago": r.paid_amount } : {}),
+        "Vencimento": r.is_rateio ? "" : (r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"),
+        "Pagamento": r.is_rateio ? "" : (r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"),
+        "Status": r.is_rateio ? "" : (r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente"),
       }));
 
-      const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
-      data.push({
-        "Número": "",
-        "Fornecedor": "",
-        "Tipo Alocação": "TOTAL DESPESAS",
-        "Valor Total": totalDespesas,
-        "Vencimento": "",
-        "Pagamento": "",
-        "Status": "",
-      });
+      const recData = receitas.map(r => ({
+        "Número": r.is_rateio ? "" : (r.document_number || "-"),
+        "Credor": r.is_rateio ? (r.rateio_label || "") : (r.creditor_name || "-"),
+        "Tipo Alocação": getAllocationTypeLabel(r.allocation_type),
+        "Valor Total": r.item_total_price,
+        ...(financialViewMode === "pagos" ? { "Recebido": r.paid_amount } : {}),
+        "Vencimento": r.is_rateio ? "" : (r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"),
+        "Pagamento": r.is_rateio ? "" : (r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"),
+        "Status": r.is_rateio ? "" : (r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente"),
+      }));
 
-      const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Financeiro");
-      
+      if (despData.length > 0) { const ws = XLSX.utils.json_to_sheet(despData); XLSX.utils.book_append_sheet(wb, ws, "Despesas"); }
+      if (recData.length > 0) { const ws = XLSX.utils.json_to_sheet(recData); XLSX.utils.book_append_sheet(wb, ws, "Receitas"); }
+
+      const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const resumo = [{ "Tipo": "Total Despesas", "Valor": totalDespesas }, { "Tipo": "Total Receitas", "Valor": totalReceitas }, { "Tipo": "Saldo", "Valor": totalReceitas - totalDespesas }];
+      const wsResumo = XLSX.utils.json_to_sheet(resumo);
+      XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
       const animalName = selectedAnimal?.name || "Animal";
       XLSX.writeFile(wb, `financeiro_${animalName.replace(/\s+/g, "_")}.xlsx`);
       toast({ title: "Excel gerado com sucesso!" });
@@ -2089,21 +2154,20 @@ const AnimaisCadastro = () => {
               {loadingFinancial ? (
                 <p className="text-center text-muted-foreground py-8">Carregando dados financeiros...</p>
               ) : (() => {
-                const today = format(new Date(), "yyyy-MM-dd");
-                const filteredRecords = financialViewMode === "pagos"
-                  ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
-                  : financialRecords;
-
-                const despesas = filteredRecords;
+                const filteredRecords = getFilteredFinancialRecords();
+                const despesas = filteredRecords.filter(r => r.record_type === 'expense');
+                const receitas = filteredRecords.filter(r => r.record_type === 'revenue');
                 const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
-                const totalReceitas = 0;
-                const saldo = totalReceitas - totalDespesas;
+                const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+                const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+                const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+                const saldo = financialViewMode === "pagos" ? totalPagoReceitas - totalPagoDespesas : totalReceitas - totalDespesas;
 
                 return (
                   <>
                     {/* Despesas */}
                     <div className="space-y-2">
-                      <h4 className="font-medium text-base border-b pb-1">Despesas</h4>
+                      <h4 className="font-medium text-base border-b pb-1 text-destructive">Despesas</h4>
                       {despesas.length === 0 ? (
                         <p className="text-center text-muted-foreground py-4">Nenhuma despesa registrada.</p>
                       ) : (
@@ -2115,6 +2179,7 @@ const AnimaisCadastro = () => {
                                 <TableHead>Fornecedor</TableHead>
                                 <TableHead>Tipo Alocação</TableHead>
                                 <TableHead className="text-right">Vlr Total</TableHead>
+                                {financialViewMode === "pagos" && <TableHead className="text-right">Pago</TableHead>}
                                 <TableHead>Vencimento</TableHead>
                                 <TableHead>Pagamento</TableHead>
                                 <TableHead>Status</TableHead>
@@ -2122,30 +2187,34 @@ const AnimaisCadastro = () => {
                             </TableHeader>
                             <TableBody>
                               {despesas.map((record) => (
-                                <TableRow key={record.id}>
-                                  <TableCell>{record.document_number || "-"}</TableCell>
-                                  <TableCell>{record.supplier_name || "-"}</TableCell>
+                                <TableRow key={record.id} className={record.is_rateio ? "bg-orange-50 dark:bg-orange-950/20" : ""}>
+                                  <TableCell>{record.is_rateio ? "" : (record.document_number || "-")}</TableCell>
+                                  <TableCell>{record.is_rateio ? (record.rateio_label || "") : (record.supplier_name || "-")}</TableCell>
                                   <TableCell>
                                     <Badge variant="outline">
-                                      {record.allocation_type === "animal" ? "Animal" :
-                                       record.allocation_type === "pregnancy" ? "Prenhez" :
-                                       record.allocation_type === "embryo_transfer" ? "Pós Transf. Emb." :
-                                       record.allocation_type === "aspiration" ? "Aspiração" : record.allocation_type}
+                                      {getAllocationTypeLabel(record.allocation_type)}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-right font-medium">
                                     {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                   </TableCell>
+                                  {financialViewMode === "pagos" && (
+                                    <TableCell className="text-right font-medium">
+                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                    </TableCell>
+                                  )}
                                   <TableCell>
-                                    {record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                                    {record.is_rateio ? "" : (record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
                                   </TableCell>
                                   <TableCell>
-                                    {record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                                    {record.is_rateio ? "" : (record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
                                   </TableCell>
                                   <TableCell>
-                                    <Badge variant={record.status === "paid" ? "default" : "secondary"}>
-                                      {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status}
-                                    </Badge>
+                                    {record.is_rateio ? "" : (
+                                      <Badge variant={record.status === "paid" ? "default" : "secondary"}>
+                                        {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
+                                      </Badge>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -2155,25 +2224,78 @@ const AnimaisCadastro = () => {
                       )}
                     </div>
 
-                    {/* Receitas (placeholder for future) */}
+                    {/* Receitas */}
                     <div className="space-y-2">
-                      <h4 className="font-medium text-base border-b pb-1">Receitas</h4>
-                      <p className="text-center text-muted-foreground py-4">Nenhuma receita registrada.</p>
+                      <h4 className="font-medium text-base border-b pb-1 text-primary">Receitas</h4>
+                      {receitas.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4">Nenhuma receita registrada.</p>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Número</TableHead>
+                                <TableHead>Credor</TableHead>
+                                <TableHead>Tipo Alocação</TableHead>
+                                <TableHead className="text-right">Vlr Total</TableHead>
+                                {financialViewMode === "pagos" && <TableHead className="text-right">Recebido</TableHead>}
+                                <TableHead>Vencimento</TableHead>
+                                <TableHead>Pagamento</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {receitas.map((record) => (
+                                <TableRow key={record.id} className={record.is_rateio ? "bg-blue-50 dark:bg-blue-950/20" : ""}>
+                                  <TableCell>{record.is_rateio ? "" : (record.document_number || "-")}</TableCell>
+                                  <TableCell>{record.is_rateio ? (record.rateio_label || "") : (record.creditor_name || "-")}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">
+                                      {getAllocationTypeLabel(record.allocation_type)}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  </TableCell>
+                                  {financialViewMode === "pagos" && (
+                                    <TableCell className="text-right font-medium">
+                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                    </TableCell>
+                                  )}
+                                  <TableCell>
+                                    {record.is_rateio ? "" : (record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
+                                  </TableCell>
+                                  <TableCell>
+                                    {record.is_rateio ? "" : (record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
+                                  </TableCell>
+                                  <TableCell>
+                                    {record.is_rateio ? "" : (
+                                      <Badge variant={record.status === "paid" ? "default" : "secondary"}>
+                                        {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
                     </div>
 
                     {/* Saldo */}
                     <div className="border rounded-lg p-4 bg-muted/30">
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Receitas</p>
+                          <p className="text-sm text-muted-foreground">{financialViewMode === "pagos" ? "Receitas Recebidas" : "Total Receitas"}</p>
                           <p className="text-lg font-semibold text-primary">
-                            {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            {(financialViewMode === "pagos" ? totalPagoReceitas : totalReceitas).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Despesas</p>
+                          <p className="text-sm text-muted-foreground">{financialViewMode === "pagos" ? "Despesas Pagas" : "Total Despesas"}</p>
                           <p className="text-lg font-semibold text-destructive">
-                            {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            {(financialViewMode === "pagos" ? totalPagoDespesas : totalDespesas).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </p>
                         </div>
                         <div>
