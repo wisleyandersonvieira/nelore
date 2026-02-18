@@ -469,6 +469,7 @@ const AnimaisTransferenciaEmbriao = () => {
           veterinarian_id: recordToFinalize.veterinarian_id,
           laboratory_id: recordToFinalize.laboratory_id,
           ultrasound_date: format(finalizeUltrasoundDate, "yyyy-MM-dd"),
+          embryo_transfer_id: recordToFinalize.id,
         };
 
         const { error: pregnancyError } = await supabase.from("pregnancy_management").insert(pregnancyData as any);
