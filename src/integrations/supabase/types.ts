@@ -2554,6 +2554,7 @@ export type Database = {
       embryo_transfer_management: {
         Row: {
           aspiration_date: string | null
+          aspiration_id: string | null
           auction_id: string | null
           auction_lot: string | null
           breed_id: string | null
@@ -2578,6 +2579,7 @@ export type Database = {
         }
         Insert: {
           aspiration_date?: string | null
+          aspiration_id?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           breed_id?: string | null
@@ -2602,6 +2604,7 @@ export type Database = {
         }
         Update: {
           aspiration_date?: string | null
+          aspiration_id?: string | null
           auction_id?: string | null
           auction_lot?: string | null
           breed_id?: string | null
@@ -2625,6 +2628,13 @@ export type Database = {
           veterinarian_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "embryo_transfer_management_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "embryo_transfer_management_auction_id_fkey"
             columns: ["auction_id"]
