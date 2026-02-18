@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateAccountsReceivablePeriod } from "@/utils/periodValidation";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
+import { cn } from "@/lib/utils";
 
 interface AccountsReceivableModalProps {
   open: boolean;
@@ -229,10 +230,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   // Allocation fields
   const [allocationType, setAllocationType] = useState<'animal' | 'pregnancy' | 'embryo_transfer' | 'aspiration' | ''>('');
   const [allocationId, setAllocationId] = useState("");
-  const [allocationAnimals, setAllocationAnimals] = useState<Array<{id: string; name: string; code: number}>>([]);
+  const [allocationAnimals, setAllocationAnimals] = useState<Array<{id: string; name: string; code: number; ear_tag: number | null; registration: string | null}>>([]);
   const [allocationPregnancies, setAllocationPregnancies] = useState<Array<{id: string; name: string}>>([]);
   const [allocationEmbryoTransfers, setAllocationEmbryoTransfers] = useState<Array<{id: string; name: string}>>([]);
   const [allocationAspirations, setAllocationAspirations] = useState<Array<{id: string; name: string; code: number}>>([]);
+  const [allocationSearchTerm, setAllocationSearchTerm] = useState("");
 
   // File upload fields
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -301,7 +303,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     try {
       const { data: animalsData } = await supabase
         .from("animals")
-        .select("id, name, code")
+        .select("id, name, code, ear_tag, registration")
         .eq("is_active", true)
         .order("name");
       setAllocationAnimals(animalsData || []);
@@ -3055,9 +3057,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                     if (allocationType === opt.value) {
                                       setAllocationType('');
                                       setAllocationId('');
+                                      setAllocationSearchTerm('');
                                     } else {
                                       setAllocationType(opt.value);
                                       setAllocationId('');
+                                      setAllocationSearchTerm('');
                                     }
                                   }}
                                   disabled={isViewOnly}
@@ -3067,7 +3071,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               </label>
                             ))}
                             {allocationType && (
-                              <Button variant="ghost" size="sm" onClick={() => { setAllocationType(''); setAllocationId(''); }} disabled={isViewOnly}>
+                              <Button variant="ghost" size="sm" onClick={() => { setAllocationType(''); setAllocationId(''); setAllocationSearchTerm(''); }} disabled={isViewOnly}>
                                 <X className="h-3 w-3 mr-1" /> Limpar
                               </Button>
                             )}
@@ -3076,64 +3080,127 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           {allocationType === 'animal' && (
                             <div className="space-y-1">
                               <Label className="text-xs">Selecionar Animal</Label>
-                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o animal" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allocationAnimals.map(a => (
-                                    <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
+                              <Input
+                                placeholder="Buscar por nome, brinco ou registro..."
+                                value={allocationSearchTerm}
+                                onChange={(e) => setAllocationSearchTerm(e.target.value)}
+                                disabled={isViewOnly}
+                                className="mb-1"
+                              />
+                              <div className="border rounded-md max-h-[160px] overflow-y-auto bg-background">
+                                {allocationAnimals
+                                  .filter(a => {
+                                    if (!allocationSearchTerm) return true;
+                                    const term = allocationSearchTerm.toLowerCase();
+                                    return a.name.toLowerCase().includes(term) ||
+                                      String(a.code).includes(term) ||
+                                      (a.ear_tag && String(a.ear_tag).includes(term)) ||
+                                      (a.registration && a.registration.toLowerCase().includes(term));
+                                  })
+                                  .map(a => (
+                                    <div
+                                      key={a.id}
+                                      className={cn("px-3 py-1.5 text-sm cursor-pointer hover:bg-accent", allocationId === a.id && "bg-primary/10 font-medium")}
+                                      onClick={() => { if (!isViewOnly) setAllocationId(a.id); }}
+                                    >
+                                      {a.code} - {a.name}{a.ear_tag ? ` (Brinco: ${a.ear_tag})` : ''}{a.registration ? ` [${a.registration}]` : ''}
+                                    </div>
                                   ))}
-                                </SelectContent>
-                              </Select>
+                                {allocationAnimals.filter(a => {
+                                  if (!allocationSearchTerm) return true;
+                                  const term = allocationSearchTerm.toLowerCase();
+                                  return a.name.toLowerCase().includes(term) || String(a.code).includes(term) || (a.ear_tag && String(a.ear_tag).includes(term)) || (a.registration && a.registration.toLowerCase().includes(term));
+                                }).length === 0 && (
+                                  <p className="text-xs text-muted-foreground text-center py-2">Nenhum animal encontrado.</p>
+                                )}
+                              </div>
                             </div>
                           )}
 
                           {allocationType === 'pregnancy' && (
                             <div className="space-y-1">
                               <Label className="text-xs">Selecionar Prenhez (em andamento)</Label>
-                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a prenhez" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allocationPregnancies.map(p => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                              <Input
+                                placeholder="Buscar por nome..."
+                                value={allocationSearchTerm}
+                                onChange={(e) => setAllocationSearchTerm(e.target.value)}
+                                disabled={isViewOnly}
+                                className="mb-1"
+                              />
+                              <div className="border rounded-md max-h-[160px] overflow-y-auto bg-background">
+                                {allocationPregnancies
+                                  .filter(p => !allocationSearchTerm || p.name.toLowerCase().includes(allocationSearchTerm.toLowerCase()))
+                                  .map(p => (
+                                    <div
+                                      key={p.id}
+                                      className={cn("px-3 py-1.5 text-sm cursor-pointer hover:bg-accent", allocationId === p.id && "bg-primary/10 font-medium")}
+                                      onClick={() => { if (!isViewOnly) setAllocationId(p.id); }}
+                                    >
+                                      {p.name}
+                                    </div>
                                   ))}
-                                </SelectContent>
-                              </Select>
+                                {allocationPregnancies.filter(p => !allocationSearchTerm || p.name.toLowerCase().includes(allocationSearchTerm.toLowerCase())).length === 0 && (
+                                  <p className="text-xs text-muted-foreground text-center py-2">Nenhum registro encontrado.</p>
+                                )}
+                              </div>
                             </div>
                           )}
 
                           {allocationType === 'embryo_transfer' && (
                             <div className="space-y-1">
                               <Label className="text-xs">Selecionar Pós Transferência (em andamento)</Label>
-                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a pós transferência" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allocationEmbryoTransfers.map(e => (
-                                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                              <Input
+                                placeholder="Buscar por nome..."
+                                value={allocationSearchTerm}
+                                onChange={(e) => setAllocationSearchTerm(e.target.value)}
+                                disabled={isViewOnly}
+                                className="mb-1"
+                              />
+                              <div className="border rounded-md max-h-[160px] overflow-y-auto bg-background">
+                                {allocationEmbryoTransfers
+                                  .filter(e => !allocationSearchTerm || e.name.toLowerCase().includes(allocationSearchTerm.toLowerCase()))
+                                  .map(e => (
+                                    <div
+                                      key={e.id}
+                                      className={cn("px-3 py-1.5 text-sm cursor-pointer hover:bg-accent", allocationId === e.id && "bg-primary/10 font-medium")}
+                                      onClick={() => { if (!isViewOnly) setAllocationId(e.id); }}
+                                    >
+                                      {e.name}
+                                    </div>
                                   ))}
-                                </SelectContent>
-                              </Select>
+                                {allocationEmbryoTransfers.filter(e => !allocationSearchTerm || e.name.toLowerCase().includes(allocationSearchTerm.toLowerCase())).length === 0 && (
+                                  <p className="text-xs text-muted-foreground text-center py-2">Nenhum registro encontrado.</p>
+                                )}
+                              </div>
                             </div>
                           )}
 
                           {allocationType === 'aspiration' && (
                             <div className="space-y-1">
                               <Label className="text-xs">Selecionar Aspiração (pendente/em andamento)</Label>
-                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a aspiração" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allocationAspirations.map(a => (
-                                    <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
+                              <Input
+                                placeholder="Buscar por nome..."
+                                value={allocationSearchTerm}
+                                onChange={(e) => setAllocationSearchTerm(e.target.value)}
+                                disabled={isViewOnly}
+                                className="mb-1"
+                              />
+                              <div className="border rounded-md max-h-[160px] overflow-y-auto bg-background">
+                                {allocationAspirations
+                                  .filter(a => !allocationSearchTerm || a.name.toLowerCase().includes(allocationSearchTerm.toLowerCase()) || String(a.code).includes(allocationSearchTerm))
+                                  .map(a => (
+                                    <div
+                                      key={a.id}
+                                      className={cn("px-3 py-1.5 text-sm cursor-pointer hover:bg-accent", allocationId === a.id && "bg-primary/10 font-medium")}
+                                      onClick={() => { if (!isViewOnly) setAllocationId(a.id); }}
+                                    >
+                                      {a.code} - {a.name}
+                                    </div>
                                   ))}
-                                </SelectContent>
-                              </Select>
+                                {allocationAspirations.filter(a => !allocationSearchTerm || a.name.toLowerCase().includes(allocationSearchTerm.toLowerCase()) || String(a.code).includes(allocationSearchTerm)).length === 0 && (
+                                  <p className="text-xs text-muted-foreground text-center py-2">Nenhum registro encontrado.</p>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
