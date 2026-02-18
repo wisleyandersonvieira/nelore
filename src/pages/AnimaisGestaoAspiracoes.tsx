@@ -1773,33 +1773,33 @@ const AnimaisGestaoAspiracoes = () => {
                             {records.map((record) => {
                               const valorPendente = record.item_total_price - record.paid_amount;
                               return (
-                              <TableRow key={record.id} className="h-6">
-                                <TableCell className="py-1 text-xs">{record.document_number || "-"}</TableCell>
-                                <TableCell className="py-1 text-xs max-w-[180px] truncate">{record.supplier_name || record.creditor_name || "-"}</TableCell>
-                                <TableCell className="py-1 text-xs">
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{getAllocationTypeLabel(record.allocation_type)}</Badge>
-                                </TableCell>
-                                <TableCell className="py-1 text-xs text-right font-medium">
-                                  {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                </TableCell>
-                                {financialViewMode === "pagos" && (
-                                  <>
-                                    <TableCell className="py-1 text-xs text-right font-medium text-primary">
-                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                    </TableCell>
-                                    <TableCell className="py-1 text-xs text-right font-medium text-destructive">
-                                      {valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
-                                    </TableCell>
-                                  </>
-                                )}
-                                <TableCell className="py-1 text-xs">{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
-                                <TableCell className="py-1 text-xs">{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
-                                <TableCell className="py-1 text-xs">
-                                  <Badge variant={record.status === "paid" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                                    {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
+                              <TableRow key={record.id} className="h-7">
+                                 <TableCell className="py-1 text-sm">{record.document_number || "-"}</TableCell>
+                                 <TableCell className="py-1 text-sm max-w-[180px] truncate">{record.supplier_name || record.creditor_name || "-"}</TableCell>
+                                 <TableCell className="py-1 text-sm">
+                                   <Badge variant="outline" className="text-[12px] px-1.5 py-0">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                                 </TableCell>
+                                 <TableCell className="py-1 text-sm text-right font-medium">
+                                   {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                 </TableCell>
+                                 {financialViewMode === "pagos" && (
+                                   <>
+                                     <TableCell className="py-1 text-sm text-right font-medium text-primary">
+                                       {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                     </TableCell>
+                                     <TableCell className="py-1 text-sm text-right font-medium text-destructive">
+                                       {valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
+                                     </TableCell>
+                                   </>
+                                 )}
+                                 <TableCell className="py-1 text-sm">{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                 <TableCell className="py-1 text-sm">{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                 <TableCell className="py-1 text-sm">
+                                   <Badge variant={record.status === "paid" ? "default" : "secondary"} className="text-[12px] px-1.5 py-0">
+                                     {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
+                                   </Badge>
+                                 </TableCell>
+                               </TableRow>
                               );
                             })}
                           </TableBody>
