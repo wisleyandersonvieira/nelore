@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,6 +197,7 @@ const AnimaisCadastro = () => {
   interface FinancialRecord {
     id: string;
     description: string;
+    document_number: string | null;
     amount: number;
     due_date: string;
     payment_date: string | null;
@@ -207,6 +208,7 @@ const AnimaisCadastro = () => {
     item_quantity: number;
     item_unit_price: number;
     item_total_price: number;
+    account_payable_id: string;
   }
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
@@ -403,8 +405,11 @@ const AnimaisCadastro = () => {
             unit_price,
             total_price,
             account_payable_id,
+            product_id,
             accounts_payable!inner (
+              id,
               description,
+              document_number,
               amount,
               due_date,
               payment_date,
@@ -452,6 +457,7 @@ const AnimaisCadastro = () => {
         return {
           id: a.id,
           description: ap?.description || "",
+          document_number: ap?.document_number || null,
           amount: ap?.amount || 0,
           due_date: ap?.due_date || "",
           payment_date: ap?.payment_date || null,
@@ -462,6 +468,7 @@ const AnimaisCadastro = () => {
           item_quantity: item?.quantity || 0,
           item_unit_price: item?.unit_price || 0,
           item_total_price: item?.total_price || 0,
+          account_payable_id: ap?.id || "",
         };
       });
 
@@ -784,6 +791,172 @@ const AnimaisCadastro = () => {
   );
 
   const isReadOnly = modalMode === "view";
+
+  const getAllocationTypeLabel = (type: string) => {
+    switch (type) {
+      case "animal": return "Animal";
+      case "pregnancy": return "Prenhez";
+      case "embryo_transfer": return "Pós Transf. Emb.";
+      case "aspiration": return "Aspiração";
+      default: return type;
+    }
+  };
+
+  const getFilteredFinancialRecords = () => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    return financialViewMode === "pagos"
+      ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
+      : financialRecords;
+  };
+
+  const generateFinancialPDF = async (tipo: "resumido" | "detalhado") => {
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      
+      const doc = new jsPDF();
+      const animalName = selectedAnimal?.name || "Animal";
+      const animalCode = selectedAnimal?.code || "";
+
+      doc.setFontSize(16);
+      doc.text(`Relatório Financeiro - ${animalName} (Cód: ${animalCode})`, 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, 28);
+      doc.text(`Modo: ${financialViewMode === "pagos" ? "Pagos até Hoje" : "Geral"}`, 14, 34);
+
+      const records = getFilteredFinancialRecords();
+      const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
+
+      if (tipo === "resumido") {
+        autoTable(doc, {
+          startY: 42,
+          head: [["Número", "Fornecedor", "Tipo Alocação", "Vlr Total", "Vencimento", "Pagamento", "Status"]],
+          body: records.map(r => [
+            r.document_number || "-",
+            r.supplier_name || "-",
+            getAllocationTypeLabel(r.allocation_type),
+            r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+            r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+            r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+            r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
+          ]),
+          foot: [["", "", "Total Despesas:", totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "", "", ""]],
+          theme: "grid",
+          headStyles: { fillColor: [66, 66, 66] },
+          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+        });
+      } else {
+        // Detalhado: fetch products for each accounts_payable
+        const accountPayableIds = [...new Set(records.map(r => r.account_payable_id))];
+        
+        const { data: allItems } = await supabase
+          .from("accounts_payable_items")
+          .select("*, products(name)")
+          .in("account_payable_id", accountPayableIds);
+
+        const itemsByAP = new Map<string, any[]>();
+        (allItems || []).forEach((item: any) => {
+          const list = itemsByAP.get(item.account_payable_id) || [];
+          list.push(item);
+          itemsByAP.set(item.account_payable_id, list);
+        });
+
+        let currentY = 42;
+
+        records.forEach((record, index) => {
+          if (currentY > 250) {
+            doc.addPage();
+            currentY = 20;
+          }
+
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`, 14, currentY);
+          currentY += 6;
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY);
+          currentY += 4;
+          doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+          currentY += 6;
+
+          const items = itemsByAP.get(record.account_payable_id) || [];
+          if (items.length > 0) {
+            autoTable(doc, {
+              startY: currentY,
+              head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]],
+              body: items.map((it: any) => [
+                it.products?.name || "-",
+                it.quantity,
+                it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+                it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              ]),
+              theme: "grid",
+              headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+              bodyStyles: { fontSize: 8 },
+              margin: { left: 20, right: 20 },
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 8;
+          } else {
+            currentY += 4;
+          }
+        });
+
+        if (currentY > 260) {
+          doc.addPage();
+          currentY = 20;
+        }
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+      }
+
+      doc.save(`financeiro_${animalName.replace(/\s+/g, "_")}_${tipo}.pdf`);
+      toast({ title: "PDF gerado com sucesso!" });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    }
+  };
+
+  const generateFinancialExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const records = getFilteredFinancialRecords();
+      
+      const data = records.map(r => ({
+        "Número": r.document_number || "-",
+        "Fornecedor": r.supplier_name || "-",
+        "Tipo Alocação": getAllocationTypeLabel(r.allocation_type),
+        "Valor Total": r.item_total_price,
+        "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+        "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+        "Status": r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
+      }));
+
+      const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
+      data.push({
+        "Número": "",
+        "Fornecedor": "",
+        "Tipo Alocação": "TOTAL DESPESAS",
+        "Valor Total": totalDespesas,
+        "Vencimento": "",
+        "Pagamento": "",
+        "Status": "",
+      });
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Financeiro");
+      
+      const animalName = selectedAnimal?.name || "Animal";
+      XLSX.writeFile(wb, `financeiro_${animalName.replace(/\s+/g, "_")}.xlsx`);
+      toast({ title: "Excel gerado com sucesso!" });
+    } catch (error) {
+      console.error("Error generating Excel:", error);
+      toast({ title: "Erro ao gerar Excel", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -1237,7 +1410,7 @@ const AnimaisCadastro = () => {
 
       {/* Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "create"
@@ -1863,12 +2036,12 @@ const AnimaisCadastro = () => {
 
             {/* Tab: Financeiro */}
             <TabsContent value="financeiro" className="space-y-4 mt-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
                   Financeiro
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     variant={financialViewMode === "geral" ? "default" : "outline"}
                     size="sm"
@@ -1883,6 +2056,33 @@ const AnimaisCadastro = () => {
                   >
                     Pagos até Hoje
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateFinancialPDF("resumido")}
+                    disabled={financialRecords.length === 0}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    PDF Resumido
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateFinancialPDF("detalhado")}
+                    disabled={financialRecords.length === 0}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    PDF Detalhado
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateFinancialExcel()}
+                    disabled={financialRecords.length === 0}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />
+                    Excel
+                  </Button>
                 </div>
               </div>
 
@@ -1894,10 +2094,8 @@ const AnimaisCadastro = () => {
                   ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
                   : financialRecords;
 
-                // For now, all allocations from accounts_payable are expenses
                 const despesas = filteredRecords;
                 const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
-                // Placeholder for future receitas
                 const totalReceitas = 0;
                 const saldo = totalReceitas - totalDespesas;
 
@@ -1913,12 +2111,9 @@ const AnimaisCadastro = () => {
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Descrição</TableHead>
+                                <TableHead>Número</TableHead>
                                 <TableHead>Fornecedor</TableHead>
-                                <TableHead>Loja</TableHead>
                                 <TableHead>Tipo Alocação</TableHead>
-                                <TableHead className="text-right">Qtd</TableHead>
-                                <TableHead className="text-right">Vlr Unit.</TableHead>
                                 <TableHead className="text-right">Vlr Total</TableHead>
                                 <TableHead>Vencimento</TableHead>
                                 <TableHead>Pagamento</TableHead>
@@ -1928,9 +2123,8 @@ const AnimaisCadastro = () => {
                             <TableBody>
                               {despesas.map((record) => (
                                 <TableRow key={record.id}>
-                                  <TableCell>{record.description}</TableCell>
+                                  <TableCell>{record.document_number || "-"}</TableCell>
                                   <TableCell>{record.supplier_name || "-"}</TableCell>
-                                  <TableCell>{record.store_name || "-"}</TableCell>
                                   <TableCell>
                                     <Badge variant="outline">
                                       {record.allocation_type === "animal" ? "Animal" :
@@ -1938,10 +2132,6 @@ const AnimaisCadastro = () => {
                                        record.allocation_type === "embryo_transfer" ? "Pós Transf. Emb." :
                                        record.allocation_type === "aspiration" ? "Aspiração" : record.allocation_type}
                                     </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">{record.item_quantity}</TableCell>
-                                  <TableCell className="text-right">
-                                    {record.item_unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                   </TableCell>
                                   <TableCell className="text-right font-medium">
                                     {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
