@@ -1745,57 +1745,57 @@ const AnimaisGestaoAspiracoes = () => {
                 const saldo = (financialViewMode === "pagos" ? totalPagoReceitas : totalReceitas) - (financialViewMode === "pagos" ? totalPagoDespesas : totalDespesas);
 
                 const renderFinTable = (records: typeof filteredRecs, label: string) => (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-base border-b pb-1">{label}</h4>
+                  <div className="space-y-1">
+                    <h4 className="font-medium text-sm border-b pb-0.5">{label}</h4>
                     {records.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-4">Nenhum registro.</p>
+                      <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
                     ) : (
-                      <div className="border rounded-lg overflow-hidden">
+                      <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
                         <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Número</TableHead>
-                              <TableHead>{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
-                              <TableHead>{financialViewMode === "pagos" ? "Tipo" : "Tipo Alocação"}</TableHead>
-                              <TableHead className="text-right">Vlr Total</TableHead>
+                          <TableHeader className="sticky top-0 bg-background z-10">
+                            <TableRow className="h-8">
+                              <TableHead className="py-1 text-xs">Número</TableHead>
+                              <TableHead className="py-1 text-xs max-w-[180px]">{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
+                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Tipo" : "Tipo Alocação"}</TableHead>
+                              <TableHead className="py-1 text-xs text-right">Vlr Total</TableHead>
                               {financialViewMode === "pagos" && (
                                 <>
-                                  <TableHead className="text-right">Pago</TableHead>
-                                  <TableHead className="text-right">Pendente</TableHead>
+                                  <TableHead className="py-1 text-xs text-right">Pago</TableHead>
+                                  <TableHead className="py-1 text-xs text-right">Pendente</TableHead>
                                 </>
                               )}
-                              <TableHead>{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
-                              <TableHead>{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
-                              <TableHead>Status</TableHead>
+                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
+                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
+                              <TableHead className="py-1 text-xs">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {records.map((record) => {
                               const valorPendente = record.item_total_price - record.paid_amount;
                               return (
-                              <TableRow key={record.id}>
-                                <TableCell>{record.document_number || "-"}</TableCell>
-                                <TableCell>{record.supplier_name || record.creditor_name || "-"}</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                              <TableRow key={record.id} className="h-7">
+                                <TableCell className="py-1 text-xs">{record.document_number || "-"}</TableCell>
+                                <TableCell className="py-1 text-xs max-w-[180px] truncate">{record.supplier_name || record.creditor_name || "-"}</TableCell>
+                                <TableCell className="py-1 text-xs">
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{getAllocationTypeLabel(record.allocation_type)}</Badge>
                                 </TableCell>
-                                <TableCell className="text-right font-medium">
+                                <TableCell className="py-1 text-xs text-right font-medium">
                                   {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                 </TableCell>
                                 {financialViewMode === "pagos" && (
                                   <>
-                                    <TableCell className="text-right font-medium text-primary">
+                                    <TableCell className="py-1 text-xs text-right font-medium text-primary">
                                       {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                     </TableCell>
-                                    <TableCell className="text-right font-medium text-destructive">
+                                    <TableCell className="py-1 text-xs text-right font-medium text-destructive">
                                       {valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
                                     </TableCell>
                                   </>
                                 )}
-                                <TableCell>{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
-                                <TableCell>{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
-                                <TableCell>
-                                  <Badge variant={record.status === "paid" ? "default" : "secondary"}>
+                                <TableCell className="py-1 text-xs">{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                <TableCell className="py-1 text-xs">{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                <TableCell className="py-1 text-xs">
+                                  <Badge variant={record.status === "paid" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
                                     {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
                                   </Badge>
                                 </TableCell>
