@@ -386,6 +386,27 @@ const AnimaisTransferenciaEmbriao = () => {
   const handleDelete = async () => {
     if (!recordToDelete) return;
     try {
+      // Check for linked accounts payable
+      const { data: payableAllocations } = await supabase
+        .from("accounts_payable_item_allocations")
+        .select("id")
+        .eq("embryo_transfer_id", recordToDelete.id)
+        .limit(1);
+
+      // Check for linked accounts receivable
+      const { data: receivableAllocations } = await supabase
+        .from("accounts_receivable_item_allocations")
+        .select("id")
+        .eq("embryo_transfer_id", recordToDelete.id)
+        .limit(1);
+
+      if ((payableAllocations && payableAllocations.length > 0) || (receivableAllocations && receivableAllocations.length > 0)) {
+        toast({ title: "Exclusão não permitida", description: "Este registro possui contas a pagar ou contas a receber vinculadas.", variant: "destructive" });
+        setDeleteDialogOpen(false);
+        setRecordToDelete(null);
+        return;
+      }
+
       const { error } = await supabase.from("embryo_transfer_management").delete().eq("id", recordToDelete.id);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Registro excluído com sucesso." });
