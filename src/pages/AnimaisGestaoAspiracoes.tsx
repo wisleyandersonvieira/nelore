@@ -1469,16 +1469,16 @@ const AnimaisGestaoAspiracoes = () => {
                               <TableRow>
                                 <TableHead>Número</TableHead>
                                 <TableHead>Fornecedor</TableHead>
-                                <TableHead>Tipo Alocação</TableHead>
+                                <TableHead>{financialViewMode === "pagos" ? "Tipo" : "Tipo Alocação"}</TableHead>
                                 <TableHead className="text-right">Vlr Total</TableHead>
                                 {financialViewMode === "pagos" && (
                                   <>
-                                    <TableHead className="text-right">Vlr Pago</TableHead>
-                                    <TableHead className="text-right">Vlr Pendente</TableHead>
+                                    <TableHead className="text-right">Pago</TableHead>
+                                    <TableHead className="text-right">Pendente</TableHead>
                                   </>
                                 )}
-                                <TableHead>Vencimento</TableHead>
-                                <TableHead>Pagamento</TableHead>
+                                <TableHead>{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
+                                <TableHead>{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
                                 <TableHead>Status</TableHead>
                               </TableRow>
                             </TableHeader>
