@@ -12,6 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ArrowLeft, Download, Filter, FileDown, ChevronDown, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -216,24 +217,7 @@ const PaidAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Helper: fetch all rows with automatic pagination (batches of 1000)
-      const fetchAllPaginated = async (buildQuery: () => any) => {
-        const PAGE_SIZE = 1000;
-        let allRows: any[] = [];
-        let from = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
-          if (error) throw error;
-          if (data) {
-            allRows = allRows.concat(data);
-          }
-          hasMore = (data?.length ?? 0) === PAGE_SIZE;
-          from += PAGE_SIZE;
-        }
-        return allRows;
-      };
+      // Using shared fetchAllPaginated utility to avoid Supabase 1000-row limit
 
       // Fetch paid accounts with automatic pagination
       const buildAccountsQuery = () => {
