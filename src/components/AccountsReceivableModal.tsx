@@ -245,6 +245,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       fetchStores();
       fetchCurrentAccounts();
       fetchAllocationData();
+      fetchDocumentTypes();
       if (activeTab === "view") {
         fetchFilteredAccountsReceivable();
       }
@@ -2914,18 +2915,18 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </TabsContent>
 
                 <TabsContent value="items" className="space-y-4">
-                  {/* Seção de Loja Padrão */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Loja Padrão (Opcional)</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        Selecione uma loja padrão para aplicar automaticamente a todos os itens.
-                      </p>
+                   {/* Seção de Fazenda Padrão */}
+                   <Card>
+                     <CardHeader>
+                       <CardTitle>Fazenda Padrão (Opcional)</CardTitle>
+                       <p className="text-sm text-muted-foreground">
+                         Selecione uma fazenda padrão para aplicar automaticamente a todos os itens.
+                       </p>
                     </CardHeader>
                     <CardContent>
                       <div className="flex gap-4 items-end">
                         <div className="flex-1 space-y-2">
-                          <Label>Loja Padrão</Label>
+                          <Label>Fazenda Padrão</Label>
                           <Select 
                             value={defaultStore} 
                             onValueChange={(value) => {
@@ -2935,7 +2936,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             disabled={isViewOnly}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Nenhuma loja padrão selecionada" />
+                              <SelectValue placeholder="Nenhuma fazenda padrão selecionada" />
                             </SelectTrigger>
                             <SelectContent>
                               {stores.map((store) => (
@@ -3020,10 +3021,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           </div>
 
                           <div className="space-y-2">
-                            <Label>Loja *</Label>
-                            <Select value={selectedStore} onValueChange={setSelectedStore}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecionar loja" />
+                             <Label>Fazenda *</Label>
+                             <Select value={selectedStore} onValueChange={setSelectedStore}>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="Selecionar fazenda" />
                               </SelectTrigger>
                               <SelectContent>
                                 {stores.map((store) => (
@@ -3164,7 +3165,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 <TableHead>Quantidade</TableHead>
                                 <TableHead>Valor Unit.</TableHead>
                                 <TableHead>Total</TableHead>
-                                <TableHead>Loja</TableHead>
+                                <TableHead>Fazenda</TableHead>
                                 <TableHead>Alocação</TableHead>
                                 {!isViewOnly && !isAttachmentOnlyEdit && <TableHead>Ações</TableHead>}
                               </TableRow>
