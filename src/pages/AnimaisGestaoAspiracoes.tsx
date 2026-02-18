@@ -14,6 +14,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -23,7 +26,7 @@ import {
   Pagination, PaginationContent, PaginationItem, PaginationLink,
   PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -1432,15 +1435,24 @@ const AnimaisGestaoAspiracoes = () => {
                 <div className="flex gap-2 flex-wrap">
                   <Button variant={financialViewMode === "geral" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("geral")}>Visualizar Geral</Button>
                   <Button variant={financialViewMode === "pagos" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("pagos")}>Pagos até Hoje</Button>
-                  <Button variant="outline" size="sm" onClick={() => generateAspirationFinancialPDF("resumido")} disabled={financialRecords.length === 0}>
-                    <FileText className="h-4 w-4 mr-1" />PDF Resumido
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => generateAspirationFinancialPDF("detalhado")} disabled={financialRecords.length === 0}>
-                    <FileText className="h-4 w-4 mr-1" />PDF Detalhado
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={generateAspirationFinancialExcel} disabled={financialRecords.length === 0}>
-                    <FileSpreadsheet className="h-4 w-4 mr-1" />Excel
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={financialRecords.length === 0}>
+                        <Download className="h-4 w-4 mr-1" />Exportar
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => generateAspirationFinancialPDF("resumido")}>
+                        <FileText className="h-4 w-4 mr-2" />PDF Resumido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => generateAspirationFinancialPDF("detalhado")}>
+                        <FileText className="h-4 w-4 mr-2" />PDF Detalhado
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={generateAspirationFinancialExcel}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />Excel
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
