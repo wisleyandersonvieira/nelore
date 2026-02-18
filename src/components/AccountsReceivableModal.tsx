@@ -316,7 +316,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const { data: embryoData } = await supabase
         .from("embryo_transfer_management")
         .select("id, name")
-        .eq("status", "em_andamento")
+        .eq("status", "in_progress")
         .order("name");
       setAllocationEmbryoTransfers(embryoData || []);
 
