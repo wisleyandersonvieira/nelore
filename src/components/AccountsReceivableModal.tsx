@@ -3393,7 +3393,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 {allInstallments.length > 0 && (
                   <div className="space-y-3">
                     <p className="font-semibold">Selecione as parcelas para receber:</p>
-                    <div className="space-y-2 border rounded-lg p-3">
+                    <div className="space-y-2 border rounded-lg p-3 max-h-[280px] overflow-y-auto">
                       {allInstallments.map((installment) => {
                         const isPaid = !!installment.payment_date;
                         const isSelected = selectedInstallmentId === installment.id;
