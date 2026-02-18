@@ -55,6 +55,9 @@ interface ReceivableItem {
   total_price: number;
   store_id: string;
   store_name: string;
+  allocation_type?: 'animal' | 'pregnancy' | 'embryo_transfer' | 'aspiration' | '';
+  allocation_id?: string;
+  allocation_name?: string;
 }
 
 interface AccountReceivable {
@@ -223,6 +226,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
 
+  // Allocation fields
+  const [allocationType, setAllocationType] = useState<'animal' | 'pregnancy' | 'embryo_transfer' | 'aspiration' | ''>('');
+  const [allocationId, setAllocationId] = useState("");
+  const [allocationAnimals, setAllocationAnimals] = useState<Array<{id: string; name: string; code: number}>>([]);
+  const [allocationPregnancies, setAllocationPregnancies] = useState<Array<{id: string; name: string}>>([]);
+  const [allocationEmbryoTransfers, setAllocationEmbryoTransfers] = useState<Array<{id: string; name: string}>>([]);
+  const [allocationAspirations, setAllocationAspirations] = useState<Array<{id: string; name: string; code: number}>>([]);
+
   // File upload fields
   const [attachments, setAttachments] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Array<{name: string, url?: string, path?: string, size?: number, type?: string}>>([]);
@@ -233,7 +244,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       fetchProducts();
       fetchStores();
       fetchCurrentAccounts();
-      fetchDocumentTypes();
+      fetchAllocationData();
       if (activeTab === "view") {
         fetchFilteredAccountsReceivable();
       }
@@ -255,6 +266,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setSelectedProduct("");
       setQuantity(1);
       setUnitPrice(0);
+      setAllocationType('');
+      setAllocationId('');
       setNoteRecorded(false);
       setInstallments([]);
       setEditingAccount(null);
@@ -280,6 +293,85 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       setDocumentTypes(data || []);
     } catch (error) {
       console.error("Error fetching document types:", error);
+    }
+  };
+
+  const fetchAllocationData = async () => {
+    try {
+      const { data: animalsData } = await supabase
+        .from("animals")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      setAllocationAnimals(animalsData || []);
+
+      const { data: pregnancyData } = await supabase
+        .from("pregnancy_management")
+        .select("id, name")
+        .eq("status", "em_andamento")
+        .order("name");
+      setAllocationPregnancies(pregnancyData || []);
+
+      const { data: embryoData } = await supabase
+        .from("embryo_transfer_management")
+        .select("id, name")
+        .eq("status", "em_andamento")
+        .order("name");
+      setAllocationEmbryoTransfers(embryoData || []);
+
+      const { data: aspirationData } = await supabase
+        .from("aspiration_management")
+        .select("id, name, code")
+        .in("status", ["pending", "in_progress"])
+        .order("name");
+      setAllocationAspirations(aspirationData || []);
+    } catch (error) {
+      console.error("Error fetching allocation data:", error);
+    }
+  };
+
+  const saveItemAllocations = async (itemsList: ReceivableItem[], insertedItems: Array<{id: string}>) => {
+    const allocations = itemsList
+      .map((item, index) => {
+        if (!item.allocation_type || !item.allocation_id || !insertedItems[index]) return null;
+        const alloc: any = {
+          account_receivable_item_id: insertedItems[index].id,
+          allocation_type: item.allocation_type,
+        };
+        if (item.allocation_type === 'animal') alloc.animal_id = item.allocation_id;
+        if (item.allocation_type === 'pregnancy') alloc.pregnancy_id = item.allocation_id;
+        if (item.allocation_type === 'embryo_transfer') alloc.embryo_transfer_id = item.allocation_id;
+        if (item.allocation_type === 'aspiration') alloc.aspiration_id = item.allocation_id;
+        return alloc;
+      })
+      .filter(Boolean);
+
+    if (allocations.length > 0) {
+      const { error } = await supabase
+        .from("accounts_receivable_item_allocations")
+        .insert(allocations);
+      if (error) console.error("Error saving allocations:", error);
+    }
+  };
+
+  const getAllocationName = (type: string, id: string): string => {
+    if (!type || !id) return '';
+    switch (type) {
+      case 'animal': return allocationAnimals.find(a => a.id === id)?.name || '';
+      case 'pregnancy': return allocationPregnancies.find(p => p.id === id)?.name || '';
+      case 'embryo_transfer': return allocationEmbryoTransfers.find(e => e.id === id)?.name || '';
+      case 'aspiration': return allocationAspirations.find(a => a.id === id)?.name || '';
+      default: return '';
+    }
+  };
+
+  const getAllocationLabel = (type: string): string => {
+    switch (type) {
+      case 'animal': return 'Animal';
+      case 'pregnancy': return 'Prenhez';
+      case 'embryo_transfer': return 'Pós Transf. Emb.';
+      case 'aspiration': return 'Aspiração';
+      default: return type;
     }
   };
 
@@ -598,16 +690,32 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       if (error) throw error;
 
-      const formattedItems = (itemsData || []).map((item: any) => ({
-        id: item.id,
-        product_id: item.product_id,
-        product_name: item.products?.name || "",
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        store_id: item.store_id,
-        store_name: item.stores?.name || "",
-      }));
+      const itemIds = (itemsData || []).map((item: any) => item.id);
+      let allocationsMap = new Map();
+      if (itemIds.length > 0) {
+        const { data: allocData } = await supabase
+          .from("accounts_receivable_item_allocations")
+          .select("*")
+          .in("account_receivable_item_id", itemIds);
+        (allocData || []).forEach((a: any) => allocationsMap.set(a.account_receivable_item_id, a));
+      }
+
+      const formattedItems = (itemsData || []).map((item: any) => {
+        const alloc = allocationsMap.get(item.id);
+        return {
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.products?.name || "",
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          store_id: item.store_id,
+          store_name: item.stores?.name || "",
+          allocation_type: alloc?.allocation_type || undefined,
+          allocation_id: alloc?.animal_id || alloc?.pregnancy_id || alloc?.embryo_transfer_id || alloc?.aspiration_id || undefined,
+          allocation_name: alloc ? getAllocationName(alloc.allocation_type, alloc.animal_id || alloc.pregnancy_id || alloc.embryo_transfer_id || alloc.aspiration_id) : undefined,
+        };
+      });
 
       setItems(formattedItems);
       setNoteRecorded(true);
@@ -683,16 +791,32 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       if (error) throw error;
 
-      const formattedItems = (itemsData || []).map((item: any) => ({
-        id: item.id,
-        product_id: item.product_id,
-        product_name: item.products?.name || "",
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        store_id: item.store_id,
-        store_name: item.stores?.name || "",
-      }));
+      const itemIds2 = (itemsData || []).map((item: any) => item.id);
+      let allocationsMap2 = new Map();
+      if (itemIds2.length > 0) {
+        const { data: allocData2 } = await supabase
+          .from("accounts_receivable_item_allocations")
+          .select("*")
+          .in("account_receivable_item_id", itemIds2);
+        (allocData2 || []).forEach((a: any) => allocationsMap2.set(a.account_receivable_item_id, a));
+      }
+
+      const formattedItems = (itemsData || []).map((item: any) => {
+        const alloc = allocationsMap2.get(item.id);
+        return {
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.products?.name || "",
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          store_id: item.store_id,
+          store_name: item.stores?.name || "",
+          allocation_type: alloc?.allocation_type || undefined,
+          allocation_id: alloc?.animal_id || alloc?.pregnancy_id || alloc?.embryo_transfer_id || alloc?.aspiration_id || undefined,
+          allocation_name: alloc ? getAllocationName(alloc.allocation_type, alloc.animal_id || alloc.pregnancy_id || alloc.embryo_transfer_id || alloc.aspiration_id) : undefined,
+        };
+      });
 
       setItems(formattedItems);
     } catch (error) {
@@ -1368,20 +1492,26 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     
     if (!product || !store) return;
 
+    const storeToUse = selectedStore || defaultStore;
     const newItem: ReceivableItem = {
       product_id: selectedProduct,
       product_name: product.name,
       quantity,
       unit_price: unitPrice,
       total_price: quantity * unitPrice,
-      store_id: selectedStore,
+      store_id: storeToUse,
       store_name: store.name,
+      allocation_type: allocationType || undefined,
+      allocation_id: allocationId || undefined,
+      allocation_name: allocationType ? getAllocationName(allocationType, allocationId) : undefined,
     };
 
     setItems([...items, newItem]);
     setSelectedProduct("");
     setQuantity(1);
     setUnitPrice(0);
+    setAllocationType('');
+    setAllocationId('');
     setSelectedStore(defaultStore);
   };
 
@@ -1503,11 +1633,17 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         store_id: item.store_id,
       }));
 
-      const { error: itemsError } = await supabase
+      const { data: insertedItems, error: itemsError } = await supabase
         .from("accounts_receivable_items")
-        .insert(itemsToInsert);
+        .insert(itemsToInsert)
+        .select("id");
 
       if (itemsError) throw itemsError;
+
+      // Save allocations
+      if (insertedItems) {
+        await saveItemAllocations(items, insertedItems);
+      }
 
       // Set editing mode with the newly created account
       setEditingAccount({ ...accountData, id: accountData.id } as AccountReceivable);
@@ -1718,11 +1854,17 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             store_id: item.store_id,
           }));
 
-          const { error: itemsError } = await supabase
+          const { data: insertedItems2, error: itemsError } = await supabase
             .from("accounts_receivable_items")
-            .insert(itemsToInsert);
+            .insert(itemsToInsert)
+            .select("id");
 
           if (itemsError) throw itemsError;
+
+          // Save allocations
+          if (insertedItems2) {
+            await saveItemAllocations(items, insertedItems2);
+          }
 
           // Delete existing installments and insert new ones if configured
           await supabase
@@ -1799,11 +1941,17 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           store_id: item.store_id,
         }));
 
-        const { error: itemsError } = await supabase
+        const { data: insertedItems3, error: itemsError } = await supabase
           .from("accounts_receivable_items")
-          .insert(itemsToInsert);
+          .insert(itemsToInsert)
+          .select("id");
 
         if (itemsError) throw itemsError;
+
+        // Save allocations
+        if (insertedItems3) {
+          await saveItemAllocations(items, insertedItems3);
+        }
 
         // Insert installments if configured
         if (installments.length > 0) {
@@ -2887,6 +3035,107 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             </Select>
                           </div>
                         </div>
+                        {/* Alocação de receita */}
+                        <div className="space-y-3 border rounded-md p-3 bg-muted/30 mt-4">
+                          <Label className="text-sm font-medium">Alocar receita para (opcional)</Label>
+                          <div className="flex flex-wrap gap-4">
+                            {[
+                              { value: 'animal' as const, label: 'Animal' },
+                              { value: 'pregnancy' as const, label: 'Prenhez' },
+                              { value: 'embryo_transfer' as const, label: 'Pós Transf. Emb.' },
+                              { value: 'aspiration' as const, label: 'Aspiração' },
+                            ].map(opt => (
+                              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="receivable_allocation_type"
+                                  checked={allocationType === opt.value}
+                                  onChange={() => {
+                                    if (allocationType === opt.value) {
+                                      setAllocationType('');
+                                      setAllocationId('');
+                                    } else {
+                                      setAllocationType(opt.value);
+                                      setAllocationId('');
+                                    }
+                                  }}
+                                  disabled={isViewOnly}
+                                  className="accent-primary"
+                                />
+                                <span className="text-sm">{opt.label}</span>
+                              </label>
+                            ))}
+                            {allocationType && (
+                              <Button variant="ghost" size="sm" onClick={() => { setAllocationType(''); setAllocationId(''); }} disabled={isViewOnly}>
+                                <X className="h-3 w-3 mr-1" /> Limpar
+                              </Button>
+                            )}
+                          </div>
+
+                          {allocationType === 'animal' && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Selecionar Animal</Label>
+                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o animal" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allocationAnimals.map(a => (
+                                    <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {allocationType === 'pregnancy' && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Selecionar Prenhez (em andamento)</Label>
+                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a prenhez" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allocationPregnancies.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {allocationType === 'embryo_transfer' && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Selecionar Pós Transferência (em andamento)</Label>
+                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a pós transferência" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allocationEmbryoTransfers.map(e => (
+                                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {allocationType === 'aspiration' && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Selecionar Aspiração (pendente/em andamento)</Label>
+                              <Select value={allocationId} onValueChange={setAllocationId} disabled={isViewOnly}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a aspiração" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allocationAspirations.map(a => (
+                                    <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
 
                         <Button onClick={addItem} className="mt-4">
                           <Plus className="h-4 w-4 mr-2" />
@@ -2916,6 +3165,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 <TableHead>Valor Unit.</TableHead>
                                 <TableHead>Total</TableHead>
                                 <TableHead>Loja</TableHead>
+                                <TableHead>Alocação</TableHead>
                                 {!isViewOnly && !isAttachmentOnlyEdit && <TableHead>Ações</TableHead>}
                               </TableRow>
                             </TableHeader>
@@ -2927,6 +3177,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                   <TableCell>{item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                                   <TableCell>{item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                                   <TableCell>{item.store_name}</TableCell>
+                                  <TableCell>
+                                    {item.allocation_type ? (
+                                      <span className="text-xs">
+                                        <span className="font-medium">{getAllocationLabel(item.allocation_type)}</span>
+                                        {item.allocation_name && `: ${item.allocation_name}`}
+                                      </span>
+                                    ) : "-"}
+                                  </TableCell>
                                   {!isViewOnly && !isAttachmentOnlyEdit && (
                                     <TableCell>
                                       <Button
