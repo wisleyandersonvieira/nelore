@@ -1611,36 +1611,51 @@ const AnimaisGestaoAspiracoes = () => {
                     {renderFinTable(despesas, "Despesas")}
                     {renderFinTable(receitas, "Receitas")}
 
-                    <div className="border rounded-lg p-4 bg-muted/30">
-                      <div className={cn("grid gap-4 text-center", financialViewMode === "pagos" ? "grid-cols-4" : "grid-cols-3")}>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Receitas</p>
-                          <p className="text-lg font-semibold text-primary">
-                            {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Despesas</p>
-                          <p className="text-lg font-semibold text-destructive">
-                            {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </p>
-                        </div>
-                        {financialViewMode === "pagos" && (
+                     <div className="border rounded-lg p-4 bg-muted/30">
+                      {financialViewMode === "pagos" ? (
+                        <div className="grid grid-cols-3 gap-4 text-center">
                           <div>
-                            <p className="text-sm text-muted-foreground">Total Pago (Desp.)</p>
-                            <p className="text-lg font-semibold text-primary">
+                            <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
+                            <p className="text-lg font-semibold text-destructive">
                               {totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                             </p>
                           </div>
-                        )}
-                        <div>
-                          <p className="text-sm text-muted-foreground">Saldo</p>
-                          <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-primary" : "text-destructive")}>
-                            {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </p>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Receitas Recebidas</p>
+                            <p className="text-lg font-semibold text-blue-600">
+                              {totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Saldo</p>
+                            <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-blue-600" : "text-destructive")}>
+                              {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Receitas</p>
+                            <p className="text-lg font-semibold text-primary">
+                              {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Despesas</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Saldo</p>
+                            <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-primary" : "text-destructive")}>
+                              {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                     </div>
                   </>
                 );
               })()}
