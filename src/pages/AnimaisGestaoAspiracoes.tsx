@@ -913,77 +913,225 @@ const AnimaisGestaoAspiracoes = () => {
       doc.text(`Modo: ${financialViewMode === "pagos" ? "Pagos até Hoje" : "Geral"}`, 14, 34);
 
       const records = getFilteredFinRecords();
-      const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
+      const despesas = records.filter(r => r.record_type === 'expense');
+      const receitas = records.filter(r => r.record_type === 'revenue');
+      const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+      const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+      const saldo = financialViewMode === "pagos"
+        ? totalPagoReceitas - totalPagoDespesas
+        : totalReceitas - totalDespesas;
 
       if (tipo === "resumido") {
-        autoTable(doc, {
-          startY: 42,
-          head: [["Número", "Fornecedor", "Tipo Alocação", "Vlr Total", "Vencimento", "Pagamento", "Status"]],
-          body: records.map(r => [
-            r.document_number || "-",
-            r.supplier_name || "-",
-            getAllocationTypeLabel(r.allocation_type),
-            r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-            r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-            r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-            r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
-          ]),
-          foot: [["", "", "Total Despesas:", totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "", "", ""]],
-          theme: "grid",
-          headStyles: { fillColor: [66, 66, 66] },
-          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        });
-      } else {
-        const accountPayableIds = [...new Set(records.map(r => r.account_payable_id))];
-        const { data: allItems } = await supabase
-          .from("accounts_payable_items")
-          .select("*, products(name)")
-          .in("account_payable_id", accountPayableIds);
+        let startY = 42;
 
-        const itemsByAP = new Map<string, any[]>();
-        (allItems || []).forEach((item: any) => {
-          const list = itemsByAP.get(item.account_payable_id) || [];
+        // Despesas table
+        if (despesas.length > 0) {
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "bold");
+          doc.text("Despesas", 14, startY);
+          startY += 6;
+          autoTable(doc, {
+            startY,
+            head: [["Número", "Fornecedor", "Tipo", "Vlr Total", financialViewMode === "pagos" ? "Pago" : "", "Vencimento", "Pagamento", "Status"].filter(Boolean)],
+            body: despesas.map(r => [
+              r.document_number || "-",
+              r.supplier_name || "-",
+              getAllocationTypeLabel(r.allocation_type),
+              r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              ...(financialViewMode === "pagos" ? [r.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })] : []),
+              r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+              r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+              r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : r.status === "pending" ? "Pendente" : r.status,
+            ]),
+            theme: "grid",
+            headStyles: { fillColor: [66, 66, 66] },
+          });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // Receitas table
+        if (receitas.length > 0) {
+          if (startY > 250) { doc.addPage(); startY = 20; }
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "bold");
+          doc.text("Receitas", 14, startY);
+          startY += 6;
+          autoTable(doc, {
+            startY,
+            head: [["Número", "Credor", "Tipo", "Vlr Total", financialViewMode === "pagos" ? "Recebido" : "", "Vencimento", "Pagamento", "Status"].filter(Boolean)],
+            body: receitas.map(r => [
+              r.document_number || "-",
+              r.creditor_name || "-",
+              getAllocationTypeLabel(r.allocation_type),
+              r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              ...(financialViewMode === "pagos" ? [r.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })] : []),
+              r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+              r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+              r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : r.status === "pending" ? "Pendente" : r.status,
+            ]),
+            theme: "grid",
+            headStyles: { fillColor: [66, 66, 66] },
+          });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // Summary footer
+        if (startY > 260) { doc.addPage(); startY = 20; }
+        if (financialViewMode === "pagos") {
+          autoTable(doc, {
+            startY,
+            head: [["Total Despesas Pagas", "Total Receitas Recebidas", "Saldo"]],
+            body: [[
+              totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+            ]],
+            theme: "grid",
+            headStyles: { fillColor: [100, 100, 100] },
+            bodyStyles: { fontStyle: "bold" },
+          });
+        } else {
+          autoTable(doc, {
+            startY,
+            head: [["Total Despesas", "Total Receitas", "Saldo"]],
+            body: [[
+              totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+            ]],
+            theme: "grid",
+            headStyles: { fillColor: [100, 100, 100] },
+            bodyStyles: { fontStyle: "bold" },
+          });
+        }
+      } else {
+        // Detalhado
+        const expenseAPIds = [...new Set(despesas.map(r => r.account_payable_id).filter(Boolean))];
+        const revenueARIds = [...new Set(receitas.map(r => r.account_receivable_id).filter(Boolean))];
+
+        const { data: expItems } = expenseAPIds.length > 0
+          ? await supabase.from("accounts_payable_items").select("*, products(name)").in("account_payable_id", expenseAPIds)
+          : { data: [] };
+        const { data: revItems } = revenueARIds.length > 0
+          ? await supabase.from("accounts_receivable_items").select("*, products(name)").in("account_receivable_id", revenueARIds)
+          : { data: [] };
+
+        const expItemsByAP = new Map<string, any[]>();
+        (expItems || []).forEach((item: any) => {
+          const list = expItemsByAP.get(item.account_payable_id) || [];
           list.push(item);
-          itemsByAP.set(item.account_payable_id, list);
+          expItemsByAP.set(item.account_payable_id, list);
+        });
+
+        const revItemsByAR = new Map<string, any[]>();
+        (revItems || []).forEach((item: any) => {
+          const list = revItemsByAR.get(item.account_receivable_id) || [];
+          list.push(item);
+          revItemsByAR.set(item.account_receivable_id, list);
         });
 
         let currentY = 42;
-        records.forEach((record, index) => {
-          if (currentY > 250) { doc.addPage(); currentY = 20; }
-          doc.setFontSize(11);
+
+        // Despesas section
+        if (despesas.length > 0) {
+          doc.setFontSize(13);
           doc.setFont("helvetica", "bold");
-          doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`, 14, currentY);
-          currentY += 6;
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY);
-          currentY += 4;
-          doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
-          currentY += 6;
+          doc.text("Despesas", 14, currentY);
+          currentY += 8;
 
-          const items = itemsByAP.get(record.account_payable_id) || [];
-          if (items.length > 0) {
-            autoTable(doc, {
-              startY: currentY,
-              head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]],
-              body: items.map((it: any) => [
-                it.products?.name || "-", it.quantity,
-                it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-                it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-              ]),
-              theme: "grid",
-              headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
-              bodyStyles: { fontSize: 8 },
-              margin: { left: 20, right: 20 },
-            });
-            currentY = (doc as any).lastAutoTable.finalY + 8;
-          } else { currentY += 4; }
-        });
+          despesas.forEach((record, index) => {
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`, 14, currentY);
+            currentY += 6;
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY);
+            currentY += 4;
+            doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${financialViewMode === "pagos" ? ` | Pago: ${record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}`, 14, currentY);
+            currentY += 6;
 
+            const items = expItemsByAP.get(record.account_payable_id) || [];
+            if (items.length > 0) {
+              autoTable(doc, {
+                startY: currentY,
+                head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]],
+                body: items.map((it: any) => [
+                  it.products?.name || "-", it.quantity,
+                  it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+                  it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+                ]),
+                theme: "grid",
+                headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+                bodyStyles: { fontSize: 8 },
+                margin: { left: 20, right: 20 },
+              });
+              currentY = (doc as any).lastAutoTable.finalY + 8;
+            } else { currentY += 4; }
+          });
+        }
+
+        // Receitas section
+        if (receitas.length > 0) {
+          if (currentY > 250) { doc.addPage(); currentY = 20; }
+          doc.setFontSize(13);
+          doc.setFont("helvetica", "bold");
+          doc.text("Receitas", 14, currentY);
+          currentY += 8;
+
+          receitas.forEach((record, index) => {
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Credor: ${record.creditor_name || "-"}`, 14, currentY);
+            currentY += 6;
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY);
+            currentY += 4;
+            doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${financialViewMode === "pagos" ? ` | Recebido: ${record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}`, 14, currentY);
+            currentY += 6;
+
+            const items = revItemsByAR.get(record.account_receivable_id) || [];
+            if (items.length > 0) {
+              autoTable(doc, {
+                startY: currentY,
+                head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]],
+                body: items.map((it: any) => [
+                  it.products?.name || "-", it.quantity,
+                  it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+                  it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+                ]),
+                theme: "grid",
+                headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+                bodyStyles: { fontSize: 8 },
+                margin: { left: 20, right: 20 },
+              });
+              currentY = (doc as any).lastAutoTable.finalY + 8;
+            } else { currentY += 4; }
+          });
+        }
+
+        // Summary footer
         if (currentY > 260) { doc.addPage(); currentY = 20; }
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+        if (financialViewMode === "pagos") {
+          doc.text(`Total Despesas Pagas: ${totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+          currentY += 7;
+          doc.text(`Total Receitas Recebidas: ${totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+          currentY += 7;
+          doc.text(`Saldo: ${saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+        } else {
+          doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+          currentY += 7;
+          doc.text(`Total Receitas: ${totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+          currentY += 7;
+          doc.text(`Saldo: ${saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+        }
       }
 
       doc.save(`financeiro_aspiracao_${name.replace(/\s+/g, "_")}_${tipo}.pdf`);
@@ -996,21 +1144,54 @@ const AnimaisGestaoAspiracoes = () => {
 
   const generateAspirationFinancialExcel = () => {
     const records = getFilteredFinRecords();
-    const data = records.map(r => ({
+    const despesas = records.filter(r => r.record_type === 'expense');
+    const receitas = records.filter(r => r.record_type === 'revenue');
+    const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+    const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+    const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+    const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+    const saldo = financialViewMode === "pagos"
+      ? totalPagoReceitas - totalPagoDespesas
+      : totalReceitas - totalDespesas;
+    const isPagos = financialViewMode === "pagos";
+
+    const wb = XLSX.utils.book_new();
+
+    // Despesas sheet
+    const despData = despesas.map(r => ({
       "Número": r.document_number || "-",
       "Fornecedor": r.supplier_name || "-",
       "Tipo Alocação": getAllocationTypeLabel(r.allocation_type),
       "Valor Total": r.item_total_price,
+      ...(isPagos ? { "Pago": r.paid_amount } : {}),
       "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
       "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
-      "Status": r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
+      "Status": r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : r.status === "pending" ? "Pendente" : r.status,
     }));
-    const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
-    data.push({ "Número": "", "Fornecedor": "", "Tipo Alocação": "TOTAL DESPESAS", "Valor Total": totalDespesas, "Vencimento": "", "Pagamento": "", "Status": "" });
+    const wsDespesas = XLSX.utils.json_to_sheet(despData);
+    XLSX.utils.book_append_sheet(wb, wsDespesas, "Despesas");
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Financeiro");
+    // Receitas sheet
+    const recData = receitas.map(r => ({
+      "Número": r.document_number || "-",
+      "Credor": r.creditor_name || "-",
+      "Tipo Alocação": getAllocationTypeLabel(r.allocation_type),
+      "Valor Total": r.item_total_price,
+      ...(isPagos ? { "Recebido": r.paid_amount } : {}),
+      "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+      "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+      "Status": r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : r.status === "pending" ? "Pendente" : r.status,
+    }));
+    const wsReceitas = XLSX.utils.json_to_sheet(recData);
+    XLSX.utils.book_append_sheet(wb, wsReceitas, "Receitas");
+
+    // Resumo sheet
+    const resumoData = isPagos
+      ? [{ "Descrição": "Total Despesas Pagas", "Valor": totalPagoDespesas }, { "Descrição": "Total Receitas Recebidas", "Valor": totalPagoReceitas }, { "Descrição": "Saldo", "Valor": saldo }]
+      : [{ "Descrição": "Total Despesas", "Valor": totalDespesas }, { "Descrição": "Total Receitas", "Valor": totalReceitas }, { "Descrição": "Saldo", "Valor": saldo }];
+    const wsResumo = XLSX.utils.json_to_sheet(resumoData);
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
     const name = selectedRecord?.name || "Aspiracao";
     XLSX.writeFile(wb, `financeiro_aspiracao_${name.replace(/\s+/g, "_")}.xlsx`);
     toast({ title: "Excel gerado com sucesso!" });
