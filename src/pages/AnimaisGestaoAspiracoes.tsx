@@ -23,12 +23,13 @@ import {
   Pagination, PaginationContent, PaginationItem, PaginationLink,
   PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { useDebounce } from "@/hooks/useDebounce";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -151,6 +152,22 @@ const AnimaisGestaoAspiracoes = () => {
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
   const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
+
+  // Financial data state
+  interface AspirationFinancialRecord {
+    id: string;
+    document_number: string | null;
+    due_date: string;
+    payment_date: string | null;
+    status: string;
+    supplier_name: string | null;
+    allocation_type: string;
+    item_total_price: number;
+    account_payable_id: string;
+  }
+  const [financialRecords, setFinancialRecords] = useState<AspirationFinancialRecord[]>([]);
+  const [loadingFinancial, setLoadingFinancial] = useState(false);
+  const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
 
   useEffect(() => {
     fetchRecords();
@@ -467,6 +484,7 @@ const AnimaisGestaoAspiracoes = () => {
   const handleOpenModal = async (mode: "view" | "edit" | "create", record?: AspirationRecord) => {
     setModalMode(mode);
     setActiveTab("dados");
+    setFinancialRecords([]);
 
     if (mode === "create") {
       const nextCode = await getNextCode();
@@ -504,6 +522,7 @@ const AnimaisGestaoAspiracoes = () => {
           }
         }
       }
+      fetchAspirationFinancial(record.id);
     }
     setModalOpen(true);
   };
@@ -701,6 +720,198 @@ const AnimaisGestaoAspiracoes = () => {
       return embryoRows[i] || { sire_id: "", recipient_id: "", recipientName: "" };
     });
     setEmbryoRows(newRows);
+  };
+
+  const fetchAspirationFinancial = async (aspirationId: string) => {
+    setLoadingFinancial(true);
+    try {
+      const { data: allocations, error } = await supabase
+        .from("accounts_payable_item_allocations")
+        .select(`
+          id, allocation_type, account_payable_item_id,
+          accounts_payable_items!inner (
+            total_price, account_payable_id, product_id, quantity, unit_price,
+            accounts_payable!inner (
+              id, document_number, due_date, payment_date, status, supplier_id
+            )
+          )
+        `)
+        .eq("aspiration_id", aspirationId);
+
+      if (error) throw error;
+      if (!allocations || allocations.length === 0) {
+        setFinancialRecords([]);
+        return;
+      }
+
+      const supplierIds = new Set<string>();
+      allocations.forEach((a: any) => {
+        const sid = a.accounts_payable_items?.accounts_payable?.supplier_id;
+        if (sid) supplierIds.add(sid);
+      });
+
+      const suppliersMap = new Map<string, string>();
+      if (supplierIds.size > 0) {
+        const { data: suppliers } = await supabase.from("suppliers").select("id, name").in("id", Array.from(supplierIds));
+        (suppliers || []).forEach((s: any) => suppliersMap.set(s.id, s.name));
+      }
+
+      const records: AspirationFinancialRecord[] = allocations.map((a: any) => {
+        const item = a.accounts_payable_items;
+        const ap = item?.accounts_payable;
+        return {
+          id: a.id,
+          document_number: ap?.document_number || null,
+          due_date: ap?.due_date || "",
+          payment_date: ap?.payment_date || null,
+          status: ap?.status || "",
+          supplier_name: ap?.supplier_id ? suppliersMap.get(ap.supplier_id) || null : null,
+          allocation_type: a.allocation_type,
+          item_total_price: item?.total_price || 0,
+          account_payable_id: ap?.id || "",
+        };
+      });
+
+      setFinancialRecords(records);
+    } catch (error) {
+      console.error("Error fetching aspiration financial:", error);
+      setFinancialRecords([]);
+    } finally {
+      setLoadingFinancial(false);
+    }
+  };
+
+  const getAllocationTypeLabel = (type: string) => {
+    switch (type) {
+      case "animal": return "Animal";
+      case "pregnancy": return "Prenhez";
+      case "embryo_transfer": return "Pós Transf. Emb.";
+      case "aspiration": return "Aspiração";
+      default: return type;
+    }
+  };
+
+  const getFilteredFinRecords = () => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    return financialViewMode === "pagos"
+      ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
+      : financialRecords;
+  };
+
+  const generateAspirationFinancialPDF = async (tipo: "resumido" | "detalhado") => {
+    try {
+      const doc = new jsPDF();
+      const name = selectedRecord?.name || "Aspiração";
+      const code = selectedRecord?.code || "";
+
+      doc.setFontSize(16);
+      doc.text(`Relatório Financeiro - ${name} (Cód: ${code})`, 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, 28);
+      doc.text(`Modo: ${financialViewMode === "pagos" ? "Pagos até Hoje" : "Geral"}`, 14, 34);
+
+      const records = getFilteredFinRecords();
+      const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
+
+      if (tipo === "resumido") {
+        autoTable(doc, {
+          startY: 42,
+          head: [["Número", "Fornecedor", "Tipo Alocação", "Vlr Total", "Vencimento", "Pagamento", "Status"]],
+          body: records.map(r => [
+            r.document_number || "-",
+            r.supplier_name || "-",
+            getAllocationTypeLabel(r.allocation_type),
+            r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+            r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+            r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+            r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
+          ]),
+          foot: [["", "", "Total Despesas:", totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "", "", ""]],
+          theme: "grid",
+          headStyles: { fillColor: [66, 66, 66] },
+          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+        });
+      } else {
+        const accountPayableIds = [...new Set(records.map(r => r.account_payable_id))];
+        const { data: allItems } = await supabase
+          .from("accounts_payable_items")
+          .select("*, products(name)")
+          .in("account_payable_id", accountPayableIds);
+
+        const itemsByAP = new Map<string, any[]>();
+        (allItems || []).forEach((item: any) => {
+          const list = itemsByAP.get(item.account_payable_id) || [];
+          list.push(item);
+          itemsByAP.set(item.account_payable_id, list);
+        });
+
+        let currentY = 42;
+        records.forEach((record, index) => {
+          if (currentY > 250) { doc.addPage(); currentY = 20; }
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`, 14, currentY);
+          currentY += 6;
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY);
+          currentY += 4;
+          doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+          currentY += 6;
+
+          const items = itemsByAP.get(record.account_payable_id) || [];
+          if (items.length > 0) {
+            autoTable(doc, {
+              startY: currentY,
+              head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]],
+              body: items.map((it: any) => [
+                it.products?.name || "-", it.quantity,
+                it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+                it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+              ]),
+              theme: "grid",
+              headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+              bodyStyles: { fontSize: 8 },
+              margin: { left: 20, right: 20 },
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 8;
+          } else { currentY += 4; }
+        });
+
+        if (currentY > 260) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+      }
+
+      doc.save(`financeiro_aspiracao_${name.replace(/\s+/g, "_")}_${tipo}.pdf`);
+      toast({ title: "PDF gerado com sucesso!" });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    }
+  };
+
+  const generateAspirationFinancialExcel = () => {
+    const records = getFilteredFinRecords();
+    const data = records.map(r => ({
+      "Número": r.document_number || "-",
+      "Fornecedor": r.supplier_name || "-",
+      "Tipo Alocação": getAllocationTypeLabel(r.allocation_type),
+      "Valor Total": r.item_total_price,
+      "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+      "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-",
+      "Status": r.status === "paid" ? "Pago" : r.status === "pending" ? "Pendente" : r.status,
+    }));
+    const totalDespesas = records.reduce((sum, r) => sum + r.item_total_price, 0);
+    data.push({ "Número": "", "Fornecedor": "", "Tipo Alocação": "TOTAL DESPESAS", "Valor Total": totalDespesas, "Vencimento": "", "Pagamento": "", "Status": "" });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Financeiro");
+    const name = selectedRecord?.name || "Aspiracao";
+    XLSX.writeFile(wb, `financeiro_aspiracao_${name.replace(/\s+/g, "_")}.xlsx`);
+    toast({ title: "Excel gerado com sucesso!" });
   };
 
   return (
@@ -987,7 +1198,7 @@ const AnimaisGestaoAspiracoes = () => {
 
       {/* Create/Edit/View Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "view" ? "Visualizar Registro" : modalMode === "edit" ? "Editar Registro" : "Novo Registro de Aspiração"}
@@ -1001,7 +1212,7 @@ const AnimaisGestaoAspiracoes = () => {
               {modalMode === "view" && selectedRecord?.status === "finalized" && (
                 <TabsTrigger value="resultado">Resultado</TabsTrigger>
               )}
-              <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
+              <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
 
@@ -1185,8 +1396,116 @@ const AnimaisGestaoAspiracoes = () => {
               </TabsContent>
             )}
 
-            <TabsContent value="financeiro" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
+            <TabsContent value="financeiro" className="space-y-4 mt-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Financeiro
+                </h3>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant={financialViewMode === "geral" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("geral")}>Visualizar Geral</Button>
+                  <Button variant={financialViewMode === "pagos" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("pagos")}>Pagos até Hoje</Button>
+                  <Button variant="outline" size="sm" onClick={() => generateAspirationFinancialPDF("resumido")} disabled={financialRecords.length === 0}>
+                    <FileText className="h-4 w-4 mr-1" />PDF Resumido
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => generateAspirationFinancialPDF("detalhado")} disabled={financialRecords.length === 0}>
+                    <FileText className="h-4 w-4 mr-1" />PDF Detalhado
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={generateAspirationFinancialExcel} disabled={financialRecords.length === 0}>
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />Excel
+                  </Button>
+                </div>
+              </div>
+
+              {loadingFinancial ? (
+                <p className="text-center text-muted-foreground py-8">Carregando dados financeiros...</p>
+              ) : (() => {
+                const today = format(new Date(), "yyyy-MM-dd");
+                const filteredRecs = financialViewMode === "pagos"
+                  ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
+                  : financialRecords;
+
+                const despesas = filteredRecs;
+                const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+                const totalReceitas = 0;
+                const saldo = totalReceitas - totalDespesas;
+
+                return (
+                  <>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-base border-b pb-1">Despesas</h4>
+                      {despesas.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4">Nenhuma despesa registrada.</p>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Número</TableHead>
+                                <TableHead>Fornecedor</TableHead>
+                                <TableHead>Tipo Alocação</TableHead>
+                                <TableHead className="text-right">Vlr Total</TableHead>
+                                <TableHead>Vencimento</TableHead>
+                                <TableHead>Pagamento</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {despesas.map((record) => (
+                                <TableRow key={record.id}>
+                                  <TableCell>{record.document_number || "-"}</TableCell>
+                                  <TableCell>{record.supplier_name || "-"}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  </TableCell>
+                                  <TableCell>{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                  <TableCell>{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={record.status === "paid" ? "default" : "secondary"}>
+                                      {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-base border-b pb-1">Receitas</h4>
+                      <p className="text-center text-muted-foreground py-4">Nenhuma receita registrada.</p>
+                    </div>
+
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Receitas</p>
+                          <p className="text-lg font-semibold text-primary">
+                            {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Despesas</p>
+                          <p className="text-lg font-semibold text-destructive">
+                            {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Saldo</p>
+                          <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-primary" : "text-destructive")}>
+                            {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </TabsContent>
             <TabsContent value="proprietarios" className="mt-4">
               <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
