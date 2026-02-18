@@ -308,22 +308,58 @@ const AnimaisGestaoPrenhez = () => {
         // Sum Pós TE totals for rateio (no division - same cost passes through)
         let teTotalExpense = 0; let tePaidExpense = 0;
         if (teExpAllocations && teExpAllocations.length > 0) {
-          teExpAllocations.forEach((a: any) => { teTotalExpense += a.accounts_payable_items?.total_price || 0; });
-          const teApIds = [...new Set(teExpAllocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
+          // Build a map of AP id -> { totalItemPrice, status }
+          const teApMap = new Map<string, { totalItemPrice: number; status: string }>();
+          teExpAllocations.forEach((a: any) => {
+            const itemPrice = a.accounts_payable_items?.total_price || 0;
+            teTotalExpense += itemPrice;
+            const apId = a.accounts_payable_items?.accounts_payable?.id;
+            const apStatus = a.accounts_payable_items?.accounts_payable?.status || "";
+            if (apId) {
+              const existing = teApMap.get(apId);
+              if (existing) { existing.totalItemPrice += itemPrice; }
+              else { teApMap.set(apId, { totalItemPrice: itemPrice, status: apStatus }); }
+            }
+          });
+          const teApIds = Array.from(teApMap.keys());
           if (teApIds.length > 0) {
             const today = format(new Date(), "yyyy-MM-dd");
             const { data: tePay } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", teApIds).lte("payment_date", today);
-            (tePay || []).forEach((p: any) => { tePaidExpense += p.amount_paid || 0; });
+            const tePayMap = new Map<string, number>();
+            (tePay || []).forEach((p: any) => { tePayMap.set(p.account_payable_id, (tePayMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0)); });
+            // For each AP: use payment sum if available, else fallback to item total if status is paid
+            teApMap.forEach((info, apId) => {
+              const paymentSum = tePayMap.get(apId) || 0;
+              if (paymentSum > 0) { tePaidExpense += paymentSum; }
+              else if (info.status === "paid") { tePaidExpense += info.totalItemPrice; }
+            });
           }
         }
         let teTotalRevenue = 0; let tePaidRevenue = 0;
         if (teRevAllocations && teRevAllocations.length > 0) {
-          teRevAllocations.forEach((a: any) => { teTotalRevenue += a.accounts_receivable_items?.total_price || 0; });
-          const teArIds = [...new Set(teRevAllocations.map((a: any) => a.accounts_receivable_items?.accounts_receivable?.id).filter(Boolean))];
+          const teArMap = new Map<string, { totalItemPrice: number; status: string }>();
+          teRevAllocations.forEach((a: any) => {
+            const itemPrice = a.accounts_receivable_items?.total_price || 0;
+            teTotalRevenue += itemPrice;
+            const arId = a.accounts_receivable_items?.accounts_receivable?.id;
+            const arStatus = a.accounts_receivable_items?.accounts_receivable?.status || "";
+            if (arId) {
+              const existing = teArMap.get(arId);
+              if (existing) { existing.totalItemPrice += itemPrice; }
+              else { teArMap.set(arId, { totalItemPrice: itemPrice, status: arStatus }); }
+            }
+          });
+          const teArIds = Array.from(teArMap.keys());
           if (teArIds.length > 0) {
             const today = format(new Date(), "yyyy-MM-dd");
             const { data: teRecPay } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", teArIds).lte("payment_date", today);
-            (teRecPay || []).forEach((p: any) => { tePaidRevenue += p.amount_paid || 0; });
+            const teRecPayMap = new Map<string, number>();
+            (teRecPay || []).forEach((p: any) => { teRecPayMap.set(p.account_receivable_id, (teRecPayMap.get(p.account_receivable_id) || 0) + (p.amount_paid || 0)); });
+            teArMap.forEach((info, arId) => {
+              const paymentSum = teRecPayMap.get(arId) || 0;
+              if (paymentSum > 0) { tePaidRevenue += paymentSum; }
+              else if (info.status === "paid") { tePaidRevenue += info.totalItemPrice; }
+            });
           }
         }
 
@@ -352,22 +388,56 @@ const AnimaisGestaoPrenhez = () => {
 
         let aspTotalExpense = 0; let aspPaidExpense = 0;
         if (aspExpAllocations && aspExpAllocations.length > 0) {
-          aspExpAllocations.forEach((a: any) => { aspTotalExpense += a.accounts_payable_items?.total_price || 0; });
-          const aspApIds = [...new Set(aspExpAllocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
+          const aspApMap = new Map<string, { totalItemPrice: number; status: string }>();
+          aspExpAllocations.forEach((a: any) => {
+            const itemPrice = a.accounts_payable_items?.total_price || 0;
+            aspTotalExpense += itemPrice;
+            const apId = a.accounts_payable_items?.accounts_payable?.id;
+            const apStatus = a.accounts_payable_items?.accounts_payable?.status || "";
+            if (apId) {
+              const existing = aspApMap.get(apId);
+              if (existing) { existing.totalItemPrice += itemPrice; }
+              else { aspApMap.set(apId, { totalItemPrice: itemPrice, status: apStatus }); }
+            }
+          });
+          const aspApIds = Array.from(aspApMap.keys());
           if (aspApIds.length > 0) {
             const today = format(new Date(), "yyyy-MM-dd");
             const { data: aspPay } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", aspApIds).lte("payment_date", today);
-            (aspPay || []).forEach((p: any) => { aspPaidExpense += p.amount_paid || 0; });
+            const aspPayMap = new Map<string, number>();
+            (aspPay || []).forEach((p: any) => { aspPayMap.set(p.account_payable_id, (aspPayMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0)); });
+            aspApMap.forEach((info, apId) => {
+              const paymentSum = aspPayMap.get(apId) || 0;
+              if (paymentSum > 0) { aspPaidExpense += paymentSum; }
+              else if (info.status === "paid") { aspPaidExpense += info.totalItemPrice; }
+            });
           }
         }
         let aspTotalRevenue = 0; let aspPaidRevenue = 0;
         if (aspRevAllocations && aspRevAllocations.length > 0) {
-          aspRevAllocations.forEach((a: any) => { aspTotalRevenue += a.accounts_receivable_items?.total_price || 0; });
-          const aspArIds = [...new Set(aspRevAllocations.map((a: any) => a.accounts_receivable_items?.accounts_receivable?.id).filter(Boolean))];
+          const aspArMap = new Map<string, { totalItemPrice: number; status: string }>();
+          aspRevAllocations.forEach((a: any) => {
+            const itemPrice = a.accounts_receivable_items?.total_price || 0;
+            aspTotalRevenue += itemPrice;
+            const arId = a.accounts_receivable_items?.accounts_receivable?.id;
+            const arStatus = a.accounts_receivable_items?.accounts_receivable?.status || "";
+            if (arId) {
+              const existing = aspArMap.get(arId);
+              if (existing) { existing.totalItemPrice += itemPrice; }
+              else { aspArMap.set(arId, { totalItemPrice: itemPrice, status: arStatus }); }
+            }
+          });
+          const aspArIds = Array.from(aspArMap.keys());
           if (aspArIds.length > 0) {
             const today = format(new Date(), "yyyy-MM-dd");
             const { data: aspRecPay } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", aspArIds).lte("payment_date", today);
-            (aspRecPay || []).forEach((p: any) => { aspPaidRevenue += p.amount_paid || 0; });
+            const aspRecPayMap = new Map<string, number>();
+            (aspRecPay || []).forEach((p: any) => { aspRecPayMap.set(p.account_receivable_id, (aspRecPayMap.get(p.account_receivable_id) || 0) + (p.amount_paid || 0)); });
+            aspArMap.forEach((info, arId) => {
+              const paymentSum = aspRecPayMap.get(arId) || 0;
+              if (paymentSum > 0) { aspPaidRevenue += paymentSum; }
+              else if (info.status === "paid") { aspPaidRevenue += info.totalItemPrice; }
+            });
           }
         }
 
