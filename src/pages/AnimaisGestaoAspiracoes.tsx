@@ -1754,26 +1754,26 @@ const AnimaisGestaoAspiracoes = () => {
                         <Table>
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
-                              <TableHead className="py-1 text-xs">Número</TableHead>
-                              <TableHead className="py-1 text-xs max-w-[180px]">{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
-                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Tipo" : "Tipo Alocação"}</TableHead>
-                              <TableHead className="py-1 text-xs text-right">Vlr Total</TableHead>
+                              <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
+                              <TableHead className="py-1 text-xs w-[22%] max-w-[180px]">{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[14%]">{financialViewMode === "pagos" ? "Tipo" : "Tipo Alocação"}</TableHead>
+                              <TableHead className="py-1 text-xs text-right w-[12%]">Vlr Total</TableHead>
                               {financialViewMode === "pagos" && (
                                 <>
-                                  <TableHead className="py-1 text-xs text-right">Pago</TableHead>
-                                  <TableHead className="py-1 text-xs text-right">Pendente</TableHead>
+                                  <TableHead className="py-1 text-xs text-right w-[10%]">Pago</TableHead>
+                                  <TableHead className="py-1 text-xs text-right w-[10%]">Pendente</TableHead>
                                 </>
                               )}
-                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
-                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
-                              <TableHead className="py-1 text-xs">Status</TableHead>
+                              <TableHead className="py-1 text-xs w-[12%]">{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[12%]">{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[10%]">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {records.map((record) => {
                               const valorPendente = record.item_total_price - record.paid_amount;
                               return (
-                              <TableRow key={record.id} className="h-5">
+                              <TableRow key={record.id} className="h-6">
                                 <TableCell className="py-1 text-xs">{record.document_number || "-"}</TableCell>
                                 <TableCell className="py-1 text-xs max-w-[180px] truncate">{record.supplier_name || record.creditor_name || "-"}</TableCell>
                                 <TableCell className="py-1 text-xs">
