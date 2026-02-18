@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -91,17 +92,18 @@ const AccountsReceivableReport = () => {
     setLoading(true);
     try {
       // Fetch accounts with creditors, stores and installments - only pending or partial
-      const { data: allAccounts, error } = await supabase
-        .from("accounts_receivable")
-        .select(`
-          *,
-          creditors(id, name),
-          stores(id, name),
-          accounts_receivable_installments(*)
-        `)
-        .in('status', ['pending', 'partial']) as { data: any[] | null; error: any };
-
-      if (error) throw error;
+      // Using paginated fetch to avoid Supabase 1000-row limit
+      const allAccounts = await fetchAllPaginated(() =>
+        supabase
+          .from("accounts_receivable")
+          .select(`
+            *,
+            creditors(id, name),
+            stores(id, name),
+            accounts_receivable_installments(*)
+          `)
+          .in('status', ['pending', 'partial'])
+      );
 
       // Expand installments - show only pending installments
       let accountsData: any[] = [];

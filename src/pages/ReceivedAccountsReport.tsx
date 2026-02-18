@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -91,29 +92,30 @@ const ReceivedAccountsReport = () => {
     setLoading(true);
     try {
       // Fetch accounts with creditors, stores, installments and items with products including subgroups
-      const { data: allAccounts, error } = await supabase
-        .from("accounts_receivable")
-        .select(`
-          *,
-          creditors(id, name),
-          stores(id, name),
-          accounts_receivable_installments(*),
-          accounts_receivable_items(
-            id,
-            product_id,
-            quantity,
-            unit_price,
-            total_price,
-            products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
-          )
-        `) as { data: any[] | null; error: any };
+      // Using paginated fetch to avoid Supabase 1000-row limit
+      const allAccounts = await fetchAllPaginated(() =>
+        supabase
+          .from("accounts_receivable")
+          .select(`
+            *,
+            creditors(id, name),
+            stores(id, name),
+            accounts_receivable_installments(*),
+            accounts_receivable_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+            )
+          `)
+      );
 
-      if (error) throw error;
-
-      // Fetch payments data
-      const { data: paymentsData } = await supabase
-        .from("accounts_receivable_payments")
-        .select(`*`);
+      // Fetch payments data with pagination
+      const paymentsData = await fetchAllPaginated(() =>
+        supabase.from("accounts_receivable_payments").select(`*`)
+      );
 
       // Create a map of payments by installment_id
       const paymentsByInstallmentId: { [key: string]: any } = {};

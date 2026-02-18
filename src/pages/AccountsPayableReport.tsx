@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -91,7 +92,9 @@ const AccountsPayableReport = () => {
     setLoading(true);
     try {
       // Fetch accounts with suppliers, employees, stores, installments and items with products
-      const { data: allAccounts, error } = (await supabase.from("accounts_payable").select(`
+      // Using paginated fetch to avoid Supabase 1000-row limit
+      const allAccounts = await fetchAllPaginated(() =>
+        supabase.from("accounts_payable").select(`
           *,
           suppliers(id, name),
           employees(id, name),
@@ -111,9 +114,8 @@ const AccountsPayableReport = () => {
             total_price,
             products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
           )
-        `)) as { data: any[] | null; error: any };
-
-      if (error) throw error;
+        `)
+      );
 
       // Filter for unpaid accounts only and expand installments
       let accountsData: any[] = [];
