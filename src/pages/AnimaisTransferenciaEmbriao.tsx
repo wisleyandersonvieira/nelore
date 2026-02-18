@@ -57,6 +57,7 @@ interface EmbryoTransferRecord {
   farm_type: string | null;
   status: string;
   store_id: string;
+  aspiration_id: string | null;
 }
 
 interface Breed { id: string; name: string; }
@@ -102,6 +103,7 @@ const AnimaisTransferenciaEmbriao = () => {
     account_receivable_id: string;
     paid_amount: number;
     record_type: 'expense' | 'revenue';
+    is_rateio?: boolean;
   }
   const [financialRecords, setFinancialRecords] = useState<TEFinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
@@ -506,11 +508,12 @@ const AnimaisTransferenciaEmbriao = () => {
       case "pregnancy": return "Prenhez";
       case "embryo_transfer": return "Pós Transf. Emb.";
       case "aspiration": return "Aspiração";
+      case "aspiration_rateio": return "Rateio de Aspiração";
       default: return type;
     }
   };
 
-  const fetchTEFinancial = async (teId: string) => {
+  const fetchTEFinancial = async (teId: string, aspirationId?: string | null) => {
     setLoadingFinancial(true);
     try {
       const { data: expenseAllocations, error: expError } = await supabase
@@ -594,6 +597,115 @@ const AnimaisTransferenciaEmbriao = () => {
           const arId = ar?.id || "";
           allRecords.push({ id: a.id, document_number: ar?.document_number || null, due_date: ar?.due_date || "", payment_date: ar?.payment_date || null, status: ar?.status || "", supplier_name: null, creditor_name: ar?.creditor_id ? creditorsMap.get(ar.creditor_id) || null : null, allocation_type: a.allocation_type, item_total_price: item?.total_price || 0, account_payable_id: "", account_receivable_id: arId, paid_amount: paidRecAmountsMap.get(arId) || 0, record_type: 'revenue' });
         });
+      }
+
+      // Fetch aspiration rateio if aspirationId exists
+      if (aspirationId) {
+        // Get embryo_count from aspiration
+        const { data: aspirationData } = await supabase
+          .from("aspiration_management")
+          .select("embryo_count")
+          .eq("id", aspirationId)
+          .single();
+        const embryoCount = aspirationData?.embryo_count || 1;
+
+        // Fetch aspiration expense allocations
+        const { data: aspExpAllocations } = await supabase
+          .from("accounts_payable_item_allocations")
+          .select(`
+            id, allocation_type, account_payable_item_id,
+            accounts_payable_items!inner (
+              total_price, account_payable_id,
+              accounts_payable!inner (
+                id, status, supplier_id
+              )
+            )
+          `)
+          .eq("aspiration_id", aspirationId);
+
+        // Fetch aspiration revenue allocations
+        const { data: aspRevAllocations } = await supabase
+          .from("accounts_receivable_item_allocations")
+          .select(`
+            id, allocation_type, account_receivable_item_id,
+            accounts_receivable_items!inner (
+              total_price, account_receivable_id,
+              accounts_receivable!inner (
+                id, status, creditor_id
+              )
+            )
+          `)
+          .eq("aspiration_id", aspirationId);
+
+        // Sum total expenses from aspiration
+        let aspTotalExpense = 0;
+        let aspPaidExpense = 0;
+        if (aspExpAllocations && aspExpAllocations.length > 0) {
+          aspExpAllocations.forEach((a: any) => {
+            aspTotalExpense += a.accounts_payable_items?.total_price || 0;
+          });
+          // Get paid amounts for aspiration expenses
+          const aspApIds = [...new Set(aspExpAllocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
+          if (aspApIds.length > 0) {
+            const today = format(new Date(), "yyyy-MM-dd");
+            const { data: aspPayments } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", aspApIds).lte("payment_date", today);
+            (aspPayments || []).forEach((p: any) => { aspPaidExpense += p.amount_paid || 0; });
+          }
+        }
+
+        // Sum total revenues from aspiration
+        let aspTotalRevenue = 0;
+        let aspPaidRevenue = 0;
+        if (aspRevAllocations && aspRevAllocations.length > 0) {
+          aspRevAllocations.forEach((a: any) => {
+            aspTotalRevenue += a.accounts_receivable_items?.total_price || 0;
+          });
+          const aspArIds = [...new Set(aspRevAllocations.map((a: any) => a.accounts_receivable_items?.accounts_receivable?.id).filter(Boolean))];
+          if (aspArIds.length > 0) {
+            const today = format(new Date(), "yyyy-MM-dd");
+            const { data: aspRecPayments } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", aspArIds).lte("payment_date", today);
+            (aspRecPayments || []).forEach((p: any) => { aspPaidRevenue += p.amount_paid || 0; });
+          }
+        }
+
+        // Add rateio rows (divided by embryo count)
+        if (aspTotalExpense > 0) {
+          allRecords.push({
+            id: `rateio-expense-${aspirationId}`,
+            document_number: null,
+            due_date: "",
+            payment_date: null,
+            status: "",
+            supplier_name: "Rateio de Aspiração",
+            creditor_name: null,
+            allocation_type: "aspiration_rateio",
+            item_total_price: aspTotalExpense / embryoCount,
+            account_payable_id: "",
+            account_receivable_id: "",
+            paid_amount: aspPaidExpense / embryoCount,
+            record_type: 'expense',
+            is_rateio: true,
+          });
+        }
+
+        if (aspTotalRevenue > 0) {
+          allRecords.push({
+            id: `rateio-revenue-${aspirationId}`,
+            document_number: null,
+            due_date: "",
+            payment_date: null,
+            status: "",
+            supplier_name: null,
+            creditor_name: "Rateio de Aspiração",
+            allocation_type: "aspiration_rateio",
+            item_total_price: aspTotalRevenue / embryoCount,
+            account_payable_id: "",
+            account_receivable_id: "",
+            paid_amount: aspPaidRevenue / embryoCount,
+            record_type: 'revenue',
+            is_rateio: true,
+          });
+        }
       }
 
       setFinancialRecords(allRecords);
@@ -1136,7 +1248,7 @@ const AnimaisTransferenciaEmbriao = () => {
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
-              <TabsTrigger value="financeiro" disabled={modalMode === "create"} onClick={() => { if (selectedRecord && modalMode === "view") fetchTEFinancial(selectedRecord.id); }}>Financeiro</TabsTrigger>
+              <TabsTrigger value="financeiro" disabled={modalMode === "create"} onClick={() => { if (selectedRecord && modalMode === "view") fetchTEFinancial(selectedRecord.id, selectedRecord.aspiration_id); }}>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
 
@@ -1418,12 +1530,19 @@ const AnimaisTransferenciaEmbriao = () => {
                           <TableBody>
                             {records.map((record) => {
                               const valorPendente = record.item_total_price - record.paid_amount;
+                              const isRateio = record.is_rateio;
                               return (
-                              <TableRow key={record.id}>
-                                <TableCell>{record.document_number || "-"}</TableCell>
-                                <TableCell>{record.supplier_name || record.creditor_name || "-"}</TableCell>
+                              <TableRow key={record.id} className={isRateio ? "bg-orange-50" : ""}>
+                                <TableCell>{isRateio ? "" : (record.document_number || "-")}</TableCell>
+                                <TableCell className={isRateio ? "font-medium text-orange-700" : ""}>
+                                  {isRateio ? "Rateio de Aspiração" : (record.supplier_name || record.creditor_name || "-")}
+                                </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                                  {isRateio ? (
+                                    <Badge variant="outline" className="border-orange-300 text-orange-700">Rateio</Badge>
+                                  ) : (
+                                    <Badge variant="outline">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right font-medium">
                                   {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
@@ -1434,17 +1553,17 @@ const AnimaisTransferenciaEmbriao = () => {
                                       {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                     </TableCell>
                                     <TableCell className="text-right font-medium text-destructive">
-                                      {valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
+                                      {!isRateio && valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
                                     </TableCell>
                                   </>
                                 )}
-                                <TableCell>{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
-                                <TableCell>{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
-                                <TableCell>
+                                <TableCell>{isRateio ? "" : (record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}</TableCell>
+                                <TableCell>{isRateio ? "" : (record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}</TableCell>
+                                <TableCell>{isRateio ? "" : (
                                   <Badge variant={record.status === "paid" ? "default" : "secondary"}>
                                     {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
                                   </Badge>
-                                </TableCell>
+                                )}</TableCell>
                               </TableRow>
                               );
                             })}

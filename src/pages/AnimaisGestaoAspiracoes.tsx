@@ -690,6 +690,7 @@ const AnimaisGestaoAspiracoes = () => {
           transfer_date: finalizeTransferDate ? format(finalizeTransferDate, "yyyy-MM-dd") : null,
           veterinarian_id: finalizeVeterinarianId || null,
           laboratory_id: secondFinalizeRecord.laboratory_id || null,
+          aspiration_id: secondFinalizeRecord.id,
         } as any);
         if (insertError) throw insertError;
       }
