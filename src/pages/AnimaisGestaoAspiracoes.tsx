@@ -1773,7 +1773,7 @@ const AnimaisGestaoAspiracoes = () => {
                             {records.map((record) => {
                               const valorPendente = record.item_total_price - record.paid_amount;
                               return (
-                              <TableRow key={record.id} className="h-7">
+                              <TableRow key={record.id} className="h-5">
                                 <TableCell className="py-1 text-xs">{record.document_number || "-"}</TableCell>
                                 <TableCell className="py-1 text-xs max-w-[180px] truncate">{record.supplier_name || record.creditor_name || "-"}</TableCell>
                                 <TableCell className="py-1 text-xs">

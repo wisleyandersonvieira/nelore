@@ -1558,7 +1558,7 @@ const AnimaisTransferenciaEmbriao = () => {
                               const valorPendente = record.item_total_price - record.paid_amount;
                               const isRateio = record.is_rateio;
                               return (
-                              <TableRow key={record.id} className={cn("h-7", isRateio ? "bg-orange-50" : "")}>
+                              <TableRow key={record.id} className={cn("h-5", isRateio ? "bg-orange-50" : "")}>
                                 <TableCell className="py-1 text-xs">{isRateio ? "" : (record.document_number || "-")}</TableCell>
                                 <TableCell className={cn("py-1 text-xs max-w-[180px] truncate", isRateio ? "font-medium text-orange-700" : "")}>
                                   {isRateio ? "Rateio de Aspiração" : (record.supplier_name || record.creditor_name || "-")}
