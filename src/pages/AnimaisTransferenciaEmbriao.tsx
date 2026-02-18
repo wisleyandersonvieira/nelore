@@ -17,12 +17,16 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, DollarSign, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
@@ -82,6 +86,26 @@ const AnimaisTransferenciaEmbriao = () => {
   const [finalizeExpectedBirthMonth, setFinalizeExpectedBirthMonth] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
+
+  // Financial state
+  interface TEFinancialRecord {
+    id: string;
+    document_number: string | null;
+    due_date: string;
+    payment_date: string | null;
+    status: string;
+    supplier_name: string | null;
+    creditor_name: string | null;
+    allocation_type: string;
+    item_total_price: number;
+    account_payable_id: string;
+    account_receivable_id: string;
+    paid_amount: number;
+    record_type: 'expense' | 'revenue';
+  }
+  const [financialRecords, setFinancialRecords] = useState<TEFinancialRecord[]>([]);
+  const [loadingFinancial, setLoadingFinancial] = useState(false);
+  const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -475,7 +499,263 @@ const AnimaisTransferenciaEmbriao = () => {
   const getAuctionName = (auctionId: string | null) => auctionId ? auctions.find(a => a.id === auctionId)?.name || "-" : "-";
   const getRecipientName = (recipientId: string | null) => recipientId ? recipientNames[recipientId] || "-" : "-";
 
-  // Filtered records
+  // Financial functions
+  const getAllocationTypeLabel = (type: string) => {
+    switch (type) {
+      case "animal": return "Animal";
+      case "pregnancy": return "Prenhez";
+      case "embryo_transfer": return "Pós Transf. Emb.";
+      case "aspiration": return "Aspiração";
+      default: return type;
+    }
+  };
+
+  const fetchTEFinancial = async (teId: string) => {
+    setLoadingFinancial(true);
+    try {
+      const { data: expenseAllocations, error: expError } = await supabase
+        .from("accounts_payable_item_allocations")
+        .select(`
+          id, allocation_type, account_payable_item_id,
+          accounts_payable_items!inner (
+            total_price, account_payable_id, product_id, quantity, unit_price,
+            accounts_payable!inner (
+              id, document_number, due_date, payment_date, status, supplier_id
+            )
+          )
+        `)
+        .eq("embryo_transfer_id", teId);
+
+      const { data: revenueAllocations, error: revError } = await supabase
+        .from("accounts_receivable_item_allocations")
+        .select(`
+          id, allocation_type, account_receivable_item_id,
+          accounts_receivable_items!inner (
+            total_price, account_receivable_id, product_id, quantity, unit_price,
+            accounts_receivable!inner (
+              id, document_number, due_date, payment_date, status, creditor_id
+            )
+          )
+        `)
+        .eq("embryo_transfer_id", teId);
+
+      if (expError) throw expError;
+      if (revError) throw revError;
+
+      const allRecords: TEFinancialRecord[] = [];
+
+      if (expenseAllocations && expenseAllocations.length > 0) {
+        const supplierIds = new Set<string>();
+        expenseAllocations.forEach((a: any) => {
+          const sid = a.accounts_payable_items?.accounts_payable?.supplier_id;
+          if (sid) supplierIds.add(sid);
+        });
+        const suppliersMap = new Map<string, string>();
+        if (supplierIds.size > 0) {
+          const { data: suppliers } = await supabase.from("suppliers").select("id, name").in("id", Array.from(supplierIds));
+          (suppliers || []).forEach((s: any) => suppliersMap.set(s.id, s.name));
+        }
+        const apIds = [...new Set(expenseAllocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
+        const paidAmountsMap = new Map<string, number>();
+        if (apIds.length > 0) {
+          const today = format(new Date(), "yyyy-MM-dd");
+          const { data: payments } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid, payment_date").in("account_payable_id", apIds).lte("payment_date", today);
+          (payments || []).forEach((p: any) => { paidAmountsMap.set(p.account_payable_id, (paidAmountsMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0)); });
+        }
+        expenseAllocations.forEach((a: any) => {
+          const item = a.accounts_payable_items;
+          const ap = item?.accounts_payable;
+          const apId = ap?.id || "";
+          allRecords.push({ id: a.id, document_number: ap?.document_number || null, due_date: ap?.due_date || "", payment_date: ap?.payment_date || null, status: ap?.status || "", supplier_name: ap?.supplier_id ? suppliersMap.get(ap.supplier_id) || null : null, creditor_name: null, allocation_type: a.allocation_type, item_total_price: item?.total_price || 0, account_payable_id: apId, account_receivable_id: "", paid_amount: paidAmountsMap.get(apId) || 0, record_type: 'expense' });
+        });
+      }
+
+      if (revenueAllocations && revenueAllocations.length > 0) {
+        const creditorIds = new Set<string>();
+        revenueAllocations.forEach((a: any) => {
+          const cid = a.accounts_receivable_items?.accounts_receivable?.creditor_id;
+          if (cid) creditorIds.add(cid);
+        });
+        const creditorsMap = new Map<string, string>();
+        if (creditorIds.size > 0) {
+          const { data: creditors } = await supabase.from("creditors").select("id, name").in("id", Array.from(creditorIds));
+          (creditors || []).forEach((c: any) => creditorsMap.set(c.id, c.name));
+        }
+        const arIds = [...new Set(revenueAllocations.map((a: any) => a.accounts_receivable_items?.accounts_receivable?.id).filter(Boolean))];
+        const paidRecAmountsMap = new Map<string, number>();
+        if (arIds.length > 0) {
+          const today = format(new Date(), "yyyy-MM-dd");
+          const { data: payments } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid, payment_date").in("account_receivable_id", arIds).lte("payment_date", today);
+          (payments || []).forEach((p: any) => { paidRecAmountsMap.set(p.account_receivable_id, (paidRecAmountsMap.get(p.account_receivable_id) || 0) + (p.amount_paid || 0)); });
+        }
+        revenueAllocations.forEach((a: any) => {
+          const item = a.accounts_receivable_items;
+          const ar = item?.accounts_receivable;
+          const arId = ar?.id || "";
+          allRecords.push({ id: a.id, document_number: ar?.document_number || null, due_date: ar?.due_date || "", payment_date: ar?.payment_date || null, status: ar?.status || "", supplier_name: null, creditor_name: ar?.creditor_id ? creditorsMap.get(ar.creditor_id) || null : null, allocation_type: a.allocation_type, item_total_price: item?.total_price || 0, account_payable_id: "", account_receivable_id: arId, paid_amount: paidRecAmountsMap.get(arId) || 0, record_type: 'revenue' });
+        });
+      }
+
+      setFinancialRecords(allRecords);
+    } catch (error) {
+      console.error("Error fetching TE financial:", error);
+      toast({ title: "Erro", description: "Erro ao carregar dados financeiros.", variant: "destructive" });
+    } finally {
+      setLoadingFinancial(false);
+    }
+  };
+
+  const getFilteredFinRecords = () => {
+    if (financialViewMode === "pagos") {
+      return financialRecords.filter(r => r.paid_amount > 0 || r.status === "paid").map(r => {
+        const effectivePaid = r.paid_amount > 0 ? r.paid_amount : (r.status === "paid" ? r.item_total_price : 0);
+        return { ...r, paid_amount: effectivePaid };
+      });
+    }
+    return financialRecords;
+  };
+
+  const generateTEFinancialPDF = async (tipo: "resumido" | "detalhado") => {
+    try {
+      const doc = new jsPDF();
+      const name = selectedRecord?.name || "Pós TE";
+      const code = selectedRecord?.code || "";
+      doc.setFontSize(16);
+      doc.text(`Relatório Financeiro - ${name} (Cód: ${code})`, 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, 28);
+      doc.text(`Modo: ${financialViewMode === "pagos" ? "Pagos até Hoje" : "Geral"}`, 14, 34);
+
+      const records = getFilteredFinRecords();
+      const despesas = records.filter(r => r.record_type === 'expense');
+      const receitas = records.filter(r => r.record_type === 'revenue');
+      const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+      const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+      const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+      const saldo = financialViewMode === "pagos" ? totalPagoReceitas - totalPagoDespesas : totalReceitas - totalDespesas;
+
+      if (tipo === "resumido") {
+        let startY = 42;
+        if (despesas.length > 0) {
+          doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Despesas", 14, startY); startY += 6;
+          autoTable(doc, {
+            startY,
+            head: [["Número", "Fornecedor", "Tipo", "Vlr Total", financialViewMode === "pagos" ? "Pago" : "", "Vencimento", "Pagamento", "Status"].filter(Boolean)],
+            body: despesas.map(r => [r.document_number || "-", r.supplier_name || "-", getAllocationTypeLabel(r.allocation_type), r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), ...(financialViewMode === "pagos" ? [r.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })] : []), r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-", r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-", r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente"]),
+            theme: "grid", headStyles: { fillColor: [66, 66, 66] },
+          });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+        if (receitas.length > 0) {
+          if (startY > 250) { doc.addPage(); startY = 20; }
+          doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Receitas", 14, startY); startY += 6;
+          autoTable(doc, {
+            startY,
+            head: [["Número", "Credor", "Tipo", "Vlr Total", financialViewMode === "pagos" ? "Recebido" : "", "Vencimento", "Pagamento", "Status"].filter(Boolean)],
+            body: receitas.map(r => [r.document_number || "-", r.creditor_name || "-", getAllocationTypeLabel(r.allocation_type), r.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), ...(financialViewMode === "pagos" ? [r.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })] : []), r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-", r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-", r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente"]),
+            theme: "grid", headStyles: { fillColor: [66, 66, 66] },
+          });
+          startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+        if (startY > 260) { doc.addPage(); startY = 20; }
+        const summaryHead = financialViewMode === "pagos" ? [["Total Despesas Pagas", "Total Receitas Recebidas", "Saldo"]] : [["Total Despesas", "Total Receitas", "Saldo"]];
+        const summaryBody = financialViewMode === "pagos"
+          ? [[totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]]
+          : [[totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]];
+        autoTable(doc, { startY, head: summaryHead, body: summaryBody, theme: "grid", headStyles: { fillColor: [100, 100, 100] }, bodyStyles: { fontStyle: "bold" } });
+      } else {
+        const expenseAPIds = [...new Set(despesas.map(r => r.account_payable_id).filter(Boolean))];
+        const revenueARIds = [...new Set(receitas.map(r => r.account_receivable_id).filter(Boolean))];
+        const { data: expItems } = expenseAPIds.length > 0 ? await supabase.from("accounts_payable_items").select("*, products(name)").in("account_payable_id", expenseAPIds) : { data: [] };
+        const { data: revItems } = revenueARIds.length > 0 ? await supabase.from("accounts_receivable_items").select("*, products(name)").in("account_receivable_id", revenueARIds) : { data: [] };
+        const expItemsByAP = new Map<string, any[]>();
+        (expItems || []).forEach((item: any) => { const list = expItemsByAP.get(item.account_payable_id) || []; list.push(item); expItemsByAP.set(item.account_payable_id, list); });
+        const revItemsByAR = new Map<string, any[]>();
+        (revItems || []).forEach((item: any) => { const list = revItemsByAR.get(item.account_receivable_id) || []; list.push(item); revItemsByAR.set(item.account_receivable_id, list); });
+
+        let currentY = 42;
+        if (despesas.length > 0) {
+          doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Despesas", 14, currentY); currentY += 8;
+          despesas.forEach((record, index) => {
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Fornecedor: ${record.supplier_name || "-"}`, 14, currentY); currentY += 6;
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY); currentY += 4;
+            doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${financialViewMode === "pagos" ? ` | Pago: ${record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}`, 14, currentY); currentY += 6;
+            const items = expItemsByAP.get(record.account_payable_id) || [];
+            if (items.length > 0) {
+              autoTable(doc, { startY: currentY, head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]], body: items.map((it: any) => [it.products?.name || "-", it.quantity, it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]), theme: "grid", headStyles: { fillColor: [100, 100, 100], fontSize: 8 }, bodyStyles: { fontSize: 8 }, margin: { left: 20, right: 20 } });
+              currentY = (doc as any).lastAutoTable.finalY + 8;
+            } else { currentY += 4; }
+          });
+        }
+        if (receitas.length > 0) {
+          if (currentY > 250) { doc.addPage(); currentY = 20; }
+          doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Receitas", 14, currentY); currentY += 8;
+          receitas.forEach((record, index) => {
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text(`${index + 1}. Número: ${record.document_number || "-"} | Credor: ${record.creditor_name || "-"}`, 14, currentY); currentY += 6;
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Tipo: ${getAllocationTypeLabel(record.allocation_type)} | Venc.: ${record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Pgto: ${record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-"} | Status: ${record.status === "paid" ? "Pago" : "Pendente"}`, 14, currentY); currentY += 4;
+            doc.text(`Valor Total: ${record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${financialViewMode === "pagos" ? ` | Recebido: ${record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}`, 14, currentY); currentY += 6;
+            const items = revItemsByAR.get(record.account_receivable_id) || [];
+            if (items.length > 0) {
+              autoTable(doc, { startY: currentY, head: [["Produto", "Qtd", "Vlr Unit.", "Vlr Total"]], body: items.map((it: any) => [it.products?.name || "-", it.quantity, it.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), it.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })]), theme: "grid", headStyles: { fillColor: [100, 100, 100], fontSize: 8 }, bodyStyles: { fontSize: 8 }, margin: { left: 20, right: 20 } });
+              currentY = (doc as any).lastAutoTable.finalY + 8;
+            } else { currentY += 4; }
+          });
+        }
+        if (currentY > 260) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        if (financialViewMode === "pagos") {
+          doc.text(`Total Despesas Pagas: ${totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY); currentY += 7;
+          doc.text(`Total Receitas Recebidas: ${totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY); currentY += 7;
+          doc.text(`Saldo: ${saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+        } else {
+          doc.text(`Total Despesas: ${totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY); currentY += 7;
+          doc.text(`Total Receitas: ${totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY); currentY += 7;
+          doc.text(`Saldo: ${saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`, 14, currentY);
+        }
+      }
+      doc.save(`financeiro_pos_te_${name.replace(/\s+/g, "_")}_${tipo}.pdf`);
+      toast({ title: "PDF gerado com sucesso!" });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    }
+  };
+
+  const generateTEFinancialExcel = () => {
+    const records = getFilteredFinRecords();
+    const despesas = records.filter(r => r.record_type === 'expense');
+    const receitas = records.filter(r => r.record_type === 'revenue');
+    const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+    const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+    const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+    const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+    const saldo = financialViewMode === "pagos" ? totalPagoReceitas - totalPagoDespesas : totalReceitas - totalDespesas;
+    const isPagos = financialViewMode === "pagos";
+    const wb = XLSX.utils.book_new();
+
+    const despData = despesas.map(r => ({ "Número": r.document_number || "-", "Fornecedor": r.supplier_name || "-", "Tipo Alocação": getAllocationTypeLabel(r.allocation_type), "Valor Total": r.item_total_price, ...(isPagos ? { "Pago": r.paid_amount } : {}), "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-", "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-", "Status": r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente" }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(despData), "Despesas");
+
+    const recData = receitas.map(r => ({ "Número": r.document_number || "-", "Credor": r.creditor_name || "-", "Tipo Alocação": getAllocationTypeLabel(r.allocation_type), "Valor Total": r.item_total_price, ...(isPagos ? { "Recebido": r.paid_amount } : {}), "Vencimento": r.due_date ? format(new Date(r.due_date + "T12:00:00"), "dd/MM/yyyy") : "-", "Pagamento": r.payment_date ? format(new Date(r.payment_date + "T12:00:00"), "dd/MM/yyyy") : "-", "Status": r.status === "paid" ? "Pago" : r.status === "partial" ? "Parcial" : "Pendente" }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(recData), "Receitas");
+
+    const resumoData = isPagos
+      ? [{ "Descrição": "Total Despesas Pagas", "Valor": totalPagoDespesas }, { "Descrição": "Total Receitas Recebidas", "Valor": totalPagoReceitas }, { "Descrição": "Saldo", "Valor": saldo }]
+      : [{ "Descrição": "Total Despesas", "Valor": totalDespesas }, { "Descrição": "Total Receitas", "Valor": totalReceitas }, { "Descrição": "Saldo", "Valor": saldo }];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumoData), "Resumo");
+
+    const name = selectedRecord?.name || "Pos_TE";
+    XLSX.writeFile(wb, `financeiro_pos_te_${name.replace(/\s+/g, "_")}.xlsx`);
+    toast({ title: "Excel gerado com sucesso!" });
+  };
+
   const filteredRecords = useMemo(() => {
     if (!hasFiltered) return records.slice(0, INITIAL_ITEMS);
 
@@ -844,7 +1124,7 @@ const AnimaisTransferenciaEmbriao = () => {
 
       {/* Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "view" ? "Visualizar Registro" : modalMode === "edit" ? "Editar Registro" : "Novo Registro de Pós TE"}
@@ -856,7 +1136,7 @@ const AnimaisTransferenciaEmbriao = () => {
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
-              <TabsTrigger value="financeiro" disabled>Financeiro</TabsTrigger>
+              <TabsTrigger value="financeiro" disabled={modalMode === "create"} onClick={() => { if (selectedRecord && modalMode === "view") fetchTEFinancial(selectedRecord.id); }}>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
 
@@ -1068,8 +1348,166 @@ const AnimaisTransferenciaEmbriao = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="financeiro" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
+            <TabsContent value="financeiro" className="space-y-4 mt-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Financeiro
+                </h3>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant={financialViewMode === "geral" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("geral")}>Visualizar Geral</Button>
+                  <Button variant={financialViewMode === "pagos" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("pagos")}>Pagos até Hoje</Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={financialRecords.length === 0}>
+                        <Download className="h-4 w-4 mr-1" />Exportar
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => generateTEFinancialPDF("resumido")}>
+                        <FileText className="h-4 w-4 mr-2" />PDF Resumido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => generateTEFinancialPDF("detalhado")}>
+                        <FileText className="h-4 w-4 mr-2" />PDF Detalhado
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={generateTEFinancialExcel}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />Excel
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              {loadingFinancial ? (
+                <p className="text-center text-muted-foreground py-8">Carregando dados financeiros...</p>
+              ) : (() => {
+                const filteredRecs = getFilteredFinRecords();
+                const despesas = filteredRecs.filter(r => r.record_type === 'expense');
+                const receitas = filteredRecs.filter(r => r.record_type === 'revenue');
+                const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+                const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+                const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
+                const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
+                const saldo = (financialViewMode === "pagos" ? totalPagoReceitas : totalReceitas) - (financialViewMode === "pagos" ? totalPagoDespesas : totalDespesas);
+
+                const renderFinTable = (records: typeof filteredRecs, label: string) => (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-base border-b pb-1">{label}</h4>
+                    {records.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-4">Nenhum registro.</p>
+                    ) : (
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Número</TableHead>
+                              <TableHead>{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
+                              <TableHead>Tipo</TableHead>
+                              <TableHead className="text-right">Vlr Total</TableHead>
+                              {financialViewMode === "pagos" && (
+                                <>
+                                  <TableHead className="text-right">Pago</TableHead>
+                                  <TableHead className="text-right">Pendente</TableHead>
+                                </>
+                              )}
+                              <TableHead>{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
+                              <TableHead>{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
+                              <TableHead>Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {records.map((record) => {
+                              const valorPendente = record.item_total_price - record.paid_amount;
+                              return (
+                              <TableRow key={record.id}>
+                                <TableCell>{record.document_number || "-"}</TableCell>
+                                <TableCell>{record.supplier_name || record.creditor_name || "-"}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                </TableCell>
+                                {financialViewMode === "pagos" && (
+                                  <>
+                                    <TableCell className="text-right font-medium text-primary">
+                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium text-destructive">
+                                      {valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
+                                    </TableCell>
+                                  </>
+                                )}
+                                <TableCell>{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                <TableCell>{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
+                                <TableCell>
+                                  <Badge variant={record.status === "paid" ? "default" : "secondary"}>
+                                    {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                );
+
+                return (
+                  <>
+                    {renderFinTable(despesas, "Despesas")}
+                    {renderFinTable(receitas, "Receitas")}
+
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      {financialViewMode === "pagos" ? (
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              {totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Receitas Recebidas</p>
+                            <p className="text-lg font-semibold text-blue-600">
+                              {totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Saldo</p>
+                            <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-blue-600" : "text-destructive")}>
+                              {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Receitas</p>
+                            <p className="text-lg font-semibold text-primary">
+                              {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Despesas</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Saldo</p>
+                            <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-primary" : "text-destructive")}>
+                              {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </TabsContent>
             <TabsContent value="proprietarios" className="mt-4">
               <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
