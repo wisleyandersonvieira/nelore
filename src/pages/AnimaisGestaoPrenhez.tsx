@@ -374,7 +374,16 @@ const AnimaisGestaoPrenhez = () => {
       // 3. Fetch Aspiration rateio (if aspirationId exists)
       if (aspirationId) {
         const { data: aspirationData } = await supabase.from("aspiration_management").select("embryo_count").eq("id", aspirationId).single();
-        const embryoCount = aspirationData?.embryo_count || 1;
+        const totalEmbryoCount = aspirationData?.embryo_count || 1;
+
+        // Count siblings finalized as empty to subtract from divisor
+        const { data: emptySiblings } = await supabase
+          .from("embryo_transfer_management")
+          .select("id")
+          .eq("aspiration_id", aspirationId)
+          .eq("status", "finalized_empty");
+        const emptyCount = emptySiblings?.length || 0;
+        const embryoCount = Math.max(totalEmbryoCount - emptyCount, 1);
 
         const { data: aspExpAllocations } = await supabase
           .from("accounts_payable_item_allocations")

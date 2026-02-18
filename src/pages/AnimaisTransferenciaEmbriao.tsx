@@ -622,14 +622,25 @@ const AnimaisTransferenciaEmbriao = () => {
       }
 
       // Fetch aspiration rateio if aspirationId exists
-      if (aspirationId) {
+      // Skip rateio for finalized_empty records (they are excluded from cost sharing)
+      const currentRecord = records.find(r => r.id === teId);
+      if (aspirationId && currentRecord?.status !== "finalized_empty") {
         // Get embryo_count from aspiration
         const { data: aspirationData } = await supabase
           .from("aspiration_management")
           .select("embryo_count")
           .eq("id", aspirationId)
           .single();
-        const embryoCount = aspirationData?.embryo_count || 1;
+        const totalEmbryoCount = aspirationData?.embryo_count || 1;
+
+        // Count siblings finalized as empty to subtract from divisor
+        const { data: emptySiblings } = await supabase
+          .from("embryo_transfer_management")
+          .select("id")
+          .eq("aspiration_id", aspirationId)
+          .eq("status", "finalized_empty");
+        const emptyCount = emptySiblings?.length || 0;
+        const embryoCount = Math.max(totalEmbryoCount - emptyCount, 1);
 
         // Fetch aspiration expense allocations
         const { data: aspExpAllocations } = await supabase
