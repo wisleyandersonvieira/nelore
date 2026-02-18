@@ -811,9 +811,16 @@ const AnimaisGestaoAspiracoes = () => {
 
   const getFilteredFinRecords = () => {
     if (financialViewMode === "pagos") {
-      return financialRecords
-        .filter(r => r.paid_amount > 0)
-        .map(r => ({ ...r, item_total_price: r.paid_amount }));
+      // Include records that have any payment (via installments or fully paid status)
+      return financialRecords.filter(r => {
+        const hasPaidInstallments = r.paid_amount > 0;
+        const isFullyPaid = r.status === "paid";
+        return hasPaidInstallments || isFullyPaid;
+      }).map(r => {
+        // For fully paid records without installment payments, use total as paid amount
+        const effectivePaid = r.paid_amount > 0 ? r.paid_amount : (r.status === "paid" ? r.item_total_price : 0);
+        return { ...r, paid_amount: effectivePaid };
+      });
     }
     return financialRecords;
   };
@@ -1444,8 +1451,10 @@ const AnimaisGestaoAspiracoes = () => {
 
                 const despesas = filteredRecs;
                 const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
+                const totalPago = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
+                const totalPendente = totalDespesas - totalPago;
                 const totalReceitas = 0;
-                const saldo = totalReceitas - totalDespesas;
+                const saldo = totalReceitas - (financialViewMode === "pagos" ? totalPago : totalDespesas);
 
                 return (
                   <>
@@ -1462,13 +1471,21 @@ const AnimaisGestaoAspiracoes = () => {
                                 <TableHead>Fornecedor</TableHead>
                                 <TableHead>Tipo Alocação</TableHead>
                                 <TableHead className="text-right">Vlr Total</TableHead>
+                                {financialViewMode === "pagos" && (
+                                  <>
+                                    <TableHead className="text-right">Vlr Pago</TableHead>
+                                    <TableHead className="text-right">Vlr Pendente</TableHead>
+                                  </>
+                                )}
                                 <TableHead>Vencimento</TableHead>
                                 <TableHead>Pagamento</TableHead>
                                 <TableHead>Status</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {despesas.map((record) => (
+                              {despesas.map((record) => {
+                                const valorPendente = record.item_total_price - record.paid_amount;
+                                return (
                                 <TableRow key={record.id}>
                                   <TableCell>{record.document_number || "-"}</TableCell>
                                   <TableCell>{record.supplier_name || "-"}</TableCell>
@@ -1478,15 +1495,26 @@ const AnimaisGestaoAspiracoes = () => {
                                   <TableCell className="text-right font-medium">
                                     {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                   </TableCell>
+                                  {financialViewMode === "pagos" && (
+                                    <>
+                                      <TableCell className="text-right font-medium text-primary">
+                                        {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                      </TableCell>
+                                      <TableCell className="text-right font-medium text-destructive">
+                                        {valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
+                                      </TableCell>
+                                    </>
+                                  )}
                                   <TableCell>{record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
                                   <TableCell>{record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-"}</TableCell>
                                   <TableCell>
                                     <Badge variant={record.status === "paid" ? "default" : "secondary"}>
-                                      {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status}
+                                      {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
                                     </Badge>
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>
@@ -1499,7 +1527,7 @@ const AnimaisGestaoAspiracoes = () => {
                     </div>
 
                     <div className="border rounded-lg p-4 bg-muted/30">
-                      <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className={cn("grid gap-4 text-center", financialViewMode === "pagos" ? "grid-cols-4" : "grid-cols-3")}>
                         <div>
                           <p className="text-sm text-muted-foreground">Total Receitas</p>
                           <p className="text-lg font-semibold text-primary">
@@ -1512,6 +1540,14 @@ const AnimaisGestaoAspiracoes = () => {
                             {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </p>
                         </div>
+                        {financialViewMode === "pagos" && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Pago</p>
+                            <p className="text-lg font-semibold text-primary">
+                              {totalPago.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm text-muted-foreground">Saldo</p>
                           <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-primary" : "text-destructive")}>
