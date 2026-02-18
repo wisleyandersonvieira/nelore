@@ -3392,6 +3392,7 @@ export type Database = {
           code: number
           created_at: string
           dam_id: string | null
+          embryo_transfer_id: string | null
           expected_birth_month: string | null
           farm_id: string | null
           farm_type: string | null
@@ -3417,6 +3418,7 @@ export type Database = {
           code: number
           created_at?: string
           dam_id?: string | null
+          embryo_transfer_id?: string | null
           expected_birth_month?: string | null
           farm_id?: string | null
           farm_type?: string | null
@@ -3442,6 +3444,7 @@ export type Database = {
           code?: number
           created_at?: string
           dam_id?: string | null
+          embryo_transfer_id?: string | null
           expected_birth_month?: string | null
           farm_id?: string | null
           farm_type?: string | null
@@ -3485,6 +3488,13 @@ export type Database = {
             columns: ["dam_id"]
             isOneToOne: false
             referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_management_embryo_transfer_id_fkey"
+            columns: ["embryo_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "embryo_transfer_management"
             referencedColumns: ["id"]
           },
           {
