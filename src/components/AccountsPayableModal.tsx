@@ -391,7 +391,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const { data: embryoData } = await supabase
         .from("embryo_transfer_management")
         .select("id, name")
-        .eq("status", "em_andamento")
+        .eq("status", "in_progress")
         .order("name");
       setAllocationEmbryoTransfers(embryoData || []);
 
