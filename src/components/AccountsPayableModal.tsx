@@ -398,7 +398,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const { data: aspirationData } = await supabase
         .from("aspiration_management")
         .select("id, name, code")
-        .in("status", ["pendente", "em_andamento"])
+        .in("status", ["pending", "in_progress"])
         .order("name");
       setAllocationAspirations(aspirationData || []);
     } catch (error) {
