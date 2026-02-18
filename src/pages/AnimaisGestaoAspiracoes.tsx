@@ -164,6 +164,7 @@ const AnimaisGestaoAspiracoes = () => {
     allocation_type: string;
     item_total_price: number;
     account_payable_id: string;
+    paid_amount: number;
   }
   const [financialRecords, setFinancialRecords] = useState<AspirationFinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
@@ -756,9 +757,25 @@ const AnimaisGestaoAspiracoes = () => {
         (suppliers || []).forEach((s: any) => suppliersMap.set(s.id, s.name));
       }
 
+      // Fetch payments for all related accounts_payable to support partial payments
+      const apIds = [...new Set(allocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
+      const paidAmountsMap = new Map<string, number>();
+      if (apIds.length > 0) {
+        const today = format(new Date(), "yyyy-MM-dd");
+        const { data: payments } = await supabase
+          .from("accounts_payable_payments")
+          .select("account_payable_id, amount_paid, payment_date")
+          .in("account_payable_id", apIds)
+          .lte("payment_date", today);
+        (payments || []).forEach((p: any) => {
+          paidAmountsMap.set(p.account_payable_id, (paidAmountsMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0));
+        });
+      }
+
       const records: AspirationFinancialRecord[] = allocations.map((a: any) => {
         const item = a.accounts_payable_items;
         const ap = item?.accounts_payable;
+        const apId = ap?.id || "";
         return {
           id: a.id,
           document_number: ap?.document_number || null,
@@ -768,7 +785,8 @@ const AnimaisGestaoAspiracoes = () => {
           supplier_name: ap?.supplier_id ? suppliersMap.get(ap.supplier_id) || null : null,
           allocation_type: a.allocation_type,
           item_total_price: item?.total_price || 0,
-          account_payable_id: ap?.id || "",
+          account_payable_id: apId,
+          paid_amount: paidAmountsMap.get(apId) || 0,
         };
       });
 
@@ -792,10 +810,12 @@ const AnimaisGestaoAspiracoes = () => {
   };
 
   const getFilteredFinRecords = () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-    return financialViewMode === "pagos"
-      ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
-      : financialRecords;
+    if (financialViewMode === "pagos") {
+      return financialRecords
+        .filter(r => r.paid_amount > 0)
+        .map(r => ({ ...r, item_total_price: r.paid_amount }));
+    }
+    return financialRecords;
   };
 
   const generateAspirationFinancialPDF = async (tipo: "resumido" | "detalhado") => {
@@ -1420,10 +1440,7 @@ const AnimaisGestaoAspiracoes = () => {
               {loadingFinancial ? (
                 <p className="text-center text-muted-foreground py-8">Carregando dados financeiros...</p>
               ) : (() => {
-                const today = format(new Date(), "yyyy-MM-dd");
-                const filteredRecs = financialViewMode === "pagos"
-                  ? financialRecords.filter(r => r.payment_date && r.payment_date <= today)
-                  : financialRecords;
+                const filteredRecs = getFilteredFinRecords();
 
                 const despesas = filteredRecs;
                 const totalDespesas = despesas.reduce((sum, r) => sum + r.item_total_price, 0);
