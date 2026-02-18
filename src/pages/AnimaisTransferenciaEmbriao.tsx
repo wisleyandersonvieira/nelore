@@ -1243,12 +1243,17 @@ const AnimaisTransferenciaEmbriao = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(val) => {
+            setActiveTab(val);
+            if (val === "financeiro" && selectedRecord && modalMode === "view") {
+              fetchTEFinancial(selectedRecord.id, selectedRecord.aspiration_id);
+            }
+          }}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
-              <TabsTrigger value="financeiro" disabled={modalMode === "create"} onClick={() => { if (selectedRecord && modalMode === "view") fetchTEFinancial(selectedRecord.id, selectedRecord.aspiration_id); }}>Financeiro</TabsTrigger>
+              <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
               <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
             </TabsList>
 
