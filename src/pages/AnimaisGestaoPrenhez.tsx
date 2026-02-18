@@ -1066,6 +1066,7 @@ const AnimaisGestaoPrenhez = () => {
         veterinarian_id: recordToFinalize.veterinarian_id,
         laboratory_id: recordToFinalize.laboratory_id,
         ultrasound_date: recordToFinalize.ultrasound_date,
+        pregnancy_id: recordToFinalize.id,
       };
 
       const weight = parseFloat(finalizeWeight);
