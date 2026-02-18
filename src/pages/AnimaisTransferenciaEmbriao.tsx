@@ -1538,19 +1538,19 @@ const AnimaisTransferenciaEmbriao = () => {
                         <Table>
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
-                              <TableHead className="py-1 text-xs">Número</TableHead>
-                              <TableHead className="py-1 text-xs max-w-[180px]">{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
-                              <TableHead className="py-1 text-xs">Tipo</TableHead>
-                              <TableHead className="py-1 text-xs text-right">Vlr Total</TableHead>
+                              <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
+                              <TableHead className="py-1 text-xs w-[22%] max-w-[180px]">{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[14%]">Tipo</TableHead>
+                              <TableHead className="py-1 text-xs text-right w-[12%]">Vlr Total</TableHead>
                               {financialViewMode === "pagos" && (
                                 <>
-                                  <TableHead className="py-1 text-xs text-right">Pago</TableHead>
-                                  <TableHead className="py-1 text-xs text-right">Pendente</TableHead>
+                                  <TableHead className="py-1 text-xs text-right w-[10%]">Pago</TableHead>
+                                  <TableHead className="py-1 text-xs text-right w-[10%]">Pendente</TableHead>
                                 </>
                               )}
-                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
-                              <TableHead className="py-1 text-xs">{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
-                              <TableHead className="py-1 text-xs">Status</TableHead>
+                              <TableHead className="py-1 text-xs w-[12%]">{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[12%]">{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[10%]">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1558,7 +1558,7 @@ const AnimaisTransferenciaEmbriao = () => {
                               const valorPendente = record.item_total_price - record.paid_amount;
                               const isRateio = record.is_rateio;
                               return (
-                              <TableRow key={record.id} className={cn("h-5", isRateio ? "bg-orange-50" : "")}>
+                              <TableRow key={record.id} className={cn("h-6", isRateio ? "bg-orange-50" : "")}>
                                 <TableCell className="py-1 text-xs">{isRateio ? "" : (record.document_number || "-")}</TableCell>
                                 <TableCell className={cn("py-1 text-xs max-w-[180px] truncate", isRateio ? "font-medium text-orange-700" : "")}>
                                   {isRateio ? "Rateio de Aspiração" : (record.supplier_name || record.creditor_name || "-")}
