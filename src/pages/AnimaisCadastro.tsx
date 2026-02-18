@@ -38,7 +38,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -2107,47 +2113,26 @@ const AnimaisCadastro = () => {
                   Financeiro
                 </h3>
                 <div className="flex gap-2 flex-wrap">
-                  <Button
-                    variant={financialViewMode === "geral" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFinancialViewMode("geral")}
-                  >
-                    Visualizar Geral
-                  </Button>
-                  <Button
-                    variant={financialViewMode === "pagos" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFinancialViewMode("pagos")}
-                  >
-                    Pagos até Hoje
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => generateFinancialPDF("resumido")}
-                    disabled={financialRecords.length === 0}
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    PDF Resumido
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => generateFinancialPDF("detalhado")}
-                    disabled={financialRecords.length === 0}
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    PDF Detalhado
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => generateFinancialExcel()}
-                    disabled={financialRecords.length === 0}
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-1" />
-                    Excel
-                  </Button>
+                  <Button variant={financialViewMode === "geral" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("geral")}>Visualizar Geral</Button>
+                  <Button variant={financialViewMode === "pagos" ? "default" : "outline"} size="sm" onClick={() => setFinancialViewMode("pagos")}>Pagos até Hoje</Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={financialRecords.length === 0}>
+                        <Download className="h-4 w-4 mr-1" />Exportar
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => generateFinancialPDF("resumido")}>
+                        <FileText className="h-4 w-4 mr-2" />PDF Resumido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => generateFinancialPDF("detalhado")}>
+                        <FileText className="h-4 w-4 mr-2" />PDF Detalhado
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => generateFinancialExcel()}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />Excel
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -2161,153 +2146,132 @@ const AnimaisCadastro = () => {
                 const totalPagoDespesas = despesas.reduce((sum, r) => sum + r.paid_amount, 0);
                 const totalReceitas = receitas.reduce((sum, r) => sum + r.item_total_price, 0);
                 const totalPagoReceitas = receitas.reduce((sum, r) => sum + r.paid_amount, 0);
-                const saldo = financialViewMode === "pagos" ? totalPagoReceitas - totalPagoDespesas : totalReceitas - totalDespesas;
+                const saldo = (financialViewMode === "pagos" ? totalPagoReceitas : totalReceitas) - (financialViewMode === "pagos" ? totalPagoDespesas : totalDespesas);
+
+                const renderFinTable = (records: typeof filteredRecords, label: string) => (
+                  <div className="space-y-1">
+                    <h4 className="font-medium text-sm border-b pb-0.5">{label}</h4>
+                    {records.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
+                    ) : (
+                      <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-background z-10">
+                            <TableRow className="h-8">
+                              <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
+                              <TableHead className="py-1 text-xs w-[22%] max-w-[180px]">{label === "Despesas" ? "Fornecedor" : "Credor"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[14%]">Tipo Alocação</TableHead>
+                              <TableHead className="py-1 text-xs text-right w-[12%]">Vlr Total</TableHead>
+                              {financialViewMode === "pagos" && (
+                                <>
+                                  <TableHead className="py-1 text-xs text-right w-[10%]">Pago</TableHead>
+                                  <TableHead className="py-1 text-xs text-right w-[10%]">Pendente</TableHead>
+                                </>
+                              )}
+                              <TableHead className="py-1 text-xs w-[12%]">{financialViewMode === "pagos" ? "Venc." : "Vencimento"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[12%]">{financialViewMode === "pagos" ? "Pag." : "Pagamento"}</TableHead>
+                              <TableHead className="py-1 text-xs w-[10%]">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {records.map((record) => {
+                              const valorPendente = record.item_total_price - record.paid_amount;
+                              const isRateio = record.is_rateio;
+                              const rateioColor = record.allocation_type === "aspiration_rateio" ? "bg-orange-50" : record.allocation_type === "pregnancy_rateio" ? "bg-purple-50" : "bg-blue-50";
+                              return (
+                              <TableRow key={record.id} className={cn("h-7", isRateio ? rateioColor : "")}>
+                                <TableCell className="py-1 text-sm">{isRateio ? "" : (record.document_number || "-")}</TableCell>
+                                <TableCell className={cn("py-1 text-sm max-w-[180px] truncate", isRateio ? (record.allocation_type === "aspiration_rateio" ? "font-medium text-orange-700" : record.allocation_type === "pregnancy_rateio" ? "font-medium text-purple-700" : "font-medium text-blue-700") : "")}>
+                                  {isRateio ? (record.rateio_label || "Rateio") : (record.supplier_name || record.creditor_name || "-")}
+                                </TableCell>
+                                <TableCell className="py-1 text-sm">
+                                  {isRateio ? (
+                                    <Badge variant="outline" className={cn("text-[12px] px-1.5 py-0", record.allocation_type === "aspiration_rateio" ? "border-orange-300 text-orange-700" : record.allocation_type === "pregnancy_rateio" ? "border-purple-300 text-purple-700" : "border-blue-300 text-blue-700")}>
+                                      {getAllocationTypeLabel(record.allocation_type)}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[12px] px-1.5 py-0">{getAllocationTypeLabel(record.allocation_type)}</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-1 text-sm text-right font-medium">
+                                  {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                </TableCell>
+                                {financialViewMode === "pagos" && (
+                                  <>
+                                    <TableCell className="py-1 text-sm text-right font-medium text-primary">
+                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                    </TableCell>
+                                    <TableCell className="py-1 text-sm text-right font-medium text-destructive">
+                                      {!isRateio && valorPendente > 0 ? valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}
+                                    </TableCell>
+                                  </>
+                                )}
+                                <TableCell className="py-1 text-sm">{isRateio ? "" : (record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}</TableCell>
+                                <TableCell className="py-1 text-sm">{isRateio ? "" : (record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}</TableCell>
+                                <TableCell className="py-1 text-sm">{isRateio ? "" : (
+                                  <Badge variant={record.status === "paid" ? "default" : "secondary"} className="text-[12px] px-1.5 py-0">
+                                    {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
+                                  </Badge>
+                                )}</TableCell>
+                              </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                );
 
                 return (
                   <>
-                    {/* Despesas */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-base border-b pb-1 text-destructive">Despesas</h4>
-                      {despesas.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-4">Nenhuma despesa registrada.</p>
-                      ) : (
-                        <div className="border rounded-lg overflow-hidden">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Número</TableHead>
-                                <TableHead>Fornecedor</TableHead>
-                                <TableHead>Tipo Alocação</TableHead>
-                                <TableHead className="text-right">Vlr Total</TableHead>
-                                {financialViewMode === "pagos" && <TableHead className="text-right">Pago</TableHead>}
-                                <TableHead>Vencimento</TableHead>
-                                <TableHead>Pagamento</TableHead>
-                                <TableHead>Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {despesas.map((record) => (
-                                <TableRow key={record.id} className={record.is_rateio ? "bg-orange-50 dark:bg-orange-950/20" : ""}>
-                                  <TableCell>{record.is_rateio ? "" : (record.document_number || "-")}</TableCell>
-                                  <TableCell>{record.is_rateio ? (record.rateio_label || "") : (record.supplier_name || "-")}</TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline">
-                                      {getAllocationTypeLabel(record.allocation_type)}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right font-medium">
-                                    {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                  </TableCell>
-                                  {financialViewMode === "pagos" && (
-                                    <TableCell className="text-right font-medium">
-                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                    </TableCell>
-                                  )}
-                                  <TableCell>
-                                    {record.is_rateio ? "" : (record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.is_rateio ? "" : (record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.is_rateio ? "" : (
-                                      <Badge variant={record.status === "paid" ? "default" : "secondary"}>
-                                        {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
-                                      </Badge>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
+                    {renderFinTable(despesas, "Despesas")}
+                    {renderFinTable(receitas, "Receitas")}
 
-                    {/* Receitas */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-base border-b pb-1 text-primary">Receitas</h4>
-                      {receitas.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-4">Nenhuma receita registrada.</p>
-                      ) : (
-                        <div className="border rounded-lg overflow-hidden">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Número</TableHead>
-                                <TableHead>Credor</TableHead>
-                                <TableHead>Tipo Alocação</TableHead>
-                                <TableHead className="text-right">Vlr Total</TableHead>
-                                {financialViewMode === "pagos" && <TableHead className="text-right">Recebido</TableHead>}
-                                <TableHead>Vencimento</TableHead>
-                                <TableHead>Pagamento</TableHead>
-                                <TableHead>Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {receitas.map((record) => (
-                                <TableRow key={record.id} className={record.is_rateio ? "bg-blue-50 dark:bg-blue-950/20" : ""}>
-                                  <TableCell>{record.is_rateio ? "" : (record.document_number || "-")}</TableCell>
-                                  <TableCell>{record.is_rateio ? (record.rateio_label || "") : (record.creditor_name || "-")}</TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline">
-                                      {getAllocationTypeLabel(record.allocation_type)}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right font-medium">
-                                    {record.item_total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                  </TableCell>
-                                  {financialViewMode === "pagos" && (
-                                    <TableCell className="text-right font-medium">
-                                      {record.paid_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                    </TableCell>
-                                  )}
-                                  <TableCell>
-                                    {record.is_rateio ? "" : (record.due_date ? format(new Date(record.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.is_rateio ? "" : (record.payment_date ? format(new Date(record.payment_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : "-")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.is_rateio ? "" : (
-                                      <Badge variant={record.status === "paid" ? "default" : "secondary"}>
-                                        {record.status === "paid" ? "Pago" : record.status === "pending" ? "Pendente" : record.status === "partial" ? "Parcial" : record.status}
-                                      </Badge>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Saldo */}
                     <div className="border rounded-lg p-4 bg-muted/30">
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{financialViewMode === "pagos" ? "Receitas Recebidas" : "Total Receitas"}</p>
-                          <p className="text-lg font-semibold text-primary">
-                            {(financialViewMode === "pagos" ? totalPagoReceitas : totalReceitas).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </p>
+                      {financialViewMode === "pagos" ? (
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              {totalPagoDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Receitas Recebidas</p>
+                            <p className="text-lg font-semibold text-blue-600">
+                              {totalPagoReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Saldo</p>
+                            <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-blue-600" : "text-destructive")}>
+                              {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">{financialViewMode === "pagos" ? "Despesas Pagas" : "Total Despesas"}</p>
-                          <p className="text-lg font-semibold text-destructive">
-                            {(financialViewMode === "pagos" ? totalPagoDespesas : totalDespesas).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Receitas</p>
+                            <p className="text-lg font-semibold text-primary">
+                              {totalReceitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Despesas</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              {totalDespesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Saldo</p>
+                            <p className={cn("text-lg font-semibold", saldo >= 0 ? "text-primary" : "text-destructive")}>
+                              {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Saldo</p>
-                          <p className={cn(
-                            "text-lg font-semibold",
-                            saldo >= 0 ? "text-primary" : "text-destructive"
-                          )}>
-                            {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </>
                 );
