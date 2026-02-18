@@ -384,7 +384,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const { data: pregnancyData } = await supabase
         .from("pregnancy_management")
         .select("id, name")
-        .eq("status", "em_andamento")
+        .eq("status", "in_progress")
         .order("name");
       setAllocationPregnancies(pregnancyData || []);
 
