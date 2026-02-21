@@ -98,7 +98,7 @@ const ReceivedAccountsReport = () => {
           .from("accounts_receivable")
           .select(`
             *,
-            creditors(id, name),
+            suppliers!accounts_receivable_creditor_id_fkey(id, name),
             stores(id, name),
             accounts_receivable_installments(*),
             accounts_receivable_items(
@@ -296,7 +296,7 @@ const ReceivedAccountsReport = () => {
     // Table data
     const tableData = accounts.map(account => [
       getAccountTitle(account),
-      account.creditors?.name || "N/A",
+      account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
       new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -372,7 +372,7 @@ const ReceivedAccountsReport = () => {
     // Group accounts by creditor
     const accountsByCreditor: { [key: string]: any[] } = {};
     accounts.forEach(account => {
-      const creditorName = account.creditors?.name || "Sem Credor";
+      const creditorName = account.suppliers?.name || "Sem Credor";
       if (!accountsByCreditor[creditorName]) {
         accountsByCreditor[creditorName] = [];
       }
@@ -530,7 +530,7 @@ const ReceivedAccountsReport = () => {
 
       const tableData = monthAccounts.map(account => [
         getAccountTitle(account),
-        account.creditors?.name || "N/A",
+        account.suppliers?.name || "N/A",
         account.stores?.name || "N/A",
         new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
         new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -682,7 +682,7 @@ const ReceivedAccountsReport = () => {
 
       const tableData = subgroupAccounts.map(account => [
         getAccountTitle(account),
-        account.creditors?.name || "N/A",
+        account.suppliers?.name || "N/A",
         account.stores?.name || "N/A",
         new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
         account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
@@ -762,7 +762,7 @@ const ReceivedAccountsReport = () => {
       doc.setFont("helvetica", "bold");
       doc.setFillColor(240, 240, 240);
       doc.rect(20, currentY - 4, doc.internal.pageSize.width - 40, 8, 'F');
-      doc.text(`${getAccountTitle(account)} - ${account.creditors?.name || "N/A"} - ${account.stores?.name || "N/A"}`, 22, currentY);
+      doc.text(`${getAccountTitle(account)} - ${account.suppliers?.name || "N/A"} - ${account.stores?.name || "N/A"}`, 22, currentY);
       currentY += 6;
 
       doc.setFontSize(9);
@@ -829,7 +829,7 @@ const ReceivedAccountsReport = () => {
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: getAccountTitle(account),
-      Credor: account.creditors?.name || "N/A",
+      Credor: account.suppliers?.name || "N/A",
       Loja: account.stores?.name || "N/A",
       Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       Recebimento: new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
@@ -1046,7 +1046,7 @@ const ReceivedAccountsReport = () => {
                   {accounts.map((account, index) => (
                     <TableRow key={`${account.id}-${index}`}>
                       <TableCell>{getAccountTitle(account)}</TableCell>
-                      <TableCell>{account.creditors?.name || "N/A"}</TableCell>
+                      <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>{new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
