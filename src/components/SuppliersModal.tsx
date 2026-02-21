@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserMatrix } from "@/hooks/useUserMatrix";
@@ -25,6 +26,9 @@ interface Supplier {
   contact_person: string | null;
   store_id: string;
   is_active: boolean;
+  is_supplier: boolean;
+  is_creditor: boolean;
+  is_owner: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -59,6 +63,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
     phone: "",
     email: "",
     contact_person: "",
+    is_supplier: true,
+    is_creditor: false,
+    is_owner: false,
   });
 
   useEffect(() => {
@@ -212,6 +219,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
       phone: supplier.phone || "",
       email: supplier.email || "",
       contact_person: supplier.contact_person || "",
+      is_supplier: supplier.is_supplier ?? true,
+      is_creditor: supplier.is_creditor ?? false,
+      is_owner: supplier.is_owner ?? false,
     });
     setEditingSupplier(supplier);
     setActiveTab("register");
@@ -279,6 +289,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
       phone: "",
       email: "",
       contact_person: "",
+      is_supplier: true,
+      is_creditor: false,
+      is_owner: false,
     });
     setEditingSupplier(null);
   };
@@ -302,9 +315,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Fornecedores</DialogTitle>
+         <DialogTitle>Cadastros</DialogTitle>
           <DialogDescription>
-            Cadastro e gestão de fornecedores
+            Cadastro e gestão de fornecedores, credores e proprietários
           </DialogDescription>
         </DialogHeader>
 
@@ -321,13 +334,13 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
           <TabsContent value="register">
             <Card>
               <CardHeader>
-                <CardTitle>
-                  {editingSupplier ? "Editar Fornecedor" : "Novo Fornecedor"}
+               <CardTitle>
+                  {editingSupplier ? "Editar Cadastro" : "Novo Cadastro"}
                 </CardTitle>
                 <CardDescription>
                   {editingSupplier 
-                    ? "Atualize as informações do fornecedor" 
-                    : "Preencha os dados do novo fornecedor"
+                    ? "Atualize as informações do cadastro" 
+                    : "Preencha os dados do novo cadastro"
                   }
                 </CardDescription>
               </CardHeader>
@@ -444,6 +457,36 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <Label>Tipo de Cadastro</Label>
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="is_supplier"
+                          checked={formData.is_supplier}
+                          onCheckedChange={(checked) => setFormData({ ...formData, is_supplier: !!checked })}
+                        />
+                        <Label htmlFor="is_supplier" className="cursor-pointer font-normal">Fornecedor</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="is_creditor"
+                          checked={formData.is_creditor}
+                          onCheckedChange={(checked) => setFormData({ ...formData, is_creditor: !!checked })}
+                        />
+                        <Label htmlFor="is_creditor" className="cursor-pointer font-normal">Credor</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="is_owner"
+                          checked={formData.is_owner}
+                          onCheckedChange={(checked) => setFormData({ ...formData, is_owner: !!checked })}
+                        />
+                        <Label htmlFor="is_owner" className="cursor-pointer font-normal">Proprietário</Label>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex space-x-2">
                     <Button type="submit" disabled={loading}>
                       {loading ? "Salvando..." : (editingSupplier ? "Atualizar" : "Cadastrar")}
@@ -464,9 +507,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
           <TabsContent value="list">
             <Card>
               <CardHeader>
-                <CardTitle>Lista de Fornecedores</CardTitle>
+                <CardTitle>Lista de Cadastros</CardTitle>
                 <CardDescription>
-                  Gerencie todos os fornecedores cadastrados
+                  Gerencie todos os cadastros
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -488,9 +531,9 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>CNPJ</TableHead>
+                        <TableHead>Tipo</TableHead>
                         <TableHead>Telefone</TableHead>
                         <TableHead>Cidade</TableHead>
-                        <TableHead>Última Compra</TableHead>
                         {(canEdit || canDelete) && (
                           <TableHead className="text-right">Ações</TableHead>
                         )}
@@ -506,7 +549,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                       ) : paginatedSuppliers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center">
-                            Nenhum fornecedor encontrado
+                            Nenhum cadastro encontrado
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -519,15 +562,17 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                               {supplier.cnpj_cpf || "-"}
                             </TableCell>
                             <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {supplier.is_supplier && <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Fornecedor</span>}
+                                {supplier.is_creditor && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Credor</span>}
+                                {supplier.is_owner && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Proprietário</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
                               {supplier.phone || "-"}
                             </TableCell>
                             <TableCell>
                               {supplier.city || "-"}
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-muted-foreground">
-                                Não disponível
-                              </span>
                             </TableCell>
                             {(canEdit || canDelete) && (
                               <TableCell className="text-right">
@@ -564,7 +609,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-sm text-muted-foreground">
-                      Página {currentPage} de {totalPages} ({filteredSuppliers.length} fornecedores)
+                      Página {currentPage} de {totalPages} ({filteredSuppliers.length} cadastros)
                     </span>
                     <div className="flex items-center gap-2">
                       <Button

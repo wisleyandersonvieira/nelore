@@ -1158,9 +1158,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
   const fetchCreditors = async () => {
     try {
       const { data, error } = await supabase
-        .from("creditors")
+        .from("suppliers")
         .select("id, name, cnpj_cpf")
         .eq("is_active", true)
+        .eq("is_creditor", true)
         .order("name");
 
       if (error) throw error;
