@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Settings, Package, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings, Package, X, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUserMatrix } from "@/hooks/useUserMatrix";
@@ -107,16 +107,19 @@ export const EstoqueParameterModal = ({ open, onOpenChange }: EstoqueParameterMo
     }
   };
 
-  const toggleSubgroup = (paramKey: string, subgroupId: string) => {
+  const addSubgroup = (paramKey: string, subgroupId: string) => {
+    if (subgroupId === "none") return;
     setConfig(prev => {
       const current = prev[paramKey] || [];
-      const isSelected = current.includes(subgroupId);
-      return {
-        ...prev,
-        [paramKey]: isSelected
-          ? current.filter(id => id !== subgroupId)
-          : [...current, subgroupId]
-      };
+      if (current.includes(subgroupId)) return prev;
+      return { ...prev, [paramKey]: [...current, subgroupId] };
+    });
+  };
+
+  const removeSubgroup = (paramKey: string, subgroupId: string) => {
+    setConfig(prev => {
+      const current = prev[paramKey] || [];
+      return { ...prev, [paramKey]: current.filter(id => id !== subgroupId) };
     });
   };
 
@@ -127,13 +130,11 @@ export const EstoqueParameterModal = ({ open, onOpenChange }: EstoqueParameterMo
     try {
       const paramKeys = ESTOQUE_PARAMETERS.map(p => p.key);
 
-      // Remove all existing
       await supabase
         .from('system_parameters')
         .delete()
         .in('parameter_key', paramKeys);
 
-      // Insert new config
       const inserts: { parameter_key: string; subgroup_id: string; matrix_id: string }[] = [];
       for (const paramKey of paramKeys) {
         const selectedIds = config[paramKey] || [];
@@ -215,93 +216,65 @@ export const EstoqueParameterModal = ({ open, onOpenChange }: EstoqueParameterMo
             </CardContent>
           </Card>
 
-          {/* Current config summary */}
-          {hasAnyConfig && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Configuração Atual</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {ESTOQUE_PARAMETERS.map(param => {
-                    const selected = config[param.key] || [];
-                    if (selected.length === 0) return null;
-                    return (
-                      <div key={param.key}>
-                        <span className="text-sm font-medium">{param.label}:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selected.map(id => (
-                            <Badge key={id} variant="outline" className="text-xs">
-                              {getSubgroupName(id)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Parameter config sections */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Configurar Subgrupos por Tipo</CardTitle>
               <CardDescription>
-                Marque os subgrupos que deseja vincular a cada tipo de estoque.
+                Selecione os subgrupos que deseja vincular a cada tipo de estoque.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {ESTOQUE_PARAMETERS.map(param => (
-                <div key={param.key} className="space-y-2">
-                  <Label className="text-sm font-semibold">{param.label}</Label>
-                  {/* Selected badges */}
-                  {(config[param.key] || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {(config[param.key] || []).map(id => (
-                        <Badge
-                          key={id}
-                          variant="default"
-                          className="text-xs cursor-pointer gap-1"
-                          onClick={() => toggleSubgroup(param.key, id)}
-                        >
-                          {getSubgroupName(id)}
-                          <X className="h-3 w-3" />
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                    {subgroups.map(subgroup => {
-                      const isChecked = (config[param.key] || []).includes(subgroup.id);
-                      return (
-                        <div key={subgroup.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`${param.key}-${subgroup.id}`}
-                            checked={isChecked}
-                            onCheckedChange={() => toggleSubgroup(param.key, subgroup.id)}
-                          />
-                          <label
-                            htmlFor={`${param.key}-${subgroup.id}`}
-                            className="text-sm cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              {ESTOQUE_PARAMETERS.map(param => {
+                const selected = config[param.key] || [];
+                const availableSubgroups = subgroups.filter(s => !selected.includes(s.id));
+
+                return (
+                  <div key={param.key} className="space-y-2">
+                    <Label className="text-sm font-semibold">{param.label}</Label>
+
+                    {/* Selected subgroups as removable badges */}
+                    {selected.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {selected.map(id => (
+                          <Badge
+                            key={id}
+                            variant="default"
+                            className="text-xs cursor-pointer gap-1"
+                            onClick={() => removeSubgroup(param.key, id)}
                           >
-                            {subgroup.name}
-                            {subgroup.parent_name && (
-                              <span className="text-xs text-muted-foreground ml-1">({subgroup.parent_name})</span>
-                            )}
-                          </label>
-                        </div>
-                      );
-                    })}
-                    {subgroups.length === 0 && (
-                      <p className="text-sm text-muted-foreground col-span-2 text-center py-2">
-                        Nenhum subgrupo disponível
-                      </p>
+                            {getSubgroupName(id)}
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                      </div>
                     )}
+
+                    {/* Dropdown to add subgroup */}
+                    <Select
+                      value="none"
+                      onValueChange={(value) => addSubgroup(param.key, value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Adicionar subgrupo..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover z-50">
+                        <SelectItem value="none" disabled>Selecione um subgrupo...</SelectItem>
+                        {availableSubgroups.map((subgroup) => (
+                          <SelectItem key={subgroup.id} value={subgroup.id}>
+                            {subgroup.name}
+                            {subgroup.parent_name && ` (${subgroup.parent_name})`}
+                          </SelectItem>
+                        ))}
+                        {availableSubgroups.length === 0 && (
+                          <SelectItem value="empty" disabled>
+                            Nenhum subgrupo disponível
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         </div>
