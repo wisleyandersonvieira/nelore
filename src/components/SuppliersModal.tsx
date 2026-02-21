@@ -347,7 +347,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
               <CardContent>
                 <ScrollArea className="h-[400px] pr-4">
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Campo Matriz (somente leitura) */}
+                    {/* Campo Matriz e Tipo de Cadastro */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Matriz</Label>
@@ -356,6 +356,35 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                           disabled 
                           className="bg-muted"
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de Cadastro</Label>
+                        <div className="flex items-center gap-6 h-10">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="is_supplier"
+                              checked={formData.is_supplier}
+                              onCheckedChange={(checked) => setFormData({ ...formData, is_supplier: !!checked })}
+                            />
+                            <Label htmlFor="is_supplier" className="cursor-pointer font-normal">Fornecedor</Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="is_creditor"
+                              checked={formData.is_creditor}
+                              onCheckedChange={(checked) => setFormData({ ...formData, is_creditor: !!checked })}
+                            />
+                            <Label htmlFor="is_creditor" className="cursor-pointer font-normal">Credor</Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="is_owner"
+                              checked={formData.is_owner}
+                              onCheckedChange={(checked) => setFormData({ ...formData, is_owner: !!checked })}
+                            />
+                            <Label htmlFor="is_owner" className="cursor-pointer font-normal">Proprietário</Label>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -457,35 +486,6 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Tipo de Cadastro</Label>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="is_supplier"
-                          checked={formData.is_supplier}
-                          onCheckedChange={(checked) => setFormData({ ...formData, is_supplier: !!checked })}
-                        />
-                        <Label htmlFor="is_supplier" className="cursor-pointer font-normal">Fornecedor</Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="is_creditor"
-                          checked={formData.is_creditor}
-                          onCheckedChange={(checked) => setFormData({ ...formData, is_creditor: !!checked })}
-                        />
-                        <Label htmlFor="is_creditor" className="cursor-pointer font-normal">Credor</Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="is_owner"
-                          checked={formData.is_owner}
-                          onCheckedChange={(checked) => setFormData({ ...formData, is_owner: !!checked })}
-                        />
-                        <Label htmlFor="is_owner" className="cursor-pointer font-normal">Proprietário</Label>
-                      </div>
-                    </div>
-                  </div>
 
                   <div className="flex space-x-2">
                     <Button type="submit" disabled={loading}>
