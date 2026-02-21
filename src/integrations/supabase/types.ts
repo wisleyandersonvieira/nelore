@@ -508,7 +508,7 @@ export type Database = {
             foreignKeyName: "accounts_receivable_creditor_id_fkey"
             columns: ["creditor_id"]
             isOneToOne: false
-            referencedRelation: "creditors"
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {

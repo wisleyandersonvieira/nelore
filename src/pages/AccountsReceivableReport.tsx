@@ -42,7 +42,7 @@ const AccountsReceivableReport = () => {
   }, []);
 
   const fetchCreditors = async () => {
-    const { data } = await supabase.from("creditors").select("id, name");
+    const { data } = await supabase.from("suppliers").select("id, name").eq("is_active", true).eq("is_creditor", true);
     setCreditors(data || []);
   };
 
@@ -98,7 +98,7 @@ const AccountsReceivableReport = () => {
           .from("accounts_receivable")
           .select(`
             *,
-            creditors(id, name),
+            suppliers!accounts_receivable_creditor_id_fkey(id, name),
             stores(id, name),
             accounts_receivable_installments(*)
           `)
@@ -258,7 +258,7 @@ const AccountsReceivableReport = () => {
     // Table data
     const tableData = accounts.map(account => [
       getAccountTitle(account),
-      account.creditors?.name || "N/A",
+      account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
       new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
@@ -326,7 +326,7 @@ const AccountsReceivableReport = () => {
 
     // Group accounts by creditor
     const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
-      const creditorName = account.creditors?.name || "Sem Credor";
+      const creditorName = account.suppliers?.name || "Sem Credor";
       if (!groups[creditorName]) {
         groups[creditorName] = [];
       }
@@ -465,7 +465,7 @@ const AccountsReceivableReport = () => {
 
       const tableData = monthAccounts.map((account: any) => [
         getAccountTitle(account),
-        account.creditors?.name || "N/A",
+        account.suppliers?.name || "N/A",
         account.stores?.name || "N/A",
         new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
         account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
@@ -527,7 +527,7 @@ const AccountsReceivableReport = () => {
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: getAccountTitle(account),
-      Credor: account.creditors?.name || "N/A",
+      Credor: account.suppliers?.name || "N/A",
       Loja: account.stores?.name || "N/A",
       Vencimento: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
       Valor: account.amount || 0,
@@ -751,7 +751,7 @@ const AccountsReceivableReport = () => {
                   {accounts.map((account, index) => (
                     <TableRow key={`${account.id}-${index}`}>
                       <TableCell>{getAccountTitle(account)}</TableCell>
-                      <TableCell>{account.creditors?.name || "N/A"}</TableCell>
+                      <TableCell>{account.suppliers?.name || "N/A"}</TableCell>
                       <TableCell>{account.stores?.name || "N/A"}</TableCell>
                       <TableCell>{new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>

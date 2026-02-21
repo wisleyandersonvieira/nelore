@@ -72,7 +72,8 @@ interface AccountReceivable {
   issue_date?: string;
   notes?: string;
   store_id?: string;
-  creditors?: { name: string };
+  suppliers?: { name: string };
+  creditors?: { name: string }; // alias for backwards compat
   stores?: { name: string };
   created_at: string;
   payment_date?: string;
@@ -384,14 +385,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .from("accounts_receivable")
         .select(`
           *,
-          creditors(name),
+          suppliers!accounts_receivable_creditor_id_fkey(name),
           stores(name)
         `)
         .in("status", ["pending", "partial"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setAccountsReceivable(data || []);
+      setAccountsReceivable((data as any) || []);
     } catch (error) {
       console.error("Error fetching accounts receivable:", error);
       toast({
@@ -408,7 +409,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .from("accounts_receivable")
         .select(`
           *,
-          creditors(name),
+          suppliers!accounts_receivable_creditor_id_fkey(name),
           stores(name)
         `)
         .in("status", ["pending", "partial"]);
@@ -441,7 +442,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const { data, error } = await query;
 
       if (error) throw error;
-      setAccountsReceivable(data || []);
+      setAccountsReceivable((data as any) || []);
       setPaymentShowFilteredData(true);
     } catch (error) {
       console.error("Error fetching filtered payment accounts:", error);
@@ -472,7 +473,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .from("accounts_receivable")
         .select(`
           *,
-          creditors(name),
+          suppliers!accounts_receivable_creditor_id_fkey(name),
           stores(name)
         `);
 
@@ -522,7 +523,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       
       // For each account, fetch the last payment date from installments
       const accountsWithLastPayment = await Promise.all(
-        (data || []).map(async (account) => {
+        ((data as any) || []).map(async (account: any) => {
           // First try to get the last paid installment
           const { data: lastInstallment } = await supabase
             .from("accounts_receivable_installments")
@@ -726,7 +727,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       // Load existing attachments and creditor_id
       const { data: accountFullData } = await supabase
         .from("accounts_receivable")
-        .select("*, creditors(id, name)")
+        .select("*, suppliers!accounts_receivable_creditor_id_fkey(id, name)")
         .eq("id", account.id)
         .single();
 
@@ -766,7 +767,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
     try {
       const { data: accountFullData } = await supabase
         .from("accounts_receivable")
-        .select("*, creditors(id, name)")
+        .select("*, suppliers!accounts_receivable_creditor_id_fkey(id, name)")
         .eq("id", account.id)
         .single();
 
@@ -2634,7 +2635,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               ? `${account.document_type} ${account.document_number}` 
                               : account.description}
                           </TableCell>
-                          <TableCell>{account.creditors?.name || "N/A"}</TableCell>
+                          <TableCell>{(account as any).suppliers?.name || "N/A"}</TableCell>
                           <TableCell>
                             {new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")}
                           </TableCell>
@@ -3452,7 +3453,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 <div className="p-4 bg-gray-400 text-white rounded-lg">
                   <p className="font-medium">{paymentAccount.document_type} {paymentAccount.document_number}</p>
                   <p className="text-sm">
-                    Credor: {paymentAccount.creditors?.name || '-'}
+                    Credor: {(paymentAccount as any).suppliers?.name || '-'}
                   </p>
                   <p className="text-sm">
                     Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
@@ -3684,7 +3685,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
               <div className="p-4 bg-muted rounded-lg">
                 <p className="font-medium">{reverseAccount.description}</p>
                 <p className="text-sm text-muted-foreground">
-                  Credor: {reverseAccount.creditors?.name || '-'}
+                  Credor: {(reverseAccount as any).suppliers?.name || '-'}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Loja: {reverseAccount.stores?.name || '-'}

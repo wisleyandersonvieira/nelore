@@ -33,6 +33,9 @@ interface ReceivableAccount {
   account_id?: string;
   total_amount?: number;
   notes?: string;
+  suppliers?: {
+    name: string;
+  };
   creditors?: {
     name: string;
   };
@@ -115,7 +118,7 @@ const AccountsReceivableReports = () => {
       .from("accounts_receivable")
       .select(`
         *,
-        creditors(name),
+        suppliers!accounts_receivable_creditor_id_fkey(name),
         stores(name),
         accounts_receivable_items(
           products(name)
@@ -172,8 +175,8 @@ const AccountsReceivableReports = () => {
         buildQuery(true),
       ]);
 
-      let pendingData = (pendingRes.data || []) as ReceivableAccount[];
-      let paidData = (paidRes.data || []) as ReceivableAccount[];
+      let pendingData = (pendingRes.data || []) as unknown as ReceivableAccount[];
+      let paidData = (paidRes.data || []) as unknown as ReceivableAccount[];
 
       // Filter by product if specified
       if (filters.product_id && filters.product_id !== "all") {
@@ -228,7 +231,7 @@ const AccountsReceivableReports = () => {
 
     const tableData = data.map((account) => [
       account.description,
-      account.creditors?.name || "N/A",
+      account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
       `R$ ${account.amount.toFixed(2)}`,
       format(parseISO(account.due_date), "dd/MM/yyyy"),
@@ -250,7 +253,7 @@ const AccountsReceivableReports = () => {
     const worksheet = XLSX.utils.json_to_sheet(
       data.map((account) => ({
         Descrição: account.description,
-        Credor: account.creditors?.name || "N/A",
+        Credor: account.suppliers?.name || "N/A",
         Loja: account.stores?.name || "N/A",
         Valor: account.amount,
         Vencimento: format(parseISO(account.due_date), "dd/MM/yyyy"),
@@ -287,7 +290,7 @@ const AccountsReceivableReports = () => {
         {data.map((account) => (
           <TableRow key={account.id}>
             <TableCell>{account.description}</TableCell>
-            <TableCell>{account.creditors?.name || "N/A"}</TableCell>
+            <TableCell>{(account as any).suppliers?.name || "N/A"}</TableCell>
             <TableCell>{account.stores?.name || "N/A"}</TableCell>
             <TableCell>R$ {account.amount.toFixed(2)}</TableCell>
             <TableCell>{format(parseISO(account.due_date), "dd/MM/yyyy")}</TableCell>

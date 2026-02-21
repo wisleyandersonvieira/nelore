@@ -847,7 +847,7 @@ const AnimaisGestaoAspiracoes = () => {
 
         const creditorsMap = new Map<string, string>();
         if (creditorIds.size > 0) {
-          const { data: creditors } = await supabase.from("creditors").select("id, name").in("id", Array.from(creditorIds));
+          const { data: creditors } = await supabase.from("suppliers").select("id, name").in("id", Array.from(creditorIds));
           (creditors || []).forEach((c: any) => creditorsMap.set(c.id, c.name));
         }
 

@@ -90,19 +90,11 @@ const Cadastros = () => {
 
   const cadastroModules = [{
     id: "fornecedores",
-    title: "Fornecedores",
-    description: "Cadastro e gestão de fornecedores",
+    title: "Fornecedores / Credores",
+    description: "Cadastro unificado de fornecedores, credores e proprietários",
     icon: Users,
     color: "bg-orange-500",
     onClick: () => handleMenuClick("fornecedores", () => setSuppliersModalOpen(true)),
-    restricted: false
-  }, {
-    id: "credores",
-    title: "Credores",
-    description: "Cadastro e gestão de credores",
-    icon: Users,
-    color: "bg-green-600",
-    onClick: () => handleMenuClick("credores", () => setCreditorsModalOpen(true)),
     restricted: false
   }, {
     id: "lojas",
