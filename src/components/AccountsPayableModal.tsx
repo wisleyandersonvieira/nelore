@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
 import { SupplierSearchModal } from "./SupplierSearchModal";
 import { ProductSearchModal } from "./ProductSearchModal";
+import { SuppliersModal } from "./SuppliersModal";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 import * as pdfjsLib from 'pdfjs-dist';
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
@@ -292,6 +293,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   // Search modals state
   const [showSupplierSearch, setShowSupplierSearch] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
+  const [showSupplierRegister, setShowSupplierRegister] = useState(false);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
@@ -4524,18 +4526,31 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               onFocus={() => setShowSupplierDropdown(supplierSearchTerm.trim().length > 0 && filteredSuppliers.length > 0)}
                               onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
                               disabled={isViewOnly}
-                              className="pr-10"
+                               className="pr-20"
                             />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowSupplierSearch(true)}
-                              disabled={isViewOnly}
-                              className="absolute right-0 top-0 h-full px-3"
-                            >
-                              <Search className="h-4 w-4" />
-                            </Button>
+                            <div className="absolute right-0 top-0 h-full flex items-center gap-0">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowSupplierSearch(true)}
+                                disabled={isViewOnly}
+                                className="h-full px-2"
+                              >
+                                <Search className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowSupplierRegister(true)}
+                                disabled={isViewOnly}
+                                className="h-full px-2"
+                                title="Cadastrar novo fornecedor"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
                             
                             {showSupplierDropdown && filteredSuppliers.length > 0 && (
                               <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
@@ -5732,6 +5747,17 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           onOpenChange={setShowProductSearch}
           onSelectProduct={handleProductSelect}
           isEmployeeMode={isEmployeeMode}
+        />
+
+        {/* Supplier Register Modal */}
+        <SuppliersModal
+          open={showSupplierRegister}
+          onOpenChange={(isOpen) => {
+            setShowSupplierRegister(isOpen);
+            if (!isOpen) {
+              fetchSuppliers();
+            }
+          }}
         />
       </DialogContent>
     </Dialog>
