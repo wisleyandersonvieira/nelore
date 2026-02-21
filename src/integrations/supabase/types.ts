@@ -4054,6 +4054,9 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          is_creditor: boolean
+          is_owner: boolean
+          is_supplier: boolean
           matrix_id: string
           name: string
           phone: string | null
@@ -4071,6 +4074,9 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          is_creditor?: boolean
+          is_owner?: boolean
+          is_supplier?: boolean
           matrix_id: string
           name: string
           phone?: string | null
@@ -4088,6 +4094,9 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          is_creditor?: boolean
+          is_owner?: boolean
+          is_supplier?: boolean
           matrix_id?: string
           name?: string
           phone?: string | null

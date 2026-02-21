@@ -48,6 +48,7 @@ export function SupplierSearchModal({
         .from("suppliers")
         .select("id, name, cnpj_cpf")
         .eq("is_active", true)
+        .eq("is_supplier", true)
         .order("name");
 
       if (error) throw error;

@@ -92,7 +92,7 @@ const AccountsReceivableReports = () => {
   const fetchInitialData = async () => {
     try {
       const [creditorsRes, storesRes, productsRes] = await Promise.all([
-        supabase.from("creditors").select("id, name").eq("is_active", true),
+        supabase.from("suppliers").select("id, name").eq("is_active", true).eq("is_creditor", true),
         supabase.from("stores").select("id, name"),
         supabase.from("products").select("id, name").eq("is_active", true),
       ]);

@@ -42,7 +42,7 @@ const ReceivedAccountsReport = () => {
   }, []);
 
   const fetchCreditors = async () => {
-    const { data } = await supabase.from("creditors").select("id, name");
+    const { data } = await supabase.from("suppliers").select("id, name").eq("is_active", true).eq("is_creditor", true);
     setCreditors(data || []);
   };
 
