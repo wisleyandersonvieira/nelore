@@ -248,7 +248,6 @@ const AppSidebar = ({
       icon: ClipboardList,
       subMenus: [
         { id: "contas", label: "Contas", action: "openContas" },
-        { id: "credores", label: "Credores", action: "openCreditors" },
         { id: "fornecedores", label: "Fornecedores", action: "openSuppliers" },
         { id: "grupos", label: "Grupos", action: "openGrupos" },
         { id: "lojas", label: "Fazendas", action: "openStores" },
