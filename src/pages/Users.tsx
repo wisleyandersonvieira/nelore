@@ -219,7 +219,7 @@ const Users = () => {
         .single();
 
       setIsAdmin(profile?.role === "admin");
-      setIsMasterUser(profile?.email === "wisley_anderson@hotmail.com");
+      // setIsMasterUser(profile?.email === "wisley_anderson@hotmail.com"); alterar
       setIsMasterUser(isAdmin);
       setCurrentUserEmail(profile?.email);
       setCurrentUserMatrixId(profile?.matrix_id || null);
