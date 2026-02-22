@@ -220,7 +220,7 @@ const Users = () => {
 
       setIsAdmin(profile?.role === "admin");
       // setIsMasterUser(profile?.email === "wisley_anderson@hotmail.com"); alterar
-      setIsMasterUser(isAdmin);
+      setIsMasterUser(profile?.role === "admin");
       setCurrentUserEmail(profile?.email);
       setCurrentUserMatrixId(profile?.matrix_id || null);
 
