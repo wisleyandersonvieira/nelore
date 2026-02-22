@@ -219,8 +219,8 @@ const Users = () => {
         .single();
 
       setIsAdmin(profile?.role === "admin");
-      setIsMasterUser(profile?.email === "wisley_anderson@hotmail.com" || profile?.email === "luizpenz@gmail.com");
-      // setIsMasterUser(true);
+      setIsMasterUser(profile?.email === "wisley_anderson@hotmail.com");
+      setIsMasterUser(isAdmin);
       setCurrentUserEmail(profile?.email);
       setCurrentUserMatrixId(profile?.matrix_id || null);
 
