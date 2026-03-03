@@ -241,23 +241,38 @@ const AnimaisCadastro = () => {
     fetchDropdownData();
   }, []);
 
+  const getUserStoreId = async (userId: string): Promise<string | null> => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("id", userId)
+      .single();
+
+    if (profile?.store_id) return profile.store_id;
+
+    // Fallback: buscar via user_stores
+    const { data: userStore } = await supabase
+      .from("user_stores")
+      .select("store_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .single();
+
+    return userStore?.store_id || null;
+  };
+
   const fetchAnimals = async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
-      if (!profile?.store_id) return;
+      const storeId = await getUserStoreId(userData.user.id);
+      if (!storeId) return;
 
       const { data, error } = await supabase
         .from("animals")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .order("code", { ascending: true });
 
       if (error) throw error;
@@ -278,25 +293,20 @@ const AnimaisCadastro = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
-      if (!profile?.store_id) return;
+      const storeId = await getUserStoreId(userData.user.id);
+      if (!storeId) return;
 
       // Fetch all dropdown data in parallel
       const [batchesRes, breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, vetRes, labRes] = await Promise.all([
-        supabase.from("animal_batches").select("id, name").eq("store_id", profile.store_id),
-        supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("animal_batches").select("id, name").eq("store_id", storeId),
+        supabase.from("animal_breeds").select("id, name").eq("store_id", storeId).eq("is_active", true),
+        supabase.from("animal_categories").select("id, name").eq("store_id", storeId).eq("is_active", true),
+        supabase.from("leiloes").select("id, name").eq("store_id", storeId).eq("is_active", true),
+        supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", storeId).eq("is_active", true),
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
-        supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
+        supabase.from("veterinarians").select("id, name").eq("store_id", storeId).eq("is_active", true),
+        supabase.from("laboratories").select("id, name").eq("store_id", storeId).eq("is_active", true),
       ]);
 
       setBatches(batchesRes.data || []);
@@ -319,16 +329,11 @@ const AnimaisCadastro = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return 1;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
-      if (!profile?.store_id) return 1;
+      const storeId = await getUserStoreId(userData.user.id);
+      if (!storeId) return 1;
 
       const { data, error } = await supabase.rpc("get_next_animal_code", {
-        store_uuid: profile.store_id,
+        store_uuid: storeId,
       });
 
       if (error) throw error;
@@ -705,19 +710,14 @@ const AnimaisCadastro = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Usuário não autenticado");
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .single();
-
-      if (!profile?.store_id) throw new Error("Store não encontrada");
+      const storeId = await getUserStoreId(userData.user.id);
+      if (!storeId) throw new Error("Store não encontrada");
 
       // Check for duplicate name
       const { data: existingAnimal } = await supabase
         .from("animals")
         .select("id")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("name", formData.name.trim())
         .eq("is_active", true)
         .neq("id", selectedAnimal?.id || "00000000-0000-0000-0000-000000000000")
@@ -759,7 +759,7 @@ const AnimaisCadastro = () => {
         observations: formData.observations || null,
         photos: formData.photos,
         cover_photo: formData.cover_photo || null,
-        store_id: profile.store_id,
+        store_id: storeId,
         is_active: formData.is_active === "ativo",
         farm_id: farmId,
         farm_type: farmType,
