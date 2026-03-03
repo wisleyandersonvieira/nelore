@@ -76,7 +76,7 @@ const AnimaisMatrizes = () => {
       .select("store_id")
       .eq("user_id", userId)
       .limit(1)
-      .single();
+      .maybeSingle();
     return userStore?.store_id || null;
   };
 
@@ -209,11 +209,11 @@ const AnimaisMatrizes = () => {
         return;
       }
 
-      // const storeId = await getUserStoreId(user.id);
-      // if (!storeId) {
-      //   toast.error("Loja não encontrada");
-      //   return;
-      // }
+      const storeId = await getUserStoreId(user.id);
+      if (!storeId) {
+        toast.error("Loja não encontrada");
+        return;
+      }
 
       // Check for duplicate name
       const { data: existingAnimal } = await supabase

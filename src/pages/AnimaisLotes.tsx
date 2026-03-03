@@ -80,26 +80,41 @@ const AnimaisLotes = () => {
     fetchBatches();
   }, []);
 
+  const getUserStoreId = async (userId: string): Promise<string | null> => {
+    const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userId).single();
+    if (profile?.store_id) return profile.store_id;
+
+    const { data: userStore } = await supabase
+      .from("user_stores")
+      .select("store_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    return userStore?.store_id || null;
+  };
+
   const fetchBatches = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        setIsLoading(false);
+        return;
+      }
 
-      if (!profile?.store_id) {
+      const activeStoreId = await getUserStoreId(user.id);
+      if (!activeStoreId) {
         toast.error("Usuário não está vinculado a uma fazenda");
         setIsLoading(false);
         return;
       }
 
-      setStoreId(profile.store_id);
+      setStoreId(activeStoreId);
 
       const { data, error } = await supabase
         .from("animal_batches")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", activeStoreId)
         .order("code", { ascending: true });
 
       if (error) throw error;
@@ -124,7 +139,7 @@ const AnimaisLotes = () => {
 
       // Get next code
       const { data: nextCodeData } = await supabase.rpc("get_next_animal_batch_code", {
-        store_uuid: profile.store_id,
+        store_uuid: activeStoreId,
       });
 
       setNextCode(nextCodeData || 1);
@@ -162,13 +177,14 @@ const AnimaisLotes = () => {
     setIsSaving(true);
 
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
 
-      if (!profile?.store_id) {
+      const activeStoreId = await getUserStoreId(user.id);
+      if (!activeStoreId) {
         toast.error("Usuário não está vinculado a uma fazenda");
         return;
       }
@@ -177,7 +193,7 @@ const AnimaisLotes = () => {
       const { data: existingBatch } = await supabase
         .from("animal_batches")
         .select("id")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", activeStoreId)
         .eq("name", formData.name.trim())
         .maybeSingle();
 
@@ -205,7 +221,7 @@ const AnimaisLotes = () => {
           code: nextCode,
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          store_id: profile.store_id,
+          store_id: activeStoreId,
         });
 
         if (error) throw error;
