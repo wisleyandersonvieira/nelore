@@ -2,27 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,11 +68,7 @@ const AnimaisMatrizes = () => {
   }, []);
 
   const getUserStoreId = async (userId: string): Promise<string | null> => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("store_id")
-      .eq("id", userId)
-      .single();
+    const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userId).single();
     if (profile?.store_id) return profile.store_id;
 
     const { data: userStore } = await supabase
@@ -98,13 +76,15 @@ const AnimaisMatrizes = () => {
       .select("store_id")
       .eq("user_id", userId)
       .limit(1)
-      .maybeSingle();
+      .single();
     return userStore?.store_id || null;
   };
 
   const fetchBreedingAnimals = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Usuário não autenticado");
         setIsLoading(false);
@@ -112,11 +92,11 @@ const AnimaisMatrizes = () => {
       }
 
       const storeId = await getUserStoreId(user.id);
-      if (!storeId) {
-        toast.error("Loja não encontrada");
-        setIsLoading(false);
-        return;
-      }
+      // if (!storeId) {
+      //   toast.error("Loja não encontrada");
+      //   setIsLoading(false);
+      //   return;
+      // }
 
       const { data, error } = await supabase
         .from("breeding_animals")
@@ -149,8 +129,8 @@ const AnimaisMatrizes = () => {
           // Count grandchildren (netos) - animals whose parent (sire or dam) has this animal as parent
           // First get offspring breeding animals
           const offspringBreedingIds = allAnimals
-            .filter(ba => ba.sire_id === animal.id || ba.dam_id === animal.id)
-            .map(ba => ba.id);
+            .filter((ba) => ba.sire_id === animal.id || ba.dam_id === animal.id)
+            .map((ba) => ba.id);
 
           let grandchildrenCount = 0;
           if (offspringBreedingIds.length > 0) {
@@ -175,7 +155,7 @@ const AnimaisMatrizes = () => {
             offspringCount: (sireCount || 0) + (damCount || 0),
             grandchildrenCount,
           };
-        })
+        }),
       );
 
       setBreedingAnimals(animalsWithCounts);
@@ -221,17 +201,19 @@ const AnimaisMatrizes = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Usuário não autenticado");
         return;
       }
 
-      const storeId = await getUserStoreId(user.id);
-      if (!storeId) {
-        toast.error("Loja não encontrada");
-        return;
-      }
+      // const storeId = await getUserStoreId(user.id);
+      // if (!storeId) {
+      //   toast.error("Loja não encontrada");
+      //   return;
+      // }
 
       // Check for duplicate name
       const { data: existingAnimal } = await supabase
@@ -257,17 +239,12 @@ const AnimaisMatrizes = () => {
       };
 
       if (selectedAnimal) {
-        const { error } = await supabase
-          .from("breeding_animals")
-          .update(animalData)
-          .eq("id", selectedAnimal.id);
+        const { error } = await supabase.from("breeding_animals").update(animalData).eq("id", selectedAnimal.id);
 
         if (error) throw error;
         toast.success("Matriz/Genitor atualizado com sucesso!");
       } else {
-        const { error } = await supabase
-          .from("breeding_animals")
-          .insert(animalData);
+        const { error } = await supabase.from("breeding_animals").insert(animalData);
 
         if (error) throw error;
         toast.success("Matriz/Genitor cadastrado com sucesso!");
@@ -401,8 +378,8 @@ const AnimaisMatrizes = () => {
     try {
       // Get offspring breeding animals (filhos que são reprodutores/matrizes)
       const offspringBreedingIds = allBreedingAnimals
-        .filter(ba => ba.sire_id === animal.id || ba.dam_id === animal.id)
-        .map(ba => ba.id);
+        .filter((ba) => ba.sire_id === animal.id || ba.dam_id === animal.id)
+        .map((ba) => ba.id);
 
       if (offspringBreedingIds.length === 0) {
         toast.info("Não há animais netos ativos para este registro.");
@@ -425,7 +402,7 @@ const AnimaisMatrizes = () => {
       // Combine and remove duplicates
       const allGrandchildren = [...(grandchildrenSire || []), ...(grandchildrenDam || [])];
       const uniqueGrandchildren = allGrandchildren.filter(
-        (gc, index, self) => index === self.findIndex(t => t.code === gc.code && t.name === gc.name)
+        (gc, index, self) => index === self.findIndex((t) => t.code === gc.code && t.name === gc.name),
       );
 
       if (uniqueGrandchildren.length === 0) {
@@ -456,7 +433,7 @@ const AnimaisMatrizes = () => {
       // Get parent names for the table
       const getParentName = (parentId: string | null) => {
         if (!parentId) return "-";
-        const parent = allBreedingAnimals.find(ba => ba.id === parentId);
+        const parent = allBreedingAnimals.find((ba) => ba.id === parentId);
         return parent?.name || "-";
       };
 
@@ -496,12 +473,12 @@ const AnimaisMatrizes = () => {
 
   // Get available sires (males) for dropdown, excluding the current animal being edited
   const availableSires = allBreedingAnimals.filter(
-    (a) => a.sex === "macho" && (!selectedAnimal || a.id !== selectedAnimal.id)
+    (a) => a.sex === "macho" && (!selectedAnimal || a.id !== selectedAnimal.id),
   );
 
   // Get available dams (females) for dropdown, excluding the current animal being edited
   const availableDams = allBreedingAnimals.filter(
-    (a) => a.sex === "femea" && (!selectedAnimal || a.id !== selectedAnimal.id)
+    (a) => a.sex === "femea" && (!selectedAnimal || a.id !== selectedAnimal.id),
   );
 
   const filteredAnimals = breedingAnimals.filter((animal) => {
@@ -534,10 +511,7 @@ const AnimaisMatrizes = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Select
-              value={filters.sex}
-              onValueChange={(value) => setFilters({ ...filters, sex: value })}
-            >
+            <Select value={filters.sex} onValueChange={(value) => setFilters({ ...filters, sex: value })}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Filtrar por sexo" />
               </SelectTrigger>
@@ -631,9 +605,7 @@ const AnimaisMatrizes = () => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {selectedAnimal ? "Editar Matriz/Genitor" : "Cadastrar Matriz/Genitor"}
-            </DialogTitle>
+            <DialogTitle>{selectedAnimal ? "Editar Matriz/Genitor" : "Cadastrar Matriz/Genitor"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -647,10 +619,7 @@ const AnimaisMatrizes = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="sex">Sexo *</Label>
-              <Select
-                value={formData.sex}
-                onValueChange={(value) => setFormData({ ...formData, sex: value })}
-              >
+              <Select value={formData.sex} onValueChange={(value) => setFormData({ ...formData, sex: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o sexo" />
                 </SelectTrigger>
@@ -729,8 +698,7 @@ const AnimaisMatrizes = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir "{selectedAnimal?.name}"? Esta ação não pode ser
-              desfeita.
+              Tem certeza que deseja excluir "{selectedAnimal?.name}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
