@@ -80,17 +80,13 @@ const AnimaisLotes = () => {
     fetchBatches();
   }, []);
 
-  const getUserStoreId = async (userId: string): Promise<string | null> => {
-    const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userId).single();
-    if (profile?.store_id) return profile.store_id;
-
-    const { data: userStore } = await supabase
-      .from("user_stores")
-      .select("store_id")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
-    return userStore?.store_id || null;
+  const getUserStoreId = async (): Promise<string | null> => {
+    const { data, error } = await supabase.rpc("get_user_store_id");
+    if (error) {
+      console.error("Error fetching user store id:", error);
+      return null;
+    }
+    return data || null;
   };
 
   const fetchBatches = async () => {
@@ -102,7 +98,7 @@ const AnimaisLotes = () => {
         return;
       }
 
-      const activeStoreId = await getUserStoreId(user.id);
+      const activeStoreId = await getUserStoreId();
       if (!activeStoreId) {
         toast.error("Usuário não está vinculado a uma fazenda");
         setIsLoading(false);
@@ -183,7 +179,7 @@ const AnimaisLotes = () => {
         return;
       }
 
-      const activeStoreId = await getUserStoreId(user.id);
+      const activeStoreId = await getUserStoreId();
       if (!activeStoreId) {
         toast.error("Usuário não está vinculado a uma fazenda");
         return;
