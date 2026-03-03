@@ -98,7 +98,7 @@ const AnimaisMatrizes = () => {
       .select("store_id")
       .eq("user_id", userId)
       .limit(1)
-      .single();
+      .maybeSingle();
     return userStore?.store_id || null;
   };
 
