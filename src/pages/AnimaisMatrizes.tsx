@@ -85,15 +85,34 @@ const AnimaisMatrizes = () => {
     fetchBreedingAnimals();
   }, []);
 
+  const getUserStoreId = async (userId: string): Promise<string | null> => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("id", userId)
+      .single();
+    if (profile?.store_id) return profile.store_id;
+
+    const { data: userStore } = await supabase
+      .from("user_stores")
+      .select("store_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .single();
+    return userStore?.store_id || null;
+  };
+
   const fetchBreedingAnimals = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        setIsLoading(false);
+        return;
+      }
 
-      if (!profile?.store_id) {
+      const storeId = await getUserStoreId(user.id);
+      if (!storeId) {
         toast.error("Loja não encontrada");
         setIsLoading(false);
         return;
@@ -102,7 +121,7 @@ const AnimaisMatrizes = () => {
       const { data, error } = await supabase
         .from("breeding_animals")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("is_active", true)
         .order("name");
 
@@ -202,13 +221,14 @@ const AnimaisMatrizes = () => {
     }
 
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
 
-      if (!profile?.store_id) {
+      const storeId = await getUserStoreId(user.id);
+      if (!storeId) {
         toast.error("Loja não encontrada");
         return;
       }
@@ -217,7 +237,7 @@ const AnimaisMatrizes = () => {
       const { data: existingAnimal } = await supabase
         .from("breeding_animals")
         .select("id")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("name", formData.name.trim())
         .eq("is_active", true)
         .maybeSingle();
@@ -233,7 +253,7 @@ const AnimaisMatrizes = () => {
         registration: formData.registration.trim() || null,
         sire_id: formData.sire_id || null,
         dam_id: formData.dam_id || null,
-        store_id: profile.store_id,
+        store_id: storeId,
       };
 
       if (selectedAnimal) {
