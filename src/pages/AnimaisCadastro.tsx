@@ -1615,7 +1615,13 @@ const AnimaisCadastro = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={(val) => {
+            setActiveTab(val);
+            if (val === "proprietarios" && selectedAnimal) {
+              fetchClients();
+              fetchAnimalSales(selectedAnimal.id);
+            }
+          }} className="w-full">
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
@@ -1623,7 +1629,7 @@ const AnimaisCadastro = () => {
               <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
+              <TabsTrigger value="proprietarios" disabled={modalMode === "create"}>Proprietários</TabsTrigger>
             </TabsList>
 
             {/* Tab: Dados Cadastrais */}
