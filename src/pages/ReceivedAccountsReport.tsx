@@ -108,7 +108,14 @@ const ReceivedAccountsReport = () => {
               quantity,
               unit_price,
               total_price,
-              products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+              products(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
+              accounts_receivable_item_allocations(
+                allocation_type,
+                animal_id,
+                aspiration_id,
+                embryo_transfer_id,
+                pregnancy_id
+              )
             )
           `)
       );
