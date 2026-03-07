@@ -34,6 +34,7 @@ const AccountsReceivableReport = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [animalNames, setAnimalNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCreditors();
@@ -200,6 +201,28 @@ const AccountsReceivableReport = () => {
         const dateB = new Date(b.due_date).getTime();
         return dateA - dateB;
       });
+
+      // Fetch animal names for allocations
+      const animalIds = new Set<string>();
+      accountsData.forEach((account: any) => {
+        (account.accounts_receivable_items || []).forEach((item: any) => {
+          (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
+            if (alloc.animal_id) animalIds.add(alloc.animal_id);
+          });
+        });
+      });
+      
+      const animalNamesMap: Record<string, string> = {};
+      if (animalIds.size > 0) {
+        const { data: animalsData } = await supabase
+          .from("animals")
+          .select("id, name, code")
+          .in("id", Array.from(animalIds));
+        (animalsData || []).forEach((a: any) => {
+          animalNamesMap[a.id] = `${a.code} - ${a.name}`;
+        });
+      }
+      setAnimalNames(animalNamesMap);
 
       setAccounts(accountsData);
       toast({
