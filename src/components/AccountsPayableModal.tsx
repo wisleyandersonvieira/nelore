@@ -1783,6 +1783,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         if (error) throw error;
         setStores(data || []);
+        if (data && data.length === 1 && !defaultStore) {
+          setDefaultStore(data[0].id);
+        }
       } else {
         // Não-admin: buscar lojas do user_stores + store_id do profile
         const { data: userStoresData, error: userStoresError } = await supabase
@@ -1808,6 +1811,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
           if (error) throw error;
           setStores(data || []);
+          if (data && data.length === 1 && !defaultStore) {
+            setDefaultStore(data[0].id);
+          }
         } else {
           setStores([]);
         }
@@ -4834,7 +4840,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </TabsContent>
 
                 <TabsContent value="items" className="space-y-4">
-                  {/* Seção de Fazenda Padrão */}
+                  {/* Seção de Fazenda Padrão - ocultar se só tem 1 fazenda */}
+                  {stores.length > 1 && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Fazenda Padrão (Opcional)</CardTitle>
@@ -4879,6 +4886,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </div>
                     </CardContent>
                   </Card>
+                  )}
 
                   <Card>
                     <CardHeader>
@@ -4958,6 +4966,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           />
                         </div>
 
+                        {stores.length > 1 && (
                         <div className="space-y-2">
                           <Label>
                             Fazenda {defaultStore && <span className="text-sm text-muted-foreground">(opcional - fazenda padrão ativa)</span>}
@@ -4976,6 +4985,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             </SelectContent>
                           </Select>
                         </div>
+                        )}
                       </div>
 
                       {/* Alocação de custo */}
