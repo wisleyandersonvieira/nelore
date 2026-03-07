@@ -224,25 +224,25 @@ const AccountsReceivableReport = () => {
 
       if (animalIds.size > 0) {
         fetchPromises.push(
-          supabase.from("animals").select("id, name, code").in("id", Array.from(animalIds))
+          Promise.resolve(supabase.from("animals").select("id, name, code").in("id", Array.from(animalIds)))
             .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`animal-${a.id}`] = `${a.code} - ${a.name}`; }); })
         );
       }
       if (aspirationIds.size > 0) {
         fetchPromises.push(
-          supabase.from("aspiration_management").select("id, name, code").in("id", Array.from(aspirationIds))
+          Promise.resolve(supabase.from("aspiration_management").select("id, name, code").in("id", Array.from(aspirationIds)))
             .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`aspiration-${a.id}`] = `${a.code} - ${a.name}`; }); })
         );
       }
       if (pregnancyIds.size > 0) {
         fetchPromises.push(
-          supabase.from("pregnancy_management").select("id, name, code").in("id", Array.from(pregnancyIds))
+          Promise.resolve(supabase.from("pregnancy_management").select("id, name, code").in("id", Array.from(pregnancyIds)))
             .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`pregnancy-${a.id}`] = `${a.code} - ${a.name}`; }); })
         );
       }
       if (embryoTransferIds.size > 0) {
         fetchPromises.push(
-          supabase.from("embryo_transfer_management").select("id, name, code").in("id", Array.from(embryoTransferIds))
+          Promise.resolve(supabase.from("embryo_transfer_management").select("id, name, code").in("id", Array.from(embryoTransferIds)))
             .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`embryo-${a.id}`] = `${a.code} - ${a.name}`; }); })
         );
       }
