@@ -1555,6 +1555,10 @@ const AnimaisGestaoPrenhez = () => {
             if (val === "financeiro" && selectedRecord && modalMode === "view") {
               fetchPregnancyFinancial(selectedRecord.id, (selectedRecord as any).embryo_transfer_id);
             }
+            if (val === "proprietarios" && selectedRecord) {
+              fetchClients();
+              fetchPregnancySales(selectedRecord.id);
+            }
           }}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
@@ -1563,7 +1567,7 @@ const AnimaisGestaoPrenhez = () => {
               <TabsTrigger value="financeiro">
                 Financeiro
               </TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>
+              <TabsTrigger value="proprietarios">
                 Proprietários
               </TabsTrigger>
             </TabsList>
