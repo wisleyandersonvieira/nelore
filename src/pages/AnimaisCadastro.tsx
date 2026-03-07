@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download, MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,6 +226,29 @@ const AnimaisCadastro = () => {
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
+
+  // Sale modal state
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleAnimal, setSaleAnimal] = useState<Animal | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleValue, setSaleValue] = useState("");
+  const [salePercentage, setSalePercentage] = useState("");
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+
+  // Proprietários state
+  interface AnimalSale {
+    id: string;
+    client_id: string;
+    client_name: string;
+    sale_date: string;
+    sale_value: number;
+    sale_percentage: number;
+  }
+  const [animalSales, setAnimalSales] = useState<AnimalSale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
 
   // Reproduction data state
   const [reproData, setReproData] = useState({
