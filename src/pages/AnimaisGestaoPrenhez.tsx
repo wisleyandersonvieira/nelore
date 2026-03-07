@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -150,6 +150,29 @@ const AnimaisGestaoPrenhez = () => {
   const [financialRecords, setFinancialRecords] = useState<PrenFinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
+
+  // Sale modal state
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleRecord, setSaleRecord] = useState<PregnancyRecord | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleValue, setSaleValue] = useState("");
+  const [salePercentage, setSalePercentage] = useState("");
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+
+  // Proprietários state
+  interface PregnancySale {
+    id: string;
+    client_id: string;
+    client_name: string;
+    sale_date: string;
+    sale_value: number;
+    sale_percentage: number;
+  }
+  const [pregnancySales, setPregnancySales] = useState<PregnancySale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
 
   const [recipientSearchOpen, setRecipientSearchOpen] = useState(false);
   const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
@@ -673,6 +696,7 @@ const AnimaisGestaoPrenhez = () => {
   const getStatusLabel = (status: string) => {
     if (status === "in_progress") return "Em Andamento";
     if (status === "finalized_stillborn") return "Finalizado: Natimorto";
+    if (status === "sold") return "Vendido";
     return "Finalizado";
   };
 
