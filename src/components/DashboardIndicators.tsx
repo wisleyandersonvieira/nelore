@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bug, Baby, Calendar, Users, Landmark, Home } from "lucide-react";
+import { Bug, Baby, Calendar, Users, Landmark, Home, Clock } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -170,14 +170,14 @@ const DashboardIndicators = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const loading = animalsLoading || pregnancyCountLoading || birthsLoading || employeesLoading;
+  const loading = animalsLoading || pregnancyCountLoading || birthsLoading || employeesLoading || awaitingValidationLoading;
 
   const PIE_COLORS = ["hsl(142, 76%, 36%)", "hsl(24, 100%, 50%)"];
 
   return (
     <div className="space-y-6">
       {/* Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Active Employees */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -237,6 +237,18 @@ const DashboardIndicators = () => {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Awaiting Pregnancy Validation */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Aguardando Validação</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loading ? "..." : awaitingValidationCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Pós transferência em andamento</p>
           </CardContent>
         </Card>
       </div>
