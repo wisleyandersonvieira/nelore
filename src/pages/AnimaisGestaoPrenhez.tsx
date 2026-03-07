@@ -1473,6 +1473,8 @@ const AnimaisGestaoPrenhez = () => {
                                 ? "bg-yellow-100 text-yellow-800"
                                 : record.status === "finalized_stillborn"
                                 ? "bg-red-100 text-red-800"
+                                : record.status === "sold"
+                                ? "bg-blue-100 text-blue-800"
                                 : "bg-green-100 text-green-800"
                             )}
                           >
@@ -1480,48 +1482,34 @@ const AnimaisGestaoPrenhez = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenModal("view", record)}
-                              title="Visualizar"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {record.status === "in_progress" && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenModal("edit", record)}
-                                  title="Editar"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => {
-                                    setRecordToDelete(record);
-                                    setDeleteDialogOpen(true);
-                                  }}
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenFinalizeDialog(record)}
-                                  title="Finalizar"
-                                  className="text-green-600 hover:text-green-700"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenModal("view", record)}>
+                                <Eye className="h-4 w-4 mr-2" />Visualizar
+                              </DropdownMenuItem>
+                              {record.status === "in_progress" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
+                                    <Pencil className="h-4 w-4 mr-2" />Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
+                                    <Trash2 className="h-4 w-4 mr-2" />Excluir
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
+                                    <DollarSign className="h-4 w-4 mr-2" />Venda
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
+                                    <CheckCircle className="h-4 w-4 mr-2" />Finalizar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))
