@@ -1231,7 +1231,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           .order("name");
 
         if (error) throw error;
-        setStores(data || []);
+        const storeList = data || [];
+        setStores(storeList);
+        if (storeList.length === 1) {
+          setDefaultStore(storeList[0].id);
+          setSelectedStore(storeList[0].id);
+        }
       } else {
         // Se não tiver lojas vinculadas, verificar se é admin (pode ver todas)
         const { data: profileData } = await supabase
@@ -1247,7 +1252,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
             .order("name");
 
           if (error) throw error;
-          setStores(data || []);
+          const storeList = data || [];
+          setStores(storeList);
+          if (storeList.length === 1) {
+            setDefaultStore(storeList[0].id);
+            setSelectedStore(storeList[0].id);
+          }
         } else {
           setStores([]);
         }
@@ -2919,7 +2929,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </TabsContent>
 
                 <TabsContent value="items" className="space-y-4">
-                   {/* Seção de Fazenda Padrão */}
+                   {/* Seção de Fazenda Padrão - só exibe se tiver mais de 1 fazenda */}
+                   {stores.length > 1 && (
                    <Card>
                      <CardHeader>
                        <CardTitle>Fazenda Padrão (Opcional)</CardTitle>
@@ -2954,6 +2965,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       </div>
                     </CardContent>
                   </Card>
+                   )}
 
                   {/* Adicionar Item */}
                   {!isViewOnly && !isAttachmentOnlyEdit && (
@@ -3024,6 +3036,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             />
                           </div>
 
+                          {stores.length > 1 && (
                           <div className="space-y-2">
                              <Label>Fazenda *</Label>
                              <Select value={selectedStore} onValueChange={setSelectedStore}>
@@ -3039,6 +3052,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               </SelectContent>
                             </Select>
                           </div>
+                          )}
                         </div>
                         {/* Alocação de receita */}
                         <div className="space-y-3 border rounded-md p-3 bg-muted/30 mt-4">
