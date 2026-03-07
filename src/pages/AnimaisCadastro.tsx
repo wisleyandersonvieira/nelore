@@ -127,6 +127,7 @@ interface WeighingWithGMD extends WeighingRecord {
 const AnimaisCadastro = () => {
   const navigate = useNavigate();
   const [animals, setAnimals] = useState<Animal[]>([]);
+  const [soldAnimalIds, setSoldAnimalIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create">("create");
@@ -300,10 +301,32 @@ const AnimaisCadastro = () => {
         .order("code", { ascending: true });
 
       if (error) throw error;
-      setAnimals((data || []).map(a => ({ 
+      const animalList = (data || []).map(a => ({ 
         ...a, 
         photos: Array.isArray(a.photos) ? a.photos as string[] : [] 
-      })));
+      }));
+      setAnimals(animalList);
+
+      // Fetch sold animal IDs (animals with 100% total sales)
+      const animalIds = animalList.map(a => a.id);
+      if (animalIds.length > 0) {
+        const { data: salesData } = await supabase
+          .from("animal_sales")
+          .select("animal_id, sale_percentage")
+          .in("animal_id", animalIds);
+        
+        if (salesData) {
+          const saleTotals: Record<string, number> = {};
+          salesData.forEach(s => {
+            saleTotals[s.animal_id] = (saleTotals[s.animal_id] || 0) + Number(s.sale_percentage);
+          });
+          const soldIds = new Set<string>();
+          Object.entries(saleTotals).forEach(([id, total]) => {
+            if (total >= 100) soldIds.add(id);
+          });
+          setSoldAnimalIds(soldIds);
+        }
+      }
     } catch (error) {
       console.error("Error fetching animals:", error);
       toast({ title: "Erro ao carregar animais", variant: "destructive" });
@@ -1214,6 +1237,7 @@ const AnimaisCadastro = () => {
                   <SelectItem value="ambos">Ambos</SelectItem>
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="inativo">Inativo</SelectItem>
+                  <SelectItem value="vendido">Vendido</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1473,8 +1497,10 @@ const AnimaisCadastro = () => {
               return false;
             }
             // Status filter
-            if (filters.status === "ativo" && !animal.is_active) return false;
-            if (filters.status === "inativo" && animal.is_active) return false;
+            const isSold = soldAnimalIds.has(animal.id);
+            if (filters.status === "ativo" && (!animal.is_active || isSold)) return false;
+            if (filters.status === "inativo" && (animal.is_active || isSold)) return false;
+            if (filters.status === "vendido" && !isSold) return false;
             // Farm filter
             if (filters.farm) {
               const dashIndex = filters.farm.indexOf("-");
@@ -1562,14 +1588,26 @@ const AnimaisCadastro = () => {
                       {breeds.find((b) => b.id === animal.breed_id)?.name || "-"}
                     </TableCell>
                     <TableCell>
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        animal.is_active 
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
-                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                      )}>
-                        {animal.is_active ? "Ativo" : "Inativo"}
-                      </span>
+                      {(() => {
+                        const isSold = soldAnimalIds.has(animal.id);
+                        if (isSold) {
+                          return (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                              Vendido
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className={cn(
+                            "px-2 py-1 rounded-full text-xs font-medium",
+                            animal.is_active 
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          )}>
+                            {animal.is_active ? "Ativo" : "Inativo"}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
