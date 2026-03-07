@@ -118,22 +118,22 @@ const DashboardIndicators = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // 7. Births per month (finalized pregnancies)
+  // 7. Births per month (animals born from pregnancies)
   const { data: birthsPerMonth = [], isLoading: birthsChartLoading } = useQuery({
     queryKey: ['dashboard-births-per-month', storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase
-        .from("pregnancy_management")
+        .from("animals")
         .select("birth_date")
-        .eq("status", "finalizado")
+        .not("pregnancy_id", "is", null)
         .not("birth_date", "is", null)
         .in("store_id", storeIds);
       if (!data) return [];
       const monthCounts: { [key: string]: number } = {};
-      data.forEach(p => {
-        if (p.birth_date) {
-          const month = p.birth_date.substring(0, 7); // YYYY-MM
+      data.forEach(a => {
+        if (a.birth_date) {
+          const month = a.birth_date.substring(0, 7); // YYYY-MM
           monthCounts[month] = (monthCounts[month] || 0) + 1;
         }
       });
