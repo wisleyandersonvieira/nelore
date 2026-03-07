@@ -58,6 +58,22 @@ const DashboardIndicators = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // 2b. Embryo transfers awaiting pregnancy validation
+  const { data: awaitingValidationCount = 0, isLoading: awaitingValidationLoading } = useQuery({
+    queryKey: ['dashboard-awaiting-validation', storeIds],
+    queryFn: async () => {
+      if (storeIds.length === 0) return 0;
+      const { count } = await supabase
+        .from("embryo_transfer_management")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "em andamento")
+        .in("store_id", storeIds);
+      return count || 0;
+    },
+    enabled: storeIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // 3. Next 3 upcoming births
   const { data: upcomingBirths = [], isLoading: birthsLoading } = useQuery({
     queryKey: ['dashboard-upcoming-births', storeIds],
