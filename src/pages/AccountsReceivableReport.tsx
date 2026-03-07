@@ -34,7 +34,7 @@ const AccountsReceivableReport = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [animalNames, setAnimalNames] = useState<Record<string, string>>({});
+  const [allocationNames, setAllocationNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCreditors();
@@ -202,27 +202,54 @@ const AccountsReceivableReport = () => {
         return dateA - dateB;
       });
 
-      // Fetch animal names for allocations
+      // Fetch allocation names (animals, aspirations, pregnancies, embryo transfers)
       const animalIds = new Set<string>();
+      const aspirationIds = new Set<string>();
+      const pregnancyIds = new Set<string>();
+      const embryoTransferIds = new Set<string>();
+
       accountsData.forEach((account: any) => {
         (account.accounts_receivable_items || []).forEach((item: any) => {
           (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
             if (alloc.animal_id) animalIds.add(alloc.animal_id);
+            if (alloc.aspiration_id) aspirationIds.add(alloc.aspiration_id);
+            if (alloc.pregnancy_id) pregnancyIds.add(alloc.pregnancy_id);
+            if (alloc.embryo_transfer_id) embryoTransferIds.add(alloc.embryo_transfer_id);
           });
         });
       });
       
-      const animalNamesMap: Record<string, string> = {};
+      const namesMap: Record<string, string> = {};
+      const fetchPromises: Promise<void>[] = [];
+
       if (animalIds.size > 0) {
-        const { data: animalsData } = await supabase
-          .from("animals")
-          .select("id, name, code")
-          .in("id", Array.from(animalIds));
-        (animalsData || []).forEach((a: any) => {
-          animalNamesMap[a.id] = `${a.code} - ${a.name}`;
-        });
+        fetchPromises.push(
+          Promise.resolve(supabase.from("animals").select("id, name, code").in("id", Array.from(animalIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`animal-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
       }
-      setAnimalNames(animalNamesMap);
+      if (aspirationIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("aspiration_management").select("id, name, code").in("id", Array.from(aspirationIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`aspiration-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+      if (pregnancyIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("pregnancy_management").select("id, name, code").in("id", Array.from(pregnancyIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`pregnancy-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+      if (embryoTransferIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("embryo_transfer_management").select("id, name, code").in("id", Array.from(embryoTransferIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`embryo-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+
+      await Promise.all(fetchPromises);
+      setAllocationNames(namesMap);
+
 
       setAccounts(accountsData);
       toast({
@@ -611,19 +638,28 @@ const AccountsReceivableReport = () => {
           account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
         ]);
 
-        const animals: string[] = [];
+        const allocations: string[] = [];
         (account.accounts_receivable_items || []).forEach((item: any) => {
           (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
-            if (alloc.animal_id && animalNames[alloc.animal_id]) {
-              animals.push(animalNames[alloc.animal_id]);
+            if (alloc.animal_id && allocationNames[`animal-${alloc.animal_id}`]) {
+              allocations.push(`Animal: ${allocationNames[`animal-${alloc.animal_id}`]}`);
+            }
+            if (alloc.aspiration_id && allocationNames[`aspiration-${alloc.aspiration_id}`]) {
+              allocations.push(`Aspiração: ${allocationNames[`aspiration-${alloc.aspiration_id}`]}`);
+            }
+            if (alloc.pregnancy_id && allocationNames[`pregnancy-${alloc.pregnancy_id}`]) {
+              allocations.push(`Prenhez: ${allocationNames[`pregnancy-${alloc.pregnancy_id}`]}`);
+            }
+            if (alloc.embryo_transfer_id && allocationNames[`embryo-${alloc.embryo_transfer_id}`]) {
+              allocations.push(`Pós TE: ${allocationNames[`embryo-${alloc.embryo_transfer_id}`]}`);
             }
           });
         });
 
-        if (animals.length > 0) {
-          [...new Set(animals)].forEach((animalName) => {
+        if (allocations.length > 0) {
+          [...new Set(allocations)].forEach((allocName) => {
             tableData.push([
-              { content: `    Animal: ${animalName}`, colSpan: 5, styles: { fontStyle: "italic", textColor: [100, 100, 100], fontSize: 7, cellPadding: { top: 1, bottom: 1, left: 8, right: 2 } } }
+              { content: `    ${allocName}`, colSpan: 5, styles: { fontStyle: "italic", textColor: [100, 100, 100], fontSize: 7, cellPadding: { top: 1, bottom: 1, left: 8, right: 2 } } }
             ]);
           });
         }
@@ -870,7 +906,7 @@ const AccountsReceivableReport = () => {
                         Por Mês
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFByCreditorAndAnimal}>
-                        Por Credor e Animal
+                        Por Credor e Vínculo
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
