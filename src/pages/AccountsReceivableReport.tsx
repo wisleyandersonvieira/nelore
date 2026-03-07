@@ -100,7 +100,21 @@ const AccountsReceivableReport = () => {
             *,
             suppliers!accounts_receivable_creditor_id_fkey(id, name),
             stores(id, name),
-            accounts_receivable_installments(*)
+            accounts_receivable_installments(*),
+            accounts_receivable_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              accounts_receivable_item_allocations(
+                allocation_type,
+                animal_id,
+                aspiration_id,
+                embryo_transfer_id,
+                pregnancy_id
+              )
+            )
           `)
           .in('status', ['pending', 'partial'])
       );
