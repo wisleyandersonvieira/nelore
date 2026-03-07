@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download, MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -227,6 +227,29 @@ const AnimaisCadastro = () => {
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
 
+  // Sale modal state
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleAnimal, setSaleAnimal] = useState<Animal | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleValue, setSaleValue] = useState("");
+  const [salePercentage, setSalePercentage] = useState("");
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+
+  // Proprietários state
+  interface AnimalSale {
+    id: string;
+    client_id: string;
+    client_name: string;
+    sale_date: string;
+    sale_value: number;
+    sale_percentage: number;
+  }
+  const [animalSales, setAnimalSales] = useState<AnimalSale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
+
   // Reproduction data state
   const [reproData, setReproData] = useState({
     aspiration_date: null as Date | null,
@@ -239,6 +262,7 @@ const AnimaisCadastro = () => {
   useEffect(() => {
     fetchAnimals();
     fetchDropdownData();
+    fetchClients();
   }, []);
 
   const getUserStoreId = async (userId: string): Promise<string | null> => {
@@ -554,6 +578,108 @@ const AnimaisCadastro = () => {
       setFinancialRecords([]);
     } finally {
       setLoadingFinancial(false);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: profile } = await supabase.from("profiles").select("matrix_id").eq("id", userData.user.id).single();
+      if (!profile?.matrix_id) return;
+      const { data } = await supabase.from("suppliers").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true).order("name");
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
+  const fetchAnimalSales = async (animalId: string) => {
+    setLoadingSales(true);
+    try {
+      const { data, error } = await supabase
+        .from("animal_sales")
+        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .eq("animal_id", animalId)
+        .order("sale_date", { ascending: true });
+      if (error) throw error;
+
+      const salesWithNames: AnimalSale[] = [];
+      for (const sale of (data || [])) {
+        const client = clients.find(c => c.id === sale.client_id);
+        let clientName = client?.name;
+        if (!clientName) {
+          const { data: clientData } = await supabase.from("suppliers").select("name").eq("id", sale.client_id).single();
+          clientName = clientData?.name || "Cliente não encontrado";
+        }
+        salesWithNames.push({
+          ...sale,
+          client_name: clientName,
+        });
+      }
+      setAnimalSales(salesWithNames);
+    } catch (error) {
+      console.error("Error fetching animal sales:", error);
+    } finally {
+      setLoadingSales(false);
+    }
+  };
+
+  const handleOpenSaleModal = (animal: Animal) => {
+    setSaleAnimal(animal);
+    setSaleClientId("");
+    setSaleDate(null);
+    setSaleValue("");
+    setSalePercentage("");
+    setClientSearchTerm("");
+    fetchClients();
+    setSaleModalOpen(true);
+  };
+
+  const handleSaveSale = async () => {
+    if (!saleAnimal || !saleClientId || !saleDate || !saleValue || !salePercentage) {
+      toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
+      return;
+    }
+    const percentage = parseFloat(salePercentage);
+    if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+      toast({ title: "Erro", description: "A porcentagem deve ser entre 0 e 100.", variant: "destructive" });
+      return;
+    }
+
+    const { data: existingSales } = await supabase
+      .from("animal_sales")
+      .select("sale_percentage")
+      .eq("animal_id", saleAnimal.id);
+
+    const currentTotal = (existingSales || []).reduce((sum: number, s: any) => sum + Number(s.sale_percentage), 0);
+    if (currentTotal + percentage > 100) {
+      toast({ title: "Erro", description: `A soma das vendas não pode ultrapassar 100%. Disponível: ${(100 - currentTotal).toFixed(2)}%`, variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("animal_sales").insert({
+        animal_id: saleAnimal.id,
+        client_id: saleClientId,
+        sale_date: format(saleDate, "yyyy-MM-dd"),
+        sale_value: parseFloat(saleValue),
+        sale_percentage: percentage,
+        created_by: userData.user?.id,
+      });
+      if (error) throw error;
+
+      if (currentTotal + percentage >= 100) {
+        await supabase.from("animals").update({ is_active: false }).eq("id", saleAnimal.id);
+      }
+
+      toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
+      setSaleModalOpen(false);
+      fetchAnimals();
+    } catch (error) {
+      console.error("Error saving sale:", error);
+      toast({ title: "Erro", description: "Erro ao salvar venda.", variant: "destructive" });
     }
   };
 
@@ -1409,7 +1535,7 @@ const AnimaisCadastro = () => {
                   <TableHead>Sexo</TableHead>
                   <TableHead>Raça</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1445,30 +1571,28 @@ const AnimaisCadastro = () => {
                         {animal.is_active ? "Ativo" : "Inativo"}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenModal("view", animal)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenModal("edit", animal)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDeleteDialog(animal)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenModal("view", animal)}>
+                            <Eye className="h-4 w-4 mr-2" />Visualizar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenModal("edit", animal)}>
+                            <Pencil className="h-4 w-4 mr-2" />Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDeleteDialog(animal)}>
+                            <Trash2 className="h-4 w-4 mr-2" />Excluir
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
+                            <DollarSign className="h-4 w-4 mr-2" />Venda
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1492,7 +1616,13 @@ const AnimaisCadastro = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={(val) => {
+            setActiveTab(val);
+            if (val === "proprietarios" && selectedAnimal) {
+              fetchClients();
+              fetchAnimalSales(selectedAnimal.id);
+            }
+          }} className="w-full">
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
@@ -1500,7 +1630,7 @@ const AnimaisCadastro = () => {
               <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
+              <TabsTrigger value="proprietarios" disabled={modalMode === "create"}>Proprietários</TabsTrigger>
             </TabsList>
 
             {/* Tab: Dados Cadastrais */}
@@ -2278,11 +2408,53 @@ const AnimaisCadastro = () => {
               })()}
             </TabsContent>
 
-            {/* Tab: Proprietários (disabled) */}
-            <TabsContent value="proprietarios" className="mt-4">
-              <p className="text-muted-foreground text-center py-8">
-                Esta aba será configurada posteriormente.
-              </p>
+            {/* Tab: Proprietários */}
+            <TabsContent value="proprietarios" className="mt-4 space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Proprietários / Vendas
+              </h3>
+              {loadingSales ? (
+                <p className="text-center text-muted-foreground py-8">Carregando...</p>
+              ) : animalSales.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Nenhuma venda registrada.</p>
+              ) : (
+                <>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead className="text-right">%</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {animalSales.map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>{sale.client_name}</TableCell>
+                            <TableCell className="text-right">{sale.sale_value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                            <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                    <span className="font-medium">Total Vendido</span>
+                    <div className="flex gap-6">
+                      <span className="font-semibold">
+                        {animalSales.reduce((s, r) => s + r.sale_value, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                      <span className="font-semibold">
+                        {animalSales.reduce((s, r) => s + r.sale_percentage, 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </TabsContent>
           </Tabs>
 
@@ -2460,6 +2632,109 @@ const AnimaisCadastro = () => {
             <Button variant="outline" onClick={() => setRecipientSearchOpen(false)}>
               Cancelar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sale Modal */}
+      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Venda - {saleAnimal?.name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Cliente *</Label>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    {saleClientId ? clients.find(c => c.id === saleClientId)?.name || "Selecionar..." : "Selecionar cliente..."}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50">
+                  <div className="p-2">
+                    <Input
+                      placeholder="Pesquisar cliente..."
+                      value={clientSearchTerm}
+                      onChange={(e) => setClientSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {clients
+                      .filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase()))
+                      .map(client => (
+                        <div
+                          key={client.id}
+                          className={cn(
+                            "px-3 py-2 cursor-pointer hover:bg-accent text-sm",
+                            saleClientId === client.id && "bg-accent font-medium"
+                          )}
+                          onClick={() => {
+                            setSaleClientId(client.id);
+                            setClientPopoverOpen(false);
+                          }}
+                        >
+                          {client.name}
+                        </div>
+                      ))}
+                    {clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Data da Venda *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {saleDate ? format(saleDate, "dd/MM/yyyy") : "Selecione..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={saleDate || undefined} onSelect={(d) => setSaleDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor da Venda (R$) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={saleValue}
+                onChange={(e) => setSaleValue(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>% de Venda *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="100"
+                value={salePercentage}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (e.target.value === "" || (val >= 0 && val <= 100)) {
+                    setSalePercentage(e.target.value);
+                  }
+                }}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSale}>Salvar Venda</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
