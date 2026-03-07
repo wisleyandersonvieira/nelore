@@ -236,12 +236,7 @@ const AppSidebar = ({
         { id: "controle-periodo", label: "Controle de Período", action: "openPeriodControl" },
       ],
     },
-    {
-      id: "estoque",
-      title: "Estoque",
-      icon: Package,
-      dynamicSubMenus: true,
-    },
+    // Menu Estoque removido do sidebar
     {
       id: "cadastros",
       title: "Cadastros",
