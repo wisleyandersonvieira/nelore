@@ -50,7 +50,7 @@ const DashboardIndicators = () => {
       const { count } = await supabase
         .from("pregnancy_management")
         .select("id", { count: "exact", head: true })
-        .eq("status", "em andamento")
+        .eq("status", "in_progress")
         .in("store_id", storeIds);
       return count || 0;
     },
@@ -66,7 +66,7 @@ const DashboardIndicators = () => {
       const { count } = await supabase
         .from("embryo_transfer_management")
         .select("id", { count: "exact", head: true })
-        .eq("status", "em andamento")
+        .eq("status", "in_progress")
         .in("store_id", storeIds);
       return count || 0;
     },
@@ -82,7 +82,7 @@ const DashboardIndicators = () => {
       const { data } = await supabase
         .from("pregnancy_management")
         .select("id, name, expected_birth_month")
-        .eq("status", "em andamento")
+        .eq("status", "in_progress")
         .not("expected_birth_month", "is", null)
         .in("store_id", storeIds)
         .order("expected_birth_month", { ascending: true })
