@@ -2634,6 +2634,109 @@ const AnimaisCadastro = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sale Modal */}
+      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Venda - {saleAnimal?.name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Cliente *</Label>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    {saleClientId ? clients.find(c => c.id === saleClientId)?.name || "Selecionar..." : "Selecionar cliente..."}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50">
+                  <div className="p-2">
+                    <Input
+                      placeholder="Pesquisar cliente..."
+                      value={clientSearchTerm}
+                      onChange={(e) => setClientSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {clients
+                      .filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase()))
+                      .map(client => (
+                        <div
+                          key={client.id}
+                          className={cn(
+                            "px-3 py-2 cursor-pointer hover:bg-accent text-sm",
+                            saleClientId === client.id && "bg-accent font-medium"
+                          )}
+                          onClick={() => {
+                            setSaleClientId(client.id);
+                            setClientPopoverOpen(false);
+                          }}
+                        >
+                          {client.name}
+                        </div>
+                      ))}
+                    {clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Data da Venda *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {saleDate ? format(saleDate, "dd/MM/yyyy") : "Selecione..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={saleDate || undefined} onSelect={(d) => setSaleDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor da Venda (R$) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={saleValue}
+                onChange={(e) => setSaleValue(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>% de Venda *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="100"
+                value={salePercentage}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (e.target.value === "" || (val >= 0 && val <= 100)) {
+                    setSalePercentage(e.target.value);
+                  }
+                }}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSale}>Salvar Venda</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
