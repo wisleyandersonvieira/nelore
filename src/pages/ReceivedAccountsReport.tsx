@@ -882,6 +882,124 @@ const ReceivedAccountsReport = () => {
     doc.save("contas-recebidas-detalhado.pdf");
   };
 
+  // Export PDF by Creditor and Allocation (Vínculo)
+  const exportToPDFByCreditorAndVinculo = () => {
+    const doc = new jsPDF();
+    const filterInfo = getFilterInfo();
+    
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS RECEBIDAS", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Por Credor e Vínculo", 105, 28, { align: "center" });
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
+      const creditorName = account.suppliers?.name || "Sem Credor";
+      if (!groups[creditorName]) groups[creditorName] = [];
+      groups[creditorName].push(account);
+      return groups;
+    }, {});
+
+    let startY = filterInfo.length > 0 ? 45 : 35;
+    let grandTotal = 0;
+    let grandCount = 0;
+    const sortedCreditors = Object.keys(groupedByCreditor).sort();
+
+    sortedCreditors.forEach((creditorName, index) => {
+      const creditorAccounts = groupedByCreditor[creditorName];
+      const creditorTotal = creditorAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
+      grandTotal += creditorTotal;
+      grandCount += creditorAccounts.length;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Credor: ${creditorName}`, 20, startY);
+      startY += 5;
+
+      const tableData: any[] = [];
+      creditorAccounts.forEach((account: any) => {
+        tableData.push([
+          getAccountTitle(account),
+          account.stores?.name || "N/A",
+          new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+        ]);
+
+        const allocations: string[] = [];
+        (account.accounts_receivable_items || []).forEach((item: any) => {
+          (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
+            if (alloc.animal_id && allocationNames[`animal-${alloc.animal_id}`]) {
+              allocations.push(`Animal: ${allocationNames[`animal-${alloc.animal_id}`]}`);
+            }
+            if (alloc.aspiration_id && allocationNames[`aspiration-${alloc.aspiration_id}`]) {
+              allocations.push(`Aspiração: ${allocationNames[`aspiration-${alloc.aspiration_id}`]}`);
+            }
+            if (alloc.pregnancy_id && allocationNames[`pregnancy-${alloc.pregnancy_id}`]) {
+              allocations.push(`Prenhez: ${allocationNames[`pregnancy-${alloc.pregnancy_id}`]}`);
+            }
+            if (alloc.embryo_transfer_id && allocationNames[`embryo-${alloc.embryo_transfer_id}`]) {
+              allocations.push(`Pós TE: ${allocationNames[`embryo-${alloc.embryo_transfer_id}`]}`);
+            }
+          });
+        });
+
+        if (allocations.length > 0) {
+          [...new Set(allocations)].forEach((allocName) => {
+            tableData.push([
+              { content: `    ${allocName}`, colSpan: 6, styles: { fontStyle: "italic", textColor: [100, 100, 100], fontSize: 7, cellPadding: { top: 1, bottom: 1, left: 8, right: 2 } } }
+            ]);
+          });
+        }
+      });
+
+      tableData.push([
+        { content: `Subtotal ${creditorName}`, colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
+        { content: creditorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+        { content: `${creditorAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+      ]);
+
+      autoTable(doc, {
+        head: [["Título", "Loja", "Vencimento", "Recebimento", "Valor", "Parcelas"]],
+        body: tableData,
+        startY: startY,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        margin: { left: 20, right: 20 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+      if (startY > 250 && index < sortedCreditors.length - 1) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcela(s))`, 20, startY + 5);
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-recebidas-por-credor-vinculo.pdf");
+  };
+
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: getAccountTitle(account),
