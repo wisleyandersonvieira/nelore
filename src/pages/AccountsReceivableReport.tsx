@@ -906,7 +906,7 @@ const AccountsReceivableReport = () => {
                         Por Mês
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFByCreditorAndAnimal}>
-                        Por Credor e Animal
+                        Por Credor e Vínculo
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
