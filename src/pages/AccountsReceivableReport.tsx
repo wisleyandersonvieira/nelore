@@ -34,6 +34,7 @@ const AccountsReceivableReport = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [animalNames, setAnimalNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCreditors();
@@ -100,7 +101,21 @@ const AccountsReceivableReport = () => {
             *,
             suppliers!accounts_receivable_creditor_id_fkey(id, name),
             stores(id, name),
-            accounts_receivable_installments(*)
+            accounts_receivable_installments(*),
+            accounts_receivable_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              accounts_receivable_item_allocations(
+                allocation_type,
+                animal_id,
+                aspiration_id,
+                embryo_transfer_id,
+                pregnancy_id
+              )
+            )
           `)
           .in('status', ['pending', 'partial'])
       );
@@ -186,6 +201,28 @@ const AccountsReceivableReport = () => {
         const dateB = new Date(b.due_date).getTime();
         return dateA - dateB;
       });
+
+      // Fetch animal names for allocations
+      const animalIds = new Set<string>();
+      accountsData.forEach((account: any) => {
+        (account.accounts_receivable_items || []).forEach((item: any) => {
+          (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
+            if (alloc.animal_id) animalIds.add(alloc.animal_id);
+          });
+        });
+      });
+      
+      const animalNamesMap: Record<string, string> = {};
+      if (animalIds.size > 0) {
+        const { data: animalsData } = await supabase
+          .from("animals")
+          .select("id, name, code")
+          .in("id", Array.from(animalIds));
+        (animalsData || []).forEach((a: any) => {
+          animalNamesMap[a.id] = `${a.code} - ${a.name}`;
+        });
+      }
+      setAnimalNames(animalNamesMap);
 
       setAccounts(accountsData);
       toast({
@@ -524,6 +561,112 @@ const AccountsReceivableReport = () => {
     doc.save("contas-a-receber-por-mes.pdf");
   };
 
+  const exportToPDFByCreditorAndAnimal = () => {
+    const doc = new jsPDF();
+    const filterInfo = getFilterInfo();
+    
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Por Credor e Animal", 105, 28, { align: "center" });
+    
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
+      const creditorName = account.suppliers?.name || "Sem Credor";
+      if (!groups[creditorName]) groups[creditorName] = [];
+      groups[creditorName].push(account);
+      return groups;
+    }, {});
+
+    let startY = filterInfo.length > 0 ? 45 : 35;
+    let grandTotal = 0;
+    let grandCount = 0;
+    const sortedCreditors = Object.keys(groupedByCreditor).sort();
+
+    sortedCreditors.forEach((creditorName, index) => {
+      const creditorAccounts = groupedByCreditor[creditorName];
+      const creditorTotal = creditorAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
+      grandTotal += creditorTotal;
+      grandCount += creditorAccounts.length;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Credor: ${creditorName}`, 20, startY);
+      startY += 5;
+
+      const tableData: any[] = [];
+      creditorAccounts.forEach((account: any) => {
+        tableData.push([
+          getAccountTitle(account),
+          account.stores?.name || "N/A",
+          new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR"),
+          account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+          account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
+        ]);
+
+        const animals: string[] = [];
+        (account.accounts_receivable_items || []).forEach((item: any) => {
+          (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
+            if (alloc.animal_id && animalNames[alloc.animal_id]) {
+              animals.push(animalNames[alloc.animal_id]);
+            }
+          });
+        });
+
+        if (animals.length > 0) {
+          [...new Set(animals)].forEach((animalName) => {
+            tableData.push([
+              { content: `    Animal: ${animalName}`, colSpan: 5, styles: { fontStyle: "italic", textColor: [100, 100, 100], fontSize: 7, cellPadding: { top: 1, bottom: 1, left: 8, right: 2 } } }
+            ]);
+          });
+        }
+      });
+
+      tableData.push([
+        { content: `Subtotal ${creditorName}`, colSpan: 3, styles: { fontStyle: "bold", halign: "right" } },
+        { content: creditorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
+        { content: `${creditorAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
+      ]);
+
+      autoTable(doc, {
+        head: [["Título", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
+        body: tableData,
+        startY: startY,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        margin: { left: 20, right: 20 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+      if (startY > 250 && index < sortedCreditors.length - 1) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcelas)`, 20, startY + 5);
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-receber-por-credor-animal.pdf");
+  };
+
   const exportToExcel = () => {
     const excelData = accounts.map(account => ({
       Título: getAccountTitle(account),
@@ -725,6 +868,9 @@ const AccountsReceivableReport = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFByMonth}>
                         Por Mês
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFByCreditorAndAnimal}>
+                        Por Credor e Animal
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
