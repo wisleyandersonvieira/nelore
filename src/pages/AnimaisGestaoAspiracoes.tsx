@@ -26,7 +26,8 @@ import {
   Pagination, PaginationContent, PaginationItem, PaginationLink,
   PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download, ChevronsUpDown, Check } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -1605,12 +1606,34 @@ const AnimaisGestaoAspiracoes = () => {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Nome da Matriz (Mãe)</Label>
-                    <Select value={formData.dam_id} onValueChange={(v) => setFormData({ ...formData, dam_id: v })} disabled={modalMode === "view"}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar matriz" /></SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        {dams.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    {modalMode === "view" ? (
+                      <Input value={dams.find(d => d.id === formData.dam_id)?.name || ""} disabled />
+                    ) : (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                            {formData.dam_id ? dams.find(d => d.id === formData.dam_id)?.name : "Selecionar matriz"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50" align="start">
+                          <Command>
+                            <CommandInput placeholder="Pesquisar por nome..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhuma matriz encontrada.</CommandEmpty>
+                              <CommandGroup>
+                                {dams.map(d => (
+                                  <CommandItem key={d.id} value={d.name} onSelect={() => setFormData({ ...formData, dam_id: d.id })}>
+                                    <Check className={cn("mr-2 h-4 w-4", formData.dam_id === d.id ? "opacity-100" : "opacity-0")} />
+                                    {d.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
                 </div>
               </div>
