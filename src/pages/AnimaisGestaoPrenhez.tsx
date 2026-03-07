@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -150,6 +150,29 @@ const AnimaisGestaoPrenhez = () => {
   const [financialRecords, setFinancialRecords] = useState<PrenFinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
+
+  // Sale modal state
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleRecord, setSaleRecord] = useState<PregnancyRecord | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleValue, setSaleValue] = useState("");
+  const [salePercentage, setSalePercentage] = useState("");
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+
+  // Proprietários state
+  interface PregnancySale {
+    id: string;
+    client_id: string;
+    client_name: string;
+    sale_date: string;
+    sale_value: number;
+    sale_percentage: number;
+  }
+  const [pregnancySales, setPregnancySales] = useState<PregnancySale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
 
   const [recipientSearchOpen, setRecipientSearchOpen] = useState(false);
   const [recipientSearchTerm, setRecipientSearchTerm] = useState("");
@@ -673,6 +696,7 @@ const AnimaisGestaoPrenhez = () => {
   const getStatusLabel = (status: string) => {
     if (status === "in_progress") return "Em Andamento";
     if (status === "finalized_stillborn") return "Finalizado: Natimorto";
+    if (status === "sold") return "Vendido";
     return "Finalizado";
   };
 
@@ -719,6 +743,7 @@ const AnimaisGestaoPrenhez = () => {
   useEffect(() => {
     fetchRecords();
     fetchDropdownData();
+    fetchClients();
   }, []);
 
   const fetchRecords = async () => {
@@ -793,6 +818,105 @@ const AnimaisGestaoPrenhez = () => {
       setLaboratories(labRes.data || []);
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: profile } = await supabase.from("profiles").select("matrix_id").eq("id", userData.user.id).single();
+      if (!profile?.matrix_id) return;
+      const { data } = await supabase.from("suppliers").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true).order("name");
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
+  const fetchPregnancySales = async (pregnancyId: string) => {
+    setLoadingSales(true);
+    try {
+      const { data, error } = await supabase
+        .from("pregnancy_sales")
+        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .eq("pregnancy_id", pregnancyId)
+        .order("sale_date", { ascending: true });
+      if (error) throw error;
+      
+      const salesWithNames: PregnancySale[] = [];
+      for (const sale of (data || [])) {
+        const client = clients.find(c => c.id === sale.client_id);
+        salesWithNames.push({
+          ...sale,
+          client_name: client?.name || "Cliente não encontrado",
+        });
+      }
+      setPregnancySales(salesWithNames);
+    } catch (error) {
+      console.error("Error fetching pregnancy sales:", error);
+    } finally {
+      setLoadingSales(false);
+    }
+  };
+
+  const handleOpenSaleModal = (record: PregnancyRecord) => {
+    setSaleRecord(record);
+    setSaleClientId("");
+    setSaleDate(null);
+    setSaleValue("");
+    setSalePercentage("");
+    setClientSearchTerm("");
+    fetchClients();
+    setSaleModalOpen(true);
+  };
+
+  const handleSaveSale = async () => {
+    if (!saleRecord || !saleClientId || !saleDate || !saleValue || !salePercentage) {
+      toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
+      return;
+    }
+    const percentage = parseFloat(salePercentage);
+    if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+      toast({ title: "Erro", description: "A porcentagem deve ser entre 0 e 100.", variant: "destructive" });
+      return;
+    }
+
+    // Check current total percentage
+    const { data: existingSales } = await supabase
+      .from("pregnancy_sales")
+      .select("sale_percentage")
+      .eq("pregnancy_id", saleRecord.id);
+    
+    const currentTotal = (existingSales || []).reduce((sum: number, s: any) => sum + Number(s.sale_percentage), 0);
+    if (currentTotal + percentage > 100) {
+      toast({ title: "Erro", description: `A soma das vendas não pode ultrapassar 100%. Disponível: ${(100 - currentTotal).toFixed(2)}%`, variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("pregnancy_sales").insert({
+        pregnancy_id: saleRecord.id,
+        client_id: saleClientId,
+        sale_date: format(saleDate, "yyyy-MM-dd"),
+        sale_value: parseFloat(saleValue),
+        sale_percentage: percentage,
+        created_by: userData.user?.id,
+      });
+      if (error) throw error;
+
+      // Check if total reaches 100%
+      if (currentTotal + percentage >= 100) {
+        await supabase.from("pregnancy_management").update({ status: "sold" }).eq("id", saleRecord.id);
+      }
+
+      toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
+      setSaleModalOpen(false);
+      fetchRecords();
+    } catch (error) {
+      console.error("Error saving sale:", error);
+      toast({ title: "Erro", description: "Erro ao salvar venda.", variant: "destructive" });
     }
   };
 
@@ -1350,6 +1474,8 @@ const AnimaisGestaoPrenhez = () => {
                                 ? "bg-yellow-100 text-yellow-800"
                                 : record.status === "finalized_stillborn"
                                 ? "bg-red-100 text-red-800"
+                                : record.status === "sold"
+                                ? "bg-blue-100 text-blue-800"
                                 : "bg-green-100 text-green-800"
                             )}
                           >
@@ -1357,48 +1483,34 @@ const AnimaisGestaoPrenhez = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenModal("view", record)}
-                              title="Visualizar"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {record.status === "in_progress" && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenModal("edit", record)}
-                                  title="Editar"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => {
-                                    setRecordToDelete(record);
-                                    setDeleteDialogOpen(true);
-                                  }}
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenFinalizeDialog(record)}
-                                  title="Finalizar"
-                                  className="text-green-600 hover:text-green-700"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenModal("view", record)}>
+                                <Eye className="h-4 w-4 mr-2" />Visualizar
+                              </DropdownMenuItem>
+                              {record.status === "in_progress" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
+                                    <Pencil className="h-4 w-4 mr-2" />Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
+                                    <Trash2 className="h-4 w-4 mr-2" />Excluir
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
+                                    <DollarSign className="h-4 w-4 mr-2" />Venda
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
+                                    <CheckCircle className="h-4 w-4 mr-2" />Finalizar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))
@@ -1444,6 +1556,10 @@ const AnimaisGestaoPrenhez = () => {
             if (val === "financeiro" && selectedRecord && modalMode === "view") {
               fetchPregnancyFinancial(selectedRecord.id, (selectedRecord as any).embryo_transfer_id);
             }
+            if (val === "proprietarios" && selectedRecord) {
+              fetchClients();
+              fetchPregnancySales(selectedRecord.id);
+            }
           }}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
@@ -1452,7 +1568,7 @@ const AnimaisGestaoPrenhez = () => {
               <TabsTrigger value="financeiro">
                 Financeiro
               </TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>
+              <TabsTrigger value="proprietarios">
                 Proprietários
               </TabsTrigger>
             </TabsList>
@@ -1996,10 +2112,52 @@ const AnimaisGestaoPrenhez = () => {
               })()}
             </TabsContent>
 
-            <TabsContent value="proprietarios" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">
-                Funcionalidade em desenvolvimento.
-              </div>
+            <TabsContent value="proprietarios" className="mt-4 space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Proprietários / Vendas
+              </h3>
+              {loadingSales ? (
+                <p className="text-center text-muted-foreground py-8">Carregando...</p>
+              ) : pregnancySales.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Nenhuma venda registrada.</p>
+              ) : (
+                <>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead className="text-right">%</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pregnancySales.map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>{sale.client_name}</TableCell>
+                            <TableCell className="text-right">{sale.sale_value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                            <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                    <span className="font-medium">Total Vendido</span>
+                    <div className="flex gap-6">
+                      <span className="font-semibold">
+                        {pregnancySales.reduce((s, r) => s + r.sale_value, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                      <span className="font-semibold">
+                        {pregnancySales.reduce((s, r) => s + r.sale_percentage, 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </TabsContent>
           </Tabs>
 
@@ -2215,6 +2373,109 @@ const AnimaisGestaoPrenhez = () => {
             >
               Finalizar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sale Modal */}
+      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Venda - {saleRecord?.name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Cliente *</Label>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    {saleClientId ? clients.find(c => c.id === saleClientId)?.name || "Selecionar..." : "Selecionar cliente..."}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50">
+                  <div className="p-2">
+                    <Input
+                      placeholder="Pesquisar cliente..."
+                      value={clientSearchTerm}
+                      onChange={(e) => setClientSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {clients
+                      .filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase()))
+                      .map(client => (
+                        <div
+                          key={client.id}
+                          className={cn(
+                            "px-3 py-2 cursor-pointer hover:bg-accent text-sm",
+                            saleClientId === client.id && "bg-accent font-medium"
+                          )}
+                          onClick={() => {
+                            setSaleClientId(client.id);
+                            setClientPopoverOpen(false);
+                          }}
+                        >
+                          {client.name}
+                        </div>
+                      ))}
+                    {clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Data da Venda *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {saleDate ? format(saleDate, "dd/MM/yyyy") : "Selecione..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={saleDate || undefined} onSelect={(d) => setSaleDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor da Venda (R$) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={saleValue}
+                onChange={(e) => setSaleValue(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>% de Venda *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="100"
+                value={salePercentage}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (e.target.value === "" || (val >= 0 && val <= 100)) {
+                    setSalePercentage(e.target.value);
+                  }
+                }}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSale}>Salvar Venda</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

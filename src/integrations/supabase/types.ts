@@ -3544,6 +3544,57 @@ export type Database = {
           },
         ]
       }
+      pregnancy_sales: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          pregnancy_id: string
+          sale_date: string
+          sale_percentage: number
+          sale_value: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pregnancy_id: string
+          sale_date: string
+          sale_percentage?: number
+          sale_value?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pregnancy_id?: string
+          sale_date?: string
+          sale_percentage?: number
+          sale_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pregnancy_sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_sales_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_supplier_codes: {
         Row: {
           created_at: string
