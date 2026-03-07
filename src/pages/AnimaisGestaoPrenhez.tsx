@@ -743,6 +743,7 @@ const AnimaisGestaoPrenhez = () => {
   useEffect(() => {
     fetchRecords();
     fetchDropdownData();
+    fetchClients();
   }, []);
 
   const fetchRecords = async () => {
