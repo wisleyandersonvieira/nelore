@@ -885,6 +885,57 @@ export type Database = {
           },
         ]
       }
+      animal_sales: {
+        Row: {
+          animal_id: string
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          sale_date: string
+          sale_percentage: number
+          sale_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          animal_id: string
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          sale_date: string
+          sale_percentage: number
+          sale_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          animal_id?: string
+          client_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          sale_date?: string
+          sale_percentage?: number
+          sale_value?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_sales_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animal_sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       animals: {
         Row: {
           aspiration_date: string | null
