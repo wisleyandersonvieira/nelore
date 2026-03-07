@@ -262,6 +262,7 @@ const AnimaisCadastro = () => {
   useEffect(() => {
     fetchAnimals();
     fetchDropdownData();
+    fetchClients();
   }, []);
 
   const getUserStoreId = async (userId: string): Promise<string | null> => {
