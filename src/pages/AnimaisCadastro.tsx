@@ -580,7 +580,108 @@ const AnimaisCadastro = () => {
     }
   };
 
-  const handleOpenModal = async (mode: "view" | "edit" | "create", animal?: Animal) => {
+  const fetchClients = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: profile } = await supabase.from("profiles").select("matrix_id").eq("id", userData.user.id).single();
+      if (!profile?.matrix_id) return;
+      const { data } = await supabase.from("suppliers").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true).order("name");
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
+  const fetchAnimalSales = async (animalId: string) => {
+    setLoadingSales(true);
+    try {
+      const { data, error } = await supabase
+        .from("animal_sales")
+        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .eq("animal_id", animalId)
+        .order("sale_date", { ascending: true });
+      if (error) throw error;
+
+      const salesWithNames: AnimalSale[] = [];
+      for (const sale of (data || [])) {
+        const client = clients.find(c => c.id === sale.client_id);
+        let clientName = client?.name;
+        if (!clientName) {
+          const { data: clientData } = await supabase.from("suppliers").select("name").eq("id", sale.client_id).single();
+          clientName = clientData?.name || "Cliente não encontrado";
+        }
+        salesWithNames.push({
+          ...sale,
+          client_name: clientName,
+        });
+      }
+      setAnimalSales(salesWithNames);
+    } catch (error) {
+      console.error("Error fetching animal sales:", error);
+    } finally {
+      setLoadingSales(false);
+    }
+  };
+
+  const handleOpenSaleModal = (animal: Animal) => {
+    setSaleAnimal(animal);
+    setSaleClientId("");
+    setSaleDate(null);
+    setSaleValue("");
+    setSalePercentage("");
+    setClientSearchTerm("");
+    fetchClients();
+    setSaleModalOpen(true);
+  };
+
+  const handleSaveSale = async () => {
+    if (!saleAnimal || !saleClientId || !saleDate || !saleValue || !salePercentage) {
+      toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
+      return;
+    }
+    const percentage = parseFloat(salePercentage);
+    if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+      toast({ title: "Erro", description: "A porcentagem deve ser entre 0 e 100.", variant: "destructive" });
+      return;
+    }
+
+    const { data: existingSales } = await supabase
+      .from("animal_sales")
+      .select("sale_percentage")
+      .eq("animal_id", saleAnimal.id);
+
+    const currentTotal = (existingSales || []).reduce((sum: number, s: any) => sum + Number(s.sale_percentage), 0);
+    if (currentTotal + percentage > 100) {
+      toast({ title: "Erro", description: `A soma das vendas não pode ultrapassar 100%. Disponível: ${(100 - currentTotal).toFixed(2)}%`, variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("animal_sales").insert({
+        animal_id: saleAnimal.id,
+        client_id: saleClientId,
+        sale_date: format(saleDate, "yyyy-MM-dd"),
+        sale_value: parseFloat(saleValue),
+        sale_percentage: percentage,
+        created_by: userData.user?.id,
+      });
+      if (error) throw error;
+
+      if (currentTotal + percentage >= 100) {
+        await supabase.from("animals").update({ is_active: false }).eq("id", saleAnimal.id);
+      }
+
+      toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
+      setSaleModalOpen(false);
+      fetchAnimals();
+    } catch (error) {
+      console.error("Error saving sale:", error);
+      toast({ title: "Erro", description: "Erro ao salvar venda.", variant: "destructive" });
+    }
+  };
+
     setModalMode(mode);
     setActiveTab("dados");
     setAnimalWeighings([]);
