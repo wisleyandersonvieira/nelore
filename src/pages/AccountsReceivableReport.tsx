@@ -869,6 +869,9 @@ const AccountsReceivableReport = () => {
                       <DropdownMenuItem onClick={exportToPDFByMonth}>
                         Por Mês
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFByCreditorAndAnimal}>
+                        Por Credor e Animal
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Button onClick={exportToExcel} variant="outline" size="sm">
