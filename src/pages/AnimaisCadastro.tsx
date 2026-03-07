@@ -1534,7 +1534,7 @@ const AnimaisCadastro = () => {
                   <TableHead>Sexo</TableHead>
                   <TableHead>Raça</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
