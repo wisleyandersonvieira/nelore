@@ -1483,34 +1483,36 @@ const AnimaisGestaoPrenhez = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleOpenModal("view", record)}>
-                                <Eye className="h-4 w-4 mr-2" />Visualizar
-                              </DropdownMenuItem>
-                              {record.status === "in_progress" && (
-                                <>
-                                  <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
-                                    <Pencil className="h-4 w-4 mr-2" />Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
-                                    <Trash2 className="h-4 w-4 mr-2" />Excluir
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
-                                    <DollarSign className="h-4 w-4 mr-2" />Venda
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
-                                    <CheckCircle className="h-4 w-4 mr-2" />Finalizar
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {record.status === "in_progress" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
+                                      <Pencil className="h-4 w-4 mr-2" />Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
+                                      <Trash2 className="h-4 w-4 mr-2" />Excluir
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
+                                      <DollarSign className="h-4 w-4 mr-2" />Venda
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
+                                      <CheckCircle className="h-4 w-4 mr-2" />Finalizar
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
