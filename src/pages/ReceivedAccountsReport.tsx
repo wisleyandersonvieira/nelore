@@ -34,6 +34,7 @@ const ReceivedAccountsReport = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [allocationNames, setAllocationNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCreditors();
