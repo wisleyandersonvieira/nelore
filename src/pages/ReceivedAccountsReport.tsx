@@ -221,6 +221,54 @@ const ReceivedAccountsReport = () => {
         accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
       }
 
+      // Fetch allocation names (animals, aspirations, pregnancies, embryo transfers)
+      const animalIds = new Set<string>();
+      const aspirationIds = new Set<string>();
+      const pregnancyIds = new Set<string>();
+      const embryoTransferIds = new Set<string>();
+
+      accountsData.forEach((account: any) => {
+        (account.accounts_receivable_items || []).forEach((item: any) => {
+          (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
+            if (alloc.animal_id) animalIds.add(alloc.animal_id);
+            if (alloc.aspiration_id) aspirationIds.add(alloc.aspiration_id);
+            if (alloc.pregnancy_id) pregnancyIds.add(alloc.pregnancy_id);
+            if (alloc.embryo_transfer_id) embryoTransferIds.add(alloc.embryo_transfer_id);
+          });
+        });
+      });
+
+      const namesMap: Record<string, string> = {};
+      const fetchPromises: Promise<void>[] = [];
+
+      if (animalIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("animals").select("id, name, code").in("id", Array.from(animalIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`animal-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+      if (aspirationIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("aspiration_management").select("id, name, code").in("id", Array.from(aspirationIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`aspiration-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+      if (pregnancyIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("pregnancy_management").select("id, name, code").in("id", Array.from(pregnancyIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`pregnancy-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+      if (embryoTransferIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("embryo_transfer_management").select("id, name, code").in("id", Array.from(embryoTransferIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`embryo-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+
+      await Promise.all(fetchPromises);
+      setAllocationNames(namesMap);
+
       setAccounts(accountsData);
       toast({
         title: "Pesquisa realizada",
