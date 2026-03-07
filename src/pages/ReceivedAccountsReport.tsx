@@ -1194,6 +1194,9 @@ const ReceivedAccountsReport = () => {
                       <DropdownMenuItem onClick={exportToPDFDetalhado}>
                         Detalhado (com produtos)
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFByCreditorAndVinculo}>
+                        Por Credor e Vínculo
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Button onClick={exportToExcel} variant="outline" size="sm">
