@@ -111,6 +111,13 @@ const Users = () => {
     checkAdminStatus();
   }, []);
 
+  // Recarregar matrizes ao voltar para aba de usuários (caso tenha criado nova matriz)
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchMatrices();
+    }
+  }, [activeTab]);
+
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
