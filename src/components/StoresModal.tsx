@@ -417,7 +417,7 @@ export const StoresModal = ({
       } else {
         const { data, error } = await supabase
           .from("stores")
-          .insert([formData])
+          .insert([sanitizedData])
           .select()
           .single();
 
