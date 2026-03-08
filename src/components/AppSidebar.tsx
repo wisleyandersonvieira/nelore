@@ -249,7 +249,7 @@ const AppSidebar = ({
         { id: "fornecedores", label: "Fornecedores", action: "openSuppliers" },
         { id: "grupos", label: "Grupos", action: "openGrupos" },
         { id: "lojas", label: "Fazendas", action: "openStores" },
-        { id: "metas", label: "Metas", route: "/goals" },
+        // { id: "metas", label: "Metas", route: "/goals" },
         { id: "parametros", label: "Parâmetros", action: "openParameters" },
         { id: "produtos", label: "Produtos/Serviços", route: "/products" },
         { id: "socios", label: "Sócios", action: "openPartners" },
