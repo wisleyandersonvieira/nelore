@@ -72,7 +72,8 @@ interface AppSidebarProps {
   onOpenStores: () => void;
   onOpenGrupos: () => void;
   onOpenSubgrupos: () => void;
-  onOpenContas: () => void;
+  onOpenCurrentAccounts: () => void;
+  onOpenCashAccounts: () => void;
   onOpenParameters: () => void;
   onOpenJobFunctions: () => void;
   onOpenEmployees: () => void;
