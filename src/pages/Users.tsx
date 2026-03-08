@@ -676,7 +676,7 @@ const Users = () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openStoreDialog(user)}>
                                       <Store className="h-4 w-4 mr-2" />
-                                      Loja
+                                      Fazenda
                                     </DropdownMenuItem>
                                     {(isMasterUser || isMatrixUser) && (
                                       <DropdownMenuItem onClick={() => openResetPasswordModal(user)}>
