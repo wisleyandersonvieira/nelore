@@ -59,6 +59,9 @@ export const DREStructure: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Verificar se é usuário master
+        const { data: isMaster } = await supabase.rpc('is_master_user');
+
         const { data: matrixData, error } = await supabase
           .from("matrices")
           .select("brand_id")
@@ -71,6 +74,12 @@ export const DREStructure: React.FC = () => {
         
         const brandId = matrixData?.brand_id || null;
         setUserBrandId(brandId);
+
+        // Master user sempre pode gerenciar estruturas
+        if (isMaster) {
+          setCanManageStructures(true);
+          return;
+        }
 
         // Verificar se o usuário está autorizado a gerenciar estruturas
         if (brandId) {
