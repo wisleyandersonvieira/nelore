@@ -676,7 +676,7 @@ const Users = () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openStoreDialog(user)}>
                                       <Store className="h-4 w-4 mr-2" />
-                                      Loja
+                                      Fazenda
                                     </DropdownMenuItem>
                                     {(isMasterUser || isMatrixUser) && (
                                       <DropdownMenuItem onClick={() => openResetPasswordModal(user)}>
@@ -706,11 +706,11 @@ const Users = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Dialog para vincular loja */}
+        {/* Dialog para vincular fazenda */}
         <Dialog open={isStoreDialogOpen} onOpenChange={setIsStoreDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Vincular Lojas ao Usuário</DialogTitle>
+              <DialogTitle>Vincular Fazendas ao Usuário</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div>
@@ -720,11 +720,23 @@ const Users = () => {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="stores">Lojas</Label>
+                <Label htmlFor="stores">Fazendas</Label>
                 <div className="border rounded-md p-2 max-h-40 overflow-y-auto">
                   {stores
                     .filter((store) => {
-                      // Filtrar lojas pela matriz do usuário selecionado
+                      // Filtrar fazendas pela matriz do usuário selecionado
+                      if (selectedUser?.matrix_id) {
+                        return store.matrix_id === selectedUser.matrix_id;
+                      }
+                      return true;
+                    })
+                    .length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">
+                        Nenhuma fazenda cadastrada para esta matriz. Cadastre uma fazenda primeiro.
+                      </p>
+                    ) : (
+                    stores
+                    .filter((store) => {
                       if (selectedUser?.matrix_id) {
                         return store.matrix_id === selectedUser.matrix_id;
                       }
@@ -743,15 +755,16 @@ const Users = () => {
                           {store.name} ({store.code})
                         </label>
                       </div>
-                    ))}
+                    ))
+                  )}
                 </div>
-                {selectedStoreIds.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Selecione pelo menos uma loja</p>
+                {selectedStoreIds.length === 0 && stores.filter(s => selectedUser?.matrix_id ? s.matrix_id === selectedUser.matrix_id : true).length > 0 && (
+                  <p className="text-sm text-muted-foreground">Selecione pelo menos uma fazenda</p>
                 )}
               </div>
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleAssignStores} className="flex-1" disabled={selectedStoreIds.length === 0}>
-                  Vincular Lojas
+                  Vincular Fazendas
                 </Button>
                 <Button variant="outline" onClick={() => setIsStoreDialogOpen(false)} className="flex-1">
                   Cancelar
