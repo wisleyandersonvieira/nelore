@@ -242,7 +242,8 @@ const AppSidebar = ({
       title: "Cadastros",
       icon: ClipboardList,
       subMenus: [
-        { id: "contas", label: "Contas", action: "openContas" },
+        { id: "contas-correntes", label: "Contas Correntes", action: "openCurrentAccounts" },
+        { id: "contas-caixa", label: "Contas Caixa", action: "openCashAccounts" },
         { id: "fornecedores", label: "Fornecedores", action: "openSuppliers" },
         { id: "grupos", label: "Grupos", action: "openGrupos" },
         { id: "lojas", label: "Fazendas", action: "openStores" },
