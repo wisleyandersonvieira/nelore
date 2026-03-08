@@ -453,8 +453,11 @@ const AppSidebar = ({
         case "openSubgrupos":
           onOpenSubgrupos();
           break;
-        case "openContas":
-          onOpenContas();
+        case "openCurrentAccounts":
+          onOpenCurrentAccounts();
+          break;
+        case "openCashAccounts":
+          onOpenCashAccounts();
           break;
         case "openParameters":
           onOpenParameters();
