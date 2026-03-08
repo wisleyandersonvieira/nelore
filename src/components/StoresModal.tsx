@@ -386,10 +386,19 @@ export const StoresModal = ({
     try {
       let storeId: string;
 
+      // Sanitize empty strings to null for optional fields
+      const sanitizedData = {
+        ...formData,
+        address: formData.address || null,
+        phone: formData.phone || null,
+        manager_name: formData.manager_name || null,
+        opening_date: formData.opening_date || null,
+      };
+
       if (editingStore) {
         const { error } = await supabase
           .from("stores")
-          .update(formData)
+          .update(sanitizedData)
           .eq("id", editingStore.id);
 
         if (error) throw error;
