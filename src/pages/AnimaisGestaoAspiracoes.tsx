@@ -716,6 +716,34 @@ const AnimaisGestaoAspiracoes = () => {
           aspiration_id: secondFinalizeRecord.id,
         } as any);
         if (insertError) throw insertError;
+
+        // Copy aspiration owners to this embryo transfer
+        const { data: aspirationOwners } = await supabase
+          .from("aspiration_owners")
+          .select("owner_id, percentage")
+          .eq("aspiration_id", secondFinalizeRecord.id);
+
+        if (aspirationOwners && aspirationOwners.length > 0) {
+          // Get the newly created embryo transfer ID
+          const { data: newET } = await supabase
+            .from("embryo_transfer_management")
+            .select("id")
+            .eq("store_id", secondFinalizeRecord.store_id)
+            .eq("code", nextCode)
+            .single();
+
+          if (newET) {
+            const { data: userData } = await supabase.auth.getUser();
+            for (const owner of aspirationOwners) {
+              await supabase.from("embryo_transfer_owners").insert({
+                embryo_transfer_id: newET.id,
+                owner_id: owner.owner_id,
+                percentage: owner.percentage,
+                created_by: userData.user?.id,
+              } as any);
+            }
+          }
+        }
       }
 
       toast({ title: "Sucesso", description: "Aspiração finalizada e registros de pós transferência criados com sucesso." });

@@ -1200,8 +1200,28 @@ const AnimaisGestaoPrenhez = () => {
         animalInsertData.first_weighing_date = birthDateStr;
       }
 
-      const { error: animalError } = await supabase.from("animals").insert(animalInsertData as any);
+      const { error: animalError, data: newAnimal } = await supabase.from("animals").insert(animalInsertData as any).select("id").single();
       if (animalError) throw animalError;
+
+      // Copy pregnancy owners to animal
+      if (newAnimal) {
+        const { data: pregOwners } = await supabase
+          .from("pregnancy_owners")
+          .select("owner_id, percentage")
+          .eq("pregnancy_id", recordToFinalize.id);
+
+        if (pregOwners && pregOwners.length > 0) {
+          const { data: userData } = await supabase.auth.getUser();
+          for (const owner of pregOwners) {
+            await supabase.from("animal_owners").insert({
+              animal_id: newAnimal.id,
+              owner_id: owner.owner_id,
+              percentage: owner.percentage,
+              created_by: userData.user?.id,
+            } as any);
+          }
+        }
+      }
 
       const { error: updateError } = await supabase
         .from("pregnancy_management")

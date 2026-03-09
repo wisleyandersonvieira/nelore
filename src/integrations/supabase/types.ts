@@ -2851,6 +2851,51 @@ export type Database = {
           },
         ]
       }
+      embryo_transfer_owners: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          embryo_transfer_id: string
+          id: string
+          owner_id: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          embryo_transfer_id: string
+          id?: string
+          owner_id: string
+          percentage: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          embryo_transfer_id?: string
+          id?: string
+          owner_id?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embryo_transfer_owners_embryo_transfer_id_fkey"
+            columns: ["embryo_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "embryo_transfer_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embryo_transfer_owners_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_obligation_attachments: {
         Row: {
           completion_id: string
