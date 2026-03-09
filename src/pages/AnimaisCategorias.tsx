@@ -119,18 +119,10 @@ const AnimaisCategorias = () => {
     } else {
       setSelectedCategory(null);
       try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return;
+        const storeId = await getStoreId();
+        if (!storeId) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("store_id")
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (!profile?.store_id) return;
-
-        const nextCode = await getNextCode(profile.store_id);
+        const nextCode = await getNextCode(storeId);
         setFormData({
           code: nextCode,
           name: "",
