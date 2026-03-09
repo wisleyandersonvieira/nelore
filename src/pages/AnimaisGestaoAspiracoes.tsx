@@ -1752,7 +1752,7 @@ const AnimaisGestaoAspiracoes = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } }}>
             <TabsList className={cn("grid w-full", modalMode === "view" && selectedRecord?.status === "finalized" ? "grid-cols-5" : "grid-cols-4")}>
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
