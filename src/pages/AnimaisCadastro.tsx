@@ -2022,22 +2022,35 @@ const AnimaisCadastro = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Leilão</Label>
-                  <Select
-                    value={formData.auction_id}
-                    onValueChange={(value) => setFormData({ ...formData, auction_id: value })}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar leilão" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {auctions.map((auction) => (
-                        <SelectItem key={auction.id} value={auction.id}>
-                          {auction.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-1">
+                    <Select
+                      value={formData.auction_id}
+                      onValueChange={(value) => setFormData({ ...formData, auction_id: value })}
+                      disabled={isReadOnly}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Selecionar leilão" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {auctions.map((auction) => (
+                          <SelectItem key={auction.id} value={auction.id}>
+                            {auction.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!isReadOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => setCreateLeilaoOpen(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Lote (Leilão) {formData.auction_id && "*"}</Label>
