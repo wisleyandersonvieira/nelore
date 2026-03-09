@@ -691,14 +691,12 @@ const AnimaisCadastro = () => {
       return;
     }
 
-    const { data: existingSales } = await supabase
-      .from("animal_sales")
-      .select("sale_percentage")
-      .eq("animal_id", saleAnimal.id);
-
-    const currentTotal = (existingSales || []).reduce((sum: number, s: any) => sum + Number(s.sale_percentage), 0);
-    if (currentTotal + percentage > 100) {
-      toast({ title: "Erro", description: `A soma das vendas não pode ultrapassar 100%. Disponível: ${(100 - currentTotal).toFixed(2)}%`, variant: "destructive" });
+    // Validate: owner percentages + sale percentage must not exceed 100%
+    const ownersTotal = saleOwners.reduce((s, o) => s + o.percentage, 0);
+    const buyerAlreadyInOwners = saleOwners.some(o => o.owner_id === saleClientId);
+    const grandTotal = ownersTotal + (buyerAlreadyInOwners ? 0 : percentage);
+    if (grandTotal > 100) {
+      toast({ title: "Erro", description: `O somatório das participações dos proprietários (${ownersTotal.toFixed(2)}%) + venda (${percentage.toFixed(2)}%) ultrapassa 100%.`, variant: "destructive" });
       return;
     }
 
