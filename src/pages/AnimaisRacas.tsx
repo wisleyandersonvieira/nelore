@@ -83,7 +83,7 @@ const AnimaisRacas = () => {
       const { data, error } = await supabase
         .from("animal_breeds")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("is_active", true)
         .order("code", { ascending: true });
 
