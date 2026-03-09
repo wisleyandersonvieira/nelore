@@ -45,12 +45,6 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const tableName = entityType === "animal"
-    ? "animal_owners"
-    : entityType === "pregnancy"
-    ? "pregnancy_owners"
-    : "aspiration_owners";
-
   const fkColumn = entityType === "animal"
     ? "animal_id"
     : entityType === "pregnancy"
