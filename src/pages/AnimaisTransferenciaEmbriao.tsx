@@ -1670,7 +1670,7 @@ const AnimaisTransferenciaEmbriao = () => {
             <TabsContent value="proprietarios" className="mt-4">
               <OwnersTab
                 entityId={selectedRecord?.id || null}
-                entityType="aspiration"
+                entityType="embryo_transfer"
                 isReadOnly={modalMode === "view"}
               />
             </TabsContent>
