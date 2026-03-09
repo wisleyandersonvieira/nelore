@@ -239,7 +239,7 @@ const AnimaisCadastro = () => {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
-  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number }[]>([]);
+  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[]>([]);
 
   // Proprietários state
   interface AnimalSale {
