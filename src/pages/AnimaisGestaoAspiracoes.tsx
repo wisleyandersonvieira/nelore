@@ -650,6 +650,188 @@ const AnimaisGestaoAspiracoes = () => {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: profile } = await supabase.from("profiles").select("matrix_id").eq("id", userData.user.id).single();
+      if (!profile?.matrix_id) return;
+      const { data } = await supabase.from("suppliers").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true).order("name");
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
+  const fetchAspirationSales = async (aspirationId: string) => {
+    setLoadingSales(true);
+    try {
+      const { data, error } = await supabase
+        .from("aspiration_sales")
+        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .eq("aspiration_id", aspirationId)
+        .order("sale_date", { ascending: true });
+      if (error) throw error;
+      
+      const salesWithNames: AspirationSale[] = [];
+      for (const sale of (data || [])) {
+        const client = clients.find(c => c.id === sale.client_id);
+        salesWithNames.push({
+          ...sale,
+          client_name: client?.name || "Cliente não encontrado",
+        });
+      }
+      setAspirationSales(salesWithNames);
+    } catch (error) {
+      console.error("Error fetching aspiration sales:", error);
+    } finally {
+      setLoadingSales(false);
+    }
+  };
+
+  const handleOpenSaleModal = async (record: AspirationRecord) => {
+    setSaleRecord(record);
+    setSaleClientId("");
+    setSaleDate(null);
+    setSaleValue("");
+    setSalePercentage("");
+    setClientSearchTerm("");
+    fetchClients();
+    
+    try {
+      const { data: owners } = await supabase
+        .from("aspiration_owners")
+        .select("owner_id, owner_type, store_owner_id, percentage")
+        .eq("aspiration_id", record.id);
+      
+      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[] = [];
+      for (const o of owners || []) {
+        const ownerType = (o as any).owner_type || "supplier";
+        let ownerName = "N/A";
+        const effectiveId = ownerType === "store" ? (o as any).store_owner_id : o.owner_id;
+        
+        if (ownerType === "store" && (o as any).store_owner_id) {
+          const { data: store } = await supabase.from("stores").select("name").eq("id", (o as any).store_owner_id).single();
+          ownerName = store?.name ? `🏠 ${store.name}` : "Fazenda não encontrada";
+        } else if (o.owner_id) {
+          const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
+          ownerName = supplier?.name || "N/A";
+        }
+        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage), owner_type: ownerType, store_owner_id: (o as any).store_owner_id || null });
+      }
+      setSaleOwners(ownersWithNames);
+    } catch (error) {
+      console.error("Error fetching owners for sale:", error);
+      setSaleOwners([]);
+    }
+    
+    setSaleModalOpen(true);
+  };
+
+  const handleSaveSale = async () => {
+    if (!saleRecord || !saleClientId || !saleDate || !saleValue || !salePercentage) {
+      toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
+      return;
+    }
+    const percentage = parseFloat(salePercentage);
+    if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+      toast({ title: "Erro", description: "A porcentagem deve ser entre 0 e 100.", variant: "destructive" });
+      return;
+    }
+
+    const ownersTotal = saleOwners.reduce((s, o) => s + o.percentage, 0);
+    const buyerAlreadyInOwners = saleOwners.some(o => o.owner_id === saleClientId);
+    const grandTotal = ownersTotal + (buyerAlreadyInOwners ? 0 : percentage);
+    if (grandTotal > 100) {
+      toast({ title: "Erro", description: `O somatório das participações dos proprietários (${ownersTotal.toFixed(2)}%) + venda (${percentage.toFixed(2)}%) ultrapassa 100%.`, variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("aspiration_sales").insert({
+        aspiration_id: saleRecord.id,
+        client_id: saleClientId,
+        sale_date: format(saleDate, "yyyy-MM-dd"),
+        sale_value: parseFloat(saleValue),
+        sale_percentage: percentage,
+        created_by: userData.user?.id,
+      });
+      if (error) throw error;
+
+      for (const owner of saleOwners) {
+        let existingRecord;
+        if (owner.owner_type === "store" && owner.store_owner_id) {
+          const { data } = await supabase
+            .from("aspiration_owners")
+            .select("id")
+            .eq("aspiration_id", saleRecord.id)
+            .eq("store_owner_id", owner.store_owner_id)
+            .eq("owner_type", "store")
+            .maybeSingle();
+          existingRecord = data;
+        } else {
+          const { data } = await supabase
+            .from("aspiration_owners")
+            .select("id")
+            .eq("aspiration_id", saleRecord.id)
+            .eq("owner_id", owner.owner_id)
+            .maybeSingle();
+          existingRecord = data;
+        }
+
+        if (existingRecord) {
+          if (owner.percentage <= 0) {
+            await supabase.from("aspiration_owners").delete().eq("id", existingRecord.id);
+          } else {
+            await supabase.from("aspiration_owners").update({ percentage: owner.percentage }).eq("id", existingRecord.id);
+          }
+        }
+      }
+
+      const buyerInOwners = saleOwners.find(o => o.owner_id === saleClientId);
+      if (!buyerInOwners) {
+        const { data: existingOwner } = await supabase
+          .from("aspiration_owners")
+          .select("id, percentage")
+          .eq("aspiration_id", saleRecord.id)
+          .eq("owner_id", saleClientId)
+          .maybeSingle();
+
+        if (existingOwner) {
+          await supabase.from("aspiration_owners")
+            .update({ percentage: Number(existingOwner.percentage) + percentage })
+            .eq("id", existingOwner.id);
+        } else {
+          await supabase.from("aspiration_owners").insert({
+            aspiration_id: saleRecord.id,
+            owner_id: saleClientId,
+            percentage: percentage,
+            created_by: userData.user?.id,
+          } as any);
+        }
+      }
+
+      const { data: storeOwners } = await supabase
+        .from("aspiration_owners")
+        .select("id, owner_type, percentage")
+        .eq("aspiration_id", saleRecord.id)
+        .eq("owner_type", "store");
+      
+      const storeHasOwnership = storeOwners?.some((o: any) => Number(o.percentage) > 0);
+      if (!storeHasOwnership) {
+        await supabase.from("aspiration_management").update({ status: "sold" }).eq("id", saleRecord.id);
+      }
+
+      toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
+      setSaleModalOpen(false);
+      fetchRecords();
+    } catch (error) {
+      console.error("Error saving sale:", error);
+      toast({ title: "Erro", description: "Erro ao salvar venda.", variant: "destructive" });
+    }
+  };
+
   const handleFirstFinalize = async () => {
     if (saving) return;
     if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
