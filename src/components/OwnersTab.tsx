@@ -49,6 +49,8 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
     ? "animal_id"
     : entityType === "pregnancy"
     ? "pregnancy_id"
+    : entityType === "embryo_transfer"
+    ? "embryo_transfer_id"
     : "aspiration_id";
 
   useEffect(() => {
