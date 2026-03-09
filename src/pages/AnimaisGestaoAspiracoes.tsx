@@ -178,6 +178,29 @@ const AnimaisGestaoAspiracoes = () => {
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
 
+  // Sale modal state
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleRecord, setSaleRecord] = useState<AspirationRecord | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleValue, setSaleValue] = useState("");
+  const [salePercentage, setSalePercentage] = useState("");
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[]>([]);
+
+  interface AspirationSale {
+    id: string;
+    client_id: string;
+    client_name: string;
+    sale_date: string;
+    sale_value: number;
+    sale_percentage: number;
+  }
+  const [aspirationSales, setAspirationSales] = useState<AspirationSale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
+
   useEffect(() => {
     fetchRecords();
     fetchDropdownData();
