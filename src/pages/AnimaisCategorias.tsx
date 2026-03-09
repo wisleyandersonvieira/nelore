@@ -57,18 +57,27 @@ const AnimaisCategorias = () => {
     fetchCategories();
   }, []);
 
+  const getStoreId = async (): Promise<string | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return null;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (profile?.store_id) return profile.store_id;
+    const { data: userStores } = await supabase
+      .from("user_stores")
+      .select("store_id")
+      .eq("user_id", userData.user.id)
+      .limit(1);
+    return userStores?.[0]?.store_id || null;
+  };
+
   const fetchCategories = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       const { data, error } = await supabase
         .from("animal_categories")
