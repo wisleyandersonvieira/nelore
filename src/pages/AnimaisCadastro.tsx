@@ -714,6 +714,27 @@ const AnimaisCadastro = () => {
       });
       if (error) throw error;
 
+      // Add/update buyer as owner with the sold percentage
+      const { data: existingOwner } = await supabase
+        .from("animal_owners")
+        .select("id, percentage")
+        .eq("animal_id", saleAnimal.id)
+        .eq("owner_id", saleClientId)
+        .maybeSingle();
+
+      if (existingOwner) {
+        await supabase.from("animal_owners")
+          .update({ percentage: Number(existingOwner.percentage) + percentage })
+          .eq("id", existingOwner.id);
+      } else {
+        await supabase.from("animal_owners").insert({
+          animal_id: saleAnimal.id,
+          owner_id: saleClientId,
+          percentage: percentage,
+          created_by: userData.user?.id,
+        } as any);
+      }
+
       if (currentTotal + percentage >= 100) {
         await supabase.from("animals").update({ is_active: false }).eq("id", saleAnimal.id);
       }
