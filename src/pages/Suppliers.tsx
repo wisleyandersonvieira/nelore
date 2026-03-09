@@ -118,6 +118,7 @@ const Suppliers = () => {
         .from("suppliers")
         .select("id")
         .eq("cnpj_cpf", formData.cnpj_cpf)
+        .eq("matrix_id", matrixId)
         .eq("is_active", true)
         .maybeSingle();
 
