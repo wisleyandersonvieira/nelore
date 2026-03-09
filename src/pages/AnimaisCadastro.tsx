@@ -1727,6 +1727,9 @@ const AnimaisCadastro = () => {
                             <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
                               <DollarSign className="h-4 w-4 mr-2" />Venda
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenDeathModal(animal)}>
+                              <Skull className="h-4 w-4 mr-2" />Informar Morte
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
