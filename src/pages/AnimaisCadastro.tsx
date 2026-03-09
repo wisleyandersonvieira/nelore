@@ -3027,6 +3027,14 @@ const AnimaisCadastro = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CreateLeilaoModal
+        open={createLeilaoOpen}
+        onOpenChange={setCreateLeilaoOpen}
+        onCreated={(newAuction) => {
+          setAuctions(prev => [...prev, newAuction].sort((a, b) => a.name.localeCompare(b.name)));
+          setFormData(prev => ({ ...prev, auction_id: newAuction.id }));
+        }}
+      />
     </div>
   );
 };
