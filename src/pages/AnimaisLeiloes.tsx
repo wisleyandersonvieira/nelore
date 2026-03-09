@@ -89,13 +89,8 @@ const AnimaisLeiloes = () => {
 
   const handleSave = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       if (!formData.name.trim() || !formData.city.trim() || !selectedDate) {
         toast({
