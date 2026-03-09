@@ -39,27 +39,31 @@ const AnimaisLeiloes = () => {
     fetchLeiloes();
   }, []);
 
+  const getStoreId = async (): Promise<string | null> => {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return null;
+    const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userId).maybeSingle();
+    if (profile?.store_id) return profile.store_id;
+    const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", userId).limit(1);
+    return userStores?.[0]?.store_id || null;
+  };
+
   const fetchLeiloes = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       const { data, error } = await supabase
         .from("leiloes")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .order("code", { ascending: true });
 
       if (error) throw error;
       setLeiloes(data || []);
 
       const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
-        store_uuid: profile.store_id,
+        store_uuid: storeId,
       });
       setNextCode(codeData || 1);
     } catch (error) {
@@ -85,13 +89,8 @@ const AnimaisLeiloes = () => {
 
   const handleSave = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       if (!formData.name.trim() || !formData.city.trim() || !selectedDate) {
         toast({
@@ -108,7 +107,7 @@ const AnimaisLeiloes = () => {
           name: formData.name.trim(),
           date: format(selectedDate, "yyyy-MM-dd"),
           city: formData.city.trim(),
-          store_id: profile.store_id,
+          store_id: storeId,
         });
 
         if (error) throw error;
