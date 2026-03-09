@@ -2454,7 +2454,7 @@ const AnimaisCadastro = () => {
               <OwnersTab
                 entityId={selectedAnimal?.id || null}
                 entityType="animal"
-                isReadOnly={isReadOnly}
+                isReadOnly={false}
               />
 
               {/* Vendas section - only show for existing animals */}
