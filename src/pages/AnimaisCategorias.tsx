@@ -167,7 +167,7 @@ const AnimaisCategorias = () => {
         const { error } = await supabase.from("animal_categories").insert({
           code: formData.code,
           name: formData.name,
-          store_id: profile.store_id,
+          store_id: storeId,
         });
 
         if (error) throw error;
