@@ -167,12 +167,13 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.from(tableName).insert({
+      const record = {
         [fkColumn]: entityId,
         owner_id: selectedOwnerId,
         percentage: pct,
         created_by: userData.user?.id,
-      } as any);
+      };
+      const { error } = await insertOwner(record);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Proprietário adicionado." });
       setShowAddForm(false);
