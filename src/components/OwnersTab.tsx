@@ -209,10 +209,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from(tableName)
-        .update({ percentage: pct, owner_id: selectedOwnerId } as any)
-        .eq("id", editingId);
+      const { error } = await updateOwner(editingId, { percentage: pct, owner_id: selectedOwnerId });
       if (error) throw error;
       toast({ title: "Sucesso", description: "Proprietário atualizado." });
       setEditingId(null);
