@@ -714,25 +714,47 @@ const AnimaisCadastro = () => {
       });
       if (error) throw error;
 
-      // Add/update buyer as owner with the sold percentage
-      const { data: existingOwner } = await supabase
-        .from("animal_owners")
-        .select("id, percentage")
-        .eq("animal_id", saleAnimal.id)
-        .eq("owner_id", saleClientId)
-        .maybeSingle();
+      // Update all existing owner percentages as edited by the user
+      for (const owner of saleOwners) {
+        const { data: existingRecord } = await supabase
+          .from("animal_owners")
+          .select("id")
+          .eq("animal_id", saleAnimal.id)
+          .eq("owner_id", owner.owner_id)
+          .maybeSingle();
 
-      if (existingOwner) {
-        await supabase.from("animal_owners")
-          .update({ percentage: Number(existingOwner.percentage) + percentage })
-          .eq("id", existingOwner.id);
-      } else {
-        await supabase.from("animal_owners").insert({
-          animal_id: saleAnimal.id,
-          owner_id: saleClientId,
-          percentage: percentage,
-          created_by: userData.user?.id,
-        } as any);
+        if (existingRecord) {
+          if (owner.percentage <= 0) {
+            await supabase.from("animal_owners").delete().eq("id", existingRecord.id);
+          } else {
+            await supabase.from("animal_owners").update({ percentage: owner.percentage }).eq("id", existingRecord.id);
+          }
+        }
+      }
+
+      // Add/update buyer as owner with the sold percentage
+      const buyerInOwners = saleOwners.find(o => o.owner_id === saleClientId);
+      if (!buyerInOwners) {
+        // Buyer was not in the owners list, add them
+        const { data: existingOwner } = await supabase
+          .from("animal_owners")
+          .select("id, percentage")
+          .eq("animal_id", saleAnimal.id)
+          .eq("owner_id", saleClientId)
+          .maybeSingle();
+
+        if (existingOwner) {
+          await supabase.from("animal_owners")
+            .update({ percentage: Number(existingOwner.percentage) + percentage })
+            .eq("id", existingOwner.id);
+        } else {
+          await supabase.from("animal_owners").insert({
+            animal_id: saleAnimal.id,
+            owner_id: saleClientId,
+            percentage: percentage,
+            created_by: userData.user?.id,
+          } as any);
+        }
       }
 
       if (currentTotal + percentage >= 100) {
@@ -2739,46 +2761,7 @@ const AnimaisCadastro = () => {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* Owners Table */}
-            {saleOwners.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-base font-semibold">Proprietários Atuais</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Proprietário</TableHead>
-                        <TableHead className="text-right">% Atual</TableHead>
-                        <TableHead className="text-right">% Vendida</TableHead>
-                        <TableHead className="text-right">Valor Vendido</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {saleOwners.map((owner) => {
-                        // Find sales by this owner (as client)
-                        const ownerSales = animalSales.filter(s => s.client_id === owner.owner_id);
-                        const totalSoldPct = ownerSales.reduce((sum, s) => sum + s.sale_percentage, 0);
-                        const totalSoldValue = ownerSales.reduce((sum, s) => sum + s.sale_value, 0);
-                        return (
-                          <TableRow key={owner.owner_id}>
-                            <TableCell className="font-medium">{owner.owner_name}</TableCell>
-                            <TableCell className="text-right">{owner.percentage.toFixed(2)}%</TableCell>
-                            <TableCell className="text-right">{totalSoldPct > 0 ? `${totalSoldPct.toFixed(2)}%` : "-"}</TableCell>
-                            <TableCell className="text-right">{totalSoldValue > 0 ? totalSoldValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm">
-                  <span className="font-medium">Total Proprietários</span>
-                  <span className="font-semibold">{saleOwners.reduce((s, o) => s + o.percentage, 0).toFixed(2)}%</span>
-                </div>
-              </div>
-            )}
-
-            <div className="border-t pt-4 space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Cliente *</Label>
                 <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
@@ -2868,6 +2851,55 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
             </div>
+
+            {/* Owners Table - shown after client is selected */}
+            {saleClientId && saleOwners.length > 0 && (
+              <div className="border-t pt-4 space-y-2">
+                <Label className="text-base font-semibold">Proprietários Atuais</Label>
+                <p className="text-sm text-muted-foreground">Ajuste as participações dos proprietários conforme a venda.</p>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Proprietário</TableHead>
+                        <TableHead className="text-right">% Atual</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {saleOwners.map((owner, idx) => (
+                        <TableRow key={owner.owner_id}>
+                          <TableCell className="font-medium">{owner.owner_name}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={owner.percentage}
+                              onChange={(e) => {
+                                const val = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0 && val <= 100) {
+                                  const updated = [...saleOwners];
+                                  updated[idx] = { ...updated[idx], percentage: val };
+                                  setSaleOwners(updated);
+                                }
+                              }}
+                              className="w-24 ml-auto text-right"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm">
+                  <span className="font-medium">Total Proprietários</span>
+                  <span className={cn("font-semibold", saleOwners.reduce((s, o) => s + o.percentage, 0) > 100 && "text-destructive")}>
+                    {saleOwners.reduce((s, o) => s + o.percentage, 0).toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
