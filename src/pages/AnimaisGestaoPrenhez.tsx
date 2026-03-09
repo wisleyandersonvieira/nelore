@@ -907,8 +907,15 @@ const AnimaisGestaoPrenhez = () => {
       });
       if (error) throw error;
 
-      // Check if total reaches 100%
-      if (currentTotal + percentage >= 100) {
+      // Check if fazenda própria still has ownership - if not, mark as sold
+      const { data: storeOwners } = await supabase
+        .from("pregnancy_owners")
+        .select("id, owner_type, percentage")
+        .eq("pregnancy_id", saleRecord.id)
+        .eq("owner_type", "store");
+      
+      const storeHasOwnership = storeOwners?.some((o: any) => Number(o.percentage) > 0);
+      if (!storeHasOwnership) {
         await supabase.from("pregnancy_management").update({ status: "sold" }).eq("id", saleRecord.id);
       }
 
