@@ -1681,6 +1681,11 @@ const AnimaisGestaoAspiracoes = () => {
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
+                            {record.status !== "sold" && (
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenSaleModal(record)} title="Venda">
+                                <DollarSign className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
