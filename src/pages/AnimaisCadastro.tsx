@@ -650,7 +650,7 @@ const AnimaisCadastro = () => {
     }
   };
 
-  const handleOpenSaleModal = (animal: Animal) => {
+  const handleOpenSaleModal = async (animal: Animal) => {
     setSaleAnimal(animal);
     setSaleClientId("");
     setSaleDate(null);
@@ -658,6 +658,25 @@ const AnimaisCadastro = () => {
     setSalePercentage("");
     setClientSearchTerm("");
     fetchClients();
+    
+    // Fetch current owners for this animal
+    try {
+      const { data: owners } = await supabase
+        .from("animal_owners")
+        .select("owner_id, percentage")
+        .eq("animal_id", animal.id);
+      
+      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number }[] = [];
+      for (const o of owners || []) {
+        const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
+        ownersWithNames.push({ owner_id: o.owner_id, owner_name: supplier?.name || "N/A", percentage: Number(o.percentage) });
+      }
+      setSaleOwners(ownersWithNames);
+    } catch (error) {
+      console.error("Error fetching owners for sale:", error);
+      setSaleOwners([]);
+    }
+    
     setSaleModalOpen(true);
   };
 
