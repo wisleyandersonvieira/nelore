@@ -885,6 +885,51 @@ export type Database = {
           },
         ]
       }
+      animal_owners: {
+        Row: {
+          animal_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          owner_id: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id: string
+          percentage: number
+          updated_at?: string
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_owners_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animal_owners_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       animal_sales: {
         Row: {
           animal_id: string
@@ -1240,6 +1285,51 @@ export type Database = {
             columns: ["veterinarian_id"]
             isOneToOne: false
             referencedRelation: "veterinarians"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aspiration_owners: {
+        Row: {
+          aspiration_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          owner_id: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          aspiration_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id: string
+          percentage: number
+          updated_at?: string
+        }
+        Update: {
+          aspiration_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aspiration_owners_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_owners_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -3591,6 +3681,51 @@ export type Database = {
             columns: ["veterinarian_id"]
             isOneToOne: false
             referencedRelation: "veterinarians"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pregnancy_owners: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          owner_id: string
+          percentage: number
+          pregnancy_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id: string
+          percentage: number
+          pregnancy_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id?: string
+          percentage?: number
+          pregnancy_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pregnancy_owners_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_owners_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
             referencedColumns: ["id"]
           },
         ]
