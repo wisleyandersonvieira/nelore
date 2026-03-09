@@ -86,15 +86,39 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
     }
   };
 
+  const queryOwners = async (id: string) => {
+    if (entityType === "animal") {
+      return supabase.from("animal_owners").select("id, owner_id, percentage").eq("animal_id", id).order("created_at", { ascending: true });
+    } else if (entityType === "pregnancy") {
+      return supabase.from("pregnancy_owners").select("id, owner_id, percentage").eq("pregnancy_id", id).order("created_at", { ascending: true });
+    } else {
+      return supabase.from("aspiration_owners").select("id, owner_id, percentage").eq("aspiration_id", id).order("created_at", { ascending: true });
+    }
+  };
+
+  const insertOwner = async (record: any) => {
+    if (entityType === "animal") return supabase.from("animal_owners").insert(record);
+    if (entityType === "pregnancy") return supabase.from("pregnancy_owners").insert(record);
+    return supabase.from("aspiration_owners").insert(record);
+  };
+
+  const updateOwner = async (id: string, record: any) => {
+    if (entityType === "animal") return supabase.from("animal_owners").update(record).eq("id", id);
+    if (entityType === "pregnancy") return supabase.from("pregnancy_owners").update(record).eq("id", id);
+    return supabase.from("aspiration_owners").update(record).eq("id", id);
+  };
+
+  const deleteOwner = async (id: string) => {
+    if (entityType === "animal") return supabase.from("animal_owners").delete().eq("id", id);
+    if (entityType === "pregnancy") return supabase.from("pregnancy_owners").delete().eq("id", id);
+    return supabase.from("aspiration_owners").delete().eq("id", id);
+  };
+
   const fetchOwners = async () => {
     if (!entityId) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from(tableName)
-        .select("id, owner_id, percentage")
-        .eq(fkColumn, entityId)
-        .order("created_at", { ascending: true });
+      const { data, error } = await queryOwners(entityId);
       if (error) throw error;
 
       const ownersWithNames: Owner[] = [];
