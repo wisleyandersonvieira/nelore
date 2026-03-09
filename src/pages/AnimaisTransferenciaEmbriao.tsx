@@ -473,8 +473,28 @@ const AnimaisTransferenciaEmbriao = () => {
           embryo_transfer_id: recordToFinalize.id,
         };
 
-        const { error: pregnancyError } = await supabase.from("pregnancy_management").insert(pregnancyData as any);
+        const { error: pregnancyError, data: newPregnancy } = await supabase.from("pregnancy_management").insert(pregnancyData as any).select("id").single();
         if (pregnancyError) throw pregnancyError;
+
+        // Copy embryo transfer owners to pregnancy
+        if (newPregnancy) {
+          const { data: etOwners } = await supabase
+            .from("embryo_transfer_owners")
+            .select("owner_id, percentage")
+            .eq("embryo_transfer_id", recordToFinalize.id);
+
+          if (etOwners && etOwners.length > 0) {
+            const { data: userData } = await supabase.auth.getUser();
+            for (const owner of etOwners) {
+              await supabase.from("pregnancy_owners").insert({
+                pregnancy_id: newPregnancy.id,
+                owner_id: owner.owner_id,
+                percentage: owner.percentage,
+                created_by: userData.user?.id,
+              } as any);
+            }
+          }
+        }
       }
 
       toast({
