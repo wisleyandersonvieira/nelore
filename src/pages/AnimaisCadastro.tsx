@@ -755,7 +755,7 @@ const AnimaisCadastro = () => {
         }
       }
 
-      if (currentTotal + percentage >= 100) {
+      if (grandTotal >= 100) {
         await supabase.from("animals").update({ is_active: false }).eq("id", saleAnimal.id);
       }
 
