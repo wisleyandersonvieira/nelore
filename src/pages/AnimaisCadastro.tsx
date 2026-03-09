@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
+import { CreateLeilaoModal } from "@/components/CreateLeilaoModal";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
