@@ -30,7 +30,7 @@ interface Owner {
 
 interface OwnersTabProps {
   entityId: string | null;
-  entityType: "animal" | "pregnancy" | "aspiration";
+  entityType: "animal" | "pregnancy" | "aspiration" | "embryo_transfer";
   isReadOnly?: boolean;
 }
 
