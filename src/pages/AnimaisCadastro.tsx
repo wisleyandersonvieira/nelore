@@ -253,6 +253,12 @@ const AnimaisCadastro = () => {
   const [animalSales, setAnimalSales] = useState<AnimalSale[]>([]);
   const [loadingSales, setLoadingSales] = useState(false);
 
+  // Death modal state
+  const [deathModalOpen, setDeathModalOpen] = useState(false);
+  const [deathAnimal, setDeathAnimal] = useState<Animal | null>(null);
+  const [deathDate, setDeathDate] = useState<Date | null>(null);
+  const [deathReason, setDeathReason] = useState("");
+
   // Reproduction data state
   const [reproData, setReproData] = useState({
     aspiration_date: null as Date | null,
