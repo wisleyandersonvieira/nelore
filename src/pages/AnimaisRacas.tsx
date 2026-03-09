@@ -153,16 +153,8 @@ const AnimaisRacas = () => {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       if (selectedBreed) {
         const { error } = await supabase
