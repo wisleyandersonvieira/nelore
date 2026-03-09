@@ -927,7 +927,7 @@ const AnimaisGestaoAspiracoes = () => {
         // Copy aspiration owners to this embryo transfer
         const { data: aspirationOwners } = await supabase
           .from("aspiration_owners")
-          .select("owner_id, percentage")
+          .select("owner_id, store_owner_id, owner_type, percentage")
           .eq("aspiration_id", secondFinalizeRecord.id);
 
         if (aspirationOwners && aspirationOwners.length > 0) {
@@ -944,7 +944,9 @@ const AnimaisGestaoAspiracoes = () => {
             for (const owner of aspirationOwners) {
               await supabase.from("embryo_transfer_owners").insert({
                 embryo_transfer_id: newET.id,
-                owner_id: owner.owner_id,
+                owner_id: (owner as any).owner_type === "store" ? null : owner.owner_id,
+                store_owner_id: (owner as any).owner_type === "store" ? (owner as any).store_owner_id : null,
+                owner_type: (owner as any).owner_type || "supplier",
                 percentage: owner.percentage,
                 created_by: userData.user?.id,
               } as any);
