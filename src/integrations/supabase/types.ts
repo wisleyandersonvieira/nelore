@@ -1398,6 +1398,57 @@ export type Database = {
           },
         ]
       }
+      aspiration_sales: {
+        Row: {
+          aspiration_id: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          sale_date: string
+          sale_percentage: number
+          sale_value: number
+          updated_at: string
+        }
+        Insert: {
+          aspiration_id: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sale_date: string
+          sale_percentage: number
+          sale_value: number
+          updated_at?: string
+        }
+        Update: {
+          aspiration_id?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sale_date?: string
+          sale_percentage?: number
+          sale_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aspiration_sales_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_ofx_imports: {
         Row: {
           account_id: string

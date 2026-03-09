@@ -178,6 +178,29 @@ const AnimaisGestaoAspiracoes = () => {
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
 
+  // Sale modal state
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleRecord, setSaleRecord] = useState<AspirationRecord | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleValue, setSaleValue] = useState("");
+  const [salePercentage, setSalePercentage] = useState("");
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[]>([]);
+
+  interface AspirationSale {
+    id: string;
+    client_id: string;
+    client_name: string;
+    sale_date: string;
+    sale_value: number;
+    sale_percentage: number;
+  }
+  const [aspirationSales, setAspirationSales] = useState<AspirationSale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(false);
+
   useEffect(() => {
     fetchRecords();
     fetchDropdownData();
@@ -395,6 +418,7 @@ const AnimaisGestaoAspiracoes = () => {
       case "pending": return "Pendente";
       case "in_progress": return "Em Andamento";
       case "finalized": return "Finalizado";
+      case "sold": return "Vendido";
       default: return status;
     }
   };
@@ -404,6 +428,7 @@ const AnimaisGestaoAspiracoes = () => {
       case "pending": return "bg-blue-100 text-blue-800";
       case "in_progress": return "bg-yellow-100 text-yellow-800";
       case "finalized": return "bg-green-100 text-green-800";
+      case "sold": return "bg-sky-100 text-sky-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -622,6 +647,188 @@ const AnimaisGestaoAspiracoes = () => {
     } catch (error) {
       console.error("Error deleting record:", error);
       toast({ title: "Erro", description: "Erro ao excluir registro.", variant: "destructive" });
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: profile } = await supabase.from("profiles").select("matrix_id").eq("id", userData.user.id).single();
+      if (!profile?.matrix_id) return;
+      const { data } = await supabase.from("suppliers").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true).order("name");
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
+  const fetchAspirationSales = async (aspirationId: string) => {
+    setLoadingSales(true);
+    try {
+      const { data, error } = await supabase
+        .from("aspiration_sales")
+        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .eq("aspiration_id", aspirationId)
+        .order("sale_date", { ascending: true });
+      if (error) throw error;
+      
+      const salesWithNames: AspirationSale[] = [];
+      for (const sale of (data || [])) {
+        const client = clients.find(c => c.id === sale.client_id);
+        salesWithNames.push({
+          ...sale,
+          client_name: client?.name || "Cliente não encontrado",
+        });
+      }
+      setAspirationSales(salesWithNames);
+    } catch (error) {
+      console.error("Error fetching aspiration sales:", error);
+    } finally {
+      setLoadingSales(false);
+    }
+  };
+
+  const handleOpenSaleModal = async (record: AspirationRecord) => {
+    setSaleRecord(record);
+    setSaleClientId("");
+    setSaleDate(null);
+    setSaleValue("");
+    setSalePercentage("");
+    setClientSearchTerm("");
+    fetchClients();
+    
+    try {
+      const { data: owners } = await supabase
+        .from("aspiration_owners")
+        .select("owner_id, owner_type, store_owner_id, percentage")
+        .eq("aspiration_id", record.id);
+      
+      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[] = [];
+      for (const o of owners || []) {
+        const ownerType = (o as any).owner_type || "supplier";
+        let ownerName = "N/A";
+        const effectiveId = ownerType === "store" ? (o as any).store_owner_id : o.owner_id;
+        
+        if (ownerType === "store" && (o as any).store_owner_id) {
+          const { data: store } = await supabase.from("stores").select("name").eq("id", (o as any).store_owner_id).single();
+          ownerName = store?.name ? `🏠 ${store.name}` : "Fazenda não encontrada";
+        } else if (o.owner_id) {
+          const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
+          ownerName = supplier?.name || "N/A";
+        }
+        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage), owner_type: ownerType, store_owner_id: (o as any).store_owner_id || null });
+      }
+      setSaleOwners(ownersWithNames);
+    } catch (error) {
+      console.error("Error fetching owners for sale:", error);
+      setSaleOwners([]);
+    }
+    
+    setSaleModalOpen(true);
+  };
+
+  const handleSaveSale = async () => {
+    if (!saleRecord || !saleClientId || !saleDate || !saleValue || !salePercentage) {
+      toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
+      return;
+    }
+    const percentage = parseFloat(salePercentage);
+    if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+      toast({ title: "Erro", description: "A porcentagem deve ser entre 0 e 100.", variant: "destructive" });
+      return;
+    }
+
+    const ownersTotal = saleOwners.reduce((s, o) => s + o.percentage, 0);
+    const buyerAlreadyInOwners = saleOwners.some(o => o.owner_id === saleClientId);
+    const grandTotal = ownersTotal + (buyerAlreadyInOwners ? 0 : percentage);
+    if (grandTotal > 100) {
+      toast({ title: "Erro", description: `O somatório das participações dos proprietários (${ownersTotal.toFixed(2)}%) + venda (${percentage.toFixed(2)}%) ultrapassa 100%.`, variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("aspiration_sales").insert({
+        aspiration_id: saleRecord.id,
+        client_id: saleClientId,
+        sale_date: format(saleDate, "yyyy-MM-dd"),
+        sale_value: parseFloat(saleValue),
+        sale_percentage: percentage,
+        created_by: userData.user?.id,
+      });
+      if (error) throw error;
+
+      for (const owner of saleOwners) {
+        let existingRecord;
+        if (owner.owner_type === "store" && owner.store_owner_id) {
+          const { data } = await supabase
+            .from("aspiration_owners")
+            .select("id")
+            .eq("aspiration_id", saleRecord.id)
+            .eq("store_owner_id", owner.store_owner_id)
+            .eq("owner_type", "store")
+            .maybeSingle();
+          existingRecord = data;
+        } else {
+          const { data } = await supabase
+            .from("aspiration_owners")
+            .select("id")
+            .eq("aspiration_id", saleRecord.id)
+            .eq("owner_id", owner.owner_id)
+            .maybeSingle();
+          existingRecord = data;
+        }
+
+        if (existingRecord) {
+          if (owner.percentage <= 0) {
+            await supabase.from("aspiration_owners").delete().eq("id", existingRecord.id);
+          } else {
+            await supabase.from("aspiration_owners").update({ percentage: owner.percentage }).eq("id", existingRecord.id);
+          }
+        }
+      }
+
+      const buyerInOwners = saleOwners.find(o => o.owner_id === saleClientId);
+      if (!buyerInOwners) {
+        const { data: existingOwner } = await supabase
+          .from("aspiration_owners")
+          .select("id, percentage")
+          .eq("aspiration_id", saleRecord.id)
+          .eq("owner_id", saleClientId)
+          .maybeSingle();
+
+        if (existingOwner) {
+          await supabase.from("aspiration_owners")
+            .update({ percentage: Number(existingOwner.percentage) + percentage })
+            .eq("id", existingOwner.id);
+        } else {
+          await supabase.from("aspiration_owners").insert({
+            aspiration_id: saleRecord.id,
+            owner_id: saleClientId,
+            percentage: percentage,
+            created_by: userData.user?.id,
+          } as any);
+        }
+      }
+
+      const { data: storeOwners } = await supabase
+        .from("aspiration_owners")
+        .select("id, owner_type, percentage")
+        .eq("aspiration_id", saleRecord.id)
+        .eq("owner_type", "store");
+      
+      const storeHasOwnership = storeOwners?.some((o: any) => Number(o.percentage) > 0);
+      if (!storeHasOwnership) {
+        await supabase.from("aspiration_management").update({ status: "sold" }).eq("id", saleRecord.id);
+      }
+
+      toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
+      setSaleModalOpen(false);
+      fetchRecords();
+    } catch (error) {
+      console.error("Error saving sale:", error);
+      toast({ title: "Erro", description: "Erro ao salvar venda.", variant: "destructive" });
     }
   };
 
@@ -1474,6 +1681,11 @@ const AnimaisGestaoAspiracoes = () => {
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
+                            {record.status !== "sold" && (
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenSaleModal(record)} title="Venda">
+                                <DollarSign className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1540,7 +1752,7 @@ const AnimaisGestaoAspiracoes = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } }}>
             <TabsList className={cn("grid w-full", modalMode === "view" && selectedRecord?.status === "finalized" ? "grid-cols-5" : "grid-cols-4")}>
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
@@ -1915,12 +2127,65 @@ const AnimaisGestaoAspiracoes = () => {
                 );
               })()}
             </TabsContent>
-            <TabsContent value="proprietarios" className="mt-4">
+            <TabsContent value="proprietarios" className="mt-4 space-y-4">
               <OwnersTab
                 entityId={selectedRecord?.id || null}
                 entityType="aspiration"
                 isReadOnly={modalMode === "view"}
               />
+
+              {/* Vendas section */}
+              {selectedRecord && (
+                <>
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Vendas
+                    </h3>
+                  </div>
+                  {loadingSales ? (
+                    <p className="text-center text-muted-foreground py-8">Carregando...</p>
+                  ) : aspirationSales.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
+                  ) : (
+                    <>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Data</TableHead>
+                              <TableHead>Cliente</TableHead>
+                              <TableHead className="text-right">Valor</TableHead>
+                              <TableHead className="text-right">%</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {aspirationSales.map((sale) => (
+                              <TableRow key={sale.id}>
+                                <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                                <TableCell>{sale.client_name}</TableCell>
+                                <TableCell className="text-right">{sale.sale_value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                                <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                        <span className="font-medium">Total Vendido</span>
+                        <div className="flex gap-6">
+                          <span className="font-semibold">
+                            {aspirationSales.reduce((s, r) => s + r.sale_value, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </span>
+                          <span className="font-semibold">
+                            {aspirationSales.reduce((s, r) => s + r.sale_percentage, 0).toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </TabsContent>
           </Tabs>
 
@@ -2153,6 +2418,160 @@ const AnimaisGestaoAspiracoes = () => {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sale Modal */}
+      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Registrar Venda - {saleRecord?.name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Cliente *</Label>
+                <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between">
+                      {saleClientId ? clients.find(c => c.id === saleClientId)?.name || "Selecionar..." : "Selecionar cliente..."}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50">
+                    <div className="p-2">
+                      <Input
+                        placeholder="Pesquisar cliente..."
+                        value={clientSearchTerm}
+                        onChange={(e) => setClientSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {clients
+                        .filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase()))
+                        .map(client => (
+                          <div
+                            key={client.id}
+                            className={cn(
+                              "px-3 py-2 cursor-pointer hover:bg-accent text-sm",
+                              saleClientId === client.id && "bg-accent font-medium"
+                            )}
+                            onClick={() => {
+                              setSaleClientId(client.id);
+                              setClientPopoverOpen(false);
+                            }}
+                          >
+                            {client.name}
+                          </div>
+                        ))}
+                      {clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data da Venda *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {saleDate ? format(saleDate, "dd/MM/yyyy") : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={saleDate || undefined} onSelect={(d) => setSaleDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Valor da Venda (R$) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={saleValue}
+                  onChange={(e) => setSaleValue(e.target.value)}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>% de Venda *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="100"
+                  value={salePercentage}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (e.target.value === "" || (val >= 0 && val <= 100)) {
+                      setSalePercentage(e.target.value);
+                    }
+                  }}
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
+
+            {/* Owners Table */}
+            {saleClientId && saleOwners.length > 0 && (
+              <div className="border-t pt-4 space-y-2">
+                <Label className="text-base font-semibold">Proprietários Atuais</Label>
+                <p className="text-sm text-muted-foreground">Ajuste as participações dos proprietários conforme a venda.</p>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Proprietário</TableHead>
+                        <TableHead className="text-right">% Atual</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {saleOwners.map((owner, idx) => (
+                        <TableRow key={owner.owner_id}>
+                          <TableCell className="font-medium">{owner.owner_name}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={owner.percentage}
+                              onChange={(e) => {
+                                const val = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0 && val <= 100) {
+                                  const updated = [...saleOwners];
+                                  updated[idx] = { ...updated[idx], percentage: val };
+                                  setSaleOwners(updated);
+                                }
+                              }}
+                              className="w-24 ml-auto text-right"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm">
+                  <span className="font-medium">Total Proprietários</span>
+                  <span className={cn("font-semibold", saleOwners.reduce((s, o) => s + o.percentage, 0) > 100 && "text-destructive")}>
+                    {saleOwners.reduce((s, o) => s + o.percentage, 0).toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSale}>Salvar Venda</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
