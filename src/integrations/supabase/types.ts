@@ -929,8 +929,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          owner_id: string
+          owner_id: string | null
+          owner_type: string
           percentage: number
+          store_owner_id: string | null
           updated_at: string
         }
         Insert: {
@@ -938,8 +940,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          owner_id: string
+          owner_id?: string | null
+          owner_type?: string
           percentage: number
+          store_owner_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -947,8 +951,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          owner_id?: string
+          owner_id?: string | null
+          owner_type?: string
           percentage?: number
+          store_owner_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -964,6 +970,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animal_owners_store_owner_id_fkey"
+            columns: ["store_owner_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -1333,8 +1346,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          owner_id: string
+          owner_id: string | null
+          owner_type: string
           percentage: number
+          store_owner_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1342,8 +1357,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          owner_id: string
+          owner_id?: string | null
+          owner_type?: string
           percentage: number
+          store_owner_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1351,8 +1368,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          owner_id?: string
+          owner_id?: string | null
+          owner_type?: string
           percentage?: number
+          store_owner_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1368,6 +1387,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_owners_store_owner_id_fkey"
+            columns: ["store_owner_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -2895,8 +2921,10 @@ export type Database = {
           created_by: string | null
           embryo_transfer_id: string
           id: string
-          owner_id: string
+          owner_id: string | null
+          owner_type: string
           percentage: number
+          store_owner_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2904,8 +2932,10 @@ export type Database = {
           created_by?: string | null
           embryo_transfer_id: string
           id?: string
-          owner_id: string
+          owner_id?: string | null
+          owner_type?: string
           percentage: number
+          store_owner_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2913,8 +2943,10 @@ export type Database = {
           created_by?: string | null
           embryo_transfer_id?: string
           id?: string
-          owner_id?: string
+          owner_id?: string | null
+          owner_type?: string
           percentage?: number
+          store_owner_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2930,6 +2962,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embryo_transfer_owners_store_owner_id_fkey"
+            columns: ["store_owner_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -3773,27 +3812,33 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          owner_id: string
+          owner_id: string | null
+          owner_type: string
           percentage: number
           pregnancy_id: string
+          store_owner_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           id?: string
-          owner_id: string
+          owner_id?: string | null
+          owner_type?: string
           percentage: number
           pregnancy_id: string
+          store_owner_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
           id?: string
-          owner_id?: string
+          owner_id?: string | null
+          owner_type?: string
           percentage?: number
           pregnancy_id?: string
+          store_owner_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3809,6 +3854,13 @@ export type Database = {
             columns: ["pregnancy_id"]
             isOneToOne: false
             referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_owners_store_owner_id_fkey"
+            columns: ["store_owner_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
