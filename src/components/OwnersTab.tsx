@@ -227,7 +227,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
   const handleDelete = async (ownerId: string) => {
     if (!confirm("Tem certeza que deseja remover este proprietário?")) return;
     try {
-      const { error } = await supabase.from(tableName).delete().eq("id", ownerId);
+      const { error } = await deleteOwner(ownerId);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Proprietário removido." });
       fetchOwners();
