@@ -697,7 +697,7 @@ const AnimaisCadastro = () => {
           const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
           ownerName = supplier?.name || "N/A";
         }
-        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage) });
+        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage), owner_type: ownerType, store_owner_id: (o as any).store_owner_id || null });
       }
       setSaleOwners(ownersWithNames);
     } catch (error) {
