@@ -93,6 +93,8 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
       return supabase.from("animal_owners").select("id, owner_id, percentage").eq("animal_id", id).order("created_at", { ascending: true });
     } else if (entityType === "pregnancy") {
       return supabase.from("pregnancy_owners").select("id, owner_id, percentage").eq("pregnancy_id", id).order("created_at", { ascending: true });
+    } else if (entityType === "embryo_transfer") {
+      return supabase.from("embryo_transfer_owners").select("id, owner_id, percentage").eq("embryo_transfer_id", id).order("created_at", { ascending: true });
     } else {
       return supabase.from("aspiration_owners").select("id, owner_id, percentage").eq("aspiration_id", id).order("created_at", { ascending: true });
     }
@@ -101,18 +103,21 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
   const insertOwner = async (record: any) => {
     if (entityType === "animal") return supabase.from("animal_owners").insert(record);
     if (entityType === "pregnancy") return supabase.from("pregnancy_owners").insert(record);
+    if (entityType === "embryo_transfer") return supabase.from("embryo_transfer_owners").insert(record);
     return supabase.from("aspiration_owners").insert(record);
   };
 
   const updateOwner = async (id: string, record: any) => {
     if (entityType === "animal") return supabase.from("animal_owners").update(record).eq("id", id);
     if (entityType === "pregnancy") return supabase.from("pregnancy_owners").update(record).eq("id", id);
+    if (entityType === "embryo_transfer") return supabase.from("embryo_transfer_owners").update(record).eq("id", id);
     return supabase.from("aspiration_owners").update(record).eq("id", id);
   };
 
   const deleteOwner = async (id: string) => {
     if (entityType === "animal") return supabase.from("animal_owners").delete().eq("id", id);
     if (entityType === "pregnancy") return supabase.from("pregnancy_owners").delete().eq("id", id);
+    if (entityType === "embryo_transfer") return supabase.from("embryo_transfer_owners").delete().eq("id", id);
     return supabase.from("aspiration_owners").delete().eq("id", id);
   };
 
