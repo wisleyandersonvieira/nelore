@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { OwnersTab } from "@/components/OwnersTab";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1287,7 +1288,7 @@ const AnimaisTransferenciaEmbriao = () => {
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
+              <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dados" className="space-y-4 mt-4">
@@ -1667,7 +1668,11 @@ const AnimaisTransferenciaEmbriao = () => {
               })()}
             </TabsContent>
             <TabsContent value="proprietarios" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
+              <OwnersTab
+                entityId={selectedRecord?.id || null}
+                entityType="aspiration"
+                isReadOnly={modalMode === "view"}
+              />
             </TabsContent>
           </Tabs>
 
