@@ -755,10 +755,6 @@ const AnimaisCadastro = () => {
         }
       }
 
-      if (grandTotal >= 100) {
-        await supabase.from("animals").update({ is_active: false }).eq("id", saleAnimal.id);
-      }
-
       toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
       setSaleModalOpen(false);
       fetchAnimals();
