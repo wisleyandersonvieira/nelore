@@ -8,19 +8,57 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 const DashboardIndicators = () => {
-  // Get user store IDs
+  // Get user store IDs - only stores linked via user_stores (respects matrix isolation)
   const { data: storeIds = [] } = useQuery({
     queryKey: ['dashboard-store-ids'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      const [profileResult, userStoresResult] = await Promise.all([
-        supabase.from("profiles").select("store_id").eq("id", user.id).single(),
-        supabase.from("user_stores").select("store_id").eq("user_id", user.id)
-      ]);
+      
+      // Get user's matrix_id for additional filtering
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id, matrix_id")
+        .eq("id", user.id)
+        .single();
+      
+      const matrixId = profile?.matrix_id;
+      
+      // Get stores from user_stores
+      const { data: userStores } = await supabase
+        .from("user_stores")
+        .select("store_id")
+        .eq("user_id", user.id);
+      
       const ids = new Set<string>();
-      if (profileResult.data?.store_id) ids.add(profileResult.data.store_id);
-      userStoresResult.data?.forEach(us => ids.add(us.store_id));
+      
+      // Add profile store_id only if it belongs to the user's matrix
+      if (profile?.store_id && matrixId) {
+        const { data: profileStore } = await supabase
+          .from("stores")
+          .select("id")
+          .eq("id", profile.store_id)
+          .eq("matrix_id", matrixId)
+          .maybeSingle();
+        if (profileStore) ids.add(profileStore.id);
+      }
+      
+      // Add user_stores entries, filtering by matrix
+      if (userStores && matrixId) {
+        // Verify each store belongs to user's matrix
+        const storeIdsFromUser = userStores.map(us => us.store_id);
+        if (storeIdsFromUser.length > 0) {
+          const { data: validStores } = await supabase
+            .from("stores")
+            .select("id")
+            .in("id", storeIdsFromUser)
+            .eq("matrix_id", matrixId);
+          validStores?.forEach(s => ids.add(s.id));
+        }
+      } else if (userStores) {
+        userStores.forEach(us => ids.add(us.store_id));
+      }
+      
       return Array.from(ids);
     },
     staleTime: 10 * 60 * 1000,
