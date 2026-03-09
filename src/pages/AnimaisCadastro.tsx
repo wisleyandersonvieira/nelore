@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, Upload, X, Image, ChevronDown, ChevronUp, Filter, Search, DollarSign, FileText, FileSpreadsheet, Download, MoreHorizontal, Skull } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -252,6 +252,12 @@ const AnimaisCadastro = () => {
   }
   const [animalSales, setAnimalSales] = useState<AnimalSale[]>([]);
   const [loadingSales, setLoadingSales] = useState(false);
+
+  // Death modal state
+  const [deathModalOpen, setDeathModalOpen] = useState(false);
+  const [deathAnimal, setDeathAnimal] = useState<Animal | null>(null);
+  const [deathDate, setDeathDate] = useState<Date | null>(null);
+  const [deathReason, setDeathReason] = useState("");
 
   // Reproduction data state
   const [reproData, setReproData] = useState({
@@ -755,16 +761,45 @@ const AnimaisCadastro = () => {
         }
       }
 
-      if (grandTotal >= 100) {
-        await supabase.from("animals").update({ is_active: false }).eq("id", saleAnimal.id);
-      }
-
       toast({ title: "Sucesso", description: "Venda registrada com sucesso." });
       setSaleModalOpen(false);
       fetchAnimals();
     } catch (error) {
       console.error("Error saving sale:", error);
       toast({ title: "Erro", description: "Erro ao salvar venda.", variant: "destructive" });
+    }
+  };
+
+  const handleOpenDeathModal = (animal: Animal) => {
+    setDeathAnimal(animal);
+    setDeathDate(null);
+    setDeathReason("");
+    setDeathModalOpen(true);
+  };
+
+  const handleSaveDeath = async () => {
+    if (!deathAnimal || !deathDate || !deathReason.trim()) {
+      toast({ title: "Erro", description: "Preencha a data e o motivo da morte.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("animal_deaths").insert({
+        animal_id: deathAnimal.id,
+        death_date: format(deathDate, "yyyy-MM-dd"),
+        reason: deathReason.trim(),
+        created_by: userData.user?.id,
+      } as any);
+      if (error) throw error;
+
+      await supabase.from("animals").update({ is_active: false }).eq("id", deathAnimal.id);
+
+      toast({ title: "Sucesso", description: "Morte registrada. Animal inativado." });
+      setDeathModalOpen(false);
+      fetchAnimals();
+    } catch (error) {
+      console.error("Error saving death:", error);
+      toast({ title: "Erro", description: "Erro ao registrar morte.", variant: "destructive" });
     }
   };
 
@@ -1691,6 +1726,9 @@ const AnimaisCadastro = () => {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
                               <DollarSign className="h-4 w-4 mr-2" />Venda
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenDeathModal(animal)}>
+                              <Skull className="h-4 w-4 mr-2" />Informar Morte
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -2903,6 +2941,39 @@ const AnimaisCadastro = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleSaveSale}>Salvar Venda</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Death Modal */}
+      <Dialog open={deathModalOpen} onOpenChange={setDeathModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Informar Morte - {deathAnimal?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Data da Morte *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !deathDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deathDate ? format(deathDate, "dd/MM/yyyy") : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={deathDate || undefined} onSelect={(d) => setDeathDate(d || null)} className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>Motivo *</Label>
+              <Textarea value={deathReason} onChange={(e) => setDeathReason(e.target.value)} placeholder="Informe o motivo da morte" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeathModalOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleSaveDeath}>Registrar Morte</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -885,6 +885,44 @@ export type Database = {
           },
         ]
       }
+      animal_deaths: {
+        Row: {
+          animal_id: string
+          created_at: string
+          created_by: string | null
+          death_date: string
+          id: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          animal_id: string
+          created_at?: string
+          created_by?: string | null
+          death_date: string
+          id?: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          animal_id?: string
+          created_at?: string
+          created_by?: string | null
+          death_date?: string
+          id?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "animal_deaths_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       animal_owners: {
         Row: {
           animal_id: string
