@@ -803,7 +803,7 @@ const AnimaisCadastro = () => {
     }
   };
 
-
+  const handleOpenModal = async (mode: "view" | "edit" | "create", animal?: Animal) => {
     setModalMode(mode);
     setActiveTab("dados");
     setAnimalWeighings([]);
