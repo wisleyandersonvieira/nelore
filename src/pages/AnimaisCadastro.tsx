@@ -315,22 +315,34 @@ const AnimaisCadastro = () => {
       }));
       setAnimals(animalList);
 
-      // Fetch sold animal IDs (animals with 100% total sales)
+      // Fetch sold animal IDs: animals where the fazenda própria (store) has 0% ownership
+      // An animal is "Vendido" when its store no longer appears as owner
       const animalIds = animalList.map(a => a.id);
       if (animalIds.length > 0) {
-        const { data: salesData } = await supabase
-          .from("animal_sales")
-          .select("animal_id, sale_percentage")
+        const { data: ownerData } = await supabase
+          .from("animal_owners")
+          .select("animal_id, owner_type, store_owner_id, percentage")
           .in("animal_id", animalIds);
         
-        if (salesData) {
-          const saleTotals: Record<string, number> = {};
-          salesData.forEach(s => {
-            saleTotals[s.animal_id] = (saleTotals[s.animal_id] || 0) + Number(s.sale_percentage);
+        if (ownerData) {
+          // For each animal, check if there are ANY owners registered
+          // and if the store (fazenda própria) has 0% or is not present
+          const animalsWithOwners = new Set<string>();
+          const animalsWithStoreOwner = new Set<string>();
+          
+          ownerData.forEach((o: any) => {
+            animalsWithOwners.add(o.animal_id);
+            if (o.owner_type === "store" && Number(o.percentage) > 0) {
+              animalsWithStoreOwner.add(o.animal_id);
+            }
           });
+          
           const soldIds = new Set<string>();
-          Object.entries(saleTotals).forEach(([id, total]) => {
-            if (total >= 100) soldIds.add(id);
+          // An animal is "Vendido" if it has owners registered but no store owner with > 0%
+          animalsWithOwners.forEach(animalId => {
+            if (!animalsWithStoreOwner.has(animalId)) {
+              soldIds.add(animalId);
+            }
           });
           setSoldAnimalIds(soldIds);
         }
