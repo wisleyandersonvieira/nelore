@@ -1670,7 +1670,7 @@ const AnimaisCadastro = () => {
               <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled={modalMode === "create"}>Proprietários</TabsTrigger>
+              <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
             </TabsList>
 
             {/* Tab: Dados Cadastrais */}
