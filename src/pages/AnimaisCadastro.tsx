@@ -2739,46 +2739,7 @@ const AnimaisCadastro = () => {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* Owners Table */}
-            {saleOwners.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-base font-semibold">Proprietários Atuais</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Proprietário</TableHead>
-                        <TableHead className="text-right">% Atual</TableHead>
-                        <TableHead className="text-right">% Vendida</TableHead>
-                        <TableHead className="text-right">Valor Vendido</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {saleOwners.map((owner) => {
-                        // Find sales by this owner (as client)
-                        const ownerSales = animalSales.filter(s => s.client_id === owner.owner_id);
-                        const totalSoldPct = ownerSales.reduce((sum, s) => sum + s.sale_percentage, 0);
-                        const totalSoldValue = ownerSales.reduce((sum, s) => sum + s.sale_value, 0);
-                        return (
-                          <TableRow key={owner.owner_id}>
-                            <TableCell className="font-medium">{owner.owner_name}</TableCell>
-                            <TableCell className="text-right">{owner.percentage.toFixed(2)}%</TableCell>
-                            <TableCell className="text-right">{totalSoldPct > 0 ? `${totalSoldPct.toFixed(2)}%` : "-"}</TableCell>
-                            <TableCell className="text-right">{totalSoldValue > 0 ? totalSoldValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "-"}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm">
-                  <span className="font-medium">Total Proprietários</span>
-                  <span className="font-semibold">{saleOwners.reduce((s, o) => s + o.percentage, 0).toFixed(2)}%</span>
-                </div>
-              </div>
-            )}
-
-            <div className="border-t pt-4 space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Cliente *</Label>
                 <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
@@ -2868,6 +2829,55 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
             </div>
+
+            {/* Owners Table - shown after client is selected */}
+            {saleClientId && saleOwners.length > 0 && (
+              <div className="border-t pt-4 space-y-2">
+                <Label className="text-base font-semibold">Proprietários Atuais</Label>
+                <p className="text-sm text-muted-foreground">Ajuste as participações dos proprietários conforme a venda.</p>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Proprietário</TableHead>
+                        <TableHead className="text-right">% Atual</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {saleOwners.map((owner, idx) => (
+                        <TableRow key={owner.owner_id}>
+                          <TableCell className="font-medium">{owner.owner_name}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={owner.percentage}
+                              onChange={(e) => {
+                                const val = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0 && val <= 100) {
+                                  const updated = [...saleOwners];
+                                  updated[idx] = { ...updated[idx], percentage: val };
+                                  setSaleOwners(updated);
+                                }
+                              }}
+                              className="w-24 ml-auto text-right"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm">
+                  <span className="font-medium">Total Proprietários</span>
+                  <span className={cn("font-semibold", saleOwners.reduce((s, o) => s + o.percentage, 0) > 100 && "text-destructive")}>
+                    {saleOwners.reduce((s, o) => s + o.percentage, 0).toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
