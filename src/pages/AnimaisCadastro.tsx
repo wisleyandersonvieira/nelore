@@ -191,6 +191,7 @@ const AnimaisCadastro = () => {
   const [breeds, setBreeds] = useState<Breed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [createLeilaoOpen, setCreateLeilaoOpen] = useState(false);
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
