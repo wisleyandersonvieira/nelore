@@ -39,15 +39,19 @@ const AnimaisLeiloes = () => {
     fetchLeiloes();
   }, []);
 
+  const getStoreId = async (): Promise<string | null> => {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return null;
+    const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userId).maybeSingle();
+    if (profile?.store_id) return profile.store_id;
+    const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", userId).limit(1);
+    return userStores?.[0]?.store_id || null;
+  };
+
   const fetchLeiloes = async () => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       const { data, error } = await supabase
         .from("leiloes")
