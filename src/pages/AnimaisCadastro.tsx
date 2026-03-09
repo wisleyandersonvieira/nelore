@@ -684,7 +684,7 @@ const AnimaisCadastro = () => {
         .select("owner_id, owner_type, store_owner_id, percentage")
         .eq("animal_id", animal.id);
       
-      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number }[] = [];
+      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[] = [];
       for (const o of owners || []) {
         const ownerType = (o as any).owner_type || "supplier";
         let ownerName = "N/A";
