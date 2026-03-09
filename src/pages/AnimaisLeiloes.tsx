@@ -107,7 +107,7 @@ const AnimaisLeiloes = () => {
           name: formData.name.trim(),
           date: format(selectedDate, "yyyy-MM-dd"),
           city: formData.city.trim(),
-          store_id: profile.store_id,
+          store_id: storeId,
         });
 
         if (error) throw error;
