@@ -56,14 +56,14 @@ const AnimaisLeiloes = () => {
       const { data, error } = await supabase
         .from("leiloes")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .order("code", { ascending: true });
 
       if (error) throw error;
       setLeiloes(data || []);
 
       const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
-        store_uuid: profile.store_id,
+        store_uuid: storeId,
       });
       setNextCode(codeData || 1);
     } catch (error) {
