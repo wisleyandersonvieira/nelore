@@ -681,13 +681,23 @@ const AnimaisCadastro = () => {
     try {
       const { data: owners } = await supabase
         .from("animal_owners")
-        .select("owner_id, percentage")
+        .select("owner_id, owner_type, store_owner_id, percentage")
         .eq("animal_id", animal.id);
       
       const ownersWithNames: { owner_id: string; owner_name: string; percentage: number }[] = [];
       for (const o of owners || []) {
-        const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
-        ownersWithNames.push({ owner_id: o.owner_id, owner_name: supplier?.name || "N/A", percentage: Number(o.percentage) });
+        const ownerType = (o as any).owner_type || "supplier";
+        let ownerName = "N/A";
+        const effectiveId = ownerType === "store" ? (o as any).store_owner_id : o.owner_id;
+        
+        if (ownerType === "store" && (o as any).store_owner_id) {
+          const { data: store } = await supabase.from("stores").select("name").eq("id", (o as any).store_owner_id).single();
+          ownerName = store?.name ? `🏠 ${store.name}` : "Fazenda não encontrada";
+        } else if (o.owner_id) {
+          const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
+          ownerName = supplier?.name || "N/A";
+        }
+        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage) });
       }
       setSaleOwners(ownersWithNames);
     } catch (error) {
