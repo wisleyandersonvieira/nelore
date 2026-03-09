@@ -2944,6 +2944,39 @@ const AnimaisCadastro = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Death Modal */}
+      <Dialog open={deathModalOpen} onOpenChange={setDeathModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Informar Morte - {deathAnimal?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Data da Morte *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !deathDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deathDate ? format(deathDate, "dd/MM/yyyy") : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={deathDate || undefined} onSelect={(d) => setDeathDate(d || null)} className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>Motivo *</Label>
+              <Textarea value={deathReason} onChange={(e) => setDeathReason(e.target.value)} placeholder="Informe o motivo da morte" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeathModalOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleSaveDeath}>Registrar Morte</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
