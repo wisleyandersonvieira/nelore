@@ -57,23 +57,32 @@ const AnimaisCategorias = () => {
     fetchCategories();
   }, []);
 
+  const getStoreId = async (): Promise<string | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return null;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (profile?.store_id) return profile.store_id;
+    const { data: userStores } = await supabase
+      .from("user_stores")
+      .select("store_id")
+      .eq("user_id", userData.user.id)
+      .limit(1);
+    return userStores?.[0]?.store_id || null;
+  };
+
   const fetchCategories = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       const { data, error } = await supabase
         .from("animal_categories")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("is_active", true)
         .order("code", { ascending: true });
 
@@ -110,18 +119,10 @@ const AnimaisCategorias = () => {
     } else {
       setSelectedCategory(null);
       try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return;
+        const storeId = await getStoreId();
+        if (!storeId) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("store_id")
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (!profile?.store_id) return;
-
-        const nextCode = await getNextCode(profile.store_id);
+        const nextCode = await getNextCode(storeId);
         setFormData({
           code: nextCode,
           name: "",
@@ -151,16 +152,8 @@ const AnimaisCategorias = () => {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-
-      if (!profile?.store_id) return;
+      const storeId = await getStoreId();
+      if (!storeId) return;
 
       if (selectedCategory) {
         const { error } = await supabase
@@ -174,7 +167,7 @@ const AnimaisCategorias = () => {
         const { error } = await supabase.from("animal_categories").insert({
           code: formData.code,
           name: formData.name,
-          store_id: profile.store_id,
+          store_id: storeId,
         });
 
         if (error) throw error;
