@@ -742,12 +742,25 @@ const AnimaisCadastro = () => {
 
       // Update all existing owner percentages as edited by the user
       for (const owner of saleOwners) {
-        const { data: existingRecord } = await supabase
-          .from("animal_owners")
-          .select("id")
-          .eq("animal_id", saleAnimal.id)
-          .eq("owner_id", owner.owner_id)
-          .maybeSingle();
+        let existingRecord;
+        if (owner.owner_type === "store" && owner.store_owner_id) {
+          const { data } = await supabase
+            .from("animal_owners")
+            .select("id")
+            .eq("animal_id", saleAnimal.id)
+            .eq("store_owner_id", owner.store_owner_id)
+            .eq("owner_type", "store")
+            .maybeSingle();
+          existingRecord = data;
+        } else {
+          const { data } = await supabase
+            .from("animal_owners")
+            .select("id")
+            .eq("animal_id", saleAnimal.id)
+            .eq("owner_id", owner.owner_id)
+            .maybeSingle();
+          existingRecord = data;
+        }
 
         if (existingRecord) {
           if (owner.percentage <= 0) {
