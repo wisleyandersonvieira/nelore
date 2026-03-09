@@ -1519,7 +1519,7 @@ const AnimaisGestaoAspiracoes = () => {
                 <TabsTrigger value="resultado">Resultado</TabsTrigger>
               )}
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
-              <TabsTrigger value="proprietarios" disabled>Proprietários</TabsTrigger>
+              <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dados" className="space-y-4 mt-4">
