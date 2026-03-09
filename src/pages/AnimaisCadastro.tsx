@@ -770,7 +770,40 @@ const AnimaisCadastro = () => {
     }
   };
 
-  const handleOpenModal = async (mode: "view" | "edit" | "create", animal?: Animal) => {
+  const handleOpenDeathModal = (animal: Animal) => {
+    setDeathAnimal(animal);
+    setDeathDate(null);
+    setDeathReason("");
+    setDeathModalOpen(true);
+  };
+
+  const handleSaveDeath = async () => {
+    if (!deathAnimal || !deathDate || !deathReason.trim()) {
+      toast({ title: "Erro", description: "Preencha a data e o motivo da morte.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("animal_deaths").insert({
+        animal_id: deathAnimal.id,
+        death_date: format(deathDate, "yyyy-MM-dd"),
+        reason: deathReason.trim(),
+        created_by: userData.user?.id,
+      } as any);
+      if (error) throw error;
+
+      await supabase.from("animals").update({ is_active: false }).eq("id", deathAnimal.id);
+
+      toast({ title: "Sucesso", description: "Morte registrada. Animal inativado." });
+      setDeathModalOpen(false);
+      fetchAnimals();
+    } catch (error) {
+      console.error("Error saving death:", error);
+      toast({ title: "Erro", description: "Erro ao registrar morte.", variant: "destructive" });
+    }
+  };
+
+
     setModalMode(mode);
     setActiveTab("dados");
     setAnimalWeighings([]);
