@@ -2450,49 +2450,62 @@ const AnimaisCadastro = () => {
 
             {/* Tab: Proprietários */}
             <TabsContent value="proprietarios" className="mt-4 space-y-4">
-              <h3 className="font-semibold text-lg flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Proprietários / Vendas
-              </h3>
-              {loadingSales ? (
-                <p className="text-center text-muted-foreground py-8">Carregando...</p>
-              ) : animalSales.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Nenhuma venda registrada.</p>
-              ) : (
+              <OwnersTab
+                entityId={selectedAnimal?.id || null}
+                entityType="animal"
+                isReadOnly={isReadOnly}
+              />
+
+              {/* Vendas section - only show for existing animals */}
+              {selectedAnimal && (
                 <>
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Data</TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead className="text-right">%</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {animalSales.map((sale) => (
-                          <TableRow key={sale.id}>
-                            <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
-                            <TableCell>{sale.client_name}</TableCell>
-                            <TableCell className="text-right">{sale.sale_value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
-                            <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Vendas
+                    </h3>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                    <span className="font-medium">Total Vendido</span>
-                    <div className="flex gap-6">
-                      <span className="font-semibold">
-                        {animalSales.reduce((s, r) => s + r.sale_value, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      </span>
-                      <span className="font-semibold">
-                        {animalSales.reduce((s, r) => s + r.sale_percentage, 0).toFixed(2)}%
-                      </span>
-                    </div>
-                  </div>
+                  {loadingSales ? (
+                    <p className="text-center text-muted-foreground py-8">Carregando...</p>
+                  ) : animalSales.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
+                  ) : (
+                    <>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Data</TableHead>
+                              <TableHead>Cliente</TableHead>
+                              <TableHead className="text-right">Valor</TableHead>
+                              <TableHead className="text-right">%</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {animalSales.map((sale) => (
+                              <TableRow key={sale.id}>
+                                <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                                <TableCell>{sale.client_name}</TableCell>
+                                <TableCell className="text-right">{sale.sale_value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                                <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                        <span className="font-medium">Total Vendido</span>
+                        <div className="flex gap-6">
+                          <span className="font-semibold">
+                            {animalSales.reduce((s, r) => s + r.sale_value, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </span>
+                          <span className="font-semibold">
+                            {animalSales.reduce((s, r) => s + r.sale_percentage, 0).toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </TabsContent>

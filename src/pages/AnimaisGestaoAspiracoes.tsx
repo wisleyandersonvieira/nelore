@@ -1887,7 +1887,11 @@ const AnimaisGestaoAspiracoes = () => {
               })()}
             </TabsContent>
             <TabsContent value="proprietarios" className="mt-4">
-              <div className="text-center py-8 text-muted-foreground">Funcionalidade em desenvolvimento.</div>
+              <OwnersTab
+                entityId={selectedRecord?.id || null}
+                entityType="aspiration"
+                isReadOnly={modalMode === "view"}
+              />
             </TabsContent>
           </Tabs>
 
