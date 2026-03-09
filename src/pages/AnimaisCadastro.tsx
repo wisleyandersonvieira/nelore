@@ -239,7 +239,7 @@ const AnimaisCadastro = () => {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
-  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number }[]>([]);
+  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[]>([]);
 
   // Proprietários state
   interface AnimalSale {
@@ -684,7 +684,7 @@ const AnimaisCadastro = () => {
         .select("owner_id, owner_type, store_owner_id, percentage")
         .eq("animal_id", animal.id);
       
-      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number }[] = [];
+      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[] = [];
       for (const o of owners || []) {
         const ownerType = (o as any).owner_type || "supplier";
         let ownerName = "N/A";
@@ -697,7 +697,7 @@ const AnimaisCadastro = () => {
           const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
           ownerName = supplier?.name || "N/A";
         }
-        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage) });
+        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage), owner_type: ownerType, store_owner_id: (o as any).store_owner_id || null });
       }
       setSaleOwners(ownersWithNames);
     } catch (error) {
@@ -742,12 +742,25 @@ const AnimaisCadastro = () => {
 
       // Update all existing owner percentages as edited by the user
       for (const owner of saleOwners) {
-        const { data: existingRecord } = await supabase
-          .from("animal_owners")
-          .select("id")
-          .eq("animal_id", saleAnimal.id)
-          .eq("owner_id", owner.owner_id)
-          .maybeSingle();
+        let existingRecord;
+        if (owner.owner_type === "store" && owner.store_owner_id) {
+          const { data } = await supabase
+            .from("animal_owners")
+            .select("id")
+            .eq("animal_id", saleAnimal.id)
+            .eq("store_owner_id", owner.store_owner_id)
+            .eq("owner_type", "store")
+            .maybeSingle();
+          existingRecord = data;
+        } else {
+          const { data } = await supabase
+            .from("animal_owners")
+            .select("id")
+            .eq("animal_id", saleAnimal.id)
+            .eq("owner_id", owner.owner_id)
+            .maybeSingle();
+          existingRecord = data;
+        }
 
         if (existingRecord) {
           if (owner.percentage <= 0) {
