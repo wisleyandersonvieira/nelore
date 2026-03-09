@@ -714,25 +714,47 @@ const AnimaisCadastro = () => {
       });
       if (error) throw error;
 
-      // Add/update buyer as owner with the sold percentage
-      const { data: existingOwner } = await supabase
-        .from("animal_owners")
-        .select("id, percentage")
-        .eq("animal_id", saleAnimal.id)
-        .eq("owner_id", saleClientId)
-        .maybeSingle();
+      // Update all existing owner percentages as edited by the user
+      for (const owner of saleOwners) {
+        const { data: existingRecord } = await supabase
+          .from("animal_owners")
+          .select("id")
+          .eq("animal_id", saleAnimal.id)
+          .eq("owner_id", owner.owner_id)
+          .maybeSingle();
 
-      if (existingOwner) {
-        await supabase.from("animal_owners")
-          .update({ percentage: Number(existingOwner.percentage) + percentage })
-          .eq("id", existingOwner.id);
-      } else {
-        await supabase.from("animal_owners").insert({
-          animal_id: saleAnimal.id,
-          owner_id: saleClientId,
-          percentage: percentage,
-          created_by: userData.user?.id,
-        } as any);
+        if (existingRecord) {
+          if (owner.percentage <= 0) {
+            await supabase.from("animal_owners").delete().eq("id", existingRecord.id);
+          } else {
+            await supabase.from("animal_owners").update({ percentage: owner.percentage }).eq("id", existingRecord.id);
+          }
+        }
+      }
+
+      // Add/update buyer as owner with the sold percentage
+      const buyerInOwners = saleOwners.find(o => o.owner_id === saleClientId);
+      if (!buyerInOwners) {
+        // Buyer was not in the owners list, add them
+        const { data: existingOwner } = await supabase
+          .from("animal_owners")
+          .select("id, percentage")
+          .eq("animal_id", saleAnimal.id)
+          .eq("owner_id", saleClientId)
+          .maybeSingle();
+
+        if (existingOwner) {
+          await supabase.from("animal_owners")
+            .update({ percentage: Number(existingOwner.percentage) + percentage })
+            .eq("id", existingOwner.id);
+        } else {
+          await supabase.from("animal_owners").insert({
+            animal_id: saleAnimal.id,
+            owner_id: saleClientId,
+            percentage: percentage,
+            created_by: userData.user?.id,
+          } as any);
+        }
       }
 
       if (currentTotal + percentage >= 100) {
