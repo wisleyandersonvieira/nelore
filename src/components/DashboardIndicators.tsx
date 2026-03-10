@@ -87,7 +87,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 2. Pregnancies in progress count
   const { data: pregnancyInProgressCount = 0, isLoading: pregnancyCountLoading } = useQuery({
-    queryKey: ['dashboard-pregnancy-in-progress', storeIds],
+    queryKey: ['dashboard-pregnancy-in-progress', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
       const { count } = await supabase
