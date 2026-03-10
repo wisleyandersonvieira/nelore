@@ -121,11 +121,11 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
       {/* Main Content Area */}
       <div className="pl-16">
         {/* Header */}
-        <header className="border-b bg-green-700 h-14 sticky top-0 z-30">
+        <header className="border-b bg-card h-14 sticky top-0 z-30">
           <div className="h-full px-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <img src={elitebovLogo} alt="ELITEBOV" className="h-8" />
-              <span className="text-white font-bold text-lg tracking-wide">ELITEBOV</span>
+              <span className="font-bold text-lg tracking-wide text-foreground">ELITEBOV</span>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-green-100 hidden md:inline">
