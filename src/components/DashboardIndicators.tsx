@@ -138,7 +138,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 4. Employees count (keep existing)
   const { data: employeesData, isLoading: employeesLoading } = useQuery({
-    queryKey: ['dashboard-employees', storeIds],
+    queryKey: ['dashboard-employees', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return { active: 0, unregistered: 0 };
       const [activeResult, unregisteredResult] = await Promise.all([
