@@ -25,7 +25,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!formData.name.trim() || !formData.city.trim() || !selectedDate) {
+    if (!formData.name.trim() || !selectedDate) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios.",
