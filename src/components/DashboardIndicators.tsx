@@ -103,7 +103,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 2b. Embryo transfers awaiting pregnancy validation
   const { data: awaitingValidationCount = 0, isLoading: awaitingValidationLoading } = useQuery({
-    queryKey: ['dashboard-awaiting-validation', storeIds],
+    queryKey: ['dashboard-awaiting-validation', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
       const { count } = await supabase
