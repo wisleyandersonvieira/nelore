@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import boardLogo from "@/assets/logo.png";
+import elitebovLogo from "@/assets/elitebov-logo.png";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 
 const Auth = () => {
