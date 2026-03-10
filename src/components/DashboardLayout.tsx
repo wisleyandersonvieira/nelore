@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, Bell } from "lucide-react";
-import boardLogo from "@/assets/logo.png";
+import elitebovLogo from "@/assets/elitebov-logo.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,20 +121,21 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
       {/* Main Content Area */}
       <div className="pl-16">
         {/* Header */}
-        <header className="border-b bg-card h-14 sticky top-0 z-30">
+        <header className="border-b bg-green-700 h-14 sticky top-0 z-30">
           <div className="h-full px-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <img src={boardLogo} alt="Board Sistemas" className="h-8" />
+              <img src={elitebovLogo} alt="ELITEBOV" className="h-8" />
+              <span className="text-white font-bold text-lg tracking-wide">ELITEBOV</span>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground hidden md:inline">
+              <span className="text-sm text-green-100 hidden md:inline">
                 Olá, {user?.user_metadata?.name || user?.email}
               </span>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="relative">
-                    <Bell className={`h-5 w-5 ${pendingTasks.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                    <Bell className={`h-5 w-5 ${pendingTasks.length > 0 ? 'text-yellow-300' : 'text-green-100'}`} />
                     {pendingTasks.length > 0 && (
                       <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
                         {pendingTasks.length}
@@ -161,7 +162,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button onClick={handleSignOut} variant="outline" size="sm">
+              <Button onClick={handleSignOut} variant="outline" size="sm" className="border-green-200 text-white hover:bg-green-800 hover:text-white">
                 <LogOut className="h-4 w-4 mr-2" />
                 Sair
               </Button>
