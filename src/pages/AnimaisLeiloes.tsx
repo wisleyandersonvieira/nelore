@@ -118,7 +118,7 @@ const AnimaisLeiloes = () => {
           .update({
             name: formData.name.trim(),
             date: format(selectedDate, "yyyy-MM-dd"),
-            city: formData.city.trim(),
+            city: formData.city.trim() || null,
           })
           .eq("id", selectedLeilao.id);
 
