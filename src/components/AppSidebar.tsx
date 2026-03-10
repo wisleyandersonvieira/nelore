@@ -501,9 +501,9 @@ const AppSidebar = ({
         {/* Logo - Link para Dashboard */}
         <button 
           onClick={() => navigate('/dashboard')}
-          className="h-14 flex items-center justify-center bg-primary hover:bg-primary/90 transition-colors cursor-pointer"
+          className="h-14 flex items-center justify-center bg-green-700 hover:bg-green-800 transition-colors cursor-pointer"
         >
-          <Home className="h-6 w-6 text-primary-foreground" />
+          <Home className="h-6 w-6 text-white" />
         </button>
 
         {/* Menu Items */}
