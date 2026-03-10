@@ -163,7 +163,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
           </div>
 
           <div>
-            <Label>Cidade *</Label>
+            <Label>Cidade</Label>
             <Input
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
