@@ -22,7 +22,36 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
   const { toast } = useToast();
   const [formData, setFormData] = useState({ name: "", city: "" });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [dateText, setDateText] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const handleDateTextChange = (text: string) => {
+    const digits = text.replace(/\D/g, "").substring(0, 8);
+    let formatted = "";
+    if (digits.length > 0) formatted = digits.substring(0, 2);
+    if (digits.length > 2) formatted += "/" + digits.substring(2, 4);
+    if (digits.length > 4) formatted += "/" + digits.substring(4, 8);
+    setDateText(formatted);
+
+    if (digits.length === 8) {
+      const day = parseInt(digits.substring(0, 2));
+      const month = parseInt(digits.substring(2, 4)) - 1;
+      const year = parseInt(digits.substring(4, 8));
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime()) && d.getDate() === day && d.getMonth() === month) {
+        setSelectedDate(d);
+      } else {
+        setSelectedDate(undefined);
+      }
+    } else {
+      setSelectedDate(undefined);
+    }
+  };
+
+  const handleCalendarSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setDateText(date ? format(date, "dd/MM/yyyy") : "");
+  };
 
   const handleSave = async () => {
     if (!formData.name.trim() || !selectedDate) {
@@ -105,6 +134,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
   const resetAndClose = () => {
     setFormData({ name: "", city: "" });
     setSelectedDate(undefined);
+    setDateText("");
     onOpenChange(false);
   };
 
@@ -130,18 +160,8 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
             <div className="flex gap-2">
               <Input
                 placeholder="dd/MM/yyyy"
-                value={selectedDate ? format(selectedDate, "dd/MM/yyyy") : ""}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "");
-                  if (v.length === 8) {
-                    const day = parseInt(v.substring(0, 2));
-                    const month = parseInt(v.substring(2, 4)) - 1;
-                    const year = parseInt(v.substring(4, 8));
-                    const d = new Date(year, month, day);
-                    if (!isNaN(d.getTime())) setSelectedDate(d);
-                  }
-                  if (v.length === 0) setSelectedDate(undefined);
-                }}
+                value={dateText}
+                onChange={(e) => handleDateTextChange(e.target.value)}
               />
               <Popover>
                 <PopoverTrigger asChild>
@@ -153,7 +173,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
                   <CalendarComponent
                     mode="single"
                     selected={selectedDate}
-                    onSelect={setSelectedDate}
+                    onSelect={handleCalendarSelect}
                     locale={ptBR}
                     className="pointer-events-auto"
                   />
