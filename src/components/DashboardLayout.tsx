@@ -128,7 +128,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
               <span className="font-bold text-lg tracking-wide text-foreground">ELITEBOV</span>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-green-100 hidden md:inline">
+              <span className="text-sm text-muted-foreground hidden md:inline">
                 Olá, {user?.user_metadata?.name || user?.email}
               </span>
               
