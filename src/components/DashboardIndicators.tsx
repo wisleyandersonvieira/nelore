@@ -71,7 +71,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 1. Active animals count
   const { data: activeAnimalsCount = 0, isLoading: animalsLoading } = useQuery({
-    queryKey: ['dashboard-active-animals', storeIds],
+    queryKey: ['dashboard-active-animals', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
       const { count } = await supabase
