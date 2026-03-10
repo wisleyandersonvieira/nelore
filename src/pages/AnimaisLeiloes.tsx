@@ -33,6 +33,7 @@ const AnimaisLeiloes = () => {
   const [selectedLeilao, setSelectedLeilao] = useState<Leilao | null>(null);
   const [formData, setFormData] = useState({ name: "", city: "" });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [dateText, setDateText] = useState("");
   const [nextCode, setNextCode] = useState(1);
 
   useEffect(() => {
