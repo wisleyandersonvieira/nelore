@@ -153,7 +153,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 6. Animals by farm type (own vs third-party)
   const { data: farmTypeData = [], isLoading: farmTypeLoading } = useQuery({
-    queryKey: ['dashboard-farm-type', storeIds],
+    queryKey: ['dashboard-farm-type', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase
