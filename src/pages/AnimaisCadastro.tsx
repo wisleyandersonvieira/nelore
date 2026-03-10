@@ -51,7 +51,7 @@ import { Badge } from "@/components/ui/badge";
 import { DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -1104,7 +1104,7 @@ const AnimaisCadastro = () => {
     }
   };
 
-  const DatePickerField = ({
+  const DatePickerFieldInner = ({
     label,
     value,
     onChange,
@@ -1114,35 +1114,69 @@ const AnimaisCadastro = () => {
     value: Date | null;
     onChange: (date: Date | undefined) => void;
     disabled?: boolean;
-  }) => (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "w-full justify-start text-left font-normal",
-              !value && "text-muted-foreground"
-            )}
+  }) => {
+    const [dateText, setDateText] = useState(value ? format(value, "dd/MM/yyyy") : "");
+
+    useEffect(() => {
+      setDateText(value ? format(value, "dd/MM/yyyy") : "");
+    }, [value]);
+
+    const handleDateTextChange = (text: string) => {
+      const digits = text.replace(/\D/g, "").substring(0, 8);
+      let formatted = "";
+      if (digits.length > 0) formatted = digits.substring(0, 2);
+      if (digits.length > 2) formatted += "/" + digits.substring(2, 4);
+      if (digits.length > 4) formatted += "/" + digits.substring(4, 8);
+      setDateText(formatted);
+
+      if (digits.length === 8) {
+        const d = parse(formatted, "dd/MM/yyyy", new Date());
+        if (isValid(d)) {
+          onChange(d);
+        }
+      } else if (digits.length === 0) {
+        onChange(undefined);
+      }
+    };
+
+    const handleCalendarSelect = (date: Date | undefined) => {
+      onChange(date);
+      setDateText(date ? format(date, "dd/MM/yyyy") : "");
+    };
+
+    return (
+      <div className="space-y-2">
+        <Label>{label}</Label>
+        <div className="flex gap-2">
+          <Input
+            placeholder="dd/MM/yyyy"
+            value={dateText}
+            onChange={(e) => handleDateTextChange(e.target.value)}
             disabled={disabled}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {value ? format(value, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar data"}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
-          <Calendar
-            mode="single"
-            selected={value || undefined}
-            onSelect={onChange}
-            initialFocus
-            className="pointer-events-auto"
           />
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" disabled={disabled} className="shrink-0">
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+              <Calendar
+                mode="single"
+                selected={value || undefined}
+                onSelect={handleCalendarSelect}
+                initialFocus
+                className="pointer-events-auto"
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+    );
+  };
+
+  const DatePickerField = DatePickerFieldInner;
 
   const isReadOnly = modalMode === "view";
 
