@@ -322,18 +322,8 @@ const AnimaisLeiloes = () => {
                 <div className="flex gap-2">
                   <Input
                     placeholder="dd/MM/yyyy"
-                    value={selectedDate ? format(selectedDate, "dd/MM/yyyy") : ""}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, "");
-                      if (v.length === 8) {
-                        const day = parseInt(v.substring(0, 2));
-                        const month = parseInt(v.substring(2, 4)) - 1;
-                        const year = parseInt(v.substring(4, 8));
-                        const d = new Date(year, month, day);
-                        if (!isNaN(d.getTime())) setSelectedDate(d);
-                      }
-                      if (v.length === 0) setSelectedDate(undefined);
-                    }}
+                    value={dateText}
+                    onChange={(e) => handleDateTextChange(e.target.value)}
                     disabled={modalMode === "view"}
                   />
                   <Popover>
@@ -346,7 +336,7 @@ const AnimaisLeiloes = () => {
                       <CalendarComponent
                         mode="single"
                         selected={selectedDate}
-                        onSelect={setSelectedDate}
+                        onSelect={handleCalendarSelect}
                         locale={ptBR}
                         className="pointer-events-auto"
                       />
