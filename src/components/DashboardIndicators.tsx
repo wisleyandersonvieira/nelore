@@ -179,7 +179,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 7. Births per month (animals born from pregnancies)
   const { data: birthsPerMonth = [], isLoading: birthsChartLoading } = useQuery({
-    queryKey: ['dashboard-births-per-month', storeIds],
+    queryKey: ['dashboard-births-per-month', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase
