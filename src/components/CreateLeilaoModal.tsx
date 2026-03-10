@@ -63,7 +63,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
           code: nextCode,
           name: formData.name.trim(),
           date: format(selectedDate, "yyyy-MM-dd"),
-          city: formData.city.trim(),
+          city: formData.city.trim() || null,
           store_id: storeId,
         }).select("id, name").single();
 
