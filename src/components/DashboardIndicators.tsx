@@ -7,10 +7,15 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-const DashboardIndicators = () => {
+interface DashboardIndicatorsProps {
+  userId?: string;
+}
+
+const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   // Get user store IDs - only stores linked via user_stores (respects matrix isolation)
   const { data: storeIds = [] } = useQuery({
-    queryKey: ['dashboard-store-ids'],
+    queryKey: ['dashboard-store-ids', userId],
+    enabled: !!userId,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
