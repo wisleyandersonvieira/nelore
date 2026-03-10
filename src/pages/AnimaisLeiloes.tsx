@@ -92,7 +92,7 @@ const AnimaisLeiloes = () => {
       const storeId = await getStoreId();
       if (!storeId) return;
 
-      if (!formData.name.trim() || !formData.city.trim() || !selectedDate) {
+      if (!formData.name.trim() || !selectedDate) {
         toast({
           title: "Erro",
           description: "Preencha todos os campos obrigatórios.",
