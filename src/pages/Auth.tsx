@@ -101,7 +101,7 @@ const Auth = () => {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-green-700 hover:bg-green-800" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
             </Button>
             <Button

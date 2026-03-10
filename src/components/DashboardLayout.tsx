@@ -162,7 +162,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button onClick={handleSignOut} variant="outline" size="sm">
+              <Button onClick={handleSignOut} variant="outline" size="sm" className="border-green-200 text-white hover:bg-green-800 hover:text-white">
                 <LogOut className="h-4 w-4 mr-2" />
                 Sair
               </Button>
