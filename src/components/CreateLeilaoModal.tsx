@@ -25,7 +25,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!formData.name.trim() || !formData.city.trim() || !selectedDate) {
+    if (!formData.name.trim() || !selectedDate) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios.",
@@ -63,7 +63,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
           code: nextCode,
           name: formData.name.trim(),
           date: format(selectedDate, "yyyy-MM-dd"),
-          city: formData.city.trim(),
+          city: formData.city.trim() || null,
           store_id: storeId,
         }).select("id, name").single();
 
@@ -82,7 +82,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
         code: nextCode,
         name: formData.name.trim(),
         date: format(selectedDate, "yyyy-MM-dd"),
-        city: formData.city.trim(),
+        city: formData.city.trim() || null,
         store_id: storeId,
       }).select("id, name").single();
 
@@ -127,33 +127,43 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
 
           <div>
             <Label>Data *</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !selectedDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "dd/MM/yyyy") : "Selecione a data"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[60]" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  locale={ptBR}
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex gap-2">
+              <Input
+                placeholder="dd/MM/yyyy"
+                value={selectedDate ? format(selectedDate, "dd/MM/yyyy") : ""}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  if (v.length === 8) {
+                    const day = parseInt(v.substring(0, 2));
+                    const month = parseInt(v.substring(2, 4)) - 1;
+                    const year = parseInt(v.substring(4, 8));
+                    const d = new Date(year, month, day);
+                    if (!isNaN(d.getTime())) setSelectedDate(d);
+                  }
+                  if (v.length === 0) setSelectedDate(undefined);
+                }}
+              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[60]" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    locale={ptBR}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div>
-            <Label>Cidade *</Label>
+            <Label>Cidade</Label>
             <Input
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
