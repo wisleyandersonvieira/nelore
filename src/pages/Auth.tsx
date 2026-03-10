@@ -68,13 +68,14 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 p-4">
+      <Card className="w-full max-w-md border-green-200">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={boardLogo} alt="Board Sistemas" className="h-16" />
+            <img src={elitebovLogo} alt="ELITEBOV" className="h-20" />
           </div>
-          <CardDescription>Sistema de Gestão Financeira</CardDescription>
+          <h2 className="text-2xl font-bold text-green-800">ELITEBOV</h2>
+          <CardDescription>Plataforma Inteligente para Gestão Pecuária</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignIn} className="space-y-4">
