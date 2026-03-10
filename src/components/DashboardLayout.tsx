@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, Bell } from "lucide-react";
-import boardLogo from "@/assets/logo.png";
+import elitebovLogo from "@/assets/elitebov-logo.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
