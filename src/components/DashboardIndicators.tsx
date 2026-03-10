@@ -7,10 +7,15 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-const DashboardIndicators = () => {
+interface DashboardIndicatorsProps {
+  userId?: string;
+}
+
+const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   // Get user store IDs - only stores linked via user_stores (respects matrix isolation)
   const { data: storeIds = [] } = useQuery({
-    queryKey: ['dashboard-store-ids'],
+    queryKey: ['dashboard-store-ids', userId],
+    enabled: !!userId,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -66,7 +71,7 @@ const DashboardIndicators = () => {
 
   // 1. Active animals count
   const { data: activeAnimalsCount = 0, isLoading: animalsLoading } = useQuery({
-    queryKey: ['dashboard-active-animals', storeIds],
+    queryKey: ['dashboard-active-animals', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
       const { count } = await supabase
@@ -82,7 +87,7 @@ const DashboardIndicators = () => {
 
   // 2. Pregnancies in progress count
   const { data: pregnancyInProgressCount = 0, isLoading: pregnancyCountLoading } = useQuery({
-    queryKey: ['dashboard-pregnancy-in-progress', storeIds],
+    queryKey: ['dashboard-pregnancy-in-progress', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
       const { count } = await supabase
@@ -98,7 +103,7 @@ const DashboardIndicators = () => {
 
   // 2b. Embryo transfers awaiting pregnancy validation
   const { data: awaitingValidationCount = 0, isLoading: awaitingValidationLoading } = useQuery({
-    queryKey: ['dashboard-awaiting-validation', storeIds],
+    queryKey: ['dashboard-awaiting-validation', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
       const { count } = await supabase
@@ -114,7 +119,7 @@ const DashboardIndicators = () => {
 
   // 3. Next 3 upcoming births
   const { data: upcomingBirths = [], isLoading: birthsLoading } = useQuery({
-    queryKey: ['dashboard-upcoming-births', storeIds],
+    queryKey: ['dashboard-upcoming-births', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase
@@ -133,7 +138,7 @@ const DashboardIndicators = () => {
 
   // 4. Employees count (keep existing)
   const { data: employeesData, isLoading: employeesLoading } = useQuery({
-    queryKey: ['dashboard-employees', storeIds],
+    queryKey: ['dashboard-employees', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return { active: 0, unregistered: 0 };
       const [activeResult, unregisteredResult] = await Promise.all([
@@ -148,7 +153,7 @@ const DashboardIndicators = () => {
 
   // 6. Animals by farm type (own vs third-party)
   const { data: farmTypeData = [], isLoading: farmTypeLoading } = useQuery({
-    queryKey: ['dashboard-farm-type', storeIds],
+    queryKey: ['dashboard-farm-type', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase
@@ -174,7 +179,7 @@ const DashboardIndicators = () => {
 
   // 7. Births per month (animals born from pregnancies)
   const { data: birthsPerMonth = [], isLoading: birthsChartLoading } = useQuery({
-    queryKey: ['dashboard-births-per-month', storeIds],
+    queryKey: ['dashboard-births-per-month', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase

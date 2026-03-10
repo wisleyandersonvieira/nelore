@@ -131,7 +131,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout user={user} pendingTasks={pendingTasks}>
       {/* Conteúdo do Dashboard */}
-      <DashboardIndicators />
+      <DashboardIndicators userId={user?.id} />
 
       {/* Popup de tarefas pendentes ao logar */}
       <Dialog open={showPendingPopup} onOpenChange={setShowPendingPopup}>
