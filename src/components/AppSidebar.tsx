@@ -520,7 +520,7 @@ const AppSidebar = ({
                     className={cn(
                       "w-full h-14 flex items-center justify-center transition-all duration-200",
                       "hover:bg-secondary-foreground/10",
-                      isActive && "bg-primary text-primary-foreground"
+                      isActive && "bg-green-700 text-white"
                     )}
                   >
                     {item.customIcon ? (
