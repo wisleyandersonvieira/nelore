@@ -74,16 +74,48 @@ const AnimaisLeiloes = () => {
     }
   };
 
+  const handleDateTextChange = (text: string) => {
+    // Allow only digits and slashes, auto-format as dd/MM/yyyy
+    const digits = text.replace(/\D/g, "").substring(0, 8);
+    let formatted = "";
+    if (digits.length > 0) formatted = digits.substring(0, 2);
+    if (digits.length > 2) formatted += "/" + digits.substring(2, 4);
+    if (digits.length > 4) formatted += "/" + digits.substring(4, 8);
+    setDateText(formatted);
+
+    if (digits.length === 8) {
+      const day = parseInt(digits.substring(0, 2));
+      const month = parseInt(digits.substring(2, 4)) - 1;
+      const year = parseInt(digits.substring(4, 8));
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime()) && d.getDate() === day && d.getMonth() === month) {
+        setSelectedDate(d);
+      } else {
+        setSelectedDate(undefined);
+      }
+    } else {
+      setSelectedDate(undefined);
+    }
+  };
+
+  const handleCalendarSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setDateText(date ? format(date, "dd/MM/yyyy") : "");
+  };
+
   const handleOpenModal = (mode: "create" | "edit" | "view", leilao?: Leilao) => {
     setModalMode(mode);
     if (leilao) {
       setSelectedLeilao(leilao);
       setFormData({ name: leilao.name, city: leilao.city });
-      setSelectedDate(new Date(leilao.date));
+      const d = new Date(leilao.date);
+      setSelectedDate(d);
+      setDateText(format(d, "dd/MM/yyyy"));
     } else {
       setSelectedLeilao(null);
       setFormData({ name: "", city: "" });
       setSelectedDate(undefined);
+      setDateText("");
     }
     setIsModalOpen(true);
   };
