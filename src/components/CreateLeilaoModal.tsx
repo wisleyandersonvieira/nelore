@@ -134,6 +134,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
   const resetAndClose = () => {
     setFormData({ name: "", city: "" });
     setSelectedDate(undefined);
+    setDateText("");
     onOpenChange(false);
   };
 
