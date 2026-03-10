@@ -119,7 +119,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 3. Next 3 upcoming births
   const { data: upcomingBirths = [], isLoading: birthsLoading } = useQuery({
-    queryKey: ['dashboard-upcoming-births', storeIds],
+    queryKey: ['dashboard-upcoming-births', userId, storeIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
       const { data } = await supabase
