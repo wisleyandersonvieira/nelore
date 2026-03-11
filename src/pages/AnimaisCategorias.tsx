@@ -147,7 +147,7 @@ const AnimaisCategorias = () => {
     setIsModalOpen(false);
     setSelectedCategory(null);
     setIsViewMode(false);
-    setFormData({ code: 0, name: "" });
+    setFormData({ code: 0, name: "", show_on_dashboard: false });
   };
 
   const handleSave = async () => {
