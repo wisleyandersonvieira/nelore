@@ -213,6 +213,37 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Category cards for dashboard
+  const { data: categoryCards = [], isLoading: categoryCardsLoading } = useQuery({
+    queryKey: ['dashboard-category-cards', userId, storeIds],
+    queryFn: async () => {
+      if (storeIds.length === 0) return [];
+      // Get categories with show_on_dashboard = true for these stores
+      const { data: categories } = await supabase
+        .from("animal_categories")
+        .select("id, name")
+        .eq("is_active", true)
+        .eq("show_on_dashboard", true)
+        .in("store_id", storeIds);
+      if (!categories || categories.length === 0) return [];
+
+      // Count active animals per category
+      const results: { name: string; count: number }[] = [];
+      for (const cat of categories) {
+        const { count } = await supabase
+          .from("animals")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true)
+          .eq("category_id", cat.id)
+          .in("store_id", storeIds);
+        results.push({ name: cat.name, count: count || 0 });
+      }
+      return results;
+    },
+    enabled: storeIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const loading = animalsLoading || pregnancyCountLoading || birthsLoading || employeesLoading || awaitingValidationLoading;
 
   const PIE_COLORS = ["hsl(142, 76%, 36%)", "hsl(24, 100%, 50%)"];
