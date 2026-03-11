@@ -124,7 +124,7 @@ const AnimaisCategorias = () => {
     } else {
       setSelectedCategory(null);
       try {
-        const storeId = await getStoreId();
+        const { storeId } = await getUserData();
         if (!storeId) return;
 
         const nextCode = await getNextCode(storeId);
