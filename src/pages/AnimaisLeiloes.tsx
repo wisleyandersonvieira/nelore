@@ -130,7 +130,7 @@ const AnimaisLeiloes = () => {
 
   const handleSave = async () => {
     try {
-      const storeId = await getStoreId();
+      const { storeId, matrixId } = await getUserData();
       if (!storeId) return;
 
       if (!formData.name.trim() || !selectedDate) {
@@ -149,6 +149,7 @@ const AnimaisLeiloes = () => {
           date: format(selectedDate, "yyyy-MM-dd"),
           city: formData.city.trim() || null,
           store_id: storeId,
+          matrix_id: matrixId,
         });
 
         if (error) throw error;
