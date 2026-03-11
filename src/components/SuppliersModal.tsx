@@ -163,9 +163,23 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
     setLoading(true);
     try {
       if (editingSupplier) {
+        const updateData = {
+          name: formData.name,
+          trade_name: formData.trade_name || null,
+          cnpj_cpf: formData.cnpj_cpf || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          contact_person: formData.contact_person || null,
+          is_supplier: formData.is_supplier,
+          is_creditor: formData.is_creditor,
+          is_owner: formData.is_owner,
+        };
         const { error } = await supabase
           .from("suppliers")
-          .update(formData)
+          .update(updateData)
           .eq("id", editingSupplier.id);
 
         if (error) throw error;
