@@ -122,6 +122,7 @@ const AnimaisCategorias = () => {
       setFormData({
         code: category.code,
         name: category.name,
+        show_on_dashboard: (category as any).show_on_dashboard || false,
       });
     } else {
       setSelectedCategory(null);
