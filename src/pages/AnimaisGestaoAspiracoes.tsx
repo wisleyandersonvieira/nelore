@@ -305,8 +305,8 @@ const AnimaisGestaoAspiracoes = () => {
         ? supabase.from("leiloes").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
         : supabase.from("leiloes").select("id, name").eq("store_id", storeId!).eq("is_active", true);
       const breedingQuery = matrixId
-        ? supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("matrix_id", matrixId).eq("is_active", true)
-        : supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", storeId!).eq("is_active", true);
+        ? supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("matrix_id", matrixId).eq("is_active", true).order("name")
+        : supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", storeId!).eq("is_active", true).order("name");
       const labsQuery = matrixId
         ? supabase.from("laboratories").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
         : supabase.from("laboratories").select("id, name").eq("store_id", storeId!).eq("is_active", true);
