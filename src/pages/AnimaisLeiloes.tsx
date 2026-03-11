@@ -54,22 +54,27 @@ const AnimaisLeiloes = () => {
 
   const fetchLeiloes = async () => {
     try {
-      const storeId = await getStoreId();
-      if (!storeId) return;
+      const { storeId, matrixId } = await getUserData();
 
-      const { data, error } = await supabase
-        .from("leiloes")
-        .select("*")
-        .eq("store_id", storeId)
-        .order("code", { ascending: true });
+      let query = supabase.from("leiloes").select("*").order("code", { ascending: true });
+      if (matrixId) {
+        query = query.eq("matrix_id", matrixId);
+      } else if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        return;
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       setLeiloes(data || []);
 
-      const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
-        store_uuid: storeId,
-      });
-      setNextCode(codeData || 1);
+      if (storeId) {
+        const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
+          store_uuid: storeId,
+        });
+        setNextCode(codeData || 1);
+      }
     } catch (error) {
       console.error("Erro ao buscar leilões:", error);
     } finally {
