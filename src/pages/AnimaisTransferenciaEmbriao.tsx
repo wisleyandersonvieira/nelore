@@ -1256,6 +1256,7 @@ const AnimaisTransferenciaEmbriao = () => {
                         <TableRow key={record.id}>
                           <TableCell>{record.code}</TableCell>
                           <TableCell>{record.name}</TableCell>
+                          <TableCell>{record.recipient_id ? (recipientNames[record.recipient_id] || "...") : "-"}</TableCell>
                           <TableCell>{getBreedName(record.breed_id)}</TableCell>
                           <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
                           <TableCell>
@@ -1283,24 +1284,35 @@ const AnimaisTransferenciaEmbriao = () => {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {record.status === "in_progress" && (
-                                <>
-                                  <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => { setRecordToFinalize(record); setFinalizeUltrasoundDate(null); setFinalizeValidation(""); setFinalizeExpectedBirthMonth(null); setFinalizeDialogOpen(true); }} title="Finalizar" className="text-green-600 hover:text-green-700">
-                                    <CheckCircle className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenModal("view", record)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar
+                                </DropdownMenuItem>
+                                {record.status === "in_progress" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} className="text-destructive">
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Excluir
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setRecordToFinalize(record); setFinalizeUltrasoundDate(null); setFinalizeValidation(""); setFinalizeExpectedBirthMonth(null); setFinalizeDialogOpen(true); }} className="text-green-600">
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Finalizar
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );
