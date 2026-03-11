@@ -1231,14 +1231,15 @@ const AnimaisTransferenciaEmbriao = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Raça</TableHead>
-                    <TableHead>Fazenda</TableHead>
-                    <TableHead>Data Transferência</TableHead>
-                    <TableHead>Dias após Transf.</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                     <TableHead>Código</TableHead>
+                     <TableHead>Nome</TableHead>
+                     <TableHead>Receptora</TableHead>
+                     <TableHead>Raça</TableHead>
+                     <TableHead>Fazenda</TableHead>
+                     <TableHead>Data Transferência</TableHead>
+                     <TableHead>Dias após Transf.</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
