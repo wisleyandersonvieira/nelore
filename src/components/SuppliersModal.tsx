@@ -123,6 +123,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     
     if (!formData.name.trim()) {
       toast({
