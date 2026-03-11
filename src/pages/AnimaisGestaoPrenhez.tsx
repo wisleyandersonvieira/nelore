@@ -1132,6 +1132,8 @@ const AnimaisGestaoPrenhez = () => {
   };
 
   const handleSave = async () => {
+    if (saving) return;
+
     if (!formData.name.trim()) {
       toast({
         title: "Erro",
@@ -1150,17 +1152,36 @@ const AnimaisGestaoPrenhez = () => {
       return;
     }
 
+    setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("store_id")
+        .select("store_id, matrix_id")
         .eq("id", userData.user.id)
         .single();
 
-      if (!profile?.store_id) return;
+      let resolvedStoreId = profile?.store_id || null;
+
+      if (!resolvedStoreId) {
+        const { data: userStores } = await supabase
+          .from("user_stores")
+          .select("store_id")
+          .eq("user_id", userData.user.id)
+          .limit(1);
+        resolvedStoreId = userStores?.[0]?.store_id || null;
+      }
+
+      if (!resolvedStoreId) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível identificar a fazenda do usuário.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Parse farm value
       let farmId: string | null = null;
@@ -1189,7 +1210,7 @@ const AnimaisGestaoPrenhez = () => {
         farm_id: farmId,
         farm_type: farmType,
         recipient_id: formData.recipient_id || null,
-        store_id: profile.store_id,
+        store_id: resolvedStoreId,
         aspiration_date: reproData.aspiration_date ? format(reproData.aspiration_date, "yyyy-MM-dd") : null,
         transfer_date: reproData.transfer_date ? format(reproData.transfer_date, "yyyy-MM-dd") : null,
         veterinarian_id: reproData.veterinarian_id || null,
@@ -1219,6 +1240,8 @@ const AnimaisGestaoPrenhez = () => {
         description: "Erro ao salvar registro.",
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
