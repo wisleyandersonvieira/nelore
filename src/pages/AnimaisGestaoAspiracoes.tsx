@@ -595,9 +595,22 @@ const AnimaisGestaoAspiracoes = () => {
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
-      if (!profile?.store_id) return;
+      if (!userData.user) {
+        toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).maybeSingle();
+      let currentStoreId = profile?.store_id;
+      if (!currentStoreId) {
+        const { data: userStore } = await supabase.from("user_stores").select("store_id").eq("user_id", userData.user.id).limit(1).maybeSingle();
+        currentStoreId = userStore?.store_id || null;
+      }
+      if (!currentStoreId) {
+        toast({ title: "Erro", description: "Nenhuma fazenda vinculada ao seu perfil. Contate o administrador.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
 
       let farmId: string | null = null;
       let farmType: string | null = null;
@@ -617,7 +630,7 @@ const AnimaisGestaoAspiracoes = () => {
         dam_id: formData.dam_id || null,
         farm_id: farmId,
         farm_type: farmType,
-        store_id: profile.store_id,
+        store_id: currentStoreId,
       };
 
       if (modalMode === "create") {
