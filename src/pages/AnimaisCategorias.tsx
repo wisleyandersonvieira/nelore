@@ -57,35 +57,40 @@ const AnimaisCategorias = () => {
     fetchCategories();
   }, []);
 
-  const getStoreId = async (): Promise<string | null> => {
+  const getUserData = async (): Promise<{ storeId: string | null; matrixId: string | null }> => {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return null;
+    if (!userData.user) return { storeId: null, matrixId: null };
     const { data: profile } = await supabase
       .from("profiles")
-      .select("store_id")
+      .select("store_id, matrix_id")
       .eq("id", userData.user.id)
       .maybeSingle();
-    if (profile?.store_id) return profile.store_id;
-    const { data: userStores } = await supabase
-      .from("user_stores")
-      .select("store_id")
-      .eq("user_id", userData.user.id)
-      .limit(1);
-    return userStores?.[0]?.store_id || null;
+    let storeId = profile?.store_id || null;
+    if (!storeId) {
+      const { data: userStores } = await supabase
+        .from("user_stores")
+        .select("store_id")
+        .eq("user_id", userData.user.id)
+        .limit(1);
+      storeId = userStores?.[0]?.store_id || null;
+    }
+    return { storeId, matrixId: profile?.matrix_id || null };
   };
 
   const fetchCategories = async () => {
     try {
-      const storeId = await getStoreId();
-      if (!storeId) return;
+      const { matrixId, storeId } = await getUserData();
 
-      const { data, error } = await supabase
-        .from("animal_categories")
-        .select("*")
-        .eq("store_id", storeId)
-        .eq("is_active", true)
-        .order("code", { ascending: true });
+      let query = supabase.from("animal_categories").select("*").eq("is_active", true).order("code", { ascending: true });
+      if (matrixId) {
+        query = query.eq("matrix_id", matrixId);
+      } else if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        return;
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
@@ -119,7 +124,7 @@ const AnimaisCategorias = () => {
     } else {
       setSelectedCategory(null);
       try {
-        const storeId = await getStoreId();
+        const { storeId } = await getUserData();
         if (!storeId) return;
 
         const nextCode = await getNextCode(storeId);
@@ -152,7 +157,7 @@ const AnimaisCategorias = () => {
     }
 
     try {
-      const storeId = await getStoreId();
+      const { storeId, matrixId } = await getUserData();
       if (!storeId) return;
 
       if (selectedCategory) {
@@ -168,6 +173,7 @@ const AnimaisCategorias = () => {
           code: formData.code,
           name: formData.name,
           store_id: storeId,
+          matrix_id: matrixId,
         });
 
         if (error) throw error;

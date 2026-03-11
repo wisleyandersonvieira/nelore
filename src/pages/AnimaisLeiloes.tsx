@@ -40,33 +40,41 @@ const AnimaisLeiloes = () => {
     fetchLeiloes();
   }, []);
 
-  const getStoreId = async (): Promise<string | null> => {
+  const getUserData = async (): Promise<{ storeId: string | null; matrixId: string | null }> => {
     const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) return null;
-    const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userId).maybeSingle();
-    if (profile?.store_id) return profile.store_id;
-    const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", userId).limit(1);
-    return userStores?.[0]?.store_id || null;
+    if (!userId) return { storeId: null, matrixId: null };
+    const { data: profile } = await supabase.from("profiles").select("store_id, matrix_id").eq("id", userId).maybeSingle();
+    let storeId = profile?.store_id || null;
+    if (!storeId) {
+      const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", userId).limit(1);
+      storeId = userStores?.[0]?.store_id || null;
+    }
+    return { storeId, matrixId: profile?.matrix_id || null };
   };
 
   const fetchLeiloes = async () => {
     try {
-      const storeId = await getStoreId();
-      if (!storeId) return;
+      const { storeId, matrixId } = await getUserData();
 
-      const { data, error } = await supabase
-        .from("leiloes")
-        .select("*")
-        .eq("store_id", storeId)
-        .order("code", { ascending: true });
+      let query = supabase.from("leiloes").select("*").order("code", { ascending: true });
+      if (matrixId) {
+        query = query.eq("matrix_id", matrixId);
+      } else if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        return;
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       setLeiloes(data || []);
 
-      const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
-        store_uuid: storeId,
-      });
-      setNextCode(codeData || 1);
+      if (storeId) {
+        const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
+          store_uuid: storeId,
+        });
+        setNextCode(codeData || 1);
+      }
     } catch (error) {
       console.error("Erro ao buscar leilões:", error);
     } finally {
@@ -122,7 +130,7 @@ const AnimaisLeiloes = () => {
 
   const handleSave = async () => {
     try {
-      const storeId = await getStoreId();
+      const { storeId, matrixId } = await getUserData();
       if (!storeId) return;
 
       if (!formData.name.trim() || !selectedDate) {
@@ -141,6 +149,7 @@ const AnimaisLeiloes = () => {
           date: format(selectedDate, "yyyy-MM-dd"),
           city: formData.city.trim() || null,
           store_id: storeId,
+          matrix_id: matrixId,
         });
 
         if (error) throw error;
