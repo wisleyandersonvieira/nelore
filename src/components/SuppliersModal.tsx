@@ -234,14 +234,15 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
       resetForm();
       await fetchSuppliers();
       setActiveTab("list");
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error saving supplier:", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar o fornecedor.",
+        description: error?.message || "Não foi possível salvar o fornecedor.",
       });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
