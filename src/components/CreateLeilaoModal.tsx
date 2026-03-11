@@ -70,11 +70,14 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("store_id")
+        .select("store_id, matrix_id")
         .eq("id", userData.user.id)
         .single();
 
-      if (!profile?.store_id) {
+      let storeId = profile?.store_id;
+      const matrixId = profile?.matrix_id || null;
+
+      if (!storeId) {
         const { data: userStore } = await supabase
           .from("user_stores")
           .select("store_id")
@@ -83,27 +86,9 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
           .single();
         
         if (!userStore?.store_id) throw new Error("Fazenda não encontrada");
-        
-        const storeId = userStore.store_id;
-        const { data: codeData } = await supabase.rpc("get_next_leilao_code", { store_uuid: storeId });
-        const nextCode = codeData || 1;
-
-        const { data: newLeilao, error } = await supabase.from("leiloes").insert({
-          code: nextCode,
-          name: formData.name.trim(),
-          date: format(selectedDate, "yyyy-MM-dd"),
-          city: formData.city.trim() || null,
-          store_id: storeId,
-        }).select("id, name").single();
-
-        if (error) throw error;
-        toast({ title: "Sucesso", description: "Leilão cadastrado com sucesso!" });
-        onCreated(newLeilao);
-        resetAndClose();
-        return;
+        storeId = userStore.store_id;
       }
 
-      const storeId = profile.store_id;
       const { data: codeData } = await supabase.rpc("get_next_leilao_code", { store_uuid: storeId });
       const nextCode = codeData || 1;
 
@@ -113,6 +98,7 @@ export function CreateLeilaoModal({ open, onOpenChange, onCreated }: CreateLeila
         date: format(selectedDate, "yyyy-MM-dd"),
         city: formData.city.trim() || null,
         store_id: storeId,
+        matrix_id: matrixId,
       }).select("id, name").single();
 
       if (error) throw error;
