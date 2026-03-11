@@ -183,11 +183,32 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
           return;
         }
 
+        const insertData = {
+          name: formData.name,
+          trade_name: formData.trade_name || null,
+          cnpj_cpf: formData.cnpj_cpf || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          contact_person: formData.contact_person || null,
+          is_supplier: formData.is_supplier,
+          is_creditor: formData.is_creditor,
+          is_owner: formData.is_owner,
+          matrix_id: matrixId,
+        };
+
+        console.log("Inserting supplier:", insertData);
+
         const { error } = await supabase
           .from("suppliers")
-          .insert([{ ...formData, matrix_id: matrixId }]);
+          .insert([insertData]);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase insert error:", error);
+          throw error;
+        }
         toast({
           title: "Sucesso",
           description: "Fornecedor cadastrado com sucesso!",
