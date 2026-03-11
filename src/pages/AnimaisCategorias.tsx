@@ -57,21 +57,24 @@ const AnimaisCategorias = () => {
     fetchCategories();
   }, []);
 
-  const getStoreId = async (): Promise<string | null> => {
+  const getUserData = async (): Promise<{ storeId: string | null; matrixId: string | null }> => {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return null;
+    if (!userData.user) return { storeId: null, matrixId: null };
     const { data: profile } = await supabase
       .from("profiles")
-      .select("store_id")
+      .select("store_id, matrix_id")
       .eq("id", userData.user.id)
       .maybeSingle();
-    if (profile?.store_id) return profile.store_id;
-    const { data: userStores } = await supabase
-      .from("user_stores")
-      .select("store_id")
-      .eq("user_id", userData.user.id)
-      .limit(1);
-    return userStores?.[0]?.store_id || null;
+    let storeId = profile?.store_id || null;
+    if (!storeId) {
+      const { data: userStores } = await supabase
+        .from("user_stores")
+        .select("store_id")
+        .eq("user_id", userData.user.id)
+        .limit(1);
+      storeId = userStores?.[0]?.store_id || null;
+    }
+    return { storeId, matrixId: profile?.matrix_id || null };
   };
 
   const fetchCategories = async () => {
