@@ -43,6 +43,7 @@ interface SuppliersModalProps {
 export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete = true }: SuppliersModalProps) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [activeTab, setActiveTab] = useState(canEdit ? "register" : "list");
@@ -122,6 +123,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     
     if (!formData.name.trim()) {
       toast({
@@ -160,12 +162,26 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
       }
     }
 
-    setLoading(true);
+    setSaving(true);
     try {
       if (editingSupplier) {
+        const updateData = {
+          name: formData.name,
+          trade_name: formData.trade_name || null,
+          cnpj_cpf: formData.cnpj_cpf || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          contact_person: formData.contact_person || null,
+          is_supplier: formData.is_supplier,
+          is_creditor: formData.is_creditor,
+          is_owner: formData.is_owner,
+        };
         const { error } = await supabase
           .from("suppliers")
-          .update(formData)
+          .update(updateData)
           .eq("id", editingSupplier.id);
 
         if (error) throw error;
@@ -183,11 +199,32 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
           return;
         }
 
+        const insertData = {
+          name: formData.name,
+          trade_name: formData.trade_name || null,
+          cnpj_cpf: formData.cnpj_cpf || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          contact_person: formData.contact_person || null,
+          is_supplier: formData.is_supplier,
+          is_creditor: formData.is_creditor,
+          is_owner: formData.is_owner,
+          matrix_id: matrixId,
+        };
+
+        console.log("Inserting supplier:", insertData);
+
         const { error } = await supabase
           .from("suppliers")
-          .insert([{ ...formData, matrix_id: matrixId }]);
+          .insert([insertData]);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase insert error:", error);
+          throw error;
+        }
         toast({
           title: "Sucesso",
           description: "Fornecedor cadastrado com sucesso!",
@@ -197,14 +234,15 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
       resetForm();
       await fetchSuppliers();
       setActiveTab("list");
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error saving supplier:", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Não foi possível salvar o fornecedor.",
+        description: error?.message || "Não foi possível salvar o fornecedor.",
       });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -488,8 +526,8 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
 
                   <div className="flex space-x-2">
-                    <Button type="submit" disabled={loading}>
-                      {loading ? "Salvando..." : (editingSupplier ? "Atualizar" : "Cadastrar")}
+                    <Button type="submit" disabled={saving}>
+                      {saving ? "Salvando..." : (editingSupplier ? "Atualizar" : "Cadastrar")}
                     </Button>
                     {editingSupplier && (
                       <Button type="button" variant="outline" onClick={resetForm}>
