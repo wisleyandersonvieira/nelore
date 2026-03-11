@@ -243,14 +243,34 @@ const AnimaisGestaoAspiracoes = () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
-      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
-      if (!profile?.store_id) return;
-      setStoreId(profile.store_id);
+      const { data: profile } = await supabase.from("profiles").select("store_id, matrix_id").eq("id", userData.user.id).maybeSingle();
+      
+      let currentStoreId = profile?.store_id || null;
+      if (!currentStoreId) {
+        const { data: userStore } = await supabase.from("user_stores").select("store_id").eq("user_id", userData.user.id).limit(1).maybeSingle();
+        currentStoreId = userStore?.store_id || null;
+      }
+      setStoreId(currentStoreId);
+
+      // Fetch all stores in the user's matrix to show all aspirations from the same matrix
+      let storeIds: string[] = [];
+      if (profile?.matrix_id) {
+        const { data: matrixStores } = await supabase.from("stores").select("id").eq("matrix_id", profile.matrix_id);
+        storeIds = (matrixStores || []).map(s => s.id);
+      } else if (currentStoreId) {
+        storeIds = [currentStoreId];
+      }
+
+      if (storeIds.length === 0) {
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("aspiration_management")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .in("store_id", storeIds)
         .order("code", { ascending: false });
       if (error) throw error;
       setRecords((data as unknown as AspirationRecord[]) || []);
