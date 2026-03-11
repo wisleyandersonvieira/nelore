@@ -42,7 +42,7 @@ interface SuppliersModalProps {
 
 export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete = true }: SuppliersModalProps) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [activeTab, setActiveTab] = useState(canEdit ? "register" : "list");
