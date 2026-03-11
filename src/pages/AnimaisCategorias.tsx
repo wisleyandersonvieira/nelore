@@ -134,6 +134,7 @@ const AnimaisCategorias = () => {
         setFormData({
           code: nextCode,
           name: "",
+          show_on_dashboard: false,
         });
       } catch (error) {
         console.error("Error getting next code:", error);
