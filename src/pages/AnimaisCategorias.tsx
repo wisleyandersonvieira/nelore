@@ -52,6 +52,7 @@ const AnimaisCategorias = () => {
   const [formData, setFormData] = useState({
     code: 0,
     name: "",
+    show_on_dashboard: false,
   });
 
   useEffect(() => {
