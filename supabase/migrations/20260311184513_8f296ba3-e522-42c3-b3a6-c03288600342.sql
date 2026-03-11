@@ -1,0 +1,1 @@
+ALTER TABLE public.animal_categories ADD COLUMN show_on_dashboard boolean NOT NULL DEFAULT false;

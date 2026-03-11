@@ -213,6 +213,37 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Category cards for dashboard
+  const { data: categoryCards = [], isLoading: categoryCardsLoading } = useQuery({
+    queryKey: ['dashboard-category-cards', userId, storeIds],
+    queryFn: async () => {
+      if (storeIds.length === 0) return [];
+      // Get categories with show_on_dashboard = true for these stores
+      const { data: categories } = await supabase
+        .from("animal_categories")
+        .select("id, name")
+        .eq("is_active", true)
+        .eq("show_on_dashboard", true)
+        .in("store_id", storeIds);
+      if (!categories || categories.length === 0) return [];
+
+      // Count active animals per category
+      const results: { name: string; count: number }[] = [];
+      for (const cat of categories) {
+        const { count } = await supabase
+          .from("animals")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true)
+          .eq("category_id", cat.id)
+          .in("store_id", storeIds);
+        results.push({ name: cat.name, count: count || 0 });
+      }
+      return results;
+    },
+    enabled: storeIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const loading = animalsLoading || pregnancyCountLoading || birthsLoading || employeesLoading || awaitingValidationLoading;
 
   const PIE_COLORS = ["hsl(142, 76%, 36%)", "hsl(24, 100%, 50%)"];
@@ -295,6 +326,24 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Category Cards */}
+      {categoryCards.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {categoryCards.map((cat) => (
+            <Card key={cat.name}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Animais: {cat.name}</CardTitle>
+                <Bug className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{categoryCardsLoading ? "..." : cat.count}</div>
+                <p className="text-xs text-muted-foreground mt-1">Animais ativos nesta categoria</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

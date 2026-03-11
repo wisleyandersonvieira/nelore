@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Pencil, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -51,6 +52,7 @@ const AnimaisCategorias = () => {
   const [formData, setFormData] = useState({
     code: 0,
     name: "",
+    show_on_dashboard: false,
   });
 
   useEffect(() => {
@@ -120,6 +122,7 @@ const AnimaisCategorias = () => {
       setFormData({
         code: category.code,
         name: category.name,
+        show_on_dashboard: (category as any).show_on_dashboard || false,
       });
     } else {
       setSelectedCategory(null);
@@ -131,6 +134,7 @@ const AnimaisCategorias = () => {
         setFormData({
           code: nextCode,
           name: "",
+          show_on_dashboard: false,
         });
       } catch (error) {
         console.error("Error getting next code:", error);
@@ -143,7 +147,7 @@ const AnimaisCategorias = () => {
     setIsModalOpen(false);
     setSelectedCategory(null);
     setIsViewMode(false);
-    setFormData({ code: 0, name: "" });
+    setFormData({ code: 0, name: "", show_on_dashboard: false });
   };
 
   const handleSave = async () => {
@@ -163,7 +167,7 @@ const AnimaisCategorias = () => {
       if (selectedCategory) {
         const { error } = await supabase
           .from("animal_categories")
-          .update({ name: formData.name })
+          .update({ name: formData.name, show_on_dashboard: formData.show_on_dashboard })
           .eq("id", selectedCategory.id);
 
         if (error) throw error;
@@ -174,6 +178,7 @@ const AnimaisCategorias = () => {
           name: formData.name,
           store_id: storeId,
           matrix_id: matrixId,
+          show_on_dashboard: formData.show_on_dashboard,
         });
 
         if (error) throw error;
@@ -343,6 +348,15 @@ const AnimaisCategorias = () => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 disabled={isViewMode}
                 placeholder="Digite o nome da categoria"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show_on_dashboard">Exibir card no Dashboard</Label>
+              <Switch
+                id="show_on_dashboard"
+                checked={formData.show_on_dashboard}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_on_dashboard: checked })}
+                disabled={isViewMode}
               />
             </div>
           </div>

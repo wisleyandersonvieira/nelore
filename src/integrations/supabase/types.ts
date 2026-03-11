@@ -865,6 +865,7 @@ export type Database = {
           is_active: boolean
           matrix_id: string | null
           name: string
+          show_on_dashboard: boolean
           store_id: string
           updated_at: string
         }
@@ -875,6 +876,7 @@ export type Database = {
           is_active?: boolean
           matrix_id?: string | null
           name: string
+          show_on_dashboard?: boolean
           store_id: string
           updated_at?: string
         }
@@ -885,6 +887,7 @@ export type Database = {
           is_active?: boolean
           matrix_id?: string | null
           name?: string
+          show_on_dashboard?: boolean
           store_id?: string
           updated_at?: string
         }
