@@ -62,6 +62,10 @@ const AnimaisMatrizes = () => {
     name: "",
     sex: "",
   });
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   useEffect(() => {
     fetchBreedingAnimals();
