@@ -2363,7 +2363,9 @@ const AnimaisGestaoPrenhez = () => {
               <Button variant="outline" onClick={() => setModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave}>Salvar</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
             </div>
           )}
         </DialogContent>
