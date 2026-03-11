@@ -630,7 +630,7 @@ const AnimaisGestaoAspiracoes = () => {
         dam_id: formData.dam_id || null,
         farm_id: farmId,
         farm_type: farmType,
-        store_id: profile.store_id,
+        store_id: currentStoreId,
       };
 
       if (modalMode === "create") {
