@@ -2039,41 +2039,101 @@ const AnimaisGestaoPrenhez = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome do Reprodutor (Pai)</Label>
-                    <Select
-                      value={formData.sire_id}
-                      onValueChange={(value) => setFormData({ ...formData, sire_id: value })}
-                      disabled={modalMode === "view"}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar reprodutor" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        {sires.map((sire) => (
-                          <SelectItem key={sire.id} value={sire.id}>
-                            {sire.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={sireSearchOpen} onOpenChange={setSireSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={sireSearchOpen}
+                          className="w-full justify-between font-normal"
+                          disabled={modalMode === "view"}
+                        >
+                          {formData.sire_id
+                            ? sires.find((s) => s.id === formData.sire_id)?.name || "Selecionar reprodutor"
+                            : "Selecionar reprodutor"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0 z-50" align="start">
+                        <Command>
+                          <CommandInput
+                            placeholder="Buscar reprodutor..."
+                            value={sireSearchTerm}
+                            onValueChange={setSireSearchTerm}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Nenhum reprodutor encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {sires
+                                .filter((s) => s.name.toLowerCase().includes(sireSearchTerm.toLowerCase()))
+                                .map((sire) => (
+                                  <CommandItem
+                                    key={sire.id}
+                                    value={sire.name}
+                                    onSelect={() => {
+                                      setFormData({ ...formData, sire_id: sire.id });
+                                      setSireSearchOpen(false);
+                                      setSireSearchTerm("");
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", formData.sire_id === sire.id ? "opacity-100" : "opacity-0")} />
+                                    {sire.name}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-2">
                     <Label>Nome da Matriz (Mãe)</Label>
-                    <Select
-                      value={formData.dam_id}
-                      onValueChange={(value) => setFormData({ ...formData, dam_id: value })}
-                      disabled={modalMode === "view"}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar matriz" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        {dams.map((dam) => (
-                          <SelectItem key={dam.id} value={dam.id}>
-                            {dam.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={damSearchOpen} onOpenChange={setDamSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={damSearchOpen}
+                          className="w-full justify-between font-normal"
+                          disabled={modalMode === "view"}
+                        >
+                          {formData.dam_id
+                            ? dams.find((d) => d.id === formData.dam_id)?.name || "Selecionar matriz"
+                            : "Selecionar matriz"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0 z-50" align="start">
+                        <Command>
+                          <CommandInput
+                            placeholder="Buscar matriz..."
+                            value={damSearchTerm}
+                            onValueChange={setDamSearchTerm}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Nenhuma matriz encontrada.</CommandEmpty>
+                            <CommandGroup>
+                              {dams
+                                .filter((d) => d.name.toLowerCase().includes(damSearchTerm.toLowerCase()))
+                                .map((dam) => (
+                                  <CommandItem
+                                    key={dam.id}
+                                    value={dam.name}
+                                    onSelect={() => {
+                                      setFormData({ ...formData, dam_id: dam.id });
+                                      setDamSearchOpen(false);
+                                      setDamSearchTerm("");
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", formData.dam_id === dam.id ? "opacity-100" : "opacity-0")} />
+                                    {dam.name}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>
