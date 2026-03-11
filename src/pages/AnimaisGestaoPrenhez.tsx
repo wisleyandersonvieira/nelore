@@ -756,17 +756,28 @@ const AnimaisGestaoPrenhez = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("store_id")
+        .select("store_id, matrix_id")
         .eq("id", userData.user.id)
         .single();
 
-      if (!profile?.store_id) return;
-      setStoreId(profile.store_id);
+      let resolvedStoreId = profile?.store_id || null;
+
+      if (!resolvedStoreId) {
+        const { data: userStores } = await supabase
+          .from("user_stores")
+          .select("store_id")
+          .eq("user_id", userData.user.id)
+          .limit(1);
+        resolvedStoreId = userStores?.[0]?.store_id || null;
+      }
+
+      if (!resolvedStoreId) return;
+      setStoreId(resolvedStoreId);
 
       const { data, error } = await supabase
         .from("pregnancy_management")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", resolvedStoreId)
         .order("code", { ascending: false });
 
       if (error) throw error;
