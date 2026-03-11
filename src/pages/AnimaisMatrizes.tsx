@@ -485,11 +485,34 @@ const AnimaisMatrizes = () => {
     (a) => a.sex === "femea" && (!selectedAnimal || a.id !== selectedAnimal.id),
   );
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+    setCurrentPage(1);
+  };
+
   const filteredAnimals = breedingAnimals.filter((animal) => {
     const matchesName = animal.name.toLowerCase().includes(filters.name.toLowerCase());
     const matchesSex = !filters.sex || filters.sex === "todos" || animal.sex === filters.sex;
     return matchesName && matchesSex;
   });
+
+  const sortedAnimals = [...filteredAnimals].sort((a, b) => {
+    if (!sortColumn) return 0;
+    const dir = sortDirection === "asc" ? 1 : -1;
+    if (sortColumn === "name") return a.name.localeCompare(b.name) * dir;
+    if (sortColumn === "sex") return a.sex.localeCompare(b.sex) * dir;
+    if (sortColumn === "offspringCount") return (a.offspringCount - b.offspringCount) * dir;
+    if (sortColumn === "grandchildrenCount") return (a.grandchildrenCount - b.grandchildrenCount) * dir;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedAnimals.length / itemsPerPage);
+  const paginatedAnimals = sortedAnimals.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="min-h-screen bg-background p-6">
