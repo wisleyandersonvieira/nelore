@@ -167,7 +167,7 @@ const AnimaisCategorias = () => {
       if (selectedCategory) {
         const { error } = await supabase
           .from("animal_categories")
-          .update({ name: formData.name })
+          .update({ name: formData.name, show_on_dashboard: formData.show_on_dashboard })
           .eq("id", selectedCategory.id);
 
         if (error) throw error;
