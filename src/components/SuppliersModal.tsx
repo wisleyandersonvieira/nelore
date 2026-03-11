@@ -162,7 +162,7 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
       }
     }
 
-    setLoading(true);
+    setSaving(true);
     try {
       if (editingSupplier) {
         const updateData = {
