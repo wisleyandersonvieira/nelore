@@ -129,6 +129,7 @@ const AnimaisGestaoPrenhez = () => {
   const [finalizeWeight, setFinalizeWeight] = useState<string>("");
   const [activeTab, setActiveTab] = useState("dados");
   const [storeId, setStoreId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Financial state
   interface PrenFinancialRecord {
