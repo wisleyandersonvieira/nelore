@@ -79,16 +79,18 @@ const AnimaisRacas = () => {
 
   const fetchBreeds = async () => {
     try {
-      const storeId = await getStoreId();
-      if (!storeId) return;
+      const { matrixId, storeId } = await getUserData();
+      
+      let query = supabase.from("animal_breeds").select("*").eq("is_active", true).order("code", { ascending: true });
+      if (matrixId) {
+        query = query.eq("matrix_id", matrixId);
+      } else if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        return;
+      }
 
-      const { data, error } = await supabase
-        .from("animal_breeds")
-        .select("*")
-        .eq("store_id", storeId)
-        .eq("is_active", true)
-        .order("code", { ascending: true });
-
+      const { data, error } = await query;
       if (error) throw error;
       setBreeds(data || []);
     } catch (error) {
