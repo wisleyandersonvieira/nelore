@@ -1375,7 +1375,7 @@ const AnimaisGestaoPrenhez = () => {
       if (newAnimal) {
         const { data: pregOwners } = await supabase
           .from("pregnancy_owners")
-          .select("owner_id, percentage")
+          .select("owner_id, owner_type, store_owner_id, percentage")
           .eq("pregnancy_id", recordToFinalize.id);
 
         if (pregOwners && pregOwners.length > 0) {
@@ -1383,7 +1383,9 @@ const AnimaisGestaoPrenhez = () => {
           for (const owner of pregOwners) {
             await supabase.from("animal_owners").insert({
               animal_id: newAnimal.id,
-              owner_id: owner.owner_id,
+              owner_id: (owner as any).owner_type === "store" ? null : owner.owner_id,
+              owner_type: (owner as any).owner_type || "supplier",
+              store_owner_id: (owner as any).store_owner_id || null,
               percentage: owner.percentage,
               created_by: userData.user?.id,
             } as any);
