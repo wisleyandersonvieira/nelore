@@ -350,6 +350,15 @@ const AnimaisCategorias = () => {
                 placeholder="Digite o nome da categoria"
               />
             </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show_on_dashboard">Exibir card no Dashboard</Label>
+              <Switch
+                id="show_on_dashboard"
+                checked={formData.show_on_dashboard}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_on_dashboard: checked })}
+                disabled={isViewMode}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseModal}>

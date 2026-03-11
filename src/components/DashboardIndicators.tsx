@@ -327,6 +327,24 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         </Card>
       </div>
 
+      {/* Category Cards */}
+      {categoryCards.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {categoryCards.map((cat) => (
+            <Card key={cat.name}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Animais: {cat.name}</CardTitle>
+                <Bug className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{categoryCardsLoading ? "..." : cat.count}</div>
+                <p className="text-xs text-muted-foreground mt-1">Animais ativos nesta categoria</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pie Chart - Animals by Farm Type */}
