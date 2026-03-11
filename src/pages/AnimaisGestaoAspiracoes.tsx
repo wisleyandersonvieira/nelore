@@ -267,8 +267,13 @@ const AnimaisGestaoAspiracoes = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
       const { data: profile } = await supabase.from("profiles").select("store_id, matrix_id").eq("id", userData.user.id).single();
-      if (!profile?.store_id) return;
-      const matrixId = profile.matrix_id;
+      let storeId = profile?.store_id || null;
+      const matrixId = profile?.matrix_id || null;
+      if (!storeId) {
+        const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", userData.user.id).limit(1);
+        storeId = userStores?.[0]?.store_id || null;
+      }
+      if (!storeId && !matrixId) return;
 
       const breedsQuery = matrixId
         ? supabase.from("animal_breeds").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
