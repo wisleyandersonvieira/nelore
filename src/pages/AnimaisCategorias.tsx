@@ -178,6 +178,7 @@ const AnimaisCategorias = () => {
           name: formData.name,
           store_id: storeId,
           matrix_id: matrixId,
+          show_on_dashboard: formData.show_on_dashboard,
         });
 
         if (error) throw error;
