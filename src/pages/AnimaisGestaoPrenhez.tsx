@@ -867,8 +867,8 @@ const AnimaisGestaoPrenhez = () => {
       setBreeds(breedsRes.data || []);
       setCategories(categoriesRes.data || []);
       setAuctions(auctionsRes.data || []);
-      setSires((breedingAnimalsRes.data || []).filter(a => a.sex === "macho"));
-      setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea"));
+      setSires((breedingAnimalsRes.data || []).filter(a => a.sex === "macho").sort((a, b) => a.name.localeCompare(b.name)));
+      setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea").sort((a, b) => a.name.localeCompare(b.name)));
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
       setAnimals(animalsRes.data || []);
