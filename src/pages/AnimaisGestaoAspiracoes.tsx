@@ -266,18 +266,38 @@ const AnimaisGestaoAspiracoes = () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
-      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("store_id, matrix_id").eq("id", userData.user.id).single();
       if (!profile?.store_id) return;
+      const matrixId = profile.matrix_id;
+
+      const breedsQuery = matrixId
+        ? supabase.from("animal_breeds").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
+        : supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true);
+      const categoriesQuery = matrixId
+        ? supabase.from("animal_categories").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
+        : supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true);
+      const auctionsQuery = matrixId
+        ? supabase.from("leiloes").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
+        : supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true);
+      const breedingQuery = matrixId
+        ? supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("matrix_id", matrixId).eq("is_active", true)
+        : supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true);
+      const labsQuery = matrixId
+        ? supabase.from("laboratories").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
+        : supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true);
+      const vetsQuery = matrixId
+        ? supabase.from("veterinarians").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
+        : supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true);
 
       const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, labsRes, vetsRes] = await Promise.all([
-        supabase.from("animal_breeds").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("animal_categories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("leiloes").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("breeding_animals").select("id, name, sex, sire_id, dam_id").eq("store_id", profile.store_id).eq("is_active", true),
+        breedsQuery,
+        categoriesQuery,
+        auctionsQuery,
+        breedingQuery,
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
-        supabase.from("laboratories").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
-        supabase.from("veterinarians").select("id, name").eq("store_id", profile.store_id).eq("is_active", true),
+        labsQuery,
+        vetsQuery,
       ]);
 
       setBreeds(breedsRes.data || []);
