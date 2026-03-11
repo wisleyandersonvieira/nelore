@@ -815,6 +815,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           store_id: string
           updated_at: string
@@ -824,6 +825,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           store_id: string
           updated_at?: string
@@ -833,11 +835,19 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           store_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "animal_breeds_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "animal_breeds_store_id_fkey"
             columns: ["store_id"]
@@ -853,6 +863,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           store_id: string
           updated_at: string
@@ -862,6 +873,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           store_id: string
           updated_at?: string
@@ -871,11 +883,19 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           store_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "animal_categories_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "animal_categories_store_id_fkey"
             columns: ["store_id"]
@@ -1683,6 +1703,7 @@ export type Database = {
           dam_id: string | null
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           registration: string | null
           sex: string
@@ -1695,6 +1716,7 @@ export type Database = {
           dam_id?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           registration?: string | null
           sex: string
@@ -1707,6 +1729,7 @@ export type Database = {
           dam_id?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           registration?: string | null
           sex?: string
@@ -1720,6 +1743,13 @@ export type Database = {
             columns: ["dam_id"]
             isOneToOne: false
             referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breeding_animals_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
             referencedColumns: ["id"]
           },
           {
@@ -3398,6 +3428,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           observations: string | null
           phone: string | null
@@ -3413,6 +3444,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           observations?: string | null
           phone?: string | null
@@ -3428,6 +3460,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           observations?: string | null
           phone?: string | null
@@ -3436,6 +3469,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "laboratories_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "laboratories_store_id_fkey"
             columns: ["store_id"]
@@ -3453,6 +3493,7 @@ export type Database = {
           date: string
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           store_id: string
           updated_at: string
@@ -3464,6 +3505,7 @@ export type Database = {
           date: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           store_id: string
           updated_at?: string
@@ -3475,11 +3517,19 @@ export type Database = {
           date?: string
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           store_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "leiloes_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leiloes_store_id_fkey"
             columns: ["store_id"]
@@ -5190,6 +5240,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          matrix_id: string | null
           name: string
           observations: string | null
           phone: string | null
@@ -5204,6 +5255,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name: string
           observations?: string | null
           phone?: string | null
@@ -5218,6 +5270,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          matrix_id?: string | null
           name?: string
           observations?: string | null
           phone?: string | null
@@ -5226,6 +5279,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "veterinarians_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "veterinarians_store_id_fkey"
             columns: ["store_id"]
