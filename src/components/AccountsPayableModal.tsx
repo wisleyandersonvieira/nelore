@@ -5382,7 +5382,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Fornecedor: {paymentAccount.suppliers?.name || paymentAccount.employees?.name || '-'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
+                    Vencimento: {new Date(paymentAccount.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-lg font-semibold text-primary">
                     Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
