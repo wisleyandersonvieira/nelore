@@ -5382,7 +5382,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Fornecedor: {paymentAccount.suppliers?.name || paymentAccount.employees?.name || '-'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Vencimento: {new Date(paymentAccount.due_date).toLocaleDateString('pt-BR')}
+                    Vencimento: {new Date(paymentAccount.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-lg font-semibold text-primary">
                     Valor Original: R$ {Number(paymentAccount.amount).toFixed(2)}
@@ -5421,7 +5421,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     {isPaid && <span className="ml-2 text-green-600 text-sm">(PAGA)</span>}
                                   </p>
                                   <p className="text-sm text-muted-foreground">
-                                    Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                                    Vencimento: {new Date(installment.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                      {isPaid && (
                                        <span className="ml-2">
                                          - Paga em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -5625,7 +5625,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Fornecedor: {reverseAccount.suppliers?.name || reverseAccount.employees?.name || '-'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Vencimento: {new Date(reverseAccount.due_date).toLocaleDateString('pt-BR')}
+                    Vencimento: {new Date(reverseAccount.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-lg font-semibold text-primary">
                     Valor Original: R$ {Number(reverseAccount.amount).toFixed(2)}
@@ -5690,7 +5690,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <span className="ml-2 text-green-600 text-sm">(PAGA)</span>
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                                  Vencimento: {new Date(installment.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                    <span className="ml-2">
                                      - Paga em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
                                    </span>
