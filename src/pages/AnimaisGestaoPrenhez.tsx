@@ -828,21 +828,22 @@ const AnimaisGestaoPrenhez = () => {
         ? supabase.from("laboratories").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
         : supabase.from("laboratories").select("id, name").eq("store_id", storeId!).eq("is_active", true);
 
-      const queries: Promise<any>[] = [
+      const animalsQuery = storeId
+        ? supabase.from("animals").select("id, code, name, ear_tag, category_id").eq("store_id", storeId).eq("is_active", true)
+        : null;
+
+      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, vetRes, labRes] = await Promise.all([
         breedsQuery,
         categoriesQuery,
         auctionsQuery,
         breedingQuery,
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
-        storeId
-          ? supabase.from("animals").select("id, code, name, ear_tag, category_id").eq("store_id", storeId).eq("is_active", true)
-          : Promise.resolve({ data: [] }),
         vetQuery,
         labQuery,
-      ];
+      ]);
 
-      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, animalsRes, vetRes, labRes] = await Promise.all(queries);
+      const animalsRes = animalsQuery ? await animalsQuery : { data: [] };
 
       setBreeds(breedsRes.data || []);
       setCategories(categoriesRes.data || []);
