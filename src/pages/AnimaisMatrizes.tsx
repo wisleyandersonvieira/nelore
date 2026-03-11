@@ -555,11 +555,19 @@ const AnimaisMatrizes = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Sexo</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
+                  <div className="flex items-center gap-1">Nome <ArrowUpDown className="h-3 w-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("sex")}>
+                  <div className="flex items-center gap-1">Sexo <ArrowUpDown className="h-3 w-3" /></div>
+                </TableHead>
                 <TableHead>Registro</TableHead>
-                <TableHead>Animais Filhos Ativos</TableHead>
-                <TableHead>Animais Netos Ativos</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("offspringCount")}>
+                  <div className="flex items-center gap-1">Animais Filhos Ativos <ArrowUpDown className="h-3 w-3" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("grandchildrenCount")}>
+                  <div className="flex items-center gap-1">Animais Netos Ativos <ArrowUpDown className="h-3 w-3" /></div>
+                </TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -570,14 +578,14 @@ const AnimaisMatrizes = () => {
                     Carregando...
                   </TableCell>
                 </TableRow>
-              ) : filteredAnimals.length === 0 ? (
+              ) : paginatedAnimals.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
                     Nenhuma matriz ou genitor encontrado
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAnimals.map((animal) => (
+                paginatedAnimals.map((animal) => (
                   <TableRow key={animal.id} className="h-10">
                     <TableCell className="font-medium py-2">{animal.name}</TableCell>
                     <TableCell className="py-2">{getSexLabel(animal.sex)}</TableCell>
@@ -626,6 +634,35 @@ const AnimaisMatrizes = () => {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages} ({sortedAnimals.length} registros)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próximo
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
