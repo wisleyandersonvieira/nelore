@@ -79,16 +79,18 @@ const AnimaisCategorias = () => {
 
   const fetchCategories = async () => {
     try {
-      const storeId = await getStoreId();
-      if (!storeId) return;
+      const { matrixId, storeId } = await getUserData();
 
-      const { data, error } = await supabase
-        .from("animal_categories")
-        .select("*")
-        .eq("store_id", storeId)
-        .eq("is_active", true)
-        .order("code", { ascending: true });
+      let query = supabase.from("animal_categories").select("*").eq("is_active", true).order("code", { ascending: true });
+      if (matrixId) {
+        query = query.eq("matrix_id", matrixId);
+      } else if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        return;
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
