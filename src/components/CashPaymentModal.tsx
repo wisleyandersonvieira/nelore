@@ -496,7 +496,7 @@ export function CashPaymentModal({
                 Fornecedor: {accountPayable.suppliers?.name || '-'}
               </p>
               <p className="text-sm text-muted-foreground">
-                Vencimento: {new Date(accountPayable.due_date).toLocaleDateString('pt-BR')}
+                Vencimento: {new Date(accountPayable.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
               </p>
               <p className="text-lg font-semibold text-primary">
                 Valor Original: R$ {baseAmount.toFixed(2)}

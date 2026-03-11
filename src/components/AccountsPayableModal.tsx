@@ -5690,7 +5690,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <span className="ml-2 text-green-600 text-sm">(PAGA)</span>
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  Vencimento: {new Date(installment.due_date).toLocaleDateString('pt-BR')}
+                                  Vencimento: {new Date(installment.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                    <span className="ml-2">
                                      - Paga em: {new Date(installment.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')}
                                    </span>
