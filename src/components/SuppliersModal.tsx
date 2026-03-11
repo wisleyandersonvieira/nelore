@@ -526,8 +526,8 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
 
                   <div className="flex space-x-2">
-                    <Button type="submit" disabled={loading}>
-                      {loading ? "Salvando..." : (editingSupplier ? "Atualizar" : "Cadastrar")}
+                    <Button type="submit" disabled={saving}>
+                      {saving ? "Salvando..." : (editingSupplier ? "Atualizar" : "Cadastrar")}
                     </Button>
                     {editingSupplier && (
                       <Button type="button" variant="outline" onClick={resetForm}>
