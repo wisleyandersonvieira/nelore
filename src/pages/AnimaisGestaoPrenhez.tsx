@@ -184,6 +184,12 @@ const AnimaisGestaoPrenhez = () => {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [selectedRecipient, setSelectedRecipient] = useState<Animal | null>(null);
 
+  // Genealogy search state
+  const [sireSearchOpen, setSireSearchOpen] = useState(false);
+  const [sireSearchTerm, setSireSearchTerm] = useState("");
+  const [damSearchOpen, setDamSearchOpen] = useState(false);
+  const [damSearchTerm, setDamSearchTerm] = useState("");
+
   // Form data
   const [formData, setFormData] = useState({
     code: 0,
