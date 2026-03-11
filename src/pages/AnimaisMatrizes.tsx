@@ -219,6 +219,13 @@ const AnimaisMatrizes = () => {
         return;
       }
 
+      // Fetch user's matrix_id
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("matrix_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
       // Check for duplicate name
       const { data: existingAnimal } = await supabase
         .from("breeding_animals")
@@ -233,13 +240,14 @@ const AnimaisMatrizes = () => {
         return;
       }
 
-      const animalData = {
+      const animalData: any = {
         name: formData.name.trim(),
         sex: formData.sex,
         registration: formData.registration.trim() || null,
         sire_id: formData.sire_id || null,
         dam_id: formData.dam_id || null,
         store_id: storeId,
+        matrix_id: profileData?.matrix_id || null,
       };
 
       if (selectedAnimal) {
