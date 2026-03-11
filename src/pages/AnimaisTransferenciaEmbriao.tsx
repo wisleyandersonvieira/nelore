@@ -225,14 +225,37 @@ const AnimaisTransferenciaEmbriao = () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
-      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", userData.user.id).single();
-      if (!profile?.store_id) return;
-      setStoreId(profile.store_id);
+      const { data: profile } = await supabase.from("profiles").select("store_id, matrix_id").eq("id", userData.user.id).single();
+      
+      let resolvedStoreId = profile?.store_id || null;
+      if (!resolvedStoreId) {
+        const { data: userStores } = await supabase.from("user_stores").select("store_id").eq("user_id", userData.user.id).limit(1);
+        resolvedStoreId = userStores?.[0]?.store_id || null;
+      }
+      if (resolvedStoreId) setStoreId(resolvedStoreId);
+
+      // Fetch all stores in the user's matrix for filtering
+      let storeIds: string[] = [];
+      if (profile?.matrix_id) {
+        const { data: matrixStores } = await supabase
+          .from("stores")
+          .select("id")
+          .eq("matrix_id", profile.matrix_id);
+        storeIds = (matrixStores || []).map(s => s.id);
+      } else if (resolvedStoreId) {
+        storeIds = [resolvedStoreId];
+      }
+
+      if (storeIds.length === 0) {
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("embryo_transfer_management")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .in("store_id", storeIds)
         .order("code", { ascending: false });
       if (error) throw error;
       setRecords((data as any[]) || []);
