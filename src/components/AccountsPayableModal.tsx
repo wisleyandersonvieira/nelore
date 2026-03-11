@@ -5625,7 +5625,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     Fornecedor: {reverseAccount.suppliers?.name || reverseAccount.employees?.name || '-'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Vencimento: {new Date(reverseAccount.due_date).toLocaleDateString('pt-BR')}
+                    Vencimento: {new Date(reverseAccount.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-lg font-semibold text-primary">
                     Valor Original: R$ {Number(reverseAccount.amount).toFixed(2)}
