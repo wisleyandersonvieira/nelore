@@ -157,7 +157,7 @@ const AnimaisRacas = () => {
     }
 
     try {
-      const storeId = await getStoreId();
+      const { storeId, matrixId } = await getUserData();
       if (!storeId) return;
 
       if (selectedBreed) {
@@ -173,6 +173,7 @@ const AnimaisRacas = () => {
           code: formData.code,
           name: formData.name,
           store_id: storeId,
+          matrix_id: matrixId,
         });
 
         if (error) throw error;
