@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { Paperclip, Download, X } from "lucide-react";
 
 interface Leilao {
   id: string;
@@ -21,6 +23,8 @@ interface Leilao {
   date: string;
   city: string;
   is_active: boolean;
+  observations: string | null;
+  attachments: any[];
 }
 
 const AnimaisLeiloes = () => {
@@ -31,7 +35,9 @@ const AnimaisLeiloes = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [selectedLeilao, setSelectedLeilao] = useState<Leilao | null>(null);
-  const [formData, setFormData] = useState({ name: "", city: "" });
+  const [formData, setFormData] = useState({ name: "", city: "", observations: "" });
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [dateText, setDateText] = useState("");
   const [nextCode, setNextCode] = useState(1);
@@ -67,7 +73,7 @@ const AnimaisLeiloes = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      setLeiloes(data || []);
+      setLeiloes((data || []) as Leilao[]);
 
       if (storeId) {
         const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
@@ -115,17 +121,33 @@ const AnimaisLeiloes = () => {
     setModalMode(mode);
     if (leilao) {
       setSelectedLeilao(leilao);
-      setFormData({ name: leilao.name, city: leilao.city });
+      setFormData({ name: leilao.name, city: leilao.city, observations: leilao.observations || "" });
+      setExistingAttachments(leilao.attachments || []);
       const d = new Date(leilao.date);
       setSelectedDate(d);
       setDateText(format(d, "dd/MM/yyyy"));
     } else {
       setSelectedLeilao(null);
-      setFormData({ name: "", city: "" });
+      setFormData({ name: "", city: "", observations: "" });
+      setExistingAttachments([]);
+      setAttachmentFiles([]);
       setSelectedDate(undefined);
       setDateText("");
     }
     setIsModalOpen(true);
+  };
+
+  const uploadAttachments = async (leilaoId: string): Promise<any[]> => {
+    const uploaded: any[] = [];
+    for (const file of attachmentFiles) {
+      const filePath = `leiloes/${leilaoId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from("attachments").upload(filePath, file);
+      if (!error) {
+        const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(filePath);
+        uploaded.push({ name: file.name, path: filePath, url: urlData.publicUrl });
+      }
+    }
+    return uploaded;
   };
 
   const handleSave = async () => {
@@ -143,24 +165,39 @@ const AnimaisLeiloes = () => {
       }
 
       if (modalMode === "create") {
-        const { error } = await supabase.from("leiloes").insert({
+        const { data: newLeilao, error } = await supabase.from("leiloes").insert({
           code: nextCode,
           name: formData.name.trim(),
           date: format(selectedDate, "yyyy-MM-dd"),
           city: formData.city.trim() || null,
+          observations: formData.observations.trim() || null,
           store_id: storeId,
           matrix_id: matrixId,
-        });
+        }).select("id").single();
 
         if (error) throw error;
+
+        if (attachmentFiles.length > 0 && newLeilao) {
+          const uploaded = await uploadAttachments(newLeilao.id);
+          await supabase.from("leiloes").update({ attachments: uploaded }).eq("id", newLeilao.id);
+        }
+
         toast({ title: "Sucesso", description: "Leilão cadastrado com sucesso!" });
       } else if (modalMode === "edit" && selectedLeilao) {
+        let allAttachments = [...existingAttachments];
+        if (attachmentFiles.length > 0) {
+          const uploaded = await uploadAttachments(selectedLeilao.id);
+          allAttachments = [...allAttachments, ...uploaded];
+        }
+
         const { error } = await supabase
           .from("leiloes")
           .update({
             name: formData.name.trim(),
             date: format(selectedDate, "yyyy-MM-dd"),
             city: formData.city.trim() || null,
+            observations: formData.observations.trim() || null,
+            attachments: allAttachments,
           })
           .eq("id", selectedLeilao.id);
 
@@ -169,6 +206,7 @@ const AnimaisLeiloes = () => {
       }
 
       setIsModalOpen(false);
+      setAttachmentFiles([]);
       fetchLeiloes();
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
@@ -362,6 +400,66 @@ const AnimaisLeiloes = () => {
                   disabled={modalMode === "view"}
                   placeholder="Cidade do leilão"
                 />
+              </div>
+
+              <div>
+                <Label>Observações</Label>
+                <Textarea
+                  value={formData.observations}
+                  onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                  disabled={modalMode === "view"}
+                  placeholder="Observações sobre o leilão"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>Anexos</Label>
+                {modalMode !== "view" && (
+                  <div className="mt-1">
+                    <Input
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setAttachmentFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                {attachmentFiles.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Novos arquivos:</p>
+                    {attachmentFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <Paperclip className="h-3 w-3" />
+                        <span className="truncate">{file.name}</span>
+                        {modalMode !== "view" && (
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setAttachmentFiles(prev => prev.filter((_, i) => i !== idx))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {existingAttachments.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Arquivos salvos:</p>
+                    {existingAttachments.map((att: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <Paperclip className="h-3 w-3" />
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline">{att.name}</a>
+                        {modalMode !== "view" && (
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== idx))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

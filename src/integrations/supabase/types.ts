@@ -3490,6 +3490,7 @@ export type Database = {
       }
       leiloes: {
         Row: {
+          attachments: Json | null
           city: string
           code: number
           created_at: string
@@ -3498,10 +3499,12 @@ export type Database = {
           is_active: boolean
           matrix_id: string | null
           name: string
+          observations: string | null
           store_id: string
           updated_at: string
         }
         Insert: {
+          attachments?: Json | null
           city: string
           code: number
           created_at?: string
@@ -3510,10 +3513,12 @@ export type Database = {
           is_active?: boolean
           matrix_id?: string | null
           name: string
+          observations?: string | null
           store_id: string
           updated_at?: string
         }
         Update: {
+          attachments?: Json | null
           city?: string
           code?: number
           created_at?: string
@@ -3522,6 +3527,7 @@ export type Database = {
           is_active?: boolean
           matrix_id?: string | null
           name?: string
+          observations?: string | null
           store_id?: string
           updated_at?: string
         }
