@@ -450,7 +450,18 @@ const AnimaisLeiloes = () => {
                     {existingAttachments.map((att: any, idx: number) => (
                       <div key={idx} className="flex items-center gap-2 text-sm">
                         <Paperclip className="h-3 w-3" />
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline">{att.name}</a>
+                        <span className="truncate">{att.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={async () => {
+                            const { data } = await supabase.storage.from("attachments").createSignedUrl(att.path, 60, { download: att.name });
+                            if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                          }}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
                         {modalMode !== "view" && (
                           <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== idx))}>
                             <X className="h-3 w-3" />
