@@ -137,6 +137,19 @@ const AnimaisLeiloes = () => {
     setIsModalOpen(true);
   };
 
+  const uploadAttachments = async (leilaoId: string): Promise<any[]> => {
+    const uploaded: any[] = [];
+    for (const file of attachmentFiles) {
+      const filePath = `leiloes/${leilaoId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from("attachments").upload(filePath, file);
+      if (!error) {
+        const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(filePath);
+        uploaded.push({ name: file.name, path: filePath, url: urlData.publicUrl });
+      }
+    }
+    return uploaded;
+  };
+
   const handleSave = async () => {
     try {
       const { storeId, matrixId } = await getUserData();
@@ -152,24 +165,39 @@ const AnimaisLeiloes = () => {
       }
 
       if (modalMode === "create") {
-        const { error } = await supabase.from("leiloes").insert({
+        const { data: newLeilao, error } = await supabase.from("leiloes").insert({
           code: nextCode,
           name: formData.name.trim(),
           date: format(selectedDate, "yyyy-MM-dd"),
           city: formData.city.trim() || null,
+          observations: formData.observations.trim() || null,
           store_id: storeId,
           matrix_id: matrixId,
-        });
+        }).select("id").single();
 
         if (error) throw error;
+
+        if (attachmentFiles.length > 0 && newLeilao) {
+          const uploaded = await uploadAttachments(newLeilao.id);
+          await supabase.from("leiloes").update({ attachments: uploaded }).eq("id", newLeilao.id);
+        }
+
         toast({ title: "Sucesso", description: "Leilão cadastrado com sucesso!" });
       } else if (modalMode === "edit" && selectedLeilao) {
+        let allAttachments = [...existingAttachments];
+        if (attachmentFiles.length > 0) {
+          const uploaded = await uploadAttachments(selectedLeilao.id);
+          allAttachments = [...allAttachments, ...uploaded];
+        }
+
         const { error } = await supabase
           .from("leiloes")
           .update({
             name: formData.name.trim(),
             date: format(selectedDate, "yyyy-MM-dd"),
             city: formData.city.trim() || null,
+            observations: formData.observations.trim() || null,
+            attachments: allAttachments,
           })
           .eq("id", selectedLeilao.id);
 
@@ -178,6 +206,7 @@ const AnimaisLeiloes = () => {
       }
 
       setIsModalOpen(false);
+      setAttachmentFiles([]);
       fetchLeiloes();
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
