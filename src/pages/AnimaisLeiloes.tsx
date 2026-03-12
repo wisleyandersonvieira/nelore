@@ -21,6 +21,8 @@ interface Leilao {
   date: string;
   city: string;
   is_active: boolean;
+  observations: string | null;
+  attachments: any[];
 }
 
 const AnimaisLeiloes = () => {
