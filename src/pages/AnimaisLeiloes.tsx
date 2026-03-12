@@ -401,6 +401,66 @@ const AnimaisLeiloes = () => {
                   placeholder="Cidade do leilão"
                 />
               </div>
+
+              <div>
+                <Label>Observações</Label>
+                <Textarea
+                  value={formData.observations}
+                  onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                  disabled={modalMode === "view"}
+                  placeholder="Observações sobre o leilão"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>Anexos</Label>
+                {modalMode !== "view" && (
+                  <div className="mt-1">
+                    <Input
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setAttachmentFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                {attachmentFiles.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Novos arquivos:</p>
+                    {attachmentFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <Paperclip className="h-3 w-3" />
+                        <span className="truncate">{file.name}</span>
+                        {modalMode !== "view" && (
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setAttachmentFiles(prev => prev.filter((_, i) => i !== idx))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {existingAttachments.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Arquivos salvos:</p>
+                    {existingAttachments.map((att: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <Paperclip className="h-3 w-3" />
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline">{att.name}</a>
+                        {modalMode !== "view" && (
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== idx))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter>
