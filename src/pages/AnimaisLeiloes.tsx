@@ -35,7 +35,9 @@ const AnimaisLeiloes = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [selectedLeilao, setSelectedLeilao] = useState<Leilao | null>(null);
-  const [formData, setFormData] = useState({ name: "", city: "" });
+  const [formData, setFormData] = useState({ name: "", city: "", observations: "" });
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [dateText, setDateText] = useState("");
   const [nextCode, setNextCode] = useState(1);
