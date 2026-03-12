@@ -73,7 +73,7 @@ const AnimaisLeiloes = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      setLeiloes(data || []);
+      setLeiloes((data || []) as Leilao[]);
 
       if (storeId) {
         const { data: codeData } = await supabase.rpc("get_next_leilao_code", {
