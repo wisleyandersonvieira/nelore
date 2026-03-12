@@ -121,13 +121,16 @@ const AnimaisLeiloes = () => {
     setModalMode(mode);
     if (leilao) {
       setSelectedLeilao(leilao);
-      setFormData({ name: leilao.name, city: leilao.city });
+      setFormData({ name: leilao.name, city: leilao.city, observations: leilao.observations || "" });
+      setExistingAttachments(leilao.attachments || []);
       const d = new Date(leilao.date);
       setSelectedDate(d);
       setDateText(format(d, "dd/MM/yyyy"));
     } else {
       setSelectedLeilao(null);
-      setFormData({ name: "", city: "" });
+      setFormData({ name: "", city: "", observations: "" });
+      setExistingAttachments([]);
+      setAttachmentFiles([]);
       setSelectedDate(undefined);
       setDateText("");
     }
