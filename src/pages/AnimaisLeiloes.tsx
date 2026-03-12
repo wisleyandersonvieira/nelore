@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { Paperclip, Download, X } from "lucide-react";
 
 interface Leilao {
   id: string;
