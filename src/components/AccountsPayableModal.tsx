@@ -3768,7 +3768,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   const generateInstallments = () => {
     const totalAmount = getTotalAmount();
-    const installmentAmount = totalAmount / numberOfInstallments;
+    const baseAmount = parseFloat((totalAmount / numberOfInstallments).toFixed(2));
     const newInstallments: Installment[] = [];
     
     for (let i = 1; i <= numberOfInstallments; i++) {
@@ -3778,10 +3778,15 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       newInstallments.push({
         installment_number: i,
         due_date: installmentDate.toISOString().split('T')[0],
-        amount: i === numberOfInstallments 
-          ? totalAmount - (installmentAmount * (numberOfInstallments - 1)) // Ajustar última parcela
-          : installmentAmount
+        amount: baseAmount
       });
+    }
+
+    // Ajustar diferença de centavos na última parcela
+    const totalInstallments = newInstallments.reduce((sum, inst) => sum + inst.amount, 0);
+    const difference = parseFloat((totalAmount - totalInstallments).toFixed(2));
+    if (difference !== 0) {
+      newInstallments[newInstallments.length - 1].amount = parseFloat((newInstallments[newInstallments.length - 1].amount + difference).toFixed(2));
     }
     
     setInstallments(newInstallments);
