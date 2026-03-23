@@ -60,6 +60,7 @@ interface AspirationRecord {
   embryo_count: number | null;
   embryo_details: EmbryoDetail[] | null;
   transfer_date: string | null;
+  financial_released: boolean;
 }
 
 interface EmbryoDetail {
