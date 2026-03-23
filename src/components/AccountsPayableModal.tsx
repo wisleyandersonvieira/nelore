@@ -383,12 +383,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         .order("name");
       setAllocationAnimals(animalsData || []);
 
-      const { data: pregnancyData } = await supabase
+      // Fetch in_progress pregnancies + financial_released pregnancies
+      const { data: pregnancyInProgress } = await supabase
         .from("pregnancy_management")
         .select("id, name")
         .eq("status", "in_progress")
         .order("name");
-      setAllocationPregnancies(pregnancyData || []);
+
+      const { data: pregnancyReleased } = await supabase
+        .from("pregnancy_management")
+        .select("id, name")
+        .eq("financial_released", true)
+        .neq("status", "in_progress")
+        .order("name");
+
+      const allPregnancies = [...(pregnancyInProgress || []), ...(pregnancyReleased || [])];
+      setAllocationPregnancies(allPregnancies);
 
       const { data: embryoData } = await supabase
         .from("embryo_transfer_management")

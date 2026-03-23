@@ -711,7 +711,26 @@ const AnimaisGestaoPrenhez = () => {
     return "Finalizado";
   };
 
-  const exportExcel = () => {
+  const handleToggleFinancialReleased = async (record: PregnancyRecord) => {
+    try {
+      const newValue = !record.financial_released;
+      const { error } = await supabase
+        .from("pregnancy_management")
+        .update({ financial_released: newValue })
+        .eq("id", record.id);
+      if (error) throw error;
+      setRecords(prev => prev.map(r => r.id === record.id ? { ...r, financial_released: newValue } : r));
+      toast({
+        title: "Sucesso",
+        description: newValue ? "Liberado financeiro ativado" : "Liberado financeiro desativado",
+      });
+    } catch (error) {
+      console.error("Error toggling financial_released:", error);
+      toast({ title: "Erro", description: "Erro ao atualizar liberado financeiro", variant: "destructive" });
+    }
+  };
+
+
     const data = filteredRecords.map((r) => ({
       "Código": r.code,
       "Nome": r.name,
