@@ -333,12 +333,21 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         .order("name");
       setAllocationEmbryoTransfers(embryoData || []);
 
-      const { data: aspirationData } = await supabase
+      // Fetch active aspirations + financial_released aspirations
+      const { data: aspirationActive } = await supabase
         .from("aspiration_management")
         .select("id, name, code")
         .in("status", ["pending", "in_progress"])
         .order("name");
-      setAllocationAspirations(aspirationData || []);
+
+      const { data: aspirationReleased } = await supabase
+        .from("aspiration_management")
+        .select("id, name, code")
+        .eq("financial_released", true)
+        .not("status", "in", '("pending","in_progress")')
+        .order("name");
+
+      setAllocationAspirations([...(aspirationActive || []), ...(aspirationReleased || [])]);
     } catch (error) {
       console.error("Error fetching allocation data:", error);
     }

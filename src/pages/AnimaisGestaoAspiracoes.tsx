@@ -1747,6 +1747,17 @@ const AnimaisGestaoAspiracoes = () => {
                                 <DollarSign className="h-4 w-4" />
                               </Button>
                             )}
+                            {record.status === "finalized" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleFinancialReleased(record)}
+                                title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+                                className={record.financial_released ? "text-green-600" : ""}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
