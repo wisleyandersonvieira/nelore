@@ -1,0 +1,1 @@
+ALTER TABLE public.aspiration_management ADD COLUMN financial_released boolean NOT NULL DEFAULT false;
