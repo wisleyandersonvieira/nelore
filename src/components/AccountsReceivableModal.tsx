@@ -1719,9 +1719,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
     // Ajustar diferença de centavos na última parcela
     const totalInstallments = newInstallments.reduce((sum, inst) => sum + inst.amount, 0);
-    const difference = totalAmount - totalInstallments;
+    const difference = parseFloat((totalAmount - totalInstallments).toFixed(2));
     if (difference !== 0) {
-      newInstallments[newInstallments.length - 1].amount += difference;
+      newInstallments[newInstallments.length - 1].amount = parseFloat((newInstallments[newInstallments.length - 1].amount + difference).toFixed(2));
     }
 
     setInstallments(newInstallments);
