@@ -1710,6 +1710,12 @@ const AnimaisGestaoPrenhez = () => {
                                     </DropdownMenuItem>
                                   </>
                                 )}
+                                {["sold", "finalized", "natimorto"].includes(record.status) && (
+                                  <DropdownMenuItem onClick={() => handleToggleFinancialReleased(record)}>
+                                    <DollarSign className="h-4 w-4 mr-2" />
+                                    {record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>

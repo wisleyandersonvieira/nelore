@@ -3779,6 +3779,7 @@ export type Database = {
           expected_birth_month: string | null
           farm_id: string | null
           farm_type: string | null
+          financial_released: boolean
           id: string
           laboratory_id: string | null
           name: string
@@ -3805,6 +3806,7 @@ export type Database = {
           expected_birth_month?: string | null
           farm_id?: string | null
           farm_type?: string | null
+          financial_released?: boolean
           id?: string
           laboratory_id?: string | null
           name: string
@@ -3831,6 +3833,7 @@ export type Database = {
           expected_birth_month?: string | null
           farm_id?: string | null
           farm_type?: string | null
+          financial_released?: boolean
           id?: string
           laboratory_id?: string | null
           name?: string

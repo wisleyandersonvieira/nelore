@@ -1,0 +1,1 @@
+ALTER TABLE public.pregnancy_management ADD COLUMN financial_released boolean NOT NULL DEFAULT false;
