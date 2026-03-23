@@ -730,7 +730,7 @@ const AnimaisGestaoPrenhez = () => {
     }
   };
 
-
+  const exportExcel = () => {
     const data = filteredRecords.map((r) => ({
       "Código": r.code,
       "Nome": r.name,
