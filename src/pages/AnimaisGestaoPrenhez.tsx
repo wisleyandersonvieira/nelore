@@ -80,6 +80,7 @@ interface PregnancyRecord {
   laboratory_id: string | null;
   ultrasound_date: string | null;
   embryo_transfer_id: string | null;
+  financial_released: boolean;
 }
 
 interface Breed {
@@ -708,6 +709,25 @@ const AnimaisGestaoPrenhez = () => {
     if (status === "finalized_stillborn") return "Finalizado: Natimorto";
     if (status === "sold") return "Vendido";
     return "Finalizado";
+  };
+
+  const handleToggleFinancialReleased = async (record: PregnancyRecord) => {
+    try {
+      const newValue = !record.financial_released;
+      const { error } = await supabase
+        .from("pregnancy_management")
+        .update({ financial_released: newValue })
+        .eq("id", record.id);
+      if (error) throw error;
+      setRecords(prev => prev.map(r => r.id === record.id ? { ...r, financial_released: newValue } : r));
+      toast({
+        title: "Sucesso",
+        description: newValue ? "Liberado financeiro ativado" : "Liberado financeiro desativado",
+      });
+    } catch (error) {
+      console.error("Error toggling financial_released:", error);
+      toast({ title: "Erro", description: "Erro ao atualizar liberado financeiro", variant: "destructive" });
+    }
   };
 
   const exportExcel = () => {
@@ -1708,6 +1728,12 @@ const AnimaisGestaoPrenhez = () => {
                                       <CheckCircle className="h-4 w-4 mr-2" />Finalizar
                                     </DropdownMenuItem>
                                   </>
+                                )}
+                                {["sold", "finalized", "natimorto"].includes(record.status) && (
+                                  <DropdownMenuItem onClick={() => handleToggleFinancialReleased(record)}>
+                                    <DollarSign className="h-4 w-4 mr-2" />
+                                    {record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+                                  </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
