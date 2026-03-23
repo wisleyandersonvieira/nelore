@@ -1483,23 +1483,31 @@ const AnimaisGestaoPrenhez = () => {
               <Filter className="h-4 w-4 mr-2" />
               {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
             </Button>
-            {hasFiltered && (
-              <>
-                <Button variant="outline" onClick={exportExcel}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Excel
-                </Button>
-                <Button variant="outline" onClick={exportPDF}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  PDF
-                </Button>
-              </>
-            )}
           </div>
-          <Button onClick={() => handleOpenModal("create")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Cadastrar
-          </Button>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportExcel}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={() => handleOpenModal("create")}>
+              <Plus className="h-4 w-4 mr-2" />
+              Cadastrar
+            </Button>
+          </div>
         </div>
 
         {showFilters && (
