@@ -80,6 +80,7 @@ interface PregnancyRecord {
   laboratory_id: string | null;
   ultrasound_date: string | null;
   embryo_transfer_id: string | null;
+  financial_released: boolean;
 }
 
 interface Breed {
