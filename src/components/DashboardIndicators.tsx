@@ -316,7 +316,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                     <span className="truncate font-medium">{birth.name}</span>
                     <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">{formattedDate}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
