@@ -303,10 +303,18 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
               <p className="text-sm text-muted-foreground">Nenhum nascimento previsto</p>
             ) : (
               <div className="space-y-1.5">
-                {upcomingBirths.map((birth) => (
+                {upcomingBirths.map((birth) => {
+                  let formattedDate = "—";
+                  if (birth.expected_birth_month) {
+                    const d = new Date(birth.expected_birth_month + "T12:00:00");
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    formattedDate = `${day}/${month}`;
+                  }
+                  return (
                   <div key={birth.id} className="flex justify-between items-center text-sm">
                     <span className="truncate font-medium">{birth.name}</span>
-                    <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">{birth.expected_birth_month || "—"}</span>
+                    <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">{formattedDate}</span>
                   </div>
                 ))}
               </div>
