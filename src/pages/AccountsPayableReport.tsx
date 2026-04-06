@@ -41,6 +41,7 @@ const AccountsPayableReport = () => {
   const [allocationItems, setAllocationItems] = useState<Array<{ id: string; name: string; code?: number }>>([]);
   const [selectedAllocationIds, setSelectedAllocationIds] = useState<string[]>([]);
   const [allocationPopoverOpen, setAllocationPopoverOpen] = useState(false);
+  const [allocationSearch, setAllocationSearch] = useState("");
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
