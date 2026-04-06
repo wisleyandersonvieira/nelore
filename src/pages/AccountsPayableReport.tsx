@@ -326,6 +326,9 @@ const AccountsPayableReport = () => {
       product_id: "all",
     });
     setAccounts([]);
+    setAllocationType("none");
+    setSelectedAllocationIds([]);
+    setAllocationItems([]);
   };
 
   const getFilterInfo = () => {
