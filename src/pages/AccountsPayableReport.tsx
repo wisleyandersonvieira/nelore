@@ -261,6 +261,43 @@ const AccountsPayableReport = () => {
         accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
       }
 
+      // Filter by allocation (aspiration/pregnancy/animal)
+      if (allocationType !== "none" && selectedAllocationIds.length > 0) {
+        // Get account_payable item IDs that have allocations matching the selected IDs
+        const columnMap: Record<string, string> = {
+          aspiration: "aspiration_id",
+          pregnancy: "pregnancy_id",
+          animal: "animal_id",
+        };
+        const column = columnMap[allocationType];
+        
+        if (column) {
+          const { data: allocations } = await supabase
+            .from("accounts_payable_item_allocations")
+            .select("account_payable_item_id")
+            .in(column, selectedAllocationIds);
+
+          if (allocations && allocations.length > 0) {
+            const itemIds = allocations.map(a => a.account_payable_item_id);
+            
+            // Get account IDs from the items
+            const { data: items } = await supabase
+              .from("accounts_payable_items")
+              .select("account_payable_id")
+              .in("id", itemIds);
+
+            if (items && items.length > 0) {
+              const allowedAccountIds = new Set(items.map(i => i.account_payable_id));
+              accountsData = accountsData.filter((account: any) => allowedAccountIds.has(account.id));
+            } else {
+              accountsData = [];
+            }
+          } else {
+            accountsData = [];
+          }
+        }
+      }
+
       setAccounts(accountsData);
       toast({
         title: "Pesquisa realizada",
