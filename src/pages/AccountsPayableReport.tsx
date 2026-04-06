@@ -37,6 +37,11 @@ const AccountsPayableReport = () => {
     product_id: "all",
   });
 
+  const [allocationType, setAllocationType] = useState<string>("none");
+  const [allocationItems, setAllocationItems] = useState<Array<{ id: string; name: string; code?: number }>>([]);
+  const [selectedAllocationIds, setSelectedAllocationIds] = useState<string[]>([]);
+  const [allocationPopoverOpen, setAllocationPopoverOpen] = useState(false);
+
   const [accounts, setAccounts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
