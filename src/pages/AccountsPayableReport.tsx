@@ -41,6 +41,7 @@ const AccountsPayableReport = () => {
   const [allocationItems, setAllocationItems] = useState<Array<{ id: string; name: string; code?: number }>>([]);
   const [selectedAllocationIds, setSelectedAllocationIds] = useState<string[]>([]);
   const [allocationPopoverOpen, setAllocationPopoverOpen] = useState(false);
+  const [allocationSearch, setAllocationSearch] = useState("");
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -57,6 +58,7 @@ const AccountsPayableReport = () => {
   useEffect(() => {
     setSelectedAllocationIds([]);
     setAllocationItems([]);
+    setAllocationSearch("");
     if (allocationType === "none") return;
 
     const fetchAllocationItems = async () => {
@@ -1212,6 +1214,14 @@ const AccountsPayableReport = () => {
                     </PopoverTrigger>
                     <PopoverContent className="w-[320px] p-0" align="start">
                       <div className="p-2 border-b">
+                        <Input
+                          placeholder="Buscar pelo nome..."
+                          value={allocationSearch}
+                          onChange={(e) => setAllocationSearch(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="p-2 border-b">
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="select-all"
@@ -1231,7 +1241,9 @@ const AccountsPayableReport = () => {
                       </div>
                       <ScrollArea className="h-[250px]">
                         <div className="p-2 space-y-1">
-                          {allocationItems.map((item) => (
+                          {allocationItems
+                            .filter(item => item.name.toLowerCase().includes(allocationSearch.toLowerCase()))
+                            .map((item) => (
                             <div key={item.id} className="flex items-center space-x-2 py-1">
                               <Checkbox
                                 id={`alloc-${item.id}`}
