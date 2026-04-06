@@ -54,6 +54,35 @@ const AccountsPayableReport = () => {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    setSelectedAllocationIds([]);
+    setAllocationItems([]);
+    if (allocationType === "none") return;
+
+    const fetchAllocationItems = async () => {
+      if (allocationType === "aspiration") {
+        const { data } = await supabase
+          .from("aspiration_management")
+          .select("id, name, code")
+          .order("code", { ascending: false });
+        setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "pregnancy") {
+        const { data } = await supabase
+          .from("pregnancy_management")
+          .select("id, name, code")
+          .order("code", { ascending: false });
+        setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "animal") {
+        const { data } = await supabase
+          .from("animals")
+          .select("id, name, code")
+          .order("code", { ascending: false });
+        setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      }
+    };
+    fetchAllocationItems();
+  }, [allocationType]);
+
   const fetchSuppliers = async () => {
     const { data } = await supabase.from("suppliers").select("id, name");
     setSuppliers(data || []);
