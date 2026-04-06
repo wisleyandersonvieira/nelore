@@ -275,7 +275,7 @@ const AccountsPayableReport = () => {
           const { data: allocations } = await supabase
             .from("accounts_payable_item_allocations")
             .select("account_payable_item_id")
-            .in(column, selectedAllocationIds);
+            .in(column as any, selectedAllocationIds);
 
           if (allocations && allocations.length > 0) {
             const itemIds = allocations.map(a => a.account_payable_item_id);
