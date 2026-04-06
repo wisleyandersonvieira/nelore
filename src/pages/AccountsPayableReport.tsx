@@ -58,6 +58,7 @@ const AccountsPayableReport = () => {
   useEffect(() => {
     setSelectedAllocationIds([]);
     setAllocationItems([]);
+    setAllocationSearch("");
     if (allocationType === "none") return;
 
     const fetchAllocationItems = async () => {
