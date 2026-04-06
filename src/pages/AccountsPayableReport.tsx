@@ -1177,6 +1177,84 @@ const AccountsPayableReport = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Tipo de Vínculo</Label>
+                <Select
+                  value={allocationType}
+                  onValueChange={(value) => setAllocationType(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    <SelectItem value="aspiration">Aspiração</SelectItem>
+                    <SelectItem value="pregnancy">Prenhez</SelectItem>
+                    <SelectItem value="animal">Animais</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {allocationType !== "none" && allocationItems.length > 0 && (
+                <div>
+                  <Label>
+                    {allocationType === "aspiration" ? "Aspirações" : allocationType === "pregnancy" ? "Prenhez" : "Animais"}
+                  </Label>
+                  <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between font-normal">
+                        {selectedAllocationIds.length === 0
+                          ? "Selecionar..."
+                          : selectedAllocationIds.length === allocationItems.length
+                          ? "Todos selecionados"
+                          : `${selectedAllocationIds.length} selecionado(s)`}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[320px] p-0" align="start">
+                      <div className="p-2 border-b">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="select-all"
+                            checked={selectedAllocationIds.length === allocationItems.length && allocationItems.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedAllocationIds(allocationItems.map(i => i.id));
+                              } else {
+                                setSelectedAllocationIds([]);
+                              }
+                            }}
+                          />
+                          <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                            Selecionar todos
+                          </label>
+                        </div>
+                      </div>
+                      <ScrollArea className="h-[250px]">
+                        <div className="p-2 space-y-1">
+                          {allocationItems.map((item) => (
+                            <div key={item.id} className="flex items-center space-x-2 py-1">
+                              <Checkbox
+                                id={`alloc-${item.id}`}
+                                checked={selectedAllocationIds.includes(item.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedAllocationIds(prev => [...prev, item.id]);
+                                  } else {
+                                    setSelectedAllocationIds(prev => prev.filter(id => id !== item.id));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`alloc-${item.id}`} className="text-sm cursor-pointer">
+                                {item.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
