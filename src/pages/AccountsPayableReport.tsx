@@ -12,7 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Download, Filter, FileDown, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
@@ -34,6 +37,11 @@ const AccountsPayableReport = () => {
     product_id: "all",
   });
 
+  const [allocationType, setAllocationType] = useState<string>("none");
+  const [allocationItems, setAllocationItems] = useState<Array<{ id: string; name: string; code?: number }>>([]);
+  const [selectedAllocationIds, setSelectedAllocationIds] = useState<string[]>([]);
+  const [allocationPopoverOpen, setAllocationPopoverOpen] = useState(false);
+
   const [accounts, setAccounts] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
@@ -45,6 +53,35 @@ const AccountsPayableReport = () => {
     fetchStores();
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    setSelectedAllocationIds([]);
+    setAllocationItems([]);
+    if (allocationType === "none") return;
+
+    const fetchAllocationItems = async () => {
+      if (allocationType === "aspiration") {
+        const { data } = await supabase
+          .from("aspiration_management")
+          .select("id, name, code")
+          .order("code", { ascending: false });
+        setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "pregnancy") {
+        const { data } = await supabase
+          .from("pregnancy_management")
+          .select("id, name, code")
+          .order("code", { ascending: false });
+        setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "animal") {
+        const { data } = await supabase
+          .from("animals")
+          .select("id, name, code")
+          .order("code", { ascending: false });
+        setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      }
+    };
+    fetchAllocationItems();
+  }, [allocationType]);
 
   const fetchSuppliers = async () => {
     const { data } = await supabase.from("suppliers").select("id, name");
@@ -224,6 +261,41 @@ const AccountsPayableReport = () => {
         accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
       }
 
+      // Filter by allocation (aspiration/pregnancy/animal)
+      if (allocationType !== "none" && selectedAllocationIds.length > 0) {
+        let allocationQuery = supabase
+          .from("accounts_payable_item_allocations")
+          .select("account_payable_item_id");
+
+        if (allocationType === "aspiration") {
+          allocationQuery = allocationQuery.in("aspiration_id", selectedAllocationIds);
+        } else if (allocationType === "pregnancy") {
+          allocationQuery = allocationQuery.in("pregnancy_id", selectedAllocationIds);
+        } else if (allocationType === "animal") {
+          allocationQuery = allocationQuery.in("animal_id", selectedAllocationIds);
+        }
+
+        const { data: allocations } = await allocationQuery;
+
+        if (allocations && allocations.length > 0) {
+          const itemIds = allocations.map(a => a.account_payable_item_id);
+          
+          const { data: items } = await supabase
+            .from("accounts_payable_items")
+            .select("account_payable_id")
+            .in("id", itemIds);
+
+          if (items && items.length > 0) {
+            const allowedAccountIds = new Set(items.map(i => i.account_payable_id));
+            accountsData = accountsData.filter((account: any) => allowedAccountIds.has(account.id));
+          } else {
+            accountsData = [];
+          }
+        } else {
+          accountsData = [];
+        }
+      }
+
       setAccounts(accountsData);
       toast({
         title: "Pesquisa realizada",
@@ -254,6 +326,9 @@ const AccountsPayableReport = () => {
       product_id: "all",
     });
     setAccounts([]);
+    setAllocationType("none");
+    setSelectedAllocationIds([]);
+    setAllocationItems([]);
   };
 
   const getFilterInfo = () => {
@@ -1102,6 +1177,84 @@ const AccountsPayableReport = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Tipo de Vínculo</Label>
+                <Select
+                  value={allocationType}
+                  onValueChange={(value) => setAllocationType(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    <SelectItem value="aspiration">Aspiração</SelectItem>
+                    <SelectItem value="pregnancy">Prenhez</SelectItem>
+                    <SelectItem value="animal">Animais</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {allocationType !== "none" && allocationItems.length > 0 && (
+                <div>
+                  <Label>
+                    {allocationType === "aspiration" ? "Aspirações" : allocationType === "pregnancy" ? "Prenhez" : "Animais"}
+                  </Label>
+                  <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between font-normal">
+                        {selectedAllocationIds.length === 0
+                          ? "Selecionar..."
+                          : selectedAllocationIds.length === allocationItems.length
+                          ? "Todos selecionados"
+                          : `${selectedAllocationIds.length} selecionado(s)`}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[320px] p-0" align="start">
+                      <div className="p-2 border-b">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="select-all"
+                            checked={selectedAllocationIds.length === allocationItems.length && allocationItems.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedAllocationIds(allocationItems.map(i => i.id));
+                              } else {
+                                setSelectedAllocationIds([]);
+                              }
+                            }}
+                          />
+                          <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                            Selecionar todos
+                          </label>
+                        </div>
+                      </div>
+                      <ScrollArea className="h-[250px]">
+                        <div className="p-2 space-y-1">
+                          {allocationItems.map((item) => (
+                            <div key={item.id} className="flex items-center space-x-2 py-1">
+                              <Checkbox
+                                id={`alloc-${item.id}`}
+                                checked={selectedAllocationIds.includes(item.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedAllocationIds(prev => [...prev, item.id]);
+                                  } else {
+                                    setSelectedAllocationIds(prev => prev.filter(id => id !== item.id));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`alloc-${item.id}`} className="text-sm cursor-pointer">
+                                {item.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
