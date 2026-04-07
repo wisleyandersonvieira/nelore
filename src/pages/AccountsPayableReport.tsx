@@ -1022,6 +1022,139 @@ const AccountsPayableReport = () => {
     doc.save("contas-a-pagar-por-subgrupo.pdf");
   };
 
+  const fetchAllocationsForAccounts = async (accountsList: any[]) => {
+    // Collect all item IDs from all accounts
+    const allItemIds: string[] = [];
+    accountsList.forEach((account) => {
+      if (account.accounts_payable_items) {
+        account.accounts_payable_items.forEach((item: any) => {
+          allItemIds.push(item.id);
+        });
+      }
+    });
+
+    if (allItemIds.length === 0) return new Map<string, string[]>();
+
+    // Fetch allocations with linked entity names
+    const { data: allocations } = await supabase
+      .from("accounts_payable_item_allocations")
+      .select(`
+        account_payable_item_id,
+        allocation_type,
+        animal_id,
+        aspiration_id,
+        pregnancy_id,
+        animals:animal_id(name, code),
+        aspiration_management:aspiration_id(name, code),
+        pregnancy_management:pregnancy_id(name, code)
+      `)
+      .in("account_payable_item_id", allItemIds);
+
+    // Build a map: account_payable_id -> list of vínculo labels
+    const itemToAccount = new Map<string, string>();
+    accountsList.forEach((account) => {
+      if (account.accounts_payable_items) {
+        account.accounts_payable_items.forEach((item: any) => {
+          itemToAccount.set(item.id, account.id);
+        });
+      }
+    });
+
+    const accountAllocations = new Map<string, Set<string>>();
+
+    (allocations || []).forEach((alloc: any) => {
+      const accountId = itemToAccount.get(alloc.account_payable_item_id);
+      if (!accountId) return;
+
+      if (!accountAllocations.has(accountId)) {
+        accountAllocations.set(accountId, new Set());
+      }
+
+      let label = "";
+      if (alloc.animal_id && alloc.animals) {
+        label = `Animal: ${(alloc.animals as any).code} - ${(alloc.animals as any).name}`;
+      } else if (alloc.aspiration_id && alloc.aspiration_management) {
+        label = `Aspiração: ${(alloc.aspiration_management as any).code} - ${(alloc.aspiration_management as any).name}`;
+      } else if (alloc.pregnancy_id && alloc.pregnancy_management) {
+        label = `Prenhez: ${(alloc.pregnancy_management as any).code} - ${(alloc.pregnancy_management as any).name}`;
+      }
+
+      if (label) {
+        accountAllocations.get(accountId)!.add(label);
+      }
+    });
+
+    // Convert sets to arrays
+    const result = new Map<string, string[]>();
+    accountAllocations.forEach((labels, accountId) => {
+      result.set(accountId, Array.from(labels));
+    });
+    return result;
+  };
+
+  const exportToPDFResumidoComVinculo = async () => {
+    const allocMap = await fetchAllocationsForAccounts(accounts);
+
+    const doc = new jsPDF("landscape");
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A PAGAR", 148, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas ainda não pagas - Resumido com Vínculo", 148, 28, { align: "center" });
+
+    const filterInfo = getFilterInfo();
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    const tableData = accounts.map((account) => {
+      const vinculos = allocMap.get(account.id) || [];
+      return [
+        account.description,
+        account.employees?.name || account.suppliers?.name || "N/A",
+        account.stores?.name || "N/A",
+        new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
+        account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+        account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
+        vinculos.join("\n") || "-",
+      ];
+    });
+
+    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+
+    tableData.push([
+      { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } } as any,
+      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } } as any,
+      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } } as any,
+      { content: "", styles: {} } as any,
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas", "Vínculo"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      margin: { left: 10, right: 10 },
+      columnStyles: { 6: { cellWidth: 60 } },
+    });
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-pagar-resumido-com-vinculo.pdf");
+  };
+
   const exportToExcel = () => {
     const excelData = accounts.map((account) => ({
       Título: account.description,
