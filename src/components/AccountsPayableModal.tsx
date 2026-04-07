@@ -12,6 +12,7 @@ import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSig
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -224,6 +225,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [filterCreatedAtFrom, setFilterCreatedAtFrom] = useState("");
   const [filterCreatedAtTo, setFilterCreatedAtTo] = useState("");
   const [showFilteredData, setShowFilteredData] = useState(false);
+
+  // Allocation filter states
+  const [filterAllocationType, setFilterAllocationType] = useState<string>("all");
+  const [filterAllocationIds, setFilterAllocationIds] = useState<string[]>([]);
+  const [filterAllocationSearch, setFilterAllocationSearch] = useState("");
 
   // Payment tab filters
   const [paymentFilterDateFrom, setPaymentFilterDateFrom] = useState("");
@@ -752,6 +758,48 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         idFilters.push(new Set(allDueDateAccountIds));
       }
 
+      // Filtro por vínculo (alocação)
+      if (filterAllocationType && filterAllocationType !== "all" && filterAllocationIds.length > 0) {
+        hasIdFilter = true;
+        
+        // Map allocation type to the correct column
+        const allocationColumn = filterAllocationType === "animal" ? "animal_id" 
+          : filterAllocationType === "aspiration" ? "aspiration_id"
+          : filterAllocationType === "pregnancy" ? "pregnancy_id"
+          : null;
+        
+        if (allocationColumn) {
+          const { data: allocData } = await supabase
+            .from("accounts_payable_item_allocations")
+            .select("account_payable_item_id")
+            .in(allocationColumn, filterAllocationIds);
+          
+          if (!allocData || allocData.length === 0) {
+            setAccountsPayable([]);
+            setViewCurrentPage(1);
+            setShowFilteredData(true);
+            return;
+          }
+          
+          const itemIds = [...new Set(allocData.map(a => a.account_payable_item_id))];
+          
+          const { data: itemsData } = await supabase
+            .from("accounts_payable_items")
+            .select("account_payable_id")
+            .in("id", itemIds);
+          
+          const accountIds = [...new Set(itemsData?.map(i => i.account_payable_id) || [])];
+          
+          if (accountIds.length === 0) {
+            setAccountsPayable([]);
+            setViewCurrentPage(1);
+            setShowFilteredData(true);
+            return;
+          }
+          idFilters.push(new Set(accountIds));
+        }
+      }
+
       // Calculate intersection of all ID filters
       let finalIds: string[] | null = null;
       if (hasIdFilter && idFilters.length > 0) {
@@ -854,6 +902,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setFilterStatus("all");
     setFilterCreatedAtFrom("");
     setFilterCreatedAtTo("");
+    setFilterAllocationType("all");
+    setFilterAllocationIds([]);
+    setFilterAllocationSearch("");
     fetchLatestAccounts(); // Voltar para as 5 últimas contas
   };
 
@@ -4176,6 +4227,112 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         onChange={(e) => setFilterCreatedAtTo(e.target.value)}
                       />
                     </div>
+                    {/* Allocation Type Filter */}
+                    <div>
+                      <Label>Tipo de Vínculo</Label>
+                      <Select 
+                        value={filterAllocationType} 
+                        onValueChange={(val) => {
+                          setFilterAllocationType(val);
+                          setFilterAllocationIds([]);
+                          setFilterAllocationSearch("");
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="animal">Animais</SelectItem>
+                          <SelectItem value="pregnancy">Prenhez</SelectItem>
+                          <SelectItem value="aspiration">Aspiração</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Allocation Item Selection */}
+                    {filterAllocationType && filterAllocationType !== "all" && (
+                      <div>
+                        <Label>
+                          {filterAllocationType === "animal" ? "Animais" : filterAllocationType === "pregnancy" ? "Prenhez" : "Aspirações"}
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between font-normal">
+                              {filterAllocationIds.length === 0 
+                                ? "Selecione..." 
+                                : `${filterAllocationIds.length} selecionado(s)`}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[350px] p-3 max-h-[350px] overflow-hidden flex flex-col">
+                            <Input
+                              placeholder="Buscar por nome..."
+                              value={filterAllocationSearch}
+                              onChange={(e) => setFilterAllocationSearch(e.target.value)}
+                              className="mb-2"
+                            />
+                            {(() => {
+                              const items = filterAllocationType === "animal" 
+                                ? allocationAnimals.map(a => ({ id: a.id, name: `${a.code} - ${a.name}` }))
+                                : filterAllocationType === "pregnancy"
+                                ? allocationPregnancies.map(p => ({ id: p.id, name: p.name }))
+                                : allocationAspirations.map(a => ({ id: a.id, name: `${a.code} - ${a.name}` }));
+                              
+                              const filtered = items.filter(item => 
+                                item.name.toLowerCase().includes(filterAllocationSearch.toLowerCase())
+                              );
+
+                              const allFilteredSelected = filtered.length > 0 && filtered.every(item => filterAllocationIds.includes(item.id));
+
+                              return (
+                                <div className="overflow-y-auto max-h-[250px] space-y-1">
+                                  <div className="flex items-center space-x-2 py-1 border-b mb-1">
+                                    <Checkbox
+                                      id="filter-alloc-select-all"
+                                      checked={allFilteredSelected}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          const newIds = [...new Set([...filterAllocationIds, ...filtered.map(i => i.id)])];
+                                          setFilterAllocationIds(newIds);
+                                        } else {
+                                          const filteredIdSet = new Set(filtered.map(i => i.id));
+                                          setFilterAllocationIds(filterAllocationIds.filter(id => !filteredIdSet.has(id)));
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor="filter-alloc-select-all" className="text-sm font-medium cursor-pointer">
+                                      Selecionar todos
+                                    </label>
+                                  </div>
+                                  {filtered.map((item) => (
+                                    <div key={item.id} className="flex items-center space-x-2 py-1">
+                                      <Checkbox
+                                        id={`filter-alloc-${item.id}`}
+                                        checked={filterAllocationIds.includes(item.id)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setFilterAllocationIds([...filterAllocationIds, item.id]);
+                                          } else {
+                                            setFilterAllocationIds(filterAllocationIds.filter(id => id !== item.id));
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`filter-alloc-${item.id}`} className="text-sm cursor-pointer">
+                                        {item.name}
+                                      </label>
+                                    </div>
+                                  ))}
+                                  {filtered.length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-2">Nenhum item encontrado</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button onClick={fetchFilteredAccountsPayable}>
