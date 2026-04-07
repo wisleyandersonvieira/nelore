@@ -4215,6 +4215,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <SelectItem value="pending">Pendente</SelectItem>
                           <SelectItem value="partial">Parcial</SelectItem>
                           <SelectItem value="paid">Pago</SelectItem>
+                          <SelectItem value="pagamento_suspenso">Suspenso</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
