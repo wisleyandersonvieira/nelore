@@ -1438,6 +1438,9 @@ const AccountsPayableReport = () => {
                       <DropdownMenuItem onClick={exportToPDFResumidoPorDia}>
                         Relatório Resumido por Dia
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFResumidoComVinculo}>
+                        Relatório Resumido com Vínculo
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Button onClick={exportToExcel} variant="outline" size="sm">
