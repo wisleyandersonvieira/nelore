@@ -217,7 +217,63 @@ const PaidAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
+      const toEndOfDayIso = (date: string) => `${date}T23:59:59.999`;
       // Using shared fetchAllPaginated utility to avoid Supabase 1000-row limit
+
+      let accountIdsByProduct: string[] | null = null;
+      if (filters.product_id && filters.product_id !== "all") {
+        const { data: productItems } = await supabase
+          .from("accounts_payable_items")
+          .select("account_payable_id")
+          .eq("product_id", filters.product_id);
+        const uniqueIds = Array.from(new Set((productItems || []).map((item) => item.account_payable_id)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          toast({
+            title: "Pesquisa realizada",
+            description: "0 conta(s) encontrada(s)",
+          });
+          return;
+        }
+        accountIdsByProduct = uniqueIds;
+      }
+
+      let accountIdsByPaymentAccount: string[] | null = null;
+      if (filters.account_id && filters.account_id !== "all") {
+        const { data: transactions } = await supabase
+          .from("financial_transactions")
+          .select("reference_id")
+          .eq("reference_type", "accounts_payable")
+          .eq("account_id", filters.account_id);
+
+        const uniqueIds = Array.from(new Set((transactions || []).map((tx) => tx.reference_id).filter(Boolean)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          toast({
+            title: "Pesquisa realizada",
+            description: "0 conta(s) encontrada(s)",
+          });
+          return;
+        }
+        accountIdsByPaymentAccount = uniqueIds;
+      }
+
+      let accountIdsToFilter: string[] | null = null;
+      if (accountIdsByProduct && accountIdsByPaymentAccount) {
+        const accountSet = new Set(accountIdsByPaymentAccount);
+        accountIdsToFilter = accountIdsByProduct.filter((id) => accountSet.has(id));
+      } else {
+        accountIdsToFilter = accountIdsByProduct || accountIdsByPaymentAccount;
+      }
+
+      if (accountIdsToFilter && accountIdsToFilter.length === 0) {
+        setAccounts([]);
+        toast({
+          title: "Pesquisa realizada",
+          description: "0 conta(s) encontrada(s)",
+        });
+        return;
+      }
 
       // Fetch paid accounts with automatic pagination
       const buildAccountsQuery = () => {
@@ -249,10 +305,35 @@ const PaidAccountsReport = () => {
         if (filters.employee_id && filters.employee_id !== "all") {
           q = q.eq('employee_id', filters.employee_id);
         }
+        if (filters.competencia_start) {
+          q = q.gte("data_competencia", filters.competencia_start);
+        }
+        if (filters.competencia_end) {
+          q = q.lte("data_competencia", filters.competencia_end);
+        }
+        if (filters.created_start) {
+          q = q.gte("created_at", filters.created_start);
+        }
+        if (filters.created_end) {
+          q = q.lte("created_at", toEndOfDayIso(filters.created_end));
+        }
+        if (accountIdsToFilter && accountIdsToFilter.length > 0) {
+          q = q.in("id", accountIdsToFilter);
+        }
         return q;
       };
 
       const allAccounts = await fetchAllPaginated(buildAccountsQuery);
+
+      const accountIds = Array.from(new Set((allAccounts || []).map((account: any) => account.id)));
+      if (accountIds.length === 0) {
+        setAccounts([]);
+        toast({
+          title: "Pesquisa realizada",
+          description: "0 conta(s) encontrada(s)",
+        });
+        return;
+      }
 
       // Fetch payments data with automatic pagination
       const paymentsData = await fetchAllPaginated(() =>
@@ -263,6 +344,7 @@ const PaidAccountsReport = () => {
             interest_product:interest_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
             discount_product:discount_product_id(id, name, subgroup_id, account_groups:subgroup_id(id, name))
           `)
+          .in("account_payable_id", accountIds)
       );
 
       // Create a map of payments by installment_id
@@ -271,30 +353,9 @@ const PaidAccountsReport = () => {
         paymentsByInstallmentId[payment.installment_id] = payment;
       });
 
-      // If filtering by account, fetch the financial transactions to get the payment account
-      let transactionsByPayable: { [key: string]: string } = {};
-      if (filters.account_id && filters.account_id !== "all") {
-        const { data: transactions } = await supabase
-          .from("financial_transactions")
-          .select("reference_id, account_id")
-          .eq("reference_type", "accounts_payable")
-          .eq("account_id", filters.account_id);
-        
-        if (transactions) {
-          transactions.forEach((t: any) => {
-            transactionsByPayable[t.reference_id] = t.account_id;
-          });
-        }
-      }
-
       // Expand installments into individual rows
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-
-        // If filtering by account, check if this account was paid with the selected account
-        if (filters.account_id && filters.account_id !== "all") {
-          if (!transactionsByPayable[account.id]) return;
-        }
         
         if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
           // Has installments - create one row per paid installment
@@ -314,7 +375,7 @@ const PaidAccountsReport = () => {
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_payable_installments.length,
                 installment_id: installment.id,
-                payment_account_id: transactionsByPayable[account.id] || null,
+                payment_account_id: filters.account_id !== "all" ? filters.account_id : null,
                 // Add interest/discount data from payments table
                 interest_amount: interestAmount,
                 discount_amount: discountAmount,
@@ -330,7 +391,7 @@ const PaidAccountsReport = () => {
             installment_number: 1,
             total_installments: 1,
             paid_amount: account.amount, // No interest/discount for direct payments
-            payment_account_id: transactionsByPayable[account.id] || null,
+            payment_account_id: filters.account_id !== "all" ? filters.account_id : null,
             interest_amount: 0,
             discount_amount: 0,
             interest_product: null,
@@ -354,34 +415,7 @@ const PaidAccountsReport = () => {
         });
       }
 
-      if (filters.competencia_start || filters.competencia_end) {
-        accountsData = accountsData.filter((account: any) => {
-          if (!account.data_competencia) return false;
-          // Parse dates without timezone conversion to avoid date shifting
-          const competenciaDate = account.data_competencia; // Keep as string YYYY-MM-DD
-          const startDate = filters.competencia_start;
-          const endDate = filters.competencia_end;
-          
-          if (startDate && competenciaDate < startDate) return false;
-          if (endDate && competenciaDate > endDate) return false;
-          return true;
-        });
-      }
-
-      if (filters.created_start || filters.created_end) {
-        accountsData = accountsData.filter((account: any) => {
-          if (!account.created_at) return false;
-          const createdDate = new Date(account.created_at);
-          const startDate = filters.created_start ? new Date(filters.created_start + "T00:00:00") : null;
-          const endDate = filters.created_end ? new Date(filters.created_end + "T23:59:59") : null;
-          
-          if (startDate && createdDate < startDate) return false;
-          if (endDate && createdDate > endDate) return false;
-          return true;
-        });
-      }
-
-      // supplier, store, and employee filters are now applied server-side
+      // supplier, store, employee, competence, created, product and account filters are now applied server-side
 
       // Filter by product - show accounts that have at least one item with the selected product
       if (filters.product_id && filters.product_id !== "all") {

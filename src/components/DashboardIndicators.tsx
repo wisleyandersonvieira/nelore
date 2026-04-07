@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,54 +16,39 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     queryKey: ['dashboard-store-ids', userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!userId) return [];
       
       // Get user's matrix_id for additional filtering
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id, matrix_id")
-        .eq("id", user.id)
-        .single();
+      const [{ data: profile }, { data: userStores }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("store_id, matrix_id")
+          .eq("id", userId)
+          .single(),
+        supabase
+          .from("user_stores")
+          .select("store_id")
+          .eq("user_id", userId),
+      ]);
       
       const matrixId = profile?.matrix_id;
-      
-      // Get stores from user_stores
-      const { data: userStores } = await supabase
-        .from("user_stores")
-        .select("store_id")
-        .eq("user_id", user.id);
-      
-      const ids = new Set<string>();
-      
-      // Add profile store_id only if it belongs to the user's matrix
-      if (profile?.store_id && matrixId) {
-        const { data: profileStore } = await supabase
+
+      const candidateStoreIds = new Set<string>();
+      if (profile?.store_id) candidateStoreIds.add(profile.store_id);
+      userStores?.forEach((us) => candidateStoreIds.add(us.store_id));
+
+      if (candidateStoreIds.size === 0) return [];
+
+      if (matrixId) {
+        const { data: validStores } = await supabase
           .from("stores")
           .select("id")
-          .eq("id", profile.store_id)
           .eq("matrix_id", matrixId)
-          .maybeSingle();
-        if (profileStore) ids.add(profileStore.id);
+          .in("id", Array.from(candidateStoreIds));
+        return (validStores || []).map((store) => store.id);
       }
-      
-      // Add user_stores entries, filtering by matrix
-      if (userStores && matrixId) {
-        // Verify each store belongs to user's matrix
-        const storeIdsFromUser = userStores.map(us => us.store_id);
-        if (storeIdsFromUser.length > 0) {
-          const { data: validStores } = await supabase
-            .from("stores")
-            .select("id")
-            .in("id", storeIdsFromUser)
-            .eq("matrix_id", matrixId);
-          validStores?.forEach(s => ids.add(s.id));
-        }
-      } else if (userStores) {
-        userStores.forEach(us => ids.add(us.store_id));
-      }
-      
-      return Array.from(ids);
+
+      return Array.from(candidateStoreIds);
     },
     staleTime: 10 * 60 * 1000,
   });
@@ -142,8 +126,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     queryFn: async () => {
       if (storeIds.length === 0) return { active: 0, unregistered: 0 };
       const [activeResult, unregisteredResult] = await Promise.all([
-        supabase.from("employees").select("id", { count: "exact" }).eq("is_active", true).is("dismissal_date", null).in("store_id", storeIds),
-        supabase.from("employees").select("id", { count: "exact" }).eq("is_active", true).eq("is_registered", false).is("dismissal_date", null).in("store_id", storeIds)
+        supabase.from("employees").select("id", { count: "exact", head: true }).eq("is_active", true).is("dismissal_date", null).in("store_id", storeIds),
+        supabase.from("employees").select("id", { count: "exact", head: true }).eq("is_active", true).eq("is_registered", false).is("dismissal_date", null).in("store_id", storeIds)
       ]);
       return { active: activeResult.count || 0, unregistered: unregisteredResult.count || 0 };
     },
@@ -227,18 +211,24 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         .in("store_id", storeIds);
       if (!categories || categories.length === 0) return [];
 
-      // Count active animals per category
-      const results: { name: string; count: number }[] = [];
-      for (const cat of categories) {
-        const { count } = await supabase
-          .from("animals")
-          .select("id", { count: "exact", head: true })
-          .eq("is_active", true)
-          .eq("category_id", cat.id)
-          .in("store_id", storeIds);
-        results.push({ name: cat.name, count: count || 0 });
-      }
-      return results;
+      const categoryIds = categories.map((cat) => cat.id);
+      const { data: animals } = await supabase
+        .from("animals")
+        .select("category_id")
+        .eq("is_active", true)
+        .in("store_id", storeIds)
+        .in("category_id", categoryIds);
+
+      const countsByCategory = new Map<string, number>();
+      (animals || []).forEach((animal) => {
+        if (!animal.category_id) return;
+        countsByCategory.set(animal.category_id, (countsByCategory.get(animal.category_id) || 0) + 1);
+      });
+
+      return categories.map((cat) => ({
+        name: cat.name,
+        count: countsByCategory.get(cat.id) || 0,
+      }));
     },
     enabled: storeIds.length > 0,
     staleTime: 5 * 60 * 1000,

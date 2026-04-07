@@ -92,37 +92,97 @@ const ReceivedAccountsReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch accounts with creditors, stores, installments and items with products including subgroups
-      // Using paginated fetch to avoid Supabase 1000-row limit
-      const allAccounts = await fetchAllPaginated(() =>
-        supabase
+      const toEndOfDayIso = (date: string) => `${date}T23:59:59.999`;
+
+      let accountIdsByProduct: string[] | null = null;
+      if (filters.product_id && filters.product_id !== "all") {
+        const { data: productItems } = await supabase
+          .from("accounts_receivable_items")
+          .select("account_receivable_id")
+          .eq("product_id", filters.product_id);
+
+        const uniqueIds = Array.from(new Set((productItems || []).map((item) => item.account_receivable_id)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          setAllocationNames({});
+          toast({
+            title: "Pesquisa realizada",
+            description: "0 conta(s) encontrada(s)",
+          });
+          return;
+        }
+        accountIdsByProduct = uniqueIds;
+      }
+
+      // Fetch accounts with server-side filters whenever possible
+      const allAccounts = await fetchAllPaginated(() => {
+        let query = supabase
           .from("accounts_receivable")
           .select(`
-            *,
-            suppliers!accounts_receivable_creditor_id_fkey(id, name),
-            stores(id, name),
-            accounts_receivable_installments(*),
-            accounts_receivable_items(
-              id,
-              product_id,
-              quantity,
-              unit_price,
-              total_price,
-              products(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
-              accounts_receivable_item_allocations(
-                allocation_type,
-                animal_id,
-                aspiration_id,
-                embryo_transfer_id,
-                pregnancy_id
+              *,
+              suppliers!accounts_receivable_creditor_id_fkey(id, name),
+              stores(id, name),
+              accounts_receivable_installments(*),
+              accounts_receivable_items(
+                id,
+                product_id,
+                quantity,
+                unit_price,
+                total_price,
+                products(id, name, subgroup_id, account_groups:subgroup_id(id, name)),
+                accounts_receivable_item_allocations(
+                  allocation_type,
+                  animal_id,
+                  aspiration_id,
+                  embryo_transfer_id,
+                  pregnancy_id
+                )
               )
-            )
-          `)
-      );
+            `)
+          .in("status", ["paid", "partial"]);
+
+        if (filters.creditor_id && filters.creditor_id !== "all") {
+          query = query.eq("creditor_id", filters.creditor_id);
+        }
+        if (filters.store_id && filters.store_id !== "all") {
+          query = query.eq("store_id", filters.store_id);
+        }
+        if (filters.competencia_start) {
+          query = query.gte("issue_date", filters.competencia_start);
+        }
+        if (filters.competencia_end) {
+          query = query.lte("issue_date", filters.competencia_end);
+        }
+        if (filters.created_start) {
+          query = query.gte("created_at", filters.created_start);
+        }
+        if (filters.created_end) {
+          query = query.lte("created_at", toEndOfDayIso(filters.created_end));
+        }
+        if (accountIdsByProduct && accountIdsByProduct.length > 0) {
+          query = query.in("id", accountIdsByProduct);
+        }
+
+        return query;
+      });
+
+      const accountIds = Array.from(new Set((allAccounts || []).map((account: any) => account.id)));
+      if (accountIds.length === 0) {
+        setAccounts([]);
+        setAllocationNames({});
+        toast({
+          title: "Pesquisa realizada",
+          description: "0 conta(s) encontrada(s)",
+        });
+        return;
+      }
 
       // Fetch payments data with pagination
       const paymentsData = await fetchAllPaginated(() =>
-        supabase.from("accounts_receivable_payments").select(`*`)
+        supabase
+          .from("accounts_receivable_payments")
+          .select(`*`)
+          .in("account_receivable_id", accountIds)
       );
 
       // Create a map of payments by installment_id
@@ -134,9 +194,6 @@ const ReceivedAccountsReport = () => {
       // Filter for paid or partial accounts and expand installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        // Include both 'paid' and 'partial' status - we want to show paid installments
-        if (account.status !== 'paid' && account.status !== 'partial') return;
-        
         if (account.accounts_receivable_installments && account.accounts_receivable_installments.length > 0) {
           // Has installments - create one row per paid installment
           account.accounts_receivable_installments.forEach((installment: any) => {
@@ -187,39 +244,7 @@ const ReceivedAccountsReport = () => {
         });
       }
 
-      if (filters.competencia_start || filters.competencia_end) {
-        accountsData = accountsData.filter((account: any) => {
-          if (!account.issue_date) return false;
-          const competenciaDate = new Date(account.issue_date);
-          const startDate = filters.competencia_start ? new Date(filters.competencia_start) : null;
-          const endDate = filters.competencia_end ? new Date(filters.competencia_end) : null;
-          
-          if (startDate && competenciaDate < startDate) return false;
-          if (endDate && competenciaDate > endDate) return false;
-          return true;
-        });
-      }
-
-      if (filters.created_start || filters.created_end) {
-        accountsData = accountsData.filter((account: any) => {
-          if (!account.created_at) return false;
-          const createdDate = new Date(account.created_at);
-          const startDate = filters.created_start ? new Date(filters.created_start + "T00:00:00") : null;
-          const endDate = filters.created_end ? new Date(filters.created_end + "T23:59:59") : null;
-          
-          if (startDate && createdDate < startDate) return false;
-          if (endDate && createdDate > endDate) return false;
-          return true;
-        });
-      }
-
-      if (filters.creditor_id && filters.creditor_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.creditor_id === filters.creditor_id);
-      }
-
-      if (filters.store_id && filters.store_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
-      }
+      // creditor/store/competence/created/product filters are now applied before or during query
 
       // Fetch allocation names (animals, aspirations, pregnancies, embryo transfers)
       const animalIds = new Set<string>();

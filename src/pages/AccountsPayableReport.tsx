@@ -132,31 +132,136 @@ const AccountsPayableReport = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Fetch accounts with suppliers, employees, stores, installments and items with products
-      // Using paginated fetch to avoid Supabase 1000-row limit
-      const allAccounts = await fetchAllPaginated(() =>
-        supabase.from("accounts_payable").select(`
-          *,
-          suppliers(id, name),
-          employees(id, name),
-          stores(id, name),
-          accounts_payable_installments(*),
-          accounts_payable_payments(
-            id,
-            installment_id,
-            interest_amount,
-            discount_amount
-          ),
-          accounts_payable_items(
-            id,
-            product_id,
-            quantity,
-            unit_price,
-            total_price,
-            products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
-          )
-        `)
-      );
+      const toEndOfDayIso = (date: string) => `${date}T23:59:59.999`;
+
+      let accountIdsByProduct: string[] | null = null;
+      if (filters.product_id && filters.product_id !== "all") {
+        const { data: productItems } = await supabase
+          .from("accounts_payable_items")
+          .select("account_payable_id")
+          .eq("product_id", filters.product_id);
+
+        const uniqueIds = Array.from(new Set((productItems || []).map((item) => item.account_payable_id)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          toast({
+            title: "Pesquisa realizada",
+            description: "0 conta(s) encontrada(s)",
+          });
+          return;
+        }
+        accountIdsByProduct = uniqueIds;
+      }
+
+      let accountIdsByAllocation: string[] | null = null;
+      if (allocationType !== "none" && selectedAllocationIds.length > 0) {
+        let allocationQuery = supabase
+          .from("accounts_payable_item_allocations")
+          .select("account_payable_item_id");
+
+        if (allocationType === "aspiration") {
+          allocationQuery = allocationQuery.in("aspiration_id", selectedAllocationIds);
+        } else if (allocationType === "pregnancy") {
+          allocationQuery = allocationQuery.in("pregnancy_id", selectedAllocationIds);
+        } else if (allocationType === "animal") {
+          allocationQuery = allocationQuery.in("animal_id", selectedAllocationIds);
+        }
+
+        const { data: allocations } = await allocationQuery;
+        const itemIds = allocations?.map((allocation) => allocation.account_payable_item_id) || [];
+
+        if (itemIds.length === 0) {
+          setAccounts([]);
+          toast({
+            title: "Pesquisa realizada",
+            description: "0 conta(s) encontrada(s)",
+          });
+          return;
+        }
+
+        const { data: items } = await supabase
+          .from("accounts_payable_items")
+          .select("account_payable_id")
+          .in("id", itemIds);
+
+        const uniqueIds = Array.from(new Set((items || []).map((item) => item.account_payable_id)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          toast({
+            title: "Pesquisa realizada",
+            description: "0 conta(s) encontrada(s)",
+          });
+          return;
+        }
+        accountIdsByAllocation = uniqueIds;
+      }
+
+      let accountIdsToFilter: string[] | null = null;
+      if (accountIdsByProduct && accountIdsByAllocation) {
+        const allocationSet = new Set(accountIdsByAllocation);
+        accountIdsToFilter = accountIdsByProduct.filter((id) => allocationSet.has(id));
+      } else {
+        accountIdsToFilter = accountIdsByProduct || accountIdsByAllocation;
+      }
+
+      if (accountIdsToFilter && accountIdsToFilter.length === 0) {
+        setAccounts([]);
+        toast({
+          title: "Pesquisa realizada",
+          description: "0 conta(s) encontrada(s)",
+        });
+        return;
+      }
+
+      // Fetch accounts with server-side filters whenever possible
+      const allAccounts = await fetchAllPaginated(() => {
+        let query = supabase.from("accounts_payable").select(`
+            *,
+            suppliers(id, name),
+            employees(id, name),
+            stores(id, name),
+            accounts_payable_installments(*),
+            accounts_payable_payments(
+              id,
+              installment_id,
+              interest_amount,
+              discount_amount
+            ),
+            accounts_payable_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              total_price,
+              products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+            )
+          `)
+          .in("status", ["pending", "partial"]);
+
+        if (filters.supplier_id && filters.supplier_id !== "all") {
+          query = query.eq("supplier_id", filters.supplier_id);
+        }
+        if (filters.store_id && filters.store_id !== "all") {
+          query = query.eq("store_id", filters.store_id);
+        }
+        if (filters.competencia_start) {
+          query = query.gte("data_competencia", filters.competencia_start);
+        }
+        if (filters.competencia_end) {
+          query = query.lte("data_competencia", filters.competencia_end);
+        }
+        if (filters.created_start) {
+          query = query.gte("created_at", filters.created_start);
+        }
+        if (filters.created_end) {
+          query = query.lte("created_at", toEndOfDayIso(filters.created_end));
+        }
+        if (accountIdsToFilter && accountIdsToFilter.length > 0) {
+          query = query.in("id", accountIdsToFilter);
+        }
+
+        return query;
+      });
 
       // Filter for unpaid accounts only and expand installments
       let accountsData: any[] = [];
@@ -233,72 +338,7 @@ const AccountsPayableReport = () => {
         });
       }
 
-      if (filters.competencia_start || filters.competencia_end) {
-        accountsData = accountsData.filter((account: any) => {
-          if (!account.data_competencia) return false;
-          const competenciaDate = account.data_competencia; // String no formato YYYY-MM-DD
-
-          if (filters.competencia_start && competenciaDate < filters.competencia_start) return false;
-          if (filters.competencia_end && competenciaDate > filters.competencia_end) return false;
-          return true;
-        });
-      }
-
-      if (filters.created_start || filters.created_end) {
-        accountsData = accountsData.filter((account: any) => {
-          if (!account.created_at) return false;
-          const createdDate = new Date(account.created_at);
-          const startDate = filters.created_start ? new Date(filters.created_start + "T00:00:00") : null;
-          const endDate = filters.created_end ? new Date(filters.created_end + "T23:59:59") : null;
-
-          if (startDate && createdDate < startDate) return false;
-          if (endDate && createdDate > endDate) return false;
-          return true;
-        });
-      }
-
-      if (filters.supplier_id && filters.supplier_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.supplier_id === filters.supplier_id);
-      }
-
-      if (filters.store_id && filters.store_id !== "all") {
-        accountsData = accountsData.filter((account: any) => account.store_id === filters.store_id);
-      }
-
-      // Filter by allocation (aspiration/pregnancy/animal)
-      if (allocationType !== "none" && selectedAllocationIds.length > 0) {
-        let allocationQuery = supabase
-          .from("accounts_payable_item_allocations")
-          .select("account_payable_item_id");
-
-        if (allocationType === "aspiration") {
-          allocationQuery = allocationQuery.in("aspiration_id", selectedAllocationIds);
-        } else if (allocationType === "pregnancy") {
-          allocationQuery = allocationQuery.in("pregnancy_id", selectedAllocationIds);
-        } else if (allocationType === "animal") {
-          allocationQuery = allocationQuery.in("animal_id", selectedAllocationIds);
-        }
-
-        const { data: allocations } = await allocationQuery;
-
-        if (allocations && allocations.length > 0) {
-          const itemIds = allocations.map(a => a.account_payable_item_id);
-          
-          const { data: items } = await supabase
-            .from("accounts_payable_items")
-            .select("account_payable_id")
-            .in("id", itemIds);
-
-          if (items && items.length > 0) {
-            const allowedAccountIds = new Set(items.map(i => i.account_payable_id));
-            accountsData = accountsData.filter((account: any) => allowedAccountIds.has(account.id));
-          } else {
-            accountsData = [];
-          }
-        } else {
-          accountsData = [];
-        }
-      }
+      // supplier/store/competence/created/product/allocation filters are now applied before or during query
 
       setAccounts(accountsData);
       toast({
