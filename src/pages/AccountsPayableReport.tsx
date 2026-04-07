@@ -161,12 +161,12 @@ const AccountsPayableReport = () => {
       // Filter for unpaid accounts only and expand installments
       let accountsData: any[] = [];
       (allAccounts || []).forEach((account: any) => {
-        if (account.status === "paid") return;
+        if (account.status === "paid" || account.status === "pagamento_suspenso") return;
 
         if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
           // Has installments - create one row per unpaid installment
           account.accounts_payable_installments.forEach((installment: any) => {
-            if (!installment.payment_date) {
+            if (!installment.payment_date && installment.status !== 'pagamento_suspenso') {
               // Only unpaid installments
               // Check if there are any reversed payments with interest/discount for this installment
               const installmentPayments = (account.accounts_payable_payments || []).filter(
