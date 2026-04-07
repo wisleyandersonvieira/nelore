@@ -381,7 +381,7 @@ const AccountsPayableReport = () => {
     });
   }, [accounts, sortColumn, sortDirection]);
 
-
+  const getFilterInfo = () => {
     let filterInfo = [];
     if (filters.due_start || filters.due_end) {
       const start = filters.due_start ? new Date(filters.due_start).toLocaleDateString("pt-BR") : "Início";
