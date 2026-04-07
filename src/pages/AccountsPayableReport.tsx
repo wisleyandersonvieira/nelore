@@ -419,7 +419,7 @@ const AccountsPayableReport = () => {
     }
 
     // Table data
-    const tableData = accounts.map((account) => [
+    const tableData = sortedAccounts.map((account) => [
       account.description,
       account.employees?.name || account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
@@ -429,13 +429,13 @@ const AccountsPayableReport = () => {
     ]);
 
     // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
 
     // Add total row
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
+      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
     ]);
 
     autoTable(doc, {
@@ -491,7 +491,7 @@ const AccountsPayableReport = () => {
     // Group accounts by month/year
     const accountsByMonth: { [key: string]: { monthLabel: string; accounts: any[]; sortKey: string } } = {};
 
-    accounts.forEach((account) => {
+    sortedAccounts.forEach((account) => {
       const dueDate = new Date(account.due_date + "T00:00:00");
       const year = dueDate.getFullYear();
       const month = dueDate.getMonth();
@@ -544,7 +544,7 @@ const AccountsPayableReport = () => {
 
       // Items for this month
       let monthTotal = 0;
-      monthGroup.accounts.forEach((account) => {
+      monthGroup.sortedAccounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
@@ -568,13 +568,13 @@ const AccountsPayableReport = () => {
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
         {
-          content: `${monthGroup.accounts.length} parcela(s)`,
+          content: `${monthGroup.sortedAccounts.length} parcela(s)`,
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
       ]);
 
       grandTotal += monthTotal;
-      totalInstallments += monthGroup.accounts.length;
+      totalInstallments += monthGroup.sortedAccounts.length;
     });
 
     // Grand total row
@@ -644,7 +644,7 @@ const AccountsPayableReport = () => {
     // Group accounts by day (YYYY-MM-DD)
     const accountsByDay: { [key: string]: { dayLabel: string; accounts: any[]; sortKey: string } } = {};
 
-    accounts.forEach((account) => {
+    sortedAccounts.forEach((account) => {
       const dueDate = new Date(account.due_date + "T00:00:00");
       const key = account.due_date; // Already in YYYY-MM-DD format
       const dayLabel = dueDate.toLocaleDateString("pt-BR", {
@@ -685,7 +685,7 @@ const AccountsPayableReport = () => {
 
       // Items for this day
       let dayTotal = 0;
-      dayGroup.accounts.forEach((account) => {
+      dayGroup.sortedAccounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
@@ -709,13 +709,13 @@ const AccountsPayableReport = () => {
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
         {
-          content: `${dayGroup.accounts.length} parcela(s)`,
+          content: `${dayGroup.sortedAccounts.length} parcela(s)`,
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
       ]);
 
       grandTotal += dayTotal;
-      totalInstallments += dayGroup.accounts.length;
+      totalInstallments += dayGroup.sortedAccounts.length;
     });
 
     // Grand total row
@@ -781,7 +781,7 @@ const AccountsPayableReport = () => {
     // Build table data with product details
     const tableData: any[] = [];
 
-    accounts.forEach((account) => {
+    sortedAccounts.forEach((account) => {
       // Main account row
       tableData.push([
         { content: account.description, styles: { fontStyle: "bold" } },
@@ -826,13 +826,13 @@ const AccountsPayableReport = () => {
     });
 
     // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
 
     // Add total row
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
+      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
     ]);
 
     autoTable(doc, {
@@ -885,7 +885,7 @@ const AccountsPayableReport = () => {
     // Group accounts by subgroup
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
 
-    accounts.forEach((account: any) => {
+    sortedAccounts.forEach((account: any) => {
       // Calculate the installment proportion for parcelado accounts
       // For installment accounts: proportion = installment_amount / total_title_amount
       // Interest and discounts are applied fully to each installment
@@ -1141,7 +1141,7 @@ const AccountsPayableReport = () => {
   };
 
   const exportToPDFResumidoComVinculo = async () => {
-    const allocMap = await fetchAllocationsForAccounts(accounts);
+    const allocMap = await fetchAllocationsForAccounts(sortedAccounts);
 
     const doc = new jsPDF("landscape");
 
@@ -1159,7 +1159,7 @@ const AccountsPayableReport = () => {
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
 
-    const tableData = accounts.map((account) => {
+    const tableData = sortedAccounts.map((account) => {
       const vinculos = allocMap.get(account.id) || [];
       return [
         account.description,
@@ -1172,12 +1172,12 @@ const AccountsPayableReport = () => {
       ];
     });
 
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
 
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } } as any,
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } } as any,
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } } as any,
+      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } } as any,
       { content: "", styles: {} } as any,
     ]);
 
@@ -1204,7 +1204,7 @@ const AccountsPayableReport = () => {
   };
 
   const exportToExcel = () => {
-    const excelData = accounts.map((account) => ({
+    const excelData = sortedAccounts.map((account) => ({
       Título: account.description,
       Fornecedor: account.employees?.name || account.suppliers?.name || "N/A",
       Fazenda: account.stores?.name || "N/A",
