@@ -757,6 +757,48 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         idFilters.push(new Set(allDueDateAccountIds));
       }
 
+      // Filtro por vínculo (alocação)
+      if (filterAllocationType && filterAllocationType !== "all" && filterAllocationIds.length > 0) {
+        hasIdFilter = true;
+        
+        // Map allocation type to the correct column
+        const allocationColumn = filterAllocationType === "animal" ? "animal_id" 
+          : filterAllocationType === "aspiration" ? "aspiration_id"
+          : filterAllocationType === "pregnancy" ? "pregnancy_id"
+          : null;
+        
+        if (allocationColumn) {
+          const { data: allocData } = await supabase
+            .from("accounts_payable_item_allocations")
+            .select("account_payable_item_id")
+            .in(allocationColumn, filterAllocationIds);
+          
+          if (!allocData || allocData.length === 0) {
+            setAccountsPayable([]);
+            setViewCurrentPage(1);
+            setShowFilteredData(true);
+            return;
+          }
+          
+          const itemIds = [...new Set(allocData.map(a => a.account_payable_item_id))];
+          
+          const { data: itemsData } = await supabase
+            .from("accounts_payable_items")
+            .select("account_payable_id")
+            .in("id", itemIds);
+          
+          const accountIds = [...new Set(itemsData?.map(i => i.account_payable_id) || [])];
+          
+          if (accountIds.length === 0) {
+            setAccountsPayable([]);
+            setViewCurrentPage(1);
+            setShowFilteredData(true);
+            return;
+          }
+          idFilters.push(new Set(accountIds));
+        }
+      }
+
       // Calculate intersection of all ID filters
       let finalIds: string[] | null = null;
       if (hasIdFilter && idFilters.length > 0) {
