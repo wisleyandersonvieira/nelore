@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Download, Filter, FileDown, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, Download, Filter, FileDown, ChevronDown, ChevronsUpDown, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
@@ -44,6 +44,8 @@ const AccountsPayableReport = () => {
   const [allocationSearch, setAllocationSearch] = useState("");
 
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -333,6 +335,52 @@ const AccountsPayableReport = () => {
     setAllocationItems([]);
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-50" />;
+    return sortDirection === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-1 inline" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline" />;
+  };
+
+  const sortedAccounts = React.useMemo(() => {
+    if (!sortColumn) return accounts;
+    return [...accounts].sort((a, b) => {
+      let valA: any, valB: any;
+      switch (sortColumn) {
+        case "description":
+          valA = (a.description || "").toLowerCase();
+          valB = (b.description || "").toLowerCase();
+          break;
+        case "supplier":
+          valA = (a.employees?.name || a.suppliers?.name || "").toLowerCase();
+          valB = (b.employees?.name || b.suppliers?.name || "").toLowerCase();
+          break;
+        case "due_date":
+          valA = a.due_date || "";
+          valB = b.due_date || "";
+          break;
+        case "amount":
+          valA = a.amount || 0;
+          valB = b.amount || 0;
+          break;
+        default:
+          return 0;
+      }
+      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [accounts, sortColumn, sortDirection]);
+
   const getFilterInfo = () => {
     let filterInfo = [];
     if (filters.due_start || filters.due_end) {
@@ -371,7 +419,7 @@ const AccountsPayableReport = () => {
     }
 
     // Table data
-    const tableData = accounts.map((account) => [
+    const tableData = sortedAccounts.map((account) => [
       account.description,
       account.employees?.name || account.suppliers?.name || "N/A",
       account.stores?.name || "N/A",
@@ -381,13 +429,13 @@ const AccountsPayableReport = () => {
     ]);
 
     // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
 
     // Add total row
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
+      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
     ]);
 
     autoTable(doc, {
@@ -443,7 +491,7 @@ const AccountsPayableReport = () => {
     // Group accounts by month/year
     const accountsByMonth: { [key: string]: { monthLabel: string; accounts: any[]; sortKey: string } } = {};
 
-    accounts.forEach((account) => {
+    sortedAccounts.forEach((account) => {
       const dueDate = new Date(account.due_date + "T00:00:00");
       const year = dueDate.getFullYear();
       const month = dueDate.getMonth();
@@ -496,7 +544,7 @@ const AccountsPayableReport = () => {
 
       // Items for this month
       let monthTotal = 0;
-      monthGroup.accounts.forEach((account) => {
+      monthGroup.sortedAccounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
@@ -520,13 +568,13 @@ const AccountsPayableReport = () => {
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
         {
-          content: `${monthGroup.accounts.length} parcela(s)`,
+          content: `${monthGroup.sortedAccounts.length} parcela(s)`,
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
       ]);
 
       grandTotal += monthTotal;
-      totalInstallments += monthGroup.accounts.length;
+      totalInstallments += monthGroup.sortedAccounts.length;
     });
 
     // Grand total row
@@ -596,7 +644,7 @@ const AccountsPayableReport = () => {
     // Group accounts by day (YYYY-MM-DD)
     const accountsByDay: { [key: string]: { dayLabel: string; accounts: any[]; sortKey: string } } = {};
 
-    accounts.forEach((account) => {
+    sortedAccounts.forEach((account) => {
       const dueDate = new Date(account.due_date + "T00:00:00");
       const key = account.due_date; // Already in YYYY-MM-DD format
       const dayLabel = dueDate.toLocaleDateString("pt-BR", {
@@ -637,7 +685,7 @@ const AccountsPayableReport = () => {
 
       // Items for this day
       let dayTotal = 0;
-      dayGroup.accounts.forEach((account) => {
+      dayGroup.sortedAccounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
@@ -661,13 +709,13 @@ const AccountsPayableReport = () => {
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
         {
-          content: `${dayGroup.accounts.length} parcela(s)`,
+          content: `${dayGroup.sortedAccounts.length} parcela(s)`,
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
       ]);
 
       grandTotal += dayTotal;
-      totalInstallments += dayGroup.accounts.length;
+      totalInstallments += dayGroup.sortedAccounts.length;
     });
 
     // Grand total row
@@ -733,7 +781,7 @@ const AccountsPayableReport = () => {
     // Build table data with product details
     const tableData: any[] = [];
 
-    accounts.forEach((account) => {
+    sortedAccounts.forEach((account) => {
       // Main account row
       tableData.push([
         { content: account.description, styles: { fontStyle: "bold" } },
@@ -778,13 +826,13 @@ const AccountsPayableReport = () => {
     });
 
     // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
 
     // Add total row
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
+      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
     ]);
 
     autoTable(doc, {
@@ -837,7 +885,7 @@ const AccountsPayableReport = () => {
     // Group accounts by subgroup
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
 
-    accounts.forEach((account: any) => {
+    sortedAccounts.forEach((account: any) => {
       // Calculate the installment proportion for parcelado accounts
       // For installment accounts: proportion = installment_amount / total_title_amount
       // Interest and discounts are applied fully to each installment
@@ -1093,7 +1141,7 @@ const AccountsPayableReport = () => {
   };
 
   const exportToPDFResumidoComVinculo = async () => {
-    const allocMap = await fetchAllocationsForAccounts(accounts);
+    const allocMap = await fetchAllocationsForAccounts(sortedAccounts);
 
     const doc = new jsPDF("landscape");
 
@@ -1111,7 +1159,7 @@ const AccountsPayableReport = () => {
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
 
-    const tableData = accounts.map((account) => {
+    const tableData = sortedAccounts.map((account) => {
       const vinculos = allocMap.get(account.id) || [];
       return [
         account.description,
@@ -1124,12 +1172,12 @@ const AccountsPayableReport = () => {
       ];
     });
 
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
 
     tableData.push([
       { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } } as any,
       { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } } as any,
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } } as any,
+      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } } as any,
       { content: "", styles: {} } as any,
     ]);
 
@@ -1156,7 +1204,7 @@ const AccountsPayableReport = () => {
   };
 
   const exportToExcel = () => {
-    const excelData = accounts.map((account) => ({
+    const excelData = sortedAccounts.map((account) => ({
       Título: account.description,
       Fornecedor: account.employees?.name || account.suppliers?.name || "N/A",
       Fazenda: account.stores?.name || "N/A",
@@ -1454,16 +1502,24 @@ const AccountsPayableReport = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Fornecedor</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>
+                      Título {getSortIcon("description")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("supplier")}>
+                      Fornecedor {getSortIcon("supplier")}
+                    </TableHead>
                     <TableHead>Fazenda</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead>Valor</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("due_date")}>
+                      Vencimento {getSortIcon("due_date")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("amount")}>
+                      Valor {getSortIcon("amount")}
+                    </TableHead>
                     <TableHead>Parcelas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account, index) => (
+                  {sortedAccounts.map((account, index) => (
                     <TableRow key={`${account.id}-${account.installment_id || index}`}>
                       <TableCell>{account.description}</TableCell>
                       <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
@@ -1488,14 +1544,14 @@ const AccountsPayableReport = () => {
                       Total:
                     </TableCell>
                     <TableCell>
-                      {accounts
+                      {sortedAccounts
                         .reduce((sum, account) => sum + (account.amount || 0), 0)
                         .toLocaleString("pt-BR", {
                           style: "currency",
                           currency: "BRL",
                         })}
                     </TableCell>
-                    <TableCell>{accounts.length} parcela(s)</TableCell>
+                    <TableCell>{sortedAccounts.length} parcela(s)</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
