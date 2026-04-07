@@ -305,6 +305,7 @@ const AppSidebar = ({
       title: "Animais",
       icon: Beef,
       subMenus: [
+        { id: "animais-rebanho", label: "Rebanho", route: "/animais/rebanho" },
         { id: "animais-cadastro", label: "Cadastro de Animais", route: "/animais/cadastro" },
         { id: "animais-lotes", label: "Lotes", route: "/animais/lotes" },
         { id: "animais-pesagem", label: "Pesagem", route: "/animais/pesagem" },
