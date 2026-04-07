@@ -544,7 +544,7 @@ const AccountsPayableReport = () => {
 
       // Items for this month
       let monthTotal = 0;
-      monthGroup.sortedAccounts.forEach((account) => {
+      monthGroup.accounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
@@ -568,13 +568,13 @@ const AccountsPayableReport = () => {
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
         {
-          content: `${monthGroup.sortedAccounts.length} parcela(s)`,
+          content: `${monthGroup.accounts.length} parcela(s)`,
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
       ]);
 
       grandTotal += monthTotal;
-      totalInstallments += monthGroup.sortedAccounts.length;
+      totalInstallments += monthGroup.accounts.length;
     });
 
     // Grand total row
@@ -685,7 +685,7 @@ const AccountsPayableReport = () => {
 
       // Items for this day
       let dayTotal = 0;
-      dayGroup.sortedAccounts.forEach((account) => {
+      dayGroup.accounts.forEach((account) => {
         tableData.push([
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
@@ -709,13 +709,13 @@ const AccountsPayableReport = () => {
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
         {
-          content: `${dayGroup.sortedAccounts.length} parcela(s)`,
+          content: `${dayGroup.accounts.length} parcela(s)`,
           styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
         },
       ]);
 
       grandTotal += dayTotal;
-      totalInstallments += dayGroup.sortedAccounts.length;
+      totalInstallments += dayGroup.accounts.length;
     });
 
     // Grand total row
