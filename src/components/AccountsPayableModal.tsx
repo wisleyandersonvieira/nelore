@@ -6043,6 +6043,34 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           isEmployeeMode={isEmployeeMode}
         />
 
+        {/* Reparcelamento Modal */}
+        <ReparcelamentoModal
+          open={showReparcelamentoModal}
+          onOpenChange={setShowReparcelamentoModal}
+          account={reparcelamentoAccount}
+          onSuccess={() => {
+            if (showFilteredData) {
+              fetchFilteredAccountsPayable();
+            } else {
+              fetchLatestAccounts();
+            }
+          }}
+        />
+
+        {/* Suspender/Reativar Pagamento Modal */}
+        <SuspenderPagamentoModal
+          open={showSuspenderModal}
+          onOpenChange={setShowSuspenderModal}
+          account={suspenderAccount}
+          mode={suspenderMode}
+          onSuccess={() => {
+            if (showFilteredData) {
+              fetchFilteredAccountsPayable();
+            } else {
+              fetchLatestAccounts();
+            }
+          }}
+        />
         {/* Supplier Register Modal */}
         <SuppliersModal
           open={showSupplierRegister}
