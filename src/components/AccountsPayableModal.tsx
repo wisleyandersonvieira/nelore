@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, CalendarClock, PauseCircle, PlayCircle } from "lucide-react";
+import { ReparcelamentoModal } from "./ReparcelamentoModal";
+import { SuspenderPagamentoModal } from "./SuspenderPagamentoModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -182,6 +184,13 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [selectedReverseInstallments, setSelectedReverseInstallments] = useState<string[]>([]);
   const [paymentAccountInfo, setPaymentAccountInfo] = useState<CurrentAccount | null>(null);
   const { toast } = useToast();
+
+  // Reparcelamento and Suspend modals
+  const [showReparcelamentoModal, setShowReparcelamentoModal] = useState(false);
+  const [reparcelamentoAccount, setReparcelamentoAccount] = useState<AccountPayable | null>(null);
+  const [showSuspenderModal, setShowSuspenderModal] = useState(false);
+  const [suspenderAccount, setSuspenderAccount] = useState<AccountPayable | null>(null);
+  const [suspenderMode, setSuspenderMode] = useState<"suspend" | "reactivate">("suspend");
 
   // Helper function to get user's store_id from profiles or user_stores
   const getUserStoreId = async (userId: string): Promise<string | null> => {
@@ -4470,9 +4479,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                         ? 'bg-green-100 text-green-800' 
                                         : account.status === 'partial'
                                         ? 'bg-blue-100 text-blue-800'
+                                        : account.status === 'pagamento_suspenso'
+                                        ? 'bg-orange-100 text-orange-800'
                                         : 'bg-yellow-100 text-yellow-800'
                                     }`}>
-                                      {account.status === 'paid' ? 'Pago' : account.status === 'partial' ? 'Parcial' : 'Pendente'}
+                                      {account.status === 'paid' ? 'Pago' : account.status === 'partial' ? 'Parcial' : account.status === 'pagamento_suspenso' ? 'Suspenso' : 'Pendente'}
                                     </span>
                                   </TableCell>
                                   <TableCell className="py-2">
@@ -4520,6 +4531,54 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                             </Button>
                                           )}
                                           
+                                          {(account.status === 'pending' || account.status === 'partial') && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                  setReparcelamentoAccount(account);
+                                                  setShowReparcelamentoModal(true);
+                                                }}
+                                                disabled={loading}
+                                                title="Reparcelamento"
+                                              >
+                                                <CalendarClock className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                  setSuspenderAccount(account);
+                                                  setSuspenderMode("suspend");
+                                                  setShowSuspenderModal(true);
+                                                }}
+                                                disabled={loading}
+                                                title="Suspender Pagamento"
+                                                className="text-orange-600 hover:text-orange-700"
+                                              >
+                                                <PauseCircle className="h-4 w-4" />
+                                              </Button>
+                                            </>
+                                          )}
+                                          
+                                          {account.status === 'pagamento_suspenso' && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => {
+                                                setSuspenderAccount(account);
+                                                setSuspenderMode("reactivate");
+                                                setShowSuspenderModal(true);
+                                              }}
+                                              disabled={loading}
+                                              title="Reativar Pagamento"
+                                              className="text-green-600 hover:text-green-700"
+                                            >
+                                              <PlayCircle className="h-4 w-4" />
+                                            </Button>
+                                          )}
+                                          
                                           {account.status === 'partial' && (
                                             <>
                                               <Button
@@ -4559,6 +4618,32 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                               <Button
                                                 size="sm"
                                                 variant="outline"
+                                                onClick={() => {
+                                                  setReparcelamentoAccount(account);
+                                                  setShowReparcelamentoModal(true);
+                                                }}
+                                                disabled={loading}
+                                                title="Reparcelamento"
+                                              >
+                                                <CalendarClock className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                  setSuspenderAccount(account);
+                                                  setSuspenderMode("suspend");
+                                                  setShowSuspenderModal(true);
+                                                }}
+                                                disabled={loading}
+                                                title="Suspender Pagamento"
+                                                className="text-orange-600 hover:text-orange-700"
+                                              >
+                                                <PauseCircle className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
                                                 onClick={() => handleDeleteAccount(account.id, account.status)}
                                                 disabled={loading}
                                                 title="Excluir conta"
@@ -4567,6 +4652,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                                 <Trash2 className="h-4 w-4" />
                                               </Button>
                                             </>
+                                          )}
+                                          
+                                          {account.status === 'pagamento_suspenso' && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => {
+                                                setSuspenderAccount(account);
+                                                setSuspenderMode("reactivate");
+                                                setShowSuspenderModal(true);
+                                              }}
+                                              disabled={loading}
+                                              title="Reativar Pagamento"
+                                              className="text-green-600 hover:text-green-700"
+                                            >
+                                              <PlayCircle className="h-4 w-4" />
+                                            </Button>
                                           )}
                                         </>
                                       )}
