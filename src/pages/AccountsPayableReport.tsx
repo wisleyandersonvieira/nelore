@@ -335,7 +335,53 @@ const AccountsPayableReport = () => {
     setAllocationItems([]);
   };
 
-  const getFilterInfo = () => {
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-50" />;
+    return sortDirection === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-1 inline" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline" />;
+  };
+
+  const sortedAccounts = React.useMemo(() => {
+    if (!sortColumn) return accounts;
+    return [...accounts].sort((a, b) => {
+      let valA: any, valB: any;
+      switch (sortColumn) {
+        case "description":
+          valA = (a.description || "").toLowerCase();
+          valB = (b.description || "").toLowerCase();
+          break;
+        case "supplier":
+          valA = (a.employees?.name || a.suppliers?.name || "").toLowerCase();
+          valB = (b.employees?.name || b.suppliers?.name || "").toLowerCase();
+          break;
+        case "due_date":
+          valA = a.due_date || "";
+          valB = b.due_date || "";
+          break;
+        case "amount":
+          valA = a.amount || 0;
+          valB = b.amount || 0;
+          break;
+        default:
+          return 0;
+      }
+      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [accounts, sortColumn, sortDirection]);
+
+
     let filterInfo = [];
     if (filters.due_start || filters.due_end) {
       const start = filters.due_start ? new Date(filters.due_start).toLocaleDateString("pt-BR") : "Início";
