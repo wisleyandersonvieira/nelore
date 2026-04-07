@@ -1502,16 +1502,24 @@ const AccountsPayableReport = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Fornecedor</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>
+                      Título {getSortIcon("description")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("supplier")}>
+                      Fornecedor {getSortIcon("supplier")}
+                    </TableHead>
                     <TableHead>Fazenda</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead>Valor</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("due_date")}>
+                      Vencimento {getSortIcon("due_date")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("amount")}>
+                      Valor {getSortIcon("amount")}
+                    </TableHead>
                     <TableHead>Parcelas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account, index) => (
+                  {sortedAccounts.map((account, index) => (
                     <TableRow key={`${account.id}-${account.installment_id || index}`}>
                       <TableCell>{account.description}</TableCell>
                       <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
@@ -1536,14 +1544,14 @@ const AccountsPayableReport = () => {
                       Total:
                     </TableCell>
                     <TableCell>
-                      {accounts
+                      {sortedAccounts
                         .reduce((sum, account) => sum + (account.amount || 0), 0)
                         .toLocaleString("pt-BR", {
                           style: "currency",
                           currency: "BRL",
                         })}
                     </TableCell>
-                    <TableCell>{accounts.length} parcela(s)</TableCell>
+                    <TableCell>{sortedAccounts.length} parcela(s)</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
