@@ -38,6 +38,7 @@ import AnimaisPesagem from "./pages/AnimaisPesagem";
 import AnimaisVacinacao from "./pages/AnimaisVacinacao";
 import AnimaisMatrizes from "./pages/AnimaisMatrizes";
 import AnimaisRebanho from "./pages/AnimaisRebanho";
+import Receptoras from "./pages/Receptoras";
 import AnimaisCadastrosGerais from "./pages/AnimaisCadastrosGerais";
 import AnimaisRacas from "./pages/AnimaisRacas";
 import AnimaisCategorias from "./pages/AnimaisCategorias";
@@ -101,6 +102,7 @@ function App() {
               <Route path="/animais" element={<Animais />} />
               <Route path="/animais/rebanho" element={<AnimaisRebanho />} />
               <Route path="/animais/cadastro" element={<AnimaisCadastro />} />
+              <Route path="/animais/receptoras" element={<Receptoras />} />
               <Route path="/animais/lotes" element={<AnimaisLotes />} />
               <Route path="/animais/pesagem" element={<AnimaisPesagem />} />
               <Route path="/animais/vacinacao" element={<AnimaisVacinacao />} />
