@@ -44,6 +44,8 @@ const AccountsPayableReport = () => {
   const [allocationSearch, setAllocationSearch] = useState("");
 
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
