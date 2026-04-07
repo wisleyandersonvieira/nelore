@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, CalendarClock, PauseCircle, PlayCircle } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Search, Filter, ChevronLeft, ChevronRight, Paperclip, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronsUpDown, CalendarClock, PauseCircle, PlayCircle, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ReparcelamentoModal } from "./ReparcelamentoModal";
 import { SuspenderPagamentoModal } from "./SuspenderPagamentoModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -4494,7 +4495,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     }
                                   </TableCell>
                                   <TableCell className="py-2">
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-1">
                                       <Button
                                         size="sm"
                                         variant="outline"
@@ -4507,171 +4508,82 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                       </Button>
                                       
                                       {canEdit && (
-                                        <>
-                                          {account.status !== 'paid' && (
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
                                             <Button
                                               size="sm"
                                               variant="outline"
-                                              onClick={() => handleEditAccount(account)}
                                               disabled={loading}
-                                              title="Editar conta"
+                                              title="Mais ações"
                                             >
-                                              <Edit className="h-4 w-4" />
+                                              <MoreHorizontal className="h-4 w-4" />
                                             </Button>
-                                          )}
-                                          
-                                          {account.status === 'paid' && (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() => handleReversePayment(account)}
-                                              disabled={loading}
-                                              title="Estornar pagamento"
-                                            >
-                                              <RefreshCw className="h-4 w-4" />
-                                            </Button>
-                                          )}
-                                          
-                                          {(account.status === 'pending' || account.status === 'partial') && (
-                                            <>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            {account.status !== 'paid' && account.status !== 'pagamento_suspenso' && (
+                                              <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Editar
+                                              </DropdownMenuItem>
+                                            )}
+                                            
+                                            {(account.status === 'pending' || account.status === 'partial') && (
+                                              <DropdownMenuItem onClick={() => openPaymentModal(account)} className="text-green-600">
+                                                <DollarSign className="h-4 w-4 mr-2" />
+                                                Pagar
+                                              </DropdownMenuItem>
+                                            )}
+                                            
+                                            {(account.status === 'paid' || account.status === 'partial') && (
+                                              <DropdownMenuItem onClick={() => handleReversePayment(account)}>
+                                                <RefreshCw className="h-4 w-4 mr-2" />
+                                                Estornar Pagamento
+                                              </DropdownMenuItem>
+                                            )}
+                                            
+                                            {(account.status === 'pending' || account.status === 'partial') && (
+                                              <>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => {
                                                   setReparcelamentoAccount(account);
                                                   setShowReparcelamentoModal(true);
-                                                }}
-                                                disabled={loading}
-                                                title="Reparcelamento"
-                                              >
-                                                <CalendarClock className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
+                                                }}>
+                                                  <CalendarClock className="h-4 w-4 mr-2" />
+                                                  Reparcelamento
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => {
                                                   setSuspenderAccount(account);
                                                   setSuspenderMode("suspend");
                                                   setShowSuspenderModal(true);
-                                                }}
-                                                disabled={loading}
-                                                title="Suspender Pagamento"
-                                                className="text-orange-600 hover:text-orange-700"
-                                              >
-                                                <PauseCircle className="h-4 w-4" />
-                                              </Button>
-                                            </>
-                                          )}
-                                          
-                                          {account.status === 'pagamento_suspenso' && (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() => {
+                                                }} className="text-orange-600">
+                                                  <PauseCircle className="h-4 w-4 mr-2" />
+                                                  Suspender Pagamento
+                                                </DropdownMenuItem>
+                                              </>
+                                            )}
+                                            
+                                            {account.status === 'pagamento_suspenso' && (
+                                              <DropdownMenuItem onClick={() => {
                                                 setSuspenderAccount(account);
                                                 setSuspenderMode("reactivate");
                                                 setShowSuspenderModal(true);
-                                              }}
-                                              disabled={loading}
-                                              title="Reativar Pagamento"
-                                              className="text-green-600 hover:text-green-700"
-                                            >
-                                              <PlayCircle className="h-4 w-4" />
-                                            </Button>
-                                          )}
-                                          
-                                          {account.status === 'partial' && (
-                                            <>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => openPaymentModal(account)}
-                                                disabled={loading}
-                                                title="Pagar conta"
-                                                className="text-green-600 hover:text-green-700"
-                                              >
-                                                <DollarSign className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleReversePayment(account)}
-                                                disabled={loading}
-                                                title="Estornar pagamento"
-                                              >
-                                                <RefreshCw className="h-4 w-4" />
-                                              </Button>
-                                            </>
-                                          )}
-                                          
-                                          {account.status === 'pending' && (
-                                            <>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => openPaymentModal(account)}
-                                                disabled={loading}
-                                                title="Pagar conta"
-                                                className="text-green-600 hover:text-green-700"
-                                              >
-                                                <DollarSign className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
-                                                  setReparcelamentoAccount(account);
-                                                  setShowReparcelamentoModal(true);
-                                                }}
-                                                disabled={loading}
-                                                title="Reparcelamento"
-                                              >
-                                                <CalendarClock className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
-                                                  setSuspenderAccount(account);
-                                                  setSuspenderMode("suspend");
-                                                  setShowSuspenderModal(true);
-                                                }}
-                                                disabled={loading}
-                                                title="Suspender Pagamento"
-                                                className="text-orange-600 hover:text-orange-700"
-                                              >
-                                                <PauseCircle className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleDeleteAccount(account.id, account.status)}
-                                                disabled={loading}
-                                                title="Excluir conta"
-                                                className="text-red-600 hover:text-red-700"
-                                              >
-                                                <Trash2 className="h-4 w-4" />
-                                              </Button>
-                                            </>
-                                          )}
-                                          
-                                          {account.status === 'pagamento_suspenso' && (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() => {
-                                                setSuspenderAccount(account);
-                                                setSuspenderMode("reactivate");
-                                                setShowSuspenderModal(true);
-                                              }}
-                                              disabled={loading}
-                                              title="Reativar Pagamento"
-                                              className="text-green-600 hover:text-green-700"
-                                            >
-                                              <PlayCircle className="h-4 w-4" />
-                                            </Button>
-                                          )}
-                                        </>
+                                              }} className="text-green-600">
+                                                <PlayCircle className="h-4 w-4 mr-2" />
+                                                Reativar Pagamento
+                                              </DropdownMenuItem>
+                                            )}
+                                            
+                                            {account.status === 'pending' && (
+                                              <>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => handleDeleteAccount(account.id, account.status)} className="text-destructive">
+                                                  <Trash2 className="h-4 w-4 mr-2" />
+                                                  Excluir
+                                                </DropdownMenuItem>
+                                              </>
+                                            )}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
                                       )}
                                     </div>
                                   </TableCell>
