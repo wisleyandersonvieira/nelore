@@ -4226,6 +4226,112 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                         onChange={(e) => setFilterCreatedAtTo(e.target.value)}
                       />
                     </div>
+                    {/* Allocation Type Filter */}
+                    <div>
+                      <Label>Tipo de Vínculo</Label>
+                      <Select 
+                        value={filterAllocationType} 
+                        onValueChange={(val) => {
+                          setFilterAllocationType(val);
+                          setFilterAllocationIds([]);
+                          setFilterAllocationSearch("");
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="animal">Animais</SelectItem>
+                          <SelectItem value="pregnancy">Prenhez</SelectItem>
+                          <SelectItem value="aspiration">Aspiração</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Allocation Item Selection */}
+                    {filterAllocationType && filterAllocationType !== "all" && (
+                      <div>
+                        <Label>
+                          {filterAllocationType === "animal" ? "Animais" : filterAllocationType === "pregnancy" ? "Prenhez" : "Aspirações"}
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between font-normal">
+                              {filterAllocationIds.length === 0 
+                                ? "Selecione..." 
+                                : `${filterAllocationIds.length} selecionado(s)`}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[350px] p-3 max-h-[350px] overflow-hidden flex flex-col">
+                            <Input
+                              placeholder="Buscar por nome..."
+                              value={filterAllocationSearch}
+                              onChange={(e) => setFilterAllocationSearch(e.target.value)}
+                              className="mb-2"
+                            />
+                            {(() => {
+                              const items = filterAllocationType === "animal" 
+                                ? allocationAnimals.map(a => ({ id: a.id, name: `${a.code} - ${a.name}` }))
+                                : filterAllocationType === "pregnancy"
+                                ? allocationPregnancies.map(p => ({ id: p.id, name: p.name }))
+                                : allocationAspirations.map(a => ({ id: a.id, name: `${a.code} - ${a.name}` }));
+                              
+                              const filtered = items.filter(item => 
+                                item.name.toLowerCase().includes(filterAllocationSearch.toLowerCase())
+                              );
+
+                              const allFilteredSelected = filtered.length > 0 && filtered.every(item => filterAllocationIds.includes(item.id));
+
+                              return (
+                                <div className="overflow-y-auto max-h-[250px] space-y-1">
+                                  <div className="flex items-center space-x-2 py-1 border-b mb-1">
+                                    <Checkbox
+                                      id="filter-alloc-select-all"
+                                      checked={allFilteredSelected}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          const newIds = [...new Set([...filterAllocationIds, ...filtered.map(i => i.id)])];
+                                          setFilterAllocationIds(newIds);
+                                        } else {
+                                          const filteredIdSet = new Set(filtered.map(i => i.id));
+                                          setFilterAllocationIds(filterAllocationIds.filter(id => !filteredIdSet.has(id)));
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor="filter-alloc-select-all" className="text-sm font-medium cursor-pointer">
+                                      Selecionar todos
+                                    </label>
+                                  </div>
+                                  {filtered.map((item) => (
+                                    <div key={item.id} className="flex items-center space-x-2 py-1">
+                                      <Checkbox
+                                        id={`filter-alloc-${item.id}`}
+                                        checked={filterAllocationIds.includes(item.id)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setFilterAllocationIds([...filterAllocationIds, item.id]);
+                                          } else {
+                                            setFilterAllocationIds(filterAllocationIds.filter(id => id !== item.id));
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`filter-alloc-${item.id}`} className="text-sm cursor-pointer">
+                                        {item.name}
+                                      </label>
+                                    </div>
+                                  ))}
+                                  {filtered.length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-2">Nenhum item encontrado</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button onClick={fetchFilteredAccountsPayable}>
