@@ -8,10 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Beef, Baby, Dna, Microscope, Search, ImageOff } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Beef, Baby, Dna, Microscope, Search, ImageOff, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type HerdCategory = "animals" | "pregnancy" | "embryo_transfer" | "aspiration";
+
+type AllocationField = "animal_id" | "pregnancy_id" | "embryo_transfer_id" | "aspiration_id";
 
 interface HerdSummary {
   animals: number;
@@ -39,6 +49,31 @@ interface HerdRecord {
   revenueValue: number | null;
 }
 
+interface DetailSectionItem {
+  label: string;
+  value: string;
+}
+
+interface DetailSection {
+  title: string;
+  items: DetailSectionItem[];
+}
+
+interface DetailFinanceItem {
+  id: string;
+  recordType: "expense" | "revenue";
+  allocationType: string;
+  documentNumber: string | null;
+  status: string | null;
+  dueDate: string | null;
+  paymentDate: string | null;
+  partnerName: string | null;
+  productName: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
 const ITEMS_PER_PAGE = 12;
 
 const formatDateBR = (date?: string | null) => {
@@ -53,11 +88,35 @@ const formatCurrencyBR = (value: number | null) => {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 };
 
+const formatText = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return "Não informado";
+  return String(value);
+};
+
+const formatBoolean = (value: boolean | null | undefined) => {
+  if (value === null || value === undefined) return "Não informado";
+  return value ? "Sim" : "Não";
+};
+
 const categoryTitle: Record<HerdCategory, string> = {
   animals: "Animais",
   pregnancy: "Prenhez",
   embryo_transfer: "Pós-Transferência de Embrião",
   aspiration: "Aspirações",
+};
+
+const categoryModuleRoute: Record<HerdCategory, string> = {
+  animals: "/animais/cadastro",
+  pregnancy: "/animais/prenhez",
+  embryo_transfer: "/animais/transferencia-embriao",
+  aspiration: "/animais/aspiracoes",
+};
+
+const allocationFieldByCategory: Record<HerdCategory, AllocationField> = {
+  animals: "animal_id",
+  pregnancy: "pregnancy_id",
+  embryo_transfer: "embryo_transfer_id",
+  aspiration: "aspiration_id",
 };
 
 const statusLabel = (status?: string | null) => {
@@ -69,8 +128,31 @@ const statusLabel = (status?: string | null) => {
     finalized_empty: "Finalizado vazio",
     sold: "Vendido",
     active: "Ativo",
+    paid: "Pago",
+    partial: "Parcial",
   };
   return labels[status] || status;
+};
+
+const getAllocationTypeLabel = (type: string) => {
+  switch (type) {
+    case "animal":
+      return "Animal";
+    case "pregnancy":
+      return "Prenhez";
+    case "embryo_transfer":
+      return "Pós-Transferência";
+    case "aspiration":
+      return "Aspiração";
+    case "aspiration_rateio":
+      return "Rateio Aspiração";
+    case "te_rateio":
+      return "Rateio Pós TE";
+    case "pregnancy_rateio":
+      return "Rateio Prenhez";
+    default:
+      return type;
+  }
 };
 
 const getAnimalPhoto = (animal: any): string | null => {
@@ -98,6 +180,13 @@ const AnimaisRebanho = () => {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [page, setPage] = useState(1);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedDetail, setSelectedDetail] = useState<HerdRecord | null>(null);
+  const [detailSections, setDetailSections] = useState<DetailSection[]>([]);
+  const [detailExpenses, setDetailExpenses] = useState<DetailFinanceItem[]>([]);
+  const [detailRevenues, setDetailRevenues] = useState<DetailFinanceItem[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserStoreIds = async () => {
@@ -184,10 +273,7 @@ const AnimaisRebanho = () => {
     fetchSummary();
   }, [storeIds]);
 
-  const fetchFinancialByAllocation = async (
-    allocationField: "animal_id" | "pregnancy_id" | "embryo_transfer_id" | "aspiration_id",
-    ids: string[],
-  ) => {
+  const fetchFinancialByAllocation = async (allocationField: AllocationField, ids: string[]) => {
     const purchaseMap = new Map<string, number>();
     const revenueMap = new Map<string, number>();
     if (ids.length === 0) return { purchaseMap, revenueMap };
@@ -409,6 +495,385 @@ const AnimaisRebanho = () => {
     }
   };
 
+  const fetchNameById = async (table: string, id: string | null | undefined) => {
+    if (!id) return null;
+    const { data } = await supabase.from(table as any).select("name").eq("id", id).maybeSingle();
+    return data?.name || null;
+  };
+
+  const fetchFarmName = async (farmType: string | null, farmId: string | null) => {
+    if (!farmId) return null;
+    if (farmType === "third_party") {
+      const { data } = await supabase.from("third_party_farms").select("name").eq("id", farmId).maybeSingle();
+      return data?.name || null;
+    }
+    const { data } = await supabase.from("stores").select("name").eq("id", farmId).maybeSingle();
+    return data?.name || null;
+  };
+
+  const fetchFinancialDetails = async (category: HerdCategory, recordId: string) => {
+    const allocationField = allocationFieldByCategory[category];
+
+    const [expenseAlloc, revenueAlloc] = await Promise.all([
+      supabase
+        .from("accounts_payable_item_allocations")
+        .select(
+          `id, allocation_type, accounts_payable_items!inner(account_payable_id, product_id, quantity, unit_price, total_price)`,
+        )
+        .eq(allocationField, recordId),
+      supabase
+        .from("accounts_receivable_item_allocations")
+        .select(
+          `id, allocation_type, accounts_receivable_items!inner(account_receivable_id, product_id, quantity, unit_price, total_price)`,
+        )
+        .eq(allocationField, recordId),
+    ]);
+
+    const expenseRows = expenseAlloc.data || [];
+    const revenueRows = revenueAlloc.data || [];
+
+    const payableIds = Array.from(
+      new Set(expenseRows.map((row: any) => row.accounts_payable_items?.account_payable_id).filter(Boolean)),
+    ) as string[];
+    const receivableIds = Array.from(
+      new Set(revenueRows.map((row: any) => row.accounts_receivable_items?.account_receivable_id).filter(Boolean)),
+    ) as string[];
+
+    const productIds = Array.from(
+      new Set(
+        [...expenseRows, ...revenueRows]
+          .map((row: any) => row.accounts_payable_items?.product_id || row.accounts_receivable_items?.product_id)
+          .filter(Boolean),
+      ),
+    ) as string[];
+
+    const [payableAccountsRes, receivableAccountsRes, productsRes] = await Promise.all([
+      payableIds.length > 0
+        ? supabase
+            .from("accounts_payable")
+            .select("id, document_number, due_date, payment_date, status, supplier_id")
+            .in("id", payableIds)
+        : Promise.resolve({ data: [] as any[] }),
+      receivableIds.length > 0
+        ? supabase
+            .from("accounts_receivable")
+            .select("id, document_number, due_date, payment_date, status, creditor_id")
+            .in("id", receivableIds)
+        : Promise.resolve({ data: [] as any[] }),
+      productIds.length > 0
+        ? supabase.from("products").select("id, name").in("id", productIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const payableAccounts = payableAccountsRes.data || [];
+    const receivableAccounts = receivableAccountsRes.data || [];
+
+    const supplierIds = Array.from(
+      new Set(payableAccounts.map((acc: any) => acc.supplier_id).filter(Boolean)),
+    ) as string[];
+    const creditorIds = Array.from(
+      new Set(receivableAccounts.map((acc: any) => acc.creditor_id).filter(Boolean)),
+    ) as string[];
+
+    const [suppliersRes, creditorsRes] = await Promise.all([
+      supplierIds.length > 0
+        ? supabase.from("suppliers").select("id, name").in("id", supplierIds)
+        : Promise.resolve({ data: [] as any[] }),
+      creditorIds.length > 0
+        ? supabase.from("suppliers").select("id, name").in("id", creditorIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const payableMap = new Map((payableAccounts || []).map((acc: any) => [acc.id, acc]));
+    const receivableMap = new Map((receivableAccounts || []).map((acc: any) => [acc.id, acc]));
+    const productMap = new Map((productsRes.data || []).map((product: any) => [product.id, product.name]));
+    const supplierMap = new Map((suppliersRes.data || []).map((supplier: any) => [supplier.id, supplier.name]));
+    const creditorMap = new Map((creditorsRes.data || []).map((creditor: any) => [creditor.id, creditor.name]));
+
+    const expenses: DetailFinanceItem[] = expenseRows.map((row: any) => {
+      const item = row.accounts_payable_items;
+      const account = payableMap.get(item?.account_payable_id);
+      return {
+        id: row.id,
+        recordType: "expense",
+        allocationType: row.allocation_type,
+        documentNumber: account?.document_number || null,
+        status: account?.status || null,
+        dueDate: account?.due_date || null,
+        paymentDate: account?.payment_date || null,
+        partnerName: account?.supplier_id ? supplierMap.get(account.supplier_id) || null : null,
+        productName: item?.product_id ? productMap.get(item.product_id) || null : null,
+        quantity: Number(item?.quantity || 0),
+        unitPrice: Number(item?.unit_price || 0),
+        totalPrice: Number(item?.total_price || 0),
+      };
+    });
+
+    const revenues: DetailFinanceItem[] = revenueRows.map((row: any) => {
+      const item = row.accounts_receivable_items;
+      const account = receivableMap.get(item?.account_receivable_id);
+      return {
+        id: row.id,
+        recordType: "revenue",
+        allocationType: row.allocation_type,
+        documentNumber: account?.document_number || null,
+        status: account?.status || null,
+        dueDate: account?.due_date || null,
+        paymentDate: account?.payment_date || null,
+        partnerName: account?.creditor_id ? creditorMap.get(account.creditor_id) || null : null,
+        productName: item?.product_id ? productMap.get(item.product_id) || null : null,
+        quantity: Number(item?.quantity || 0),
+        unitPrice: Number(item?.unit_price || 0),
+        totalPrice: Number(item?.total_price || 0),
+      };
+    });
+
+    return { expenses, revenues };
+  };
+
+  const loadDetailModal = async (record: HerdRecord) => {
+    setSelectedDetail(record);
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetailSections([]);
+    setDetailExpenses([]);
+    setDetailRevenues([]);
+
+    try {
+      if (record.category === "animals") {
+        const { data: animal } = await supabase.from("animals").select("*").eq("id", record.id).maybeSingle();
+        if (!animal) return;
+
+        const [breedName, categoryName, auctionName, batchName, sireName, damName, recipientName, veterinarianName, laboratoryName, storeName, farmName] =
+          await Promise.all([
+            fetchNameById("animal_breeds", animal.breed_id),
+            fetchNameById("animal_categories", animal.category_id),
+            fetchNameById("leiloes", animal.auction_id),
+            fetchNameById("animal_batches", animal.batch_id),
+            fetchNameById("breeding_animals", animal.sire_id),
+            fetchNameById("breeding_animals", animal.dam_id),
+            fetchNameById("animals", animal.recipient_id),
+            fetchNameById("veterinarians", animal.veterinarian_id),
+            fetchNameById("laboratories", animal.laboratory_id),
+            fetchNameById("stores", animal.store_id),
+            fetchFarmName(animal.farm_type, animal.farm_id),
+          ]);
+
+        setDetailSections([
+          {
+            title: "Dados Gerais",
+            items: [
+              { label: "Código", value: formatText(animal.code) },
+              { label: "Nome", value: formatText(animal.name) },
+              { label: "Registro", value: formatText(animal.registration) },
+              { label: "Brinco", value: formatText(animal.ear_tag) },
+              { label: "Sexo", value: formatText(animal.sex) },
+              { label: "Nascimento", value: formatDateBR(animal.birth_date) },
+              { label: "Entrada na fazenda", value: formatDateBR(animal.farm_entry_date) },
+              { label: "Raça", value: formatText(breedName) },
+              { label: "Categoria", value: formatText(categoryName) },
+              { label: "Lote", value: formatText(batchName) },
+              { label: "Leilão", value: formatText(auctionName) },
+              { label: "Lote do leilão", value: formatText(animal.auction_lot) },
+              { label: "Ativo", value: animal.is_active ? "Sim" : "Não" },
+            ],
+          },
+          {
+            title: "Dados Reprodutivos e Vinculados",
+            items: [
+              { label: "Pai", value: formatText(sireName) },
+              { label: "Mãe", value: formatText(damName) },
+              { label: "Receptora", value: formatText(recipientName) },
+              { label: "Data aspiração", value: formatDateBR(animal.aspiration_date) },
+              { label: "Data transferência", value: formatDateBR(animal.transfer_date) },
+              { label: "Data ultrassom", value: formatDateBR(animal.ultrasound_date) },
+              { label: "Veterinário", value: formatText(veterinarianName) },
+              { label: "Laboratório", value: formatText(laboratoryName) },
+              { label: "Fazenda", value: formatText(farmName) },
+              { label: "Tipo fazenda", value: formatText(animal.farm_type) },
+              { label: "Unidade", value: formatText(storeName) },
+              { label: "Observações", value: formatText(animal.observations) },
+            ],
+          },
+        ]);
+      }
+
+      if (record.category === "pregnancy") {
+        const { data: pregnancy } = await supabase
+          .from("pregnancy_management")
+          .select("*")
+          .eq("id", record.id)
+          .maybeSingle();
+        if (!pregnancy) return;
+
+        const [breedName, categoryName, auctionName, sireName, damName, recipientName, veterinarianName, laboratoryName, storeName, farmName] =
+          await Promise.all([
+            fetchNameById("animal_breeds", pregnancy.breed_id),
+            fetchNameById("animal_categories", pregnancy.category_id),
+            fetchNameById("leiloes", pregnancy.auction_id),
+            fetchNameById("breeding_animals", pregnancy.sire_id),
+            fetchNameById("breeding_animals", pregnancy.dam_id),
+            fetchNameById("animals", pregnancy.recipient_id),
+            fetchNameById("veterinarians", pregnancy.veterinarian_id),
+            fetchNameById("laboratories", pregnancy.laboratory_id),
+            fetchNameById("stores", pregnancy.store_id),
+            fetchFarmName(pregnancy.farm_type, pregnancy.farm_id),
+          ]);
+
+        setDetailSections([
+          {
+            title: "Dados Gerais",
+            items: [
+              { label: "Código", value: formatText(pregnancy.code) },
+              { label: "Nome", value: formatText(pregnancy.name) },
+              { label: "Status", value: statusLabel(pregnancy.status) },
+              { label: "Sexo", value: formatText(pregnancy.sex) },
+              { label: "Parto previsto", value: formatDateBR(pregnancy.expected_birth_month) },
+              { label: "Raça", value: formatText(breedName) },
+              { label: "Categoria", value: formatText(categoryName) },
+              { label: "Leilão", value: formatText(auctionName) },
+              { label: "Lote do leilão", value: formatText(pregnancy.auction_lot) },
+              { label: "Financeiro liberado", value: formatBoolean(pregnancy.financial_released) },
+            ],
+          },
+          {
+            title: "Dados Reprodutivos e Vinculados",
+            items: [
+              { label: "Pai", value: formatText(sireName) },
+              { label: "Mãe", value: formatText(damName) },
+              { label: "Receptora", value: formatText(recipientName) },
+              { label: "Data aspiração", value: formatDateBR(pregnancy.aspiration_date) },
+              { label: "Data transferência", value: formatDateBR(pregnancy.transfer_date) },
+              { label: "Data ultrassom", value: formatDateBR(pregnancy.ultrasound_date) },
+              { label: "Pós-Transferência ID", value: formatText(pregnancy.embryo_transfer_id) },
+              { label: "Veterinário", value: formatText(veterinarianName) },
+              { label: "Laboratório", value: formatText(laboratoryName) },
+              { label: "Fazenda", value: formatText(farmName) },
+              { label: "Tipo fazenda", value: formatText(pregnancy.farm_type) },
+              { label: "Unidade", value: formatText(storeName) },
+            ],
+          },
+        ]);
+      }
+
+      if (record.category === "embryo_transfer") {
+        const { data: transfer } = await supabase
+          .from("embryo_transfer_management")
+          .select("*")
+          .eq("id", record.id)
+          .maybeSingle();
+        if (!transfer) return;
+
+        const [breedName, categoryName, auctionName, sireName, damName, recipientName, veterinarianName, laboratoryName, storeName, farmName] =
+          await Promise.all([
+            fetchNameById("animal_breeds", transfer.breed_id),
+            fetchNameById("animal_categories", transfer.category_id),
+            fetchNameById("leiloes", transfer.auction_id),
+            fetchNameById("breeding_animals", transfer.sire_id),
+            fetchNameById("breeding_animals", transfer.dam_id),
+            fetchNameById("animals", transfer.recipient_id),
+            fetchNameById("veterinarians", transfer.veterinarian_id),
+            fetchNameById("laboratories", transfer.laboratory_id),
+            fetchNameById("stores", transfer.store_id),
+            fetchFarmName(transfer.farm_type, transfer.farm_id),
+          ]);
+
+        setDetailSections([
+          {
+            title: "Dados Gerais",
+            items: [
+              { label: "Código", value: formatText(transfer.code) },
+              { label: "Nome", value: formatText(transfer.name) },
+              { label: "Status", value: statusLabel(transfer.status) },
+              { label: "Aspiração prevista", value: formatDateBR(transfer.expected_aspiration_month) },
+              { label: "Raça", value: formatText(breedName) },
+              { label: "Categoria", value: formatText(categoryName) },
+              { label: "Leilão", value: formatText(auctionName) },
+              { label: "Lote do leilão", value: formatText(transfer.auction_lot) },
+            ],
+          },
+          {
+            title: "Dados Reprodutivos e Vinculados",
+            items: [
+              { label: "Pai", value: formatText(sireName) },
+              { label: "Mãe", value: formatText(damName) },
+              { label: "Receptora", value: formatText(recipientName) },
+              { label: "Data aspiração", value: formatDateBR(transfer.aspiration_date) },
+              { label: "Data transferência", value: formatDateBR(transfer.transfer_date) },
+              { label: "Data ultrassom", value: formatDateBR(transfer.ultrasound_date) },
+              { label: "Aspiração ID", value: formatText(transfer.aspiration_id) },
+              { label: "Veterinário", value: formatText(veterinarianName) },
+              { label: "Laboratório", value: formatText(laboratoryName) },
+              { label: "Fazenda", value: formatText(farmName) },
+              { label: "Tipo fazenda", value: formatText(transfer.farm_type) },
+              { label: "Unidade", value: formatText(storeName) },
+            ],
+          },
+        ]);
+      }
+
+      if (record.category === "aspiration") {
+        const { data: aspiration } = await supabase
+          .from("aspiration_management")
+          .select("*")
+          .eq("id", record.id)
+          .maybeSingle();
+        if (!aspiration) return;
+
+        const [breedName, categoryName, auctionName, sireName, damName, veterinarianName, laboratoryName, storeName, farmName] =
+          await Promise.all([
+            fetchNameById("animal_breeds", aspiration.breed_id),
+            fetchNameById("animal_categories", aspiration.category_id),
+            fetchNameById("leiloes", aspiration.auction_id),
+            Promise.resolve(null),
+            fetchNameById("breeding_animals", aspiration.dam_id),
+            fetchNameById("veterinarians", aspiration.veterinarian_id),
+            fetchNameById("laboratories", aspiration.laboratory_id),
+            fetchNameById("stores", aspiration.store_id),
+            fetchFarmName(aspiration.farm_type, aspiration.farm_id),
+          ]);
+
+        setDetailSections([
+          {
+            title: "Dados Gerais",
+            items: [
+              { label: "Código", value: formatText(aspiration.code) },
+              { label: "Nome", value: formatText(aspiration.name) },
+              { label: "Status", value: statusLabel(aspiration.status) },
+              { label: "Aspiração prevista", value: formatDateBR(aspiration.expected_aspiration_month) },
+              { label: "Data aspiração", value: formatDateBR(aspiration.aspiration_date) },
+              { label: "Data transferência", value: formatDateBR(aspiration.transfer_date) },
+              { label: "Embriões", value: formatText(aspiration.embryo_count) },
+              { label: "Raça", value: formatText(breedName) },
+              { label: "Categoria", value: formatText(categoryName) },
+              { label: "Leilão", value: formatText(auctionName) },
+              { label: "Lote do leilão", value: formatText(aspiration.auction_lot) },
+              { label: "Financeiro liberado", value: formatBoolean(aspiration.financial_released) },
+            ],
+          },
+          {
+            title: "Dados Reprodutivos e Vinculados",
+            items: [
+              { label: "Pai", value: formatText(sireName) },
+              { label: "Mãe", value: formatText(damName) },
+              { label: "Veterinário", value: formatText(veterinarianName) },
+              { label: "Laboratório", value: formatText(laboratoryName) },
+              { label: "Fazenda", value: formatText(farmName) },
+              { label: "Tipo fazenda", value: formatText(aspiration.farm_type) },
+              { label: "Unidade", value: formatText(storeName) },
+            ],
+          },
+        ]);
+      }
+
+      const financial = await fetchFinancialDetails(record.category, record.id);
+      setDetailExpenses(financial.expenses);
+      setDetailRevenues(financial.revenues);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (storeIds.length > 0) {
       loadDetails(activeCategory);
@@ -501,6 +966,9 @@ const AnimaisRebanho = () => {
     },
   ];
 
+  const totalExpenses = detailExpenses.reduce((sum, item) => sum + item.totalPrice, 0);
+  const totalRevenues = detailRevenues.reduce((sum, item) => sum + item.totalPrice, 0);
+
   return (
     <div className="min-h-screen bg-slate-50/80">
       <header className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
@@ -553,7 +1021,7 @@ const AnimaisRebanho = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-slate-900">Detalhamento: {categoryTitle[activeCategory]}</CardTitle>
             <CardDescription>
-              Clique em um card superior para alternar a categoria. Apenas uma categoria fica ativa por vez.
+              Clique em um card superior para alternar a categoria. Clique no card individual para abrir o cadastro em modal.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -596,102 +1064,107 @@ const AnimaisRebanho = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {pagedRecords.map((record) => (
-                  <Card key={`${record.category}-${record.id}`} className="border-slate-200 bg-white">
-                    <CardContent className="p-4 space-y-3">
-                      {record.category === "animals" && (
-                        <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
-                          {record.photoUrl ? (
-                            <img
-                              src={record.photoUrl}
-                              alt={record.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="text-slate-400 flex flex-col items-center gap-1">
-                              <ImageOff className="h-6 w-6" />
-                              <span className="text-xs">Sem foto</span>
-                            </div>
+                  <button
+                    key={`${record.category}-${record.id}`}
+                    type="button"
+                    onClick={() => loadDetailModal(record)}
+                    className="text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                  >
+                    <Card className="border-slate-200 bg-white h-full transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5">
+                      <CardContent className="p-4 space-y-3">
+                        {record.category === "animals" && (
+                          <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
+                            {record.photoUrl ? (
+                              <img
+                                src={record.photoUrl}
+                                alt={record.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="text-slate-400 flex flex-col items-center gap-1">
+                                <ImageOff className="h-6 w-6" />
+                                <span className="text-xs">Sem foto</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-900">{record.name}</p>
+                            <p className="text-xs text-slate-500">Código: {record.code ?? "Não informado"}</p>
+                          </div>
+                          <Badge variant="outline">{statusLabel(record.status)}</Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {record.category === "animals" && (
+                            <>
+                              <div>
+                                <p className="text-slate-500 text-xs">Nascimento</p>
+                                <p className="font-medium">{formatDateBR(record.birthDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Leilão</p>
+                                <p className="font-medium truncate">{record.auctionName || "Não informado"}</p>
+                              </div>
+                            </>
+                          )}
+
+                          {record.category === "pregnancy" && (
+                            <>
+                              <div>
+                                <p className="text-slate-500 text-xs">Parto previsto</p>
+                                <p className="font-medium">{formatDateBR(record.expectedDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Transferência</p>
+                                <p className="font-medium">{formatDateBR(record.transferDate)}</p>
+                              </div>
+                            </>
+                          )}
+
+                          {record.category === "embryo_transfer" && (
+                            <>
+                              <div>
+                                <p className="text-slate-500 text-xs">Aspiração</p>
+                                <p className="font-medium">{formatDateBR(record.aspirationDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Transferência</p>
+                                <p className="font-medium">{formatDateBR(record.transferDate)}</p>
+                              </div>
+                            </>
+                          )}
+
+                          {record.category === "aspiration" && (
+                            <>
+                              <div>
+                                <p className="text-slate-500 text-xs">Aspiração prevista</p>
+                                <p className="font-medium">{formatDateBR(record.expectedDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Embriões</p>
+                                <p className="font-medium">{record.embryoCount ?? "Não informado"}</p>
+                              </div>
+                            </>
                           )}
                         </div>
-                      )}
 
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-slate-900">{record.name}</p>
-                          <p className="text-xs text-slate-500">
-                            Código: {record.code ?? "Não informado"}
-                          </p>
+                        <div className="border-t pt-3 grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-slate-500 text-xs">Valor da compra</p>
+                            <p className="font-semibold text-rose-700">{formatCurrencyBR(record.purchaseValue)}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-xs">Valor de faturamento</p>
+                            <p className="font-semibold text-emerald-700">{formatCurrencyBR(record.revenueValue)}</p>
+                          </div>
                         </div>
-                        <Badge variant="outline">{statusLabel(record.status)}</Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        {record.category === "animals" && (
-                          <>
-                            <div>
-                              <p className="text-slate-500 text-xs">Nascimento</p>
-                              <p className="font-medium">{formatDateBR(record.birthDate)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500 text-xs">Leilão</p>
-                              <p className="font-medium truncate">{record.auctionName || "Não informado"}</p>
-                            </div>
-                          </>
-                        )}
-
-                        {record.category === "pregnancy" && (
-                          <>
-                            <div>
-                              <p className="text-slate-500 text-xs">Parto previsto</p>
-                              <p className="font-medium">{formatDateBR(record.expectedDate)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500 text-xs">Transferência</p>
-                              <p className="font-medium">{formatDateBR(record.transferDate)}</p>
-                            </div>
-                          </>
-                        )}
-
-                        {record.category === "embryo_transfer" && (
-                          <>
-                            <div>
-                              <p className="text-slate-500 text-xs">Aspiração</p>
-                              <p className="font-medium">{formatDateBR(record.aspirationDate)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500 text-xs">Transferência</p>
-                              <p className="font-medium">{formatDateBR(record.transferDate)}</p>
-                            </div>
-                          </>
-                        )}
-
-                        {record.category === "aspiration" && (
-                          <>
-                            <div>
-                              <p className="text-slate-500 text-xs">Aspiração prevista</p>
-                              <p className="font-medium">{formatDateBR(record.expectedDate)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500 text-xs">Embriões</p>
-                              <p className="font-medium">{record.embryoCount ?? "Não informado"}</p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="border-t pt-3 grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <p className="text-slate-500 text-xs">Valor da compra</p>
-                          <p className="font-semibold text-rose-700">{formatCurrencyBR(record.purchaseValue)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 text-xs">Valor de faturamento</p>
-                          <p className="font-semibold text-emerald-700">{formatCurrencyBR(record.revenueValue)}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </button>
                 ))}
               </div>
             )}
@@ -725,6 +1198,151 @@ const AnimaisRebanho = () => {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="w-[95vw] max-w-5xl max-h-[88vh] overflow-hidden p-0">
+          <div className="p-6 border-b bg-slate-50/70">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">
+                {selectedDetail ? `${categoryTitle[selectedDetail.category]} - ${selectedDetail.name}` : "Detalhes"}
+              </DialogTitle>
+              <DialogDescription>
+                Visualização do cadastro com dados reais do módulo e aba financeiro.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedDetail && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(categoryModuleRoute[selectedDetail.category])}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Abrir cadastro completo
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 pb-6 overflow-y-auto">
+            {detailLoading ? (
+              <div className="py-10 text-center text-slate-500">Carregando detalhes do cadastro...</div>
+            ) : (
+              <Tabs defaultValue="dados" className="mt-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="dados">Dados</TabsTrigger>
+                  <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="dados" className="space-y-4 mt-4">
+                  {detailSections.length === 0 ? (
+                    <div className="text-sm text-slate-500">Nenhum dado encontrado.</div>
+                  ) : (
+                    detailSections.map((section) => (
+                      <Card key={section.title} className="border-slate-200">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">{section.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {section.items.map((item) => (
+                              <div key={`${section.title}-${item.label}`} className="rounded-lg border bg-slate-50/60 p-3">
+                                <p className="text-xs text-slate-500">{item.label}</p>
+                                <p className="text-sm font-medium text-slate-900 break-words">{item.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </TabsContent>
+
+                <TabsContent value="financeiro" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Card className="border-rose-200 bg-rose-50/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-rose-800">Despesas</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-rose-700 font-semibold">{formatCurrencyBR(totalExpenses)}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-emerald-200 bg-emerald-50/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-emerald-800">Receitas</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-emerald-700 font-semibold">{formatCurrencyBR(totalRevenues)}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="border-slate-200">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Lançamentos vinculados</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {detailExpenses.length === 0 && detailRevenues.length === 0 ? (
+                        <div className="text-sm text-slate-500">Nenhum vínculo financeiro encontrado.</div>
+                      ) : (
+                        [...detailExpenses, ...detailRevenues].map((item) => (
+                          <div key={`${item.recordType}-${item.id}`} className="rounded-lg border p-3 bg-white">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                              <Badge variant={item.recordType === "expense" ? "secondary" : "default"}>
+                                {item.recordType === "expense" ? "Despesa" : "Receita"}
+                              </Badge>
+                              <Badge variant="outline">{getAllocationTypeLabel(item.allocationType)}</Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 text-sm">
+                              <div>
+                                <p className="text-slate-500 text-xs">Documento</p>
+                                <p>{formatText(item.documentNumber)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Parceiro</p>
+                                <p>{formatText(item.partnerName)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Produto</p>
+                                <p>{formatText(item.productName)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Vencimento</p>
+                                <p>{formatDateBR(item.dueDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Pagamento/Recebimento</p>
+                                <p>{formatDateBR(item.paymentDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Status</p>
+                                <p>{statusLabel(item.status)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Quantidade</p>
+                                <p>{item.quantity.toLocaleString("pt-BR")}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Valor unitário</p>
+                                <p>{formatCurrencyBR(item.unitPrice)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Valor total</p>
+                                <p className="font-semibold">{formatCurrencyBR(item.totalPrice)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
