@@ -225,6 +225,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [filterCreatedAtTo, setFilterCreatedAtTo] = useState("");
   const [showFilteredData, setShowFilteredData] = useState(false);
 
+  // Allocation filter states
+  const [filterAllocationType, setFilterAllocationType] = useState<string>("all");
+  const [filterAllocationIds, setFilterAllocationIds] = useState<string[]>([]);
+  const [filterAllocationSearch, setFilterAllocationSearch] = useState("");
+
   // Payment tab filters
   const [paymentFilterDateFrom, setPaymentFilterDateFrom] = useState("");
   const [paymentFilterDateTo, setPaymentFilterDateTo] = useState("");
