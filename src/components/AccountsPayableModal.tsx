@@ -859,6 +859,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setFilterStatus("all");
     setFilterCreatedAtFrom("");
     setFilterCreatedAtTo("");
+    setFilterAllocationType("all");
+    setFilterAllocationIds([]);
+    setFilterAllocationSearch("");
     fetchLatestAccounts(); // Voltar para as 5 últimas contas
   };
 
