@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,10 +43,21 @@ interface BreedingAnimalWithCounts extends BreedingAnimal {
   grandchildrenCount: number;
 }
 
+interface ActiveAnimalSummary {
+  id: string;
+  code: number | null;
+  name: string;
+  ear_tag: number | null;
+  sex: string;
+  sire_id: string | null;
+  dam_id: string | null;
+}
+
 const AnimaisMatrizes = () => {
   const navigate = useNavigate();
   const [breedingAnimals, setBreedingAnimals] = useState<BreedingAnimalWithCounts[]>([]);
   const [allBreedingAnimals, setAllBreedingAnimals] = useState<BreedingAnimal[]>([]);
+  const [activeAnimals, setActiveAnimals] = useState<ActiveAnimalSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -84,6 +95,62 @@ const AnimaisMatrizes = () => {
     return userStore?.store_id || null;
   };
 
+  const buildBreedingAnimalsWithCounts = (
+    allAnimals: BreedingAnimal[],
+    activeAnimalRows: ActiveAnimalSummary[],
+  ): BreedingAnimalWithCounts[] => {
+    const offspringByParentId = new Map<string, Set<string>>();
+
+    activeAnimalRows.forEach((animal) => {
+      if (animal.sire_id) {
+        if (!offspringByParentId.has(animal.sire_id)) {
+          offspringByParentId.set(animal.sire_id, new Set());
+        }
+        offspringByParentId.get(animal.sire_id)!.add(animal.id);
+      }
+
+      if (animal.dam_id) {
+        if (!offspringByParentId.has(animal.dam_id)) {
+          offspringByParentId.set(animal.dam_id, new Set());
+        }
+        offspringByParentId.get(animal.dam_id)!.add(animal.id);
+      }
+    });
+
+    const breedingChildrenByParentId = new Map<string, string[]>();
+    allAnimals.forEach((animal) => {
+      if (animal.sire_id) {
+        const current = breedingChildrenByParentId.get(animal.sire_id) || [];
+        current.push(animal.id);
+        breedingChildrenByParentId.set(animal.sire_id, current);
+      }
+
+      if (animal.dam_id) {
+        const current = breedingChildrenByParentId.get(animal.dam_id) || [];
+        current.push(animal.id);
+        breedingChildrenByParentId.set(animal.dam_id, current);
+      }
+    });
+
+    return allAnimals.map((animal) => {
+      const offspringCount = offspringByParentId.get(animal.id)?.size || 0;
+      const childrenBreedingIds = breedingChildrenByParentId.get(animal.id) || [];
+      const grandchildrenIds = new Set<string>();
+
+      childrenBreedingIds.forEach((childId) => {
+        const grandchildren = offspringByParentId.get(childId);
+        if (!grandchildren) return;
+        grandchildren.forEach((grandchildId) => grandchildrenIds.add(grandchildId));
+      });
+
+      return {
+        ...animal,
+        offspringCount,
+        grandchildrenCount: grandchildrenIds.size,
+      };
+    });
+  };
+
   const fetchBreedingAnimals = async () => {
     try {
       const {
@@ -96,73 +163,35 @@ const AnimaisMatrizes = () => {
       }
 
       const storeId = await getUserStoreId(user.id);
-      // if (!storeId) {
-      //   toast.error("Loja não encontrada");
-      //   setIsLoading(false);
-      //   return;
-      // }
+      if (!storeId) {
+        toast.error("Loja não encontrada");
+        setIsLoading(false);
+        return;
+      }
 
-      const { data, error } = await supabase
-        .from("breeding_animals")
-        .select("*")
-        .eq("store_id", storeId)
-        .eq("is_active", true)
-        .order("name");
+      const [{ data: breedingData, error: breedingError }, { data: activeAnimalsData, error: animalsError }] = await Promise.all([
+        supabase
+          .from("breeding_animals")
+          .select("id, name, sex, registration, store_id, sire_id, dam_id")
+          .eq("store_id", storeId)
+          .eq("is_active", true)
+          .order("name"),
+        supabase
+          .from("animals")
+          .select("id, code, name, ear_tag, sex, sire_id, dam_id")
+          .eq("store_id", storeId)
+          .eq("is_active", true),
+      ]);
 
-      if (error) throw error;
+      if (breedingError) throw breedingError;
+      if (animalsError) throw animalsError;
 
-      const allAnimals = data || [];
+      const allAnimals = (breedingData || []) as BreedingAnimal[];
+      const activeAnimalRows = (activeAnimalsData || []) as ActiveAnimalSummary[];
+
       setAllBreedingAnimals(allAnimals);
-
-      // Fetch offspring counts for each breeding animal
-      const animalsWithCounts: BreedingAnimalWithCounts[] = await Promise.all(
-        allAnimals.map(async (animal) => {
-          // Count direct offspring (filhos)
-          const { count: sireCount } = await supabase
-            .from("animals")
-            .select("*", { count: "exact", head: true })
-            .eq("sire_id", animal.id)
-            .eq("is_active", true);
-
-          const { count: damCount } = await supabase
-            .from("animals")
-            .select("*", { count: "exact", head: true })
-            .eq("dam_id", animal.id)
-            .eq("is_active", true);
-
-          // Count grandchildren (netos) - animals whose parent (sire or dam) has this animal as parent
-          // First get offspring breeding animals
-          const offspringBreedingIds = allAnimals
-            .filter((ba) => ba.sire_id === animal.id || ba.dam_id === animal.id)
-            .map((ba) => ba.id);
-
-          let grandchildrenCount = 0;
-          if (offspringBreedingIds.length > 0) {
-            // Count animals that have any of the offspring as parent
-            const { count: grandchildSireCount } = await supabase
-              .from("animals")
-              .select("*", { count: "exact", head: true })
-              .in("sire_id", offspringBreedingIds)
-              .eq("is_active", true);
-
-            const { count: grandchildDamCount } = await supabase
-              .from("animals")
-              .select("*", { count: "exact", head: true })
-              .in("dam_id", offspringBreedingIds)
-              .eq("is_active", true);
-
-            grandchildrenCount = (grandchildSireCount || 0) + (grandchildDamCount || 0);
-          }
-
-          return {
-            ...animal,
-            offspringCount: (sireCount || 0) + (damCount || 0),
-            grandchildrenCount,
-          };
-        }),
-      );
-
-      setBreedingAnimals(animalsWithCounts);
+      setActiveAnimals(activeAnimalRows);
+      setBreedingAnimals(buildBreedingAnimalsWithCounts(allAnimals, activeAnimalRows));
     } catch (error: any) {
       toast.error("Erro ao carregar matrizes e genitores: " + error.message);
     } finally {
@@ -289,20 +318,7 @@ const AnimaisMatrizes = () => {
   };
 
   const openDeleteDialog = async (animal: BreedingAnimalWithCounts) => {
-    // Check if there are linked animals
-    const { count: sireCount } = await supabase
-      .from("animals")
-      .select("*", { count: "exact", head: true })
-      .eq("sire_id", animal.id)
-      .eq("is_active", true);
-
-    const { count: damCount } = await supabase
-      .from("animals")
-      .select("*", { count: "exact", head: true })
-      .eq("dam_id", animal.id)
-      .eq("is_active", true);
-
-    const totalLinked = (sireCount || 0) + (damCount || 0);
+    const totalLinked = animal.offspringCount;
 
     if (totalLinked > 0) {
       toast.error(`Não é possível excluir. Existem ${totalLinked} animal(is) vinculado(s) a esta matriz/genitor.`);
@@ -315,26 +331,9 @@ const AnimaisMatrizes = () => {
 
   const generateOffspringReport = async (animal: BreedingAnimalWithCounts) => {
     try {
-      // Fetch offspring based on whether the animal is sire or dam
-      let offspringData: any[] = [];
-
-      if (animal.sex === "macho") {
-        const { data } = await supabase
-          .from("animals")
-          .select("code, name, ear_tag, sex")
-          .eq("sire_id", animal.id)
-          .eq("is_active", true)
-          .order("name");
-        offspringData = data || [];
-      } else {
-        const { data } = await supabase
-          .from("animals")
-          .select("code, name, ear_tag, sex")
-          .eq("dam_id", animal.id)
-          .eq("is_active", true)
-          .order("name");
-        offspringData = data || [];
-      }
+      const offspringData = activeAnimals
+        .filter((offspring) => (animal.sex === "macho" ? offspring.sire_id === animal.id : offspring.dam_id === animal.id))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
       if (offspringData.length === 0) {
         toast.info("Não há animais filhos ativos para este registro.");
@@ -398,32 +397,19 @@ const AnimaisMatrizes = () => {
         return;
       }
 
-      // Get grandchildren animals
-      const { data: grandchildrenSire } = await supabase
-        .from("animals")
-        .select("code, name, ear_tag, sex, sire_id, dam_id")
-        .in("sire_id", offspringBreedingIds)
-        .eq("is_active", true);
-
-      const { data: grandchildrenDam } = await supabase
-        .from("animals")
-        .select("code, name, ear_tag, sex, sire_id, dam_id")
-        .in("dam_id", offspringBreedingIds)
-        .eq("is_active", true);
-
-      // Combine and remove duplicates
-      const allGrandchildren = [...(grandchildrenSire || []), ...(grandchildrenDam || [])];
-      const uniqueGrandchildren = allGrandchildren.filter(
-        (gc, index, self) => index === self.findIndex((t) => t.code === gc.code && t.name === gc.name),
-      );
+      const offspringBreedingSet = new Set(offspringBreedingIds);
+      const uniqueGrandchildren = activeAnimals
+        .filter(
+          (grandchild) =>
+            (grandchild.sire_id && offspringBreedingSet.has(grandchild.sire_id)) ||
+            (grandchild.dam_id && offspringBreedingSet.has(grandchild.dam_id)),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
       if (uniqueGrandchildren.length === 0) {
         toast.info("Não há animais netos ativos para este registro.");
         return;
       }
-
-      // Sort by name
-      uniqueGrandchildren.sort((a, b) => a.name.localeCompare(b.name));
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -443,11 +429,7 @@ const AnimaisMatrizes = () => {
       doc.text(`Total de Netos Ativos: ${uniqueGrandchildren.length}`, 14, animal.registration ? 49 : 42);
 
       // Get parent names for the table
-      const getParentName = (parentId: string | null) => {
-        if (!parentId) return "-";
-        const parent = allBreedingAnimals.find((ba) => ba.id === parentId);
-        return parent?.name || "-";
-      };
+      const breedingAnimalNameById = new Map(allBreedingAnimals.map((breedingAnimal) => [breedingAnimal.id, breedingAnimal.name]));
 
       // Table with grandchildren
       const tableData = uniqueGrandchildren.map((gc) => [
@@ -455,8 +437,8 @@ const AnimaisMatrizes = () => {
         gc.name,
         gc.ear_tag?.toString() || "-",
         gc.sex === "macho" ? "Macho" : "Fêmea",
-        getParentName(gc.sire_id),
-        getParentName(gc.dam_id),
+        gc.sire_id ? breedingAnimalNameById.get(gc.sire_id) || "-" : "-",
+        gc.dam_id ? breedingAnimalNameById.get(gc.dam_id) || "-" : "-",
       ]);
 
       autoTable(doc, {
@@ -484,13 +466,15 @@ const AnimaisMatrizes = () => {
   };
 
   // Get available sires (males) for dropdown, excluding the current animal being edited
-  const availableSires = allBreedingAnimals.filter(
-    (a) => a.sex === "macho" && (!selectedAnimal || a.id !== selectedAnimal.id),
+  const availableSires = useMemo(
+    () => allBreedingAnimals.filter((a) => a.sex === "macho" && (!selectedAnimal || a.id !== selectedAnimal.id)),
+    [allBreedingAnimals, selectedAnimal],
   );
 
   // Get available dams (females) for dropdown, excluding the current animal being edited
-  const availableDams = allBreedingAnimals.filter(
-    (a) => a.sex === "femea" && (!selectedAnimal || a.id !== selectedAnimal.id),
+  const availableDams = useMemo(
+    () => allBreedingAnimals.filter((a) => a.sex === "femea" && (!selectedAnimal || a.id !== selectedAnimal.id)),
+    [allBreedingAnimals, selectedAnimal],
   );
 
   const handleSort = (column: string) => {
@@ -503,24 +487,35 @@ const AnimaisMatrizes = () => {
     setCurrentPage(1);
   };
 
-  const filteredAnimals = breedingAnimals.filter((animal) => {
-    const matchesName = animal.name.toLowerCase().includes(filters.name.toLowerCase());
-    const matchesSex = !filters.sex || filters.sex === "todos" || animal.sex === filters.sex;
-    return matchesName && matchesSex;
-  });
+  const filteredAnimals = useMemo(
+    () =>
+      breedingAnimals.filter((animal) => {
+        const matchesName = animal.name.toLowerCase().includes(filters.name.toLowerCase());
+        const matchesSex = !filters.sex || filters.sex === "todos" || animal.sex === filters.sex;
+        return matchesName && matchesSex;
+      }),
+    [breedingAnimals, filters.name, filters.sex],
+  );
 
-  const sortedAnimals = [...filteredAnimals].sort((a, b) => {
-    if (!sortColumn) return 0;
-    const dir = sortDirection === "asc" ? 1 : -1;
-    if (sortColumn === "name") return a.name.localeCompare(b.name) * dir;
-    if (sortColumn === "sex") return a.sex.localeCompare(b.sex) * dir;
-    if (sortColumn === "offspringCount") return (a.offspringCount - b.offspringCount) * dir;
-    if (sortColumn === "grandchildrenCount") return (a.grandchildrenCount - b.grandchildrenCount) * dir;
-    return 0;
-  });
+  const sortedAnimals = useMemo(() => {
+    const items = [...filteredAnimals];
+    items.sort((a, b) => {
+      if (!sortColumn) return 0;
+      const dir = sortDirection === "asc" ? 1 : -1;
+      if (sortColumn === "name") return a.name.localeCompare(b.name) * dir;
+      if (sortColumn === "sex") return a.sex.localeCompare(b.sex) * dir;
+      if (sortColumn === "offspringCount") return (a.offspringCount - b.offspringCount) * dir;
+      if (sortColumn === "grandchildrenCount") return (a.grandchildrenCount - b.grandchildrenCount) * dir;
+      return 0;
+    });
+    return items;
+  }, [filteredAnimals, sortColumn, sortDirection]);
 
   const totalPages = Math.ceil(sortedAnimals.length / itemsPerPage);
-  const paginatedAnimals = sortedAnimals.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedAnimals = useMemo(
+    () => sortedAnimals.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [currentPage, itemsPerPage, sortedAnimals],
+  );
 
   return (
     <div className="min-h-screen bg-background p-6">
