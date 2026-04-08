@@ -222,6 +222,14 @@ const AnimaisCadastro = () => {
     () => animals.filter((animal) => isRecipientCategoryId(animal.category_id, recipientCategoryIds)),
     [animals, recipientCategoryIds],
   );
+  const farmLookup = useMemo(() => {
+    const entries: Array<[string, string]> = [
+      ...ownFarms.map((farm) => [`own-${farm.id}`, farm.name] as [string, string]),
+      ...thirdPartyFarms.map((farm) => [`third_party-${farm.id}`, farm.name] as [string, string]),
+    ];
+
+    return new Map(entries);
+  }, [ownFarms, thirdPartyFarms]);
 
   // Financial data state
   interface FinancialRecord {
@@ -1221,6 +1229,10 @@ const AnimaisCadastro = () => {
   const DatePickerField = DatePickerFieldInner;
 
   const isReadOnly = modalMode === "view";
+  const getFarmName = (farmId: string | null, farmType: string | null) => {
+    if (!farmId || !farmType) return "-";
+    return farmLookup.get(`${farmType}-${farmId}`) || "-";
+  };
 
   const getAllocationTypeLabel = (type: string) => {
     switch (type) {
@@ -1390,43 +1402,57 @@ const AnimaisCadastro = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Gestão de Animais</h1>
-            <p className="text-sm text-muted-foreground">Cadastro e gestão de animais</p>
+      <header className="border-b border-border/70 bg-card/80 backdrop-blur">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="h-9 w-9 rounded-full">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Gestão de Animais</h1>
+              <p className="text-sm text-muted-foreground">Cadastro e gestão de animais</p>
+            </div>
           </div>
+          <Button onClick={() => handleOpenModal("create")} className="h-10 gap-2 rounded-lg px-4 shadow-sm">
+            <Plus className="h-4 w-4" />
+            Cadastrar Animal
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowFilters(!showFilters)} 
-            className="gap-2"
+      <main className="container mx-auto px-4 py-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-sm">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">Listagem de animais</p>
+            <p className="text-xs text-muted-foreground">
+              Consulte e acompanhe os cadastros com uma visualização mais objetiva.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3"
           >
             <Filter className="h-4 w-4" />
             {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
             {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
-          <Button onClick={() => handleOpenModal("create")} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Cadastrar Animal
-          </Button>
         </div>
 
-        {/* Filters Section */}
         {showFilters && (
-        <div className="bg-card border rounded-lg p-4 mb-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-5 rounded-xl border border-border/70 bg-card px-4 py-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Filtros</p>
+              <p className="text-xs text-muted-foreground">Refine a listagem sem alterar a navegação principal da tela.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {/* Name filter */}
-            <div className="space-y-2">
-              <Label>Nome</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Nome</Label>
               <Input
+                className="h-10 rounded-lg"
                 value={filters.name}
                 onChange={(e) => setFilters({ ...filters, name: e.target.value })}
                 placeholder="Buscar por nome..."
@@ -1434,13 +1460,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Status filter */}
-            <div className="space-y-2">
-              <Label>Status</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Status</Label>
               <Select
                 value={filters.status}
                 onValueChange={(value) => setFilters({ ...filters, status: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar status" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1453,13 +1479,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Farm filter */}
-            <div className="space-y-2">
-              <Label>Fazenda</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Fazenda</Label>
               <Select
                 value={filters.farm || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, farm: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar fazenda" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1492,13 +1518,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Sex filter */}
-            <div className="space-y-2">
-              <Label>Sexo</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Sexo</Label>
               <Select
                 value={filters.sex || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, sex: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar sexo" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1510,13 +1536,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Breed filter */}
-            <div className="space-y-2">
-              <Label>Raça</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Raça</Label>
               <Select
                 value={filters.breed_id || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, breed_id: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar raça" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1531,13 +1557,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Dam filter */}
-            <div className="space-y-2">
-              <Label>Nome Mãe</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Nome Mãe</Label>
               <Select
                 value={filters.dam_id || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, dam_id: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar mãe" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1552,13 +1578,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Sire filter */}
-            <div className="space-y-2">
-              <Label>Nome Pai</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Nome Pai</Label>
               <Select
                 value={filters.sire_id || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, sire_id: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar pai" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1573,13 +1599,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Auction filter */}
-            <div className="space-y-2">
-              <Label>Leilão</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Leilão</Label>
               <Select
                 value={filters.auction_id || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, auction_id: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar leilão" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1594,13 +1620,13 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Category filter */}
-            <div className="space-y-2">
-              <Label>Categoria</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Categoria</Label>
               <Select
                 value={filters.category_id || "_all"}
                 onValueChange={(value) => setFilters({ ...filters, category_id: value === "_all" ? "" : value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-lg">
                   <SelectValue placeholder="Selecionar categoria" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
@@ -1615,14 +1641,14 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Birth date start */}
-            <div className="space-y-2">
-              <Label>Data Nasc. Inicial</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Data Nasc. Inicial</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "h-10 w-full justify-start rounded-lg text-left font-normal",
                       !filters.birth_date_start && "text-muted-foreground"
                     )}
                   >
@@ -1645,14 +1671,14 @@ const AnimaisCadastro = () => {
             </div>
 
             {/* Birth date end */}
-            <div className="space-y-2">
-              <Label>Data Nasc. Final</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Data Nasc. Final</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "h-10 w-full justify-start rounded-lg text-left font-normal",
                       !filters.birth_date_end && "text-muted-foreground"
                     )}
                   >
@@ -1676,9 +1702,10 @@ const AnimaisCadastro = () => {
           </div>
 
           {/* Clear filters button */}
-          <div className="flex justify-end">
+          <div className="mt-4 flex justify-end">
             <Button
               variant="outline"
+              className="h-9 rounded-lg px-3"
               onClick={() => setFilters({
                 name: "",
                 status: "ambos",
@@ -1760,73 +1787,97 @@ const AnimaisCadastro = () => {
           }
 
           return (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
+          <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+            <Table className="min-w-[860px]">
+              <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                 <TableRow>
-                  <TableHead className="w-20">Código</TableHead>
-                  <TableHead>Foto</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Brinco</TableHead>
-                  <TableHead>Sexo</TableHead>
-                  <TableHead>Raça</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="h-11 w-20 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
+                  <TableHead className="h-11 w-20 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto</TableHead>
+                  <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nome</TableHead>
+                  <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Fazenda</TableHead>
+                  <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Sexo</TableHead>
+                  <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Raça</TableHead>
+                  <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAnimals.map((animal) => (
-                  <TableRow key={animal.id} className={!animal.is_active ? "opacity-60" : ""}>
-                    <TableCell className="font-medium">{animal.code}</TableCell>
-                    <TableCell>
+                  <TableRow
+                    key={animal.id}
+                    className={cn(
+                      "border-border/60 hover:bg-muted/25",
+                      !animal.is_active && "opacity-70"
+                    )}
+                  >
+                    <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{animal.code}</TableCell>
+                    <TableCell className="px-4 py-3">
                       {animal.cover_photo ? (
                         <img
                           src={animal.cover_photo}
                           alt={animal.name}
-                          className="w-10 h-10 object-cover rounded"
+                          className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm"
                         />
                       ) : (
-                        <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
-                          <Image className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
+                          <Image className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{animal.name}</TableCell>
-                    <TableCell>{animal.ear_tag || "-"}</TableCell>
-                    <TableCell>{animal.sex === "macho" ? "Macho" : "Fêmea"}</TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="min-w-[180px]">
+                        <p className="truncate font-medium text-foreground">{animal.name}</p>
+                        {animal.registration && (
+                          <p className="truncate text-xs text-muted-foreground">{animal.registration}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      <span className="block max-w-[220px] truncate">{getFarmName(animal.farm_id, animal.farm_type)}</span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-foreground">{animal.sex === "macho" ? "Macho" : "Fêmea"}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
                       {breeds.find((b) => b.id === animal.breed_id)?.name || "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3">
                       {(() => {
                         const isSold = soldAnimalIds.has(animal.id);
                         if (isSold) {
                           return (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            <Badge className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50">
                               Vendido
-                            </span>
+                            </Badge>
                           );
                         }
                         return (
-                          <span className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
+                          <Badge className={cn(
+                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
                             animal.is_active 
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
-                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                              ? "border-green-200 bg-green-50 text-green-700" 
+                              : "border-red-200 bg-red-50 text-red-700"
                           )}>
                             {animal.is_active ? "Ativo" : "Inativo"}
-                          </span>
+                          </Badge>
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", animal)}>
+                    <TableCell className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          onClick={() => handleOpenModal("view", animal)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                            >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
