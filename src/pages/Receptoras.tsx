@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,13 @@ interface FinancialItem {
   total_price: number;
 }
 
+interface UserContext {
+  userId: string;
+  matrixId: string | null;
+  storeId: string | null;
+  storeIds: string[];
+}
+
 const emptyForm = {
   code: 0,
   name: "",
@@ -157,18 +164,52 @@ const Receptoras = () => {
   const [primaryStoreId, setPrimaryStoreId] = useState<string | null>(null);
   const [financialItems, setFinancialItems] = useState<FinancialItem[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
 
   const isReadOnly = modalMode === "view";
+  const contextRef = useRef<UserContext | null>(null);
+  const formOptionsLoadedRef = useRef(false);
+  const recordDetailsCacheRef = useRef(new Map<string, ReceptoraRecord>());
+  const financialCacheRef = useRef(new Map<string, FinancialItem[]>());
 
   const recipientCategoryIds = useMemo(
     () => getRecipientCategoryIds(categories),
     [categories],
   );
 
+  const normalizeRecord = (item: any) => ({
+    ...item,
+    photos: Array.isArray(item.photos) ? item.photos : [],
+  });
+
+  const fillFormFromRecord = (record: ReceptoraRecord) => {
+    setFormData({
+      code: record.code,
+      name: record.name,
+      registration: record.registration || "",
+      ear_tag: record.ear_tag?.toString() || "",
+      batch_id: record.batch_id || "",
+      sex: record.sex || "femea",
+      farm_entry_date: record.farm_entry_date || "",
+      birth_date: record.birth_date || "",
+      breed_id: record.breed_id || "",
+      category_id: record.category_id || "",
+      auction_id: record.auction_id || "",
+      auction_lot: record.auction_lot || "",
+      observations: record.observations || "",
+      photos: record.photos || [],
+      cover_photo: record.cover_photo || "",
+      is_active: record.is_active ? "ativo" : "inativo",
+      farm: record.farm_id ? `${record.farm_type === "third_party" ? "third" : "own"}-${record.farm_id}` : "",
+    });
+  };
+
   const getContext = async () => {
+    if (contextRef.current) return contextRef.current;
+
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth.user?.id;
     if (!userId) return null;
@@ -196,12 +237,15 @@ const Receptoras = () => {
       storeIds = (matrixStores || []).map((s) => s.id);
     }
 
-    return {
+    const context = {
       userId,
       matrixId: profile?.matrix_id || null,
       storeId: profile?.store_id || storeIds[0] || null,
       storeIds,
     };
+
+    contextRef.current = context;
+    return context;
   };
 
   const getNextCode = async () => {
@@ -216,8 +260,8 @@ const Receptoras = () => {
     return (data?.code || 0) + 1;
   };
 
-  const fetchDropdowns = async () => {
-    const context = await getContext();
+  const fetchBaseDropdowns = async (contextOverride?: UserContext | null) => {
+    const context = contextOverride ?? (await getContext());
     if (!context?.storeId) return [] as OptionItem[];
 
     setPrimaryStoreId(context.storeId);
@@ -226,15 +270,9 @@ const Receptoras = () => {
       ? { key: "matrix_id", value: context.matrixId }
       : { key: "store_id", value: context.storeId };
 
-    const [batchesRes, breedsRes, categoriesRes, auctionsRes, storesRes, thirdFarmsRes] = await Promise.all([
+    const [batchesRes, categoriesRes, storesRes, thirdFarmsRes] = await Promise.all([
       supabase
         .from("animal_batches")
-        .select("id, name")
-        .eq(commonFilter.key as any, commonFilter.value)
-        .eq("is_active", true)
-        .order("name"),
-      supabase
-        .from("animal_breeds")
         .select("id, name")
         .eq(commonFilter.key as any, commonFilter.value)
         .eq("is_active", true)
@@ -245,37 +283,57 @@ const Receptoras = () => {
         .eq(commonFilter.key as any, commonFilter.value)
         .eq("is_active", true)
         .order("name"),
-      supabase
-        .from("leiloes")
-        .select("id, name")
-        .eq(commonFilter.key as any, commonFilter.value)
-        .eq("is_active", true)
-        .order("name"),
       supabase.from("stores").select("id, name").in("id", context.storeIds).order("name"),
       supabase.from("third_party_farms").select("id, name").eq("is_active", true).order("name"),
     ]);
 
     const loadedBatches = (batchesRes.data || []) as OptionItem[];
-    const loadedBreeds = (breedsRes.data || []) as OptionItem[];
     const loadedCategories = (categoriesRes.data || []) as OptionItem[];
-    const loadedAuctions = (auctionsRes.data || []) as OptionItem[];
     const loadedOwnFarms = (storesRes.data || []) as OptionItem[];
     const loadedThirdPartyFarms = (thirdFarmsRes.data || []) as OptionItem[];
 
     setBatches(loadedBatches);
-    setBreeds(loadedBreeds);
     setCategories(loadedCategories);
-    setAuctions(loadedAuctions);
     setOwnFarms(loadedOwnFarms);
     setThirdPartyFarms(loadedThirdPartyFarms);
 
     return loadedCategories;
   };
 
-  const fetchRecords = async (forcedCategoryIds?: string[]) => {
+  const ensureFormDropdowns = async (contextOverride?: UserContext | null) => {
+    if (formOptionsLoadedRef.current) return;
+
+    const context = contextOverride ?? (await getContext());
+    if (!context?.storeId) return;
+
+    const commonFilter = context.matrixId
+      ? { key: "matrix_id", value: context.matrixId }
+      : { key: "store_id", value: context.storeId };
+
+    const [breedsRes, auctionsRes] = await Promise.all([
+      supabase
+        .from("animal_breeds")
+        .select("id, name")
+        .eq(commonFilter.key as any, commonFilter.value)
+        .eq("is_active", true)
+        .order("name"),
+      supabase
+        .from("leiloes")
+        .select("id, name")
+        .eq(commonFilter.key as any, commonFilter.value)
+        .eq("is_active", true)
+        .order("name"),
+    ]);
+
+    setBreeds((breedsRes.data || []) as OptionItem[]);
+    setAuctions((auctionsRes.data || []) as OptionItem[]);
+    formOptionsLoadedRef.current = true;
+  };
+
+  const fetchRecords = async (contextOverride?: UserContext | null, forcedCategoryIds?: string[]) => {
     setLoading(true);
     try {
-      const context = await getContext();
+      const context = contextOverride ?? (await getContext());
       if (!context || context.storeIds.length === 0) {
         setRecords([]);
         return;
@@ -289,7 +347,7 @@ const Receptoras = () => {
 
       let query = supabase
         .from("animals")
-        .select("id, code, name, registration, ear_tag, batch_id, sex, farm_entry_date, birth_date, breed_id, category_id, auction_id, auction_lot, observations, photos, cover_photo, store_id, is_active, farm_id, farm_type")
+        .select("id, code, name, registration, ear_tag, batch_id, category_id, cover_photo, store_id, is_active, farm_id, farm_type, farm_entry_date")
         .in("store_id", context.storeIds)
         .order("code", { ascending: false });
 
@@ -298,10 +356,7 @@ const Receptoras = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      const normalized = (data || []).map((item: any) => ({
-        ...item,
-        photos: Array.isArray(item.photos) ? item.photos : [],
-      }));
+      const normalized = (data || []).map(normalizeRecord);
 
       setRecords(normalized as ReceptoraRecord[]);
     } catch (error) {
@@ -312,11 +367,36 @@ const Receptoras = () => {
     }
   };
 
+  const fetchRecordDetails = async (recordId: string) => {
+    const cached = recordDetailsCacheRef.current.get(recordId);
+    if (cached) return cached;
+
+    const { data, error } = await supabase
+      .from("animals")
+      .select("id, code, name, registration, ear_tag, batch_id, sex, farm_entry_date, birth_date, breed_id, category_id, auction_id, auction_lot, observations, photos, cover_photo, store_id, is_active, farm_id, farm_type")
+      .eq("id", recordId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error("Receptora não encontrada");
+
+    const normalized = normalizeRecord(data) as ReceptoraRecord;
+    recordDetailsCacheRef.current.set(recordId, normalized);
+    return normalized;
+  };
+
   useEffect(() => {
     const bootstrap = async () => {
-      const loadedCategories = await fetchDropdowns();
-      const receptorCategoryIds = getRecipientCategoryIds(loadedCategories);
-      await fetchRecords(receptorCategoryIds);
+      const context = await getContext();
+      if (!context || context.storeIds.length === 0) {
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
+
+      const loadedCategories = await fetchBaseDropdowns(context);
+      const resolvedCategoryIds = getRecipientCategoryIds(loadedCategories);
+      await fetchRecords(context, resolvedCategoryIds);
     };
     bootstrap();
   }, []);
@@ -327,6 +407,13 @@ const Receptoras = () => {
   }, [selectedRecord, activeTab]);
 
   const fetchFinancial = async (animalId: string) => {
+    const cached = financialCacheRef.current.get(animalId);
+    if (cached) {
+      setLoadingFinancial(false);
+      setFinancialItems(cached);
+      return;
+    }
+
     setLoadingFinancial(true);
     try {
       const [expRes, revRes] = await Promise.all([
@@ -401,7 +488,9 @@ const Receptoras = () => {
         };
       });
 
-      setFinancialItems([...mappedExpenses, ...mappedRevenues]);
+      const nextItems = [...mappedExpenses, ...mappedRevenues];
+      financialCacheRef.current.set(animalId, nextItems);
+      setFinancialItems(nextItems);
     } catch (error) {
       console.error("Error fetching financeiro receptora:", error);
       setFinancialItems([]);
@@ -444,7 +533,8 @@ const Receptoras = () => {
   };
 
   const openCreateModal = async () => {
-    const nextCode = await getNextCode();
+    const context = await getContext();
+    const [nextCode] = await Promise.all([getNextCode(), ensureFormDropdowns(context)]);
     setFormData({ ...emptyForm, code: nextCode, category_id: recipientCategoryIds[0] || "" });
     setSelectedRecord(null);
     setModalMode("create");
@@ -453,30 +543,26 @@ const Receptoras = () => {
     setModalOpen(true);
   };
 
-  const openEditModal = (record: ReceptoraRecord, mode: "edit" | "view") => {
+  const openEditModal = async (record: ReceptoraRecord, mode: "edit" | "view") => {
     setSelectedRecord(record);
-    setFormData({
-      code: record.code,
-      name: record.name,
-      registration: record.registration || "",
-      ear_tag: record.ear_tag?.toString() || "",
-      batch_id: record.batch_id || "",
-      sex: record.sex || "femea",
-      farm_entry_date: record.farm_entry_date || "",
-      birth_date: record.birth_date || "",
-      breed_id: record.breed_id || "",
-      category_id: record.category_id || "",
-      auction_id: record.auction_id || "",
-      auction_lot: record.auction_lot || "",
-      observations: record.observations || "",
-      photos: record.photos || [],
-      cover_photo: record.cover_photo || "",
-      is_active: record.is_active ? "ativo" : "inativo",
-      farm: record.farm_id ? `${record.farm_type === "third_party" ? "third" : "own"}-${record.farm_id}` : "",
-    });
     setModalMode(mode);
     setActiveTab("dados");
+    setLoadingDetails(true);
     setModalOpen(true);
+
+    try {
+      const context = await getContext();
+      await ensureFormDropdowns(context);
+      const detailedRecord = await fetchRecordDetails(record.id);
+      setSelectedRecord(detailedRecord);
+      fillFormFromRecord(detailedRecord);
+    } catch (error) {
+      console.error("Error fetching receptora details:", error);
+      toast({ title: "Erro ao carregar dados da receptora", variant: "destructive" });
+      setModalOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const validateBaseForm = (payload: typeof formData) => {
@@ -554,6 +640,7 @@ const Receptoras = () => {
       } else if (selectedRecord) {
         const { error } = await supabase.from("animals").update(payload as any).eq("id", selectedRecord.id);
         if (error) throw error;
+        recordDetailsCacheRef.current.delete(selectedRecord.id);
         toast({ title: "Receptora atualizada com sucesso" });
       }
 
@@ -565,7 +652,9 @@ const Receptoras = () => {
     }
   };
 
-  const openGroupModal = () => {
+  const openGroupModal = async () => {
+    const context = await getContext();
+    await ensureFormDropdowns(context);
     setGroupStep(1);
     setGroupCommon(emptyGroupCommon);
     setGroupQuantity(1);
@@ -638,6 +727,8 @@ const Receptoras = () => {
     try {
       const { error } = await supabase.from("animals").update({ is_active: false }).eq("id", recordToDelete.id);
       if (error) throw error;
+      recordDetailsCacheRef.current.delete(recordToDelete.id);
+      financialCacheRef.current.delete(recordToDelete.id);
       toast({ title: "Receptora excluída com sucesso" });
       setDeleteDialogOpen(false);
       setRecordToDelete(null);
@@ -648,26 +739,33 @@ const Receptoras = () => {
     }
   };
 
-  const filteredRecords = records.filter((item) => {
+  const filteredRecords = useMemo(() => {
     const term = search.toLowerCase();
-    if (!term) return true;
-    return [item.name, item.registration || "", String(item.ear_tag || ""), String(item.code)]
-      .join(" ")
-      .toLowerCase()
-      .includes(term);
-  });
+    if (!term) return records;
+    return records.filter((item) =>
+      [item.name, item.registration || "", String(item.ear_tag || ""), String(item.code)]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [records, search]);
 
-  const batchNameById = new Map(batches.map((b) => [b.id, b.name]));
-  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
-  const farmNameById = new Map([...ownFarms, ...thirdPartyFarms].map((f) => [f.id, f.name]));
+  const batchNameById = useMemo(() => new Map(batches.map((b) => [b.id, b.name])), [batches]);
+  const categoryNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const farmNameById = useMemo(
+    () => new Map([...ownFarms, ...thirdPartyFarms].map((f) => [f.id, f.name])),
+    [ownFarms, thirdPartyFarms],
+  );
 
-  const expenseTotal = financialItems
-    .filter((f) => f.type === "expense")
-    .reduce((sum, item) => sum + item.total_price, 0);
+  const expenseTotal = useMemo(
+    () => financialItems.filter((f) => f.type === "expense").reduce((sum, item) => sum + item.total_price, 0),
+    [financialItems],
+  );
 
-  const revenueTotal = financialItems
-    .filter((f) => f.type === "revenue")
-    .reduce((sum, item) => sum + item.total_price, 0);
+  const revenueTotal = useMemo(
+    () => financialItems.filter((f) => f.type === "revenue").reduce((sum, item) => sum + item.total_price, 0),
+    [financialItems],
+  );
 
   return (
     <div className="min-h-screen bg-slate-50/70">
@@ -811,14 +909,19 @@ const Receptoras = () => {
           </div>
 
           <div className="p-5 overflow-y-auto">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
-                <TabsTrigger value="obs">Observações e Fotos</TabsTrigger>
-                <TabsTrigger value="financeiro" disabled={!selectedRecord}>Financeiro</TabsTrigger>
-              </TabsList>
+            {loadingDetails ? (
+              <div className="flex min-h-[320px] items-center justify-center text-slate-500">
+                Carregando dados da receptora...
+              </div>
+            ) : (
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
+                  <TabsTrigger value="obs">Observações e Fotos</TabsTrigger>
+                  <TabsTrigger value="financeiro" disabled={!selectedRecord}>Financeiro</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="dados" className="mt-4 space-y-4">
+                <TabsContent value="dados" className="mt-4 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   <div>
                     <Label>Código</Label>
@@ -940,9 +1043,9 @@ const Receptoras = () => {
                     <Input value={formData.auction_lot} disabled={isReadOnly} onChange={(e) => setFormData((prev) => ({ ...prev, auction_lot: e.target.value }))} />
                   </div>
                 </div>
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="obs" className="mt-4 space-y-4">
+                <TabsContent value="obs" className="mt-4 space-y-4">
                 <div>
                   <Label>Observações</Label>
                   <Textarea
@@ -1014,9 +1117,9 @@ const Receptoras = () => {
                     </label>
                   )}
                 </div>
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="financeiro" className="mt-4 space-y-4">
+                <TabsContent value="financeiro" className="mt-4 space-y-4">
                 {loadingFinancial ? (
                   <p className="text-center py-6 text-slate-500">Carregando financeiro...</p>
                 ) : (
@@ -1082,13 +1185,14 @@ const Receptoras = () => {
                     )}
                   </>
                 )}
-              </TabsContent>
-            </Tabs>
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
 
           <DialogFooter className="p-4 border-t bg-slate-50/70">
             <Button variant="outline" onClick={() => setModalOpen(false)}>Fechar</Button>
-            {!isReadOnly && <Button onClick={handleSave}>Salvar</Button>}
+            {!isReadOnly && <Button onClick={handleSave} disabled={loadingDetails}>Salvar</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
