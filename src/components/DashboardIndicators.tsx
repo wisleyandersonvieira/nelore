@@ -61,6 +61,37 @@ interface ReceivableAccountSummary {
   accounts_receivable_items?: NestedItem[] | null;
 }
 
+interface PayableInstallmentSummary {
+  amount: number | string | null;
+  due_date: string | null;
+  payment_date: string | null;
+  status?: string | null;
+}
+
+interface ReceivableInstallmentSummary {
+  amount: number | string | null;
+  due_date: string | null;
+  payment_date: string | null;
+}
+
+interface PayableFinancialAccountSummary {
+  id: string;
+  amount: number | string | null;
+  due_date: string | null;
+  payment_date: string | null;
+  status: string | null;
+  accounts_payable_installments?: PayableInstallmentSummary[] | null;
+}
+
+interface ReceivableFinancialAccountSummary {
+  id: string;
+  amount: number | string | null;
+  due_date: string | null;
+  payment_date: string | null;
+  status: string | null;
+  accounts_receivable_installments?: ReceivableInstallmentSummary[] | null;
+}
+
 interface SummaryCardProps {
   title: string;
   value: string | number;
@@ -116,6 +147,57 @@ const parseDate = (date: string | null | undefined) => {
   const parsed = new Date(`${date}T12:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
+
+const isSameMonth = (date: Date | null, reference: Date) =>
+  !!date &&
+  date.getFullYear() === reference.getFullYear() &&
+  date.getMonth() === reference.getMonth();
+
+const buildPayableEntries = (accounts: PayableFinancialAccountSummary[]) =>
+  accounts.flatMap((account) => {
+    const installments = account.accounts_payable_installments || [];
+
+    if (installments.length > 0) {
+      return installments.map((installment) => ({
+        amount: Number(installment.amount || 0),
+        dueDate: parseDate(installment.due_date),
+        paymentDate: parseDate(installment.payment_date),
+        status: installment.status || account.status || null,
+      }));
+    }
+
+    return [
+      {
+        amount: Number(account.amount || 0),
+        dueDate: parseDate(account.due_date),
+        paymentDate: parseDate(account.payment_date),
+        status: account.status || null,
+      },
+    ];
+  });
+
+const buildReceivableEntries = (accounts: ReceivableFinancialAccountSummary[]) =>
+  accounts.flatMap((account) => {
+    const installments = account.accounts_receivable_installments || [];
+
+    if (installments.length > 0) {
+      return installments.map((installment) => ({
+        amount: Number(installment.amount || 0),
+        dueDate: parseDate(installment.due_date),
+        paymentDate: parseDate(installment.payment_date),
+        status: account.status || null,
+      }));
+    }
+
+    return [
+      {
+        amount: Number(account.amount || 0),
+        dueDate: parseDate(account.due_date),
+        paymentDate: parseDate(account.payment_date),
+        status: account.status || null,
+      },
+    ];
+  });
 
 const SectionHeader = ({ title, description }: { title: string; description: string }) => (
   <div className="space-y-1">
@@ -386,74 +468,25 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     enabled: storeIds.length > 0,
     queryFn: async () => {
       const today = startOfToday();
-      const monthStart = startOfMonth(today);
       const monthEnd = endOfMonth(today);
-      const monthStartIso = format(monthStart, "yyyy-MM-dd");
-      const monthEndIso = format(monthEnd, "yyyy-MM-dd");
-      const trendStartIso = format(startOfMonth(addMonths(today, -5)), "yyyy-MM-dd");
+      const trendStart = startOfMonth(addMonths(today, -5));
 
       const [
-        payablesDueMonthRes,
-        receivablesDueMonthRes,
-        payablesPaidMonthRes,
-        receivablesPaidMonthRes,
-        payablesTrendRes,
-        receivablesTrendRes,
+        payablesRes,
+        receivablesRes,
       ] = await Promise.all([
         supabase
           .from("accounts_payable")
-          .select("id, due_date, status, accounts_payable_items(total_price)")
-          .in("store_id", storeIds)
-          .in("status", ["pending", "partial"])
-          .gte("due_date", monthStartIso)
-          .lte("due_date", monthEndIso),
+          .select("id, amount, due_date, payment_date, status, accounts_payable_installments(amount, due_date, payment_date, status)")
+          .in("store_id", storeIds),
         supabase
           .from("accounts_receivable")
-          .select("id, due_date, status, accounts_receivable_items(total_price)")
+          .select("id, amount, due_date, payment_date, status, accounts_receivable_installments(amount, due_date, payment_date)")
           .in("store_id", storeIds)
-          .in("status", ["pending", "partial"])
-          .gte("due_date", monthStartIso)
-          .lte("due_date", monthEndIso),
-        supabase
-          .from("accounts_payable")
-          .select("id, payment_date, status, accounts_payable_items(total_price)")
-          .in("store_id", storeIds)
-          .in("status", ["paid", "partial"])
-          .not("payment_date", "is", null)
-          .gte("payment_date", monthStartIso)
-          .lte("payment_date", monthEndIso),
-        supabase
-          .from("accounts_receivable")
-          .select("id, payment_date, status, accounts_receivable_items(total_price)")
-          .in("store_id", storeIds)
-          .in("status", ["paid", "partial"])
-          .not("payment_date", "is", null)
-          .gte("payment_date", monthStartIso)
-          .lte("payment_date", monthEndIso),
-        supabase
-          .from("accounts_payable")
-          .select("id, payment_date, status, accounts_payable_items(total_price)")
-          .in("store_id", storeIds)
-          .in("status", ["paid", "partial"])
-          .not("payment_date", "is", null)
-          .gte("payment_date", trendStartIso)
-          .lte("payment_date", monthEndIso),
-        supabase
-          .from("accounts_receivable")
-          .select("id, payment_date, status, accounts_receivable_items(total_price)")
-          .in("store_id", storeIds)
-          .in("status", ["paid", "partial"])
-          .not("payment_date", "is", null)
-          .gte("payment_date", trendStartIso)
-          .lte("payment_date", monthEndIso),
       ]);
 
-      const payablesDueMonth = (payablesDueMonthRes.data || []) as PayableAccountSummary[];
-      const receivablesDueMonth = (receivablesDueMonthRes.data || []) as ReceivableAccountSummary[];
-      const payablesPaidMonth = (payablesPaidMonthRes.data || []) as PayableAccountSummary[];
-      const receivablesPaidMonth = (receivablesPaidMonthRes.data || []) as ReceivableAccountSummary[];
-      const payablesTrend = (payablesTrendRes.data || []) as PayableAccountSummary[];
-      const receivablesTrend = (receivablesTrendRes.data || []) as ReceivableAccountSummary[];
+      const payables = buildPayableEntries((payablesRes.data || []) as PayableFinancialAccountSummary[]);
+      const receivables = buildReceivableEntries((receivablesRes.data || []) as ReceivableFinancialAccountSummary[]);
 
       const months = Array.from({ length: 6 }, (_, index) => startOfMonth(addMonths(today, index - 5)));
       const trendMap = new Map(
@@ -467,38 +500,52 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         ]),
       );
 
-      payablesTrend.forEach((account) => {
-        const paymentDate = parseDate(account.payment_date);
-        if (!paymentDate) return;
-        const key = format(paymentDate, "yyyy-MM");
+      payables.forEach((entry) => {
+        if (!entry.dueDate || entry.status === "pagamento_suspenso") return;
+        if (entry.dueDate < trendStart || entry.dueDate > monthEnd) return;
+        const key = format(entry.dueDate, "yyyy-MM");
         const bucket = trendMap.get(key);
         if (!bucket) return;
-        bucket.custo += sumNestedItems(account.accounts_payable_items);
+        bucket.custo += entry.amount;
       });
 
-      receivablesTrend.forEach((account) => {
-        const paymentDate = parseDate(account.payment_date);
-        if (!paymentDate) return;
-        const key = format(paymentDate, "yyyy-MM");
+      receivables.forEach((entry) => {
+        if (!entry.dueDate) return;
+        if (entry.dueDate < trendStart || entry.dueDate > monthEnd) return;
+        const key = format(entry.dueDate, "yyyy-MM");
         const bucket = trendMap.get(key);
         if (!bucket) return;
-        bucket.receita += sumNestedItems(account.accounts_receivable_items);
+        bucket.receita += entry.amount;
       });
 
-      const totalPayableMonth = payablesDueMonth.reduce(
-        (sum, account) => sum + sumNestedItems(account.accounts_payable_items),
+      const totalPayableMonth = payables.reduce(
+        (sum, entry) =>
+          isSameMonth(entry.dueDate, today) &&
+          !entry.paymentDate &&
+          entry.status !== "paid" &&
+          entry.status !== "pagamento_suspenso"
+            ? sum + entry.amount
+            : sum,
         0,
       );
-      const totalReceivableMonth = receivablesDueMonth.reduce(
-        (sum, account) => sum + sumNestedItems(account.accounts_receivable_items),
+      const totalReceivableMonth = receivables.reduce(
+        (sum, entry) =>
+          isSameMonth(entry.dueDate, today) &&
+          !entry.paymentDate &&
+          entry.status !== "paid"
+            ? sum + entry.amount
+            : sum,
         0,
       );
-      const costMonth = payablesPaidMonth.reduce(
-        (sum, account) => sum + sumNestedItems(account.accounts_payable_items),
+      const costMonth = payables.reduce(
+        (sum, entry) =>
+          isSameMonth(entry.dueDate, today) && entry.status !== "pagamento_suspenso"
+            ? sum + entry.amount
+            : sum,
         0,
       );
-      const revenueMonth = receivablesPaidMonth.reduce(
-        (sum, account) => sum + sumNestedItems(account.accounts_receivable_items),
+      const revenueMonth = receivables.reduce(
+        (sum, entry) => (isSameMonth(entry.dueDate, today) ? sum + entry.amount : sum),
         0,
       );
 
