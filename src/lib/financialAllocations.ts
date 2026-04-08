@@ -34,6 +34,17 @@ export interface RecipientAllocationOption {
   registration: string | null;
 }
 
+export const fetchRecipientCategoryIds = async (): Promise<string[]> => {
+  const { data: categories, error: categoriesError } = await supabase
+    .from("animal_categories")
+    .select("id")
+    .ilike("name", "%recept%");
+
+  if (categoriesError) throw categoriesError;
+
+  return (categories || []).map((category) => category.id);
+};
+
 export const getFinancialAllocationLabel = (type: string | null | undefined): string => {
   if (!type) return "";
   return FINANCIAL_ALLOCATION_LABELS[type as FinancialAllocationType] || type;
@@ -63,14 +74,7 @@ export const getFinancialAllocationTargetId = (
 };
 
 export const fetchRecipientAllocationOptions = async (): Promise<RecipientAllocationOption[]> => {
-  const { data: categories, error: categoriesError } = await supabase
-    .from("animal_categories")
-    .select("id")
-    .ilike("name", "%recept%");
-
-  if (categoriesError) throw categoriesError;
-
-  const categoryIds = (categories || []).map((category) => category.id);
+  const categoryIds = await fetchRecipientCategoryIds();
   if (categoryIds.length === 0) return [];
 
   const { data, error } = await supabase

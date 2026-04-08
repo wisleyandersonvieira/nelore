@@ -16,18 +16,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Beef, Baby, Dna, Microscope, Search, ImageOff, ExternalLink } from "lucide-react";
+import { ArrowLeft, Beef, Baby, Dna, Microscope, Search, ImageOff, ExternalLink, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchRecipientCategoryIds } from "@/lib/financialAllocations";
 
-type HerdCategory = "animals" | "pregnancy" | "embryo_transfer" | "aspiration";
+type HerdCategory = "animals" | "pregnancy" | "embryo_transfer" | "aspiration" | "recipient";
 
-type AllocationField = "animal_id" | "pregnancy_id" | "embryo_transfer_id" | "aspiration_id";
+type AllocationField = "animal_id" | "pregnancy_id" | "embryo_transfer_id" | "aspiration_id" | "recipient_id";
 
 interface HerdSummary {
   animals: number;
   pregnancy: number;
   embryo_transfer: number;
   aspiration: number;
+  recipient: number;
 }
 
 interface HerdRecord {
@@ -47,6 +49,8 @@ interface HerdRecord {
   photoUrl: string | null;
   purchaseValue: number | null;
   revenueValue: number | null;
+  farmName: string | null;
+  batchName: string | null;
 }
 
 interface DetailSectionItem {
@@ -103,6 +107,7 @@ const categoryTitle: Record<HerdCategory, string> = {
   pregnancy: "Prenhez",
   embryo_transfer: "Pós-Transferência de Embrião",
   aspiration: "Aspirações",
+  recipient: "Receptoras",
 };
 
 const categoryModuleRoute: Record<HerdCategory, string> = {
@@ -110,6 +115,7 @@ const categoryModuleRoute: Record<HerdCategory, string> = {
   pregnancy: "/animais/prenhez",
   embryo_transfer: "/animais/transferencia-embriao",
   aspiration: "/animais/aspiracoes",
+  recipient: "/animais/receptoras",
 };
 
 const allocationFieldByCategory: Record<HerdCategory, AllocationField> = {
@@ -117,6 +123,7 @@ const allocationFieldByCategory: Record<HerdCategory, AllocationField> = {
   pregnancy: "pregnancy_id",
   embryo_transfer: "embryo_transfer_id",
   aspiration: "aspiration_id",
+  recipient: "recipient_id",
 };
 
 const statusLabel = (status?: string | null) => {
@@ -128,6 +135,7 @@ const statusLabel = (status?: string | null) => {
     finalized_empty: "Finalizado vazio",
     sold: "Vendido",
     active: "Ativo",
+    inactive: "Inativo",
     paid: "Pago",
     partial: "Parcial",
   };
@@ -144,6 +152,8 @@ const getAllocationTypeLabel = (type: string) => {
       return "Pós-Transferência";
     case "aspiration":
       return "Aspiração";
+    case "recipient":
+      return "Receptora";
     case "aspiration_rateio":
       return "Rateio Aspiração";
     case "te_rateio":
@@ -172,6 +182,7 @@ const AnimaisRebanho = () => {
     pregnancy: 0,
     embryo_transfer: 0,
     aspiration: 0,
+    recipient: 0,
   });
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [activeCategory, setActiveCategory] = useState<HerdCategory>("animals");
@@ -233,18 +244,23 @@ const AnimaisRebanho = () => {
   useEffect(() => {
     const fetchSummary = async () => {
       if (storeIds.length === 0) {
-        setSummary({ animals: 0, pregnancy: 0, embryo_transfer: 0, aspiration: 0 });
+        setSummary({ animals: 0, pregnancy: 0, embryo_transfer: 0, aspiration: 0, recipient: 0 });
         return;
       }
 
       setLoadingSummary(true);
       try {
-        const [animalsRes, pregnancyRes, transferRes, aspirationRes] = await Promise.all([
-          supabase
-            .from("animals")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true)
-            .in("store_id", storeIds),
+        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const animalsBaseQuery = supabase
+          .from("animals")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true)
+          .in("store_id", storeIds);
+
+        const [animalsRes, pregnancyRes, transferRes, aspirationRes, recipientRes] = await Promise.all([
+          recipientCategoryIds.length > 0
+            ? animalsBaseQuery.not("category_id", "in", `("${recipientCategoryIds.join('","')}")`)
+            : animalsBaseQuery,
           supabase
             .from("pregnancy_management")
             .select("id", { count: "exact", head: true })
@@ -257,6 +273,14 @@ const AnimaisRebanho = () => {
             .from("aspiration_management")
             .select("id", { count: "exact", head: true })
             .in("store_id", storeIds),
+          recipientCategoryIds.length > 0
+            ? supabase
+                .from("animals")
+                .select("id", { count: "exact", head: true })
+                .eq("is_active", true)
+                .in("store_id", storeIds)
+                .in("category_id", recipientCategoryIds)
+            : Promise.resolve({ count: 0 }),
         ]);
 
         setSummary({
@@ -264,6 +288,7 @@ const AnimaisRebanho = () => {
           pregnancy: pregnancyRes.count || 0,
           embryo_transfer: transferRes.count || 0,
           aspiration: aspirationRes.count || 0,
+          recipient: recipientRes.count || 0,
         });
       } finally {
         setLoadingSummary(false);
@@ -310,11 +335,92 @@ const AnimaisRebanho = () => {
     return { purchaseMap, revenueMap };
   };
 
+  const fetchRecipientFinancial = async (ids: string[]) => {
+    const purchaseMap = new Map<string, number>();
+    const revenueMap = new Map<string, number>();
+    if (ids.length === 0) return { purchaseMap, revenueMap };
+
+    const [expenseByAnimal, expenseByRecipient, revenueByAnimal, revenueByRecipient] = await Promise.all([
+      fetchAllPaginated(() =>
+        supabase
+          .from("accounts_payable_item_allocations")
+          .select("animal_id, accounts_payable_items!inner(total_price)")
+          .in("animal_id", ids),
+      ),
+      fetchAllPaginated(() =>
+        supabase
+          .from("accounts_payable_item_allocations")
+          .select("recipient_id, accounts_payable_items!inner(total_price)")
+          .in("recipient_id", ids),
+      ),
+      fetchAllPaginated(() =>
+        supabase
+          .from("accounts_receivable_item_allocations")
+          .select("animal_id, accounts_receivable_items!inner(total_price)")
+          .in("animal_id", ids),
+      ),
+      fetchAllPaginated(() =>
+        supabase
+          .from("accounts_receivable_item_allocations")
+          .select("recipient_id, accounts_receivable_items!inner(total_price)")
+          .in("recipient_id", ids),
+      ),
+    ]);
+
+    [...(expenseByAnimal || []), ...(expenseByRecipient || [])].forEach((item: any) => {
+      const refId = item?.recipient_id || item?.animal_id;
+      if (!refId) return;
+      const value = Number(item?.accounts_payable_items?.total_price || 0);
+      purchaseMap.set(refId, (purchaseMap.get(refId) || 0) + value);
+    });
+
+    [...(revenueByAnimal || []), ...(revenueByRecipient || [])].forEach((item: any) => {
+      const refId = item?.recipient_id || item?.animal_id;
+      if (!refId) return;
+      const value = Number(item?.accounts_receivable_items?.total_price || 0);
+      revenueMap.set(refId, (revenueMap.get(refId) || 0) + value);
+    });
+
+    return { purchaseMap, revenueMap };
+  };
+
   const fetchAuctionsMap = async (auctionIds: string[]) => {
     if (auctionIds.length === 0) return new Map<string, string>();
     const { data: auctions } = await supabase.from("leiloes").select("id, name").in("id", auctionIds);
     const map = new Map<string, string>();
     (auctions || []).forEach((auction) => map.set(auction.id, auction.name));
+    return map;
+  };
+
+  const fetchSimpleMap = async (table: string, ids: string[]) => {
+    const validIds = Array.from(new Set(ids.filter(Boolean)));
+    if (validIds.length === 0) return new Map<string, string>();
+    const { data } = await supabase.from(table as any).select("id, name").in("id", validIds);
+    const map = new Map<string, string>();
+    (data || []).forEach((item: any) => map.set(item.id, item.name));
+    return map;
+  };
+
+  const fetchFarmMap = async (records: Array<{ farm_type: string | null; farm_id: string | null }>) => {
+    const ownIds = Array.from(
+      new Set(records.filter((record) => record.farm_id && record.farm_type !== "third_party").map((record) => record.farm_id!)),
+    );
+    const thirdPartyIds = Array.from(
+      new Set(records.filter((record) => record.farm_id && record.farm_type === "third_party").map((record) => record.farm_id!)),
+    );
+
+    const [ownFarms, thirdPartyFarms] = await Promise.all([
+      ownIds.length > 0
+        ? supabase.from("stores").select("id, name").in("id", ownIds)
+        : Promise.resolve({ data: [] as any[] }),
+      thirdPartyIds.length > 0
+        ? supabase.from("third_party_farms").select("id, name").in("id", thirdPartyIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const map = new Map<string, string>();
+    (ownFarms.data || []).forEach((farm: any) => map.set(`own-${farm.id}`, farm.name));
+    (thirdPartyFarms.data || []).forEach((farm: any) => map.set(`third-${farm.id}`, farm.name));
     return map;
   };
 
@@ -325,13 +431,22 @@ const AnimaisRebanho = () => {
     setLoadingDetails(true);
     try {
       if (category === "animals") {
+        const recipientCategoryIds = await fetchRecipientCategoryIds();
         const animals = await fetchAllPaginated(() =>
-          supabase
-            .from("animals")
-            .select("id, code, name, birth_date, created_at, auction_id, cover_photo, photos")
-            .eq("is_active", true)
-            .in("store_id", storeIds)
-            .order("created_at", { ascending: false }),
+          (recipientCategoryIds.length > 0
+            ? supabase
+                .from("animals")
+                .select("id, code, name, birth_date, created_at, auction_id, cover_photo, photos")
+                .eq("is_active", true)
+                .in("store_id", storeIds)
+                .not("category_id", "in", `("${recipientCategoryIds.join('","')}")`)
+                .order("created_at", { ascending: false })
+            : supabase
+                .from("animals")
+                .select("id, code, name, birth_date, created_at, auction_id, cover_photo, photos")
+                .eq("is_active", true)
+                .in("store_id", storeIds)
+                .order("created_at", { ascending: false })),
         );
 
         const ids = (animals || []).map((a: any) => a.id);
@@ -360,6 +475,8 @@ const AnimaisRebanho = () => {
           photoUrl: getAnimalPhoto(animal),
           purchaseValue: finance.purchaseMap.has(animal.id) ? finance.purchaseMap.get(animal.id)! : null,
           revenueValue: finance.revenueMap.has(animal.id) ? finance.revenueMap.get(animal.id)! : null,
+          farmName: null,
+          batchName: null,
         }));
 
         setDetailsCache((prev) => ({ ...prev, animals: records }));
@@ -402,6 +519,8 @@ const AnimaisRebanho = () => {
           photoUrl: null,
           purchaseValue: finance.purchaseMap.has(record.id) ? finance.purchaseMap.get(record.id)! : null,
           revenueValue: finance.revenueMap.has(record.id) ? finance.revenueMap.get(record.id)! : null,
+          farmName: null,
+          batchName: null,
         }));
 
         setDetailsCache((prev) => ({ ...prev, pregnancy: records }));
@@ -444,6 +563,8 @@ const AnimaisRebanho = () => {
           photoUrl: null,
           purchaseValue: finance.purchaseMap.has(record.id) ? finance.purchaseMap.get(record.id)! : null,
           revenueValue: finance.revenueMap.has(record.id) ? finance.revenueMap.get(record.id)! : null,
+          farmName: null,
+          batchName: null,
         }));
 
         setDetailsCache((prev) => ({ ...prev, embryo_transfer: records }));
@@ -486,9 +607,61 @@ const AnimaisRebanho = () => {
           photoUrl: null,
           purchaseValue: finance.purchaseMap.has(record.id) ? finance.purchaseMap.get(record.id)! : null,
           revenueValue: finance.revenueMap.has(record.id) ? finance.revenueMap.get(record.id)! : null,
+          farmName: null,
+          batchName: null,
         }));
 
         setDetailsCache((prev) => ({ ...prev, aspiration: records }));
+      }
+
+      if (category === "recipient") {
+        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        if (recipientCategoryIds.length === 0) {
+          setDetailsCache((prev) => ({ ...prev, recipient: [] }));
+        } else {
+          const recipientDb = await fetchAllPaginated(() =>
+            supabase
+              .from("animals")
+              .select("id, code, name, birth_date, created_at, batch_id, is_active, cover_photo, photos, farm_type, farm_id")
+              .eq("is_active", true)
+              .in("store_id", storeIds)
+              .in("category_id", recipientCategoryIds)
+              .order("created_at", { ascending: false }),
+          );
+
+          const ids = (recipientDb || []).map((record: any) => record.id);
+          const batchIds = Array.from(
+            new Set((recipientDb || []).map((record: any) => record.batch_id).filter(Boolean)),
+          ) as string[];
+          const [batchMap, farmMap, finance] = await Promise.all([
+            fetchSimpleMap("animal_batches", batchIds),
+            fetchFarmMap(recipientDb || []),
+            fetchRecipientFinancial(ids),
+          ]);
+
+          const records: HerdRecord[] = (recipientDb || []).map((record: any) => ({
+            id: record.id,
+            category,
+            code: record.code || null,
+            name: record.name || "Sem nome",
+            status: record.is_active ? "active" : "inactive",
+            createdAt: record.created_at || null,
+            birthDate: record.birth_date || null,
+            expectedDate: null,
+            aspirationDate: null,
+            transferDate: null,
+            ultrasoundDate: null,
+            embryoCount: null,
+            auctionName: null,
+            photoUrl: getAnimalPhoto(record),
+            purchaseValue: finance.purchaseMap.has(record.id) ? finance.purchaseMap.get(record.id)! : null,
+            revenueValue: finance.revenueMap.has(record.id) ? finance.revenueMap.get(record.id)! : null,
+            farmName: record.farm_id ? farmMap.get(`${record.farm_type === "third_party" ? "third" : "own"}-${record.farm_id}`) || null : null,
+            batchName: record.batch_id ? batchMap.get(record.batch_id) || null : null,
+          }));
+
+          setDetailsCache((prev) => ({ ...prev, recipient: records }));
+        }
       }
     } finally {
       setLoadingDetails(false);
@@ -512,6 +685,136 @@ const AnimaisRebanho = () => {
   };
 
   const fetchFinancialDetails = async (category: HerdCategory, recordId: string) => {
+    if (category === "recipient") {
+      const [expenseAnimal, expenseRecipient, revenueAnimal, revenueRecipient] = await Promise.all([
+        supabase
+          .from("accounts_payable_item_allocations")
+          .select(
+            `id, allocation_type, accounts_payable_items!inner(account_payable_id, product_id, quantity, unit_price, total_price)`,
+          )
+          .eq("animal_id", recordId),
+        supabase
+          .from("accounts_payable_item_allocations")
+          .select(
+            `id, allocation_type, accounts_payable_items!inner(account_payable_id, product_id, quantity, unit_price, total_price)`,
+          )
+          .eq("recipient_id", recordId),
+        supabase
+          .from("accounts_receivable_item_allocations")
+          .select(
+            `id, allocation_type, accounts_receivable_items!inner(account_receivable_id, product_id, quantity, unit_price, total_price)`,
+          )
+          .eq("animal_id", recordId),
+        supabase
+          .from("accounts_receivable_item_allocations")
+          .select(
+            `id, allocation_type, accounts_receivable_items!inner(account_receivable_id, product_id, quantity, unit_price, total_price)`,
+          )
+          .eq("recipient_id", recordId),
+      ]);
+
+      const expenseRows = [...(expenseAnimal.data || []), ...(expenseRecipient.data || [])];
+      const revenueRows = [...(revenueAnimal.data || []), ...(revenueRecipient.data || [])];
+
+      const payableIds = Array.from(
+        new Set(expenseRows.map((row: any) => row.accounts_payable_items?.account_payable_id).filter(Boolean)),
+      ) as string[];
+      const receivableIds = Array.from(
+        new Set(revenueRows.map((row: any) => row.accounts_receivable_items?.account_receivable_id).filter(Boolean)),
+      ) as string[];
+
+      const productIds = Array.from(
+        new Set(
+          [...expenseRows, ...revenueRows]
+            .map((row: any) => row.accounts_payable_items?.product_id || row.accounts_receivable_items?.product_id)
+            .filter(Boolean),
+        ),
+      ) as string[];
+
+      const [payableAccountsRes, receivableAccountsRes, productsRes] = await Promise.all([
+        payableIds.length > 0
+          ? supabase
+              .from("accounts_payable")
+              .select("id, document_number, due_date, payment_date, status, supplier_id")
+              .in("id", payableIds)
+          : Promise.resolve({ data: [] as any[] }),
+        receivableIds.length > 0
+          ? supabase
+              .from("accounts_receivable")
+              .select("id, document_number, due_date, payment_date, status, creditor_id")
+              .in("id", receivableIds)
+          : Promise.resolve({ data: [] as any[] }),
+        productIds.length > 0
+          ? supabase.from("products").select("id, name").in("id", productIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const payableAccounts = payableAccountsRes.data || [];
+      const receivableAccounts = receivableAccountsRes.data || [];
+
+      const supplierIds = Array.from(
+        new Set(payableAccounts.map((acc: any) => acc.supplier_id).filter(Boolean)),
+      ) as string[];
+      const creditorIds = Array.from(
+        new Set(receivableAccounts.map((acc: any) => acc.creditor_id).filter(Boolean)),
+      ) as string[];
+
+      const [suppliersRes, creditorsRes] = await Promise.all([
+        supplierIds.length > 0
+          ? supabase.from("suppliers").select("id, name").in("id", supplierIds)
+          : Promise.resolve({ data: [] as any[] }),
+        creditorIds.length > 0
+          ? supabase.from("suppliers").select("id, name").in("id", creditorIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const payableMap = new Map((payableAccounts || []).map((acc: any) => [acc.id, acc]));
+      const receivableMap = new Map((receivableAccounts || []).map((acc: any) => [acc.id, acc]));
+      const productMap = new Map((productsRes.data || []).map((product: any) => [product.id, product.name]));
+      const supplierMap = new Map((suppliersRes.data || []).map((supplier: any) => [supplier.id, supplier.name]));
+      const creditorMap = new Map((creditorsRes.data || []).map((creditor: any) => [creditor.id, creditor.name]));
+
+      const expenses: DetailFinanceItem[] = expenseRows.map((row: any) => {
+        const item = row.accounts_payable_items;
+        const account = payableMap.get(item?.account_payable_id);
+        return {
+          id: row.id,
+          recordType: "expense",
+          allocationType: row.allocation_type,
+          documentNumber: account?.document_number || null,
+          status: account?.status || null,
+          dueDate: account?.due_date || null,
+          paymentDate: account?.payment_date || null,
+          partnerName: account?.supplier_id ? supplierMap.get(account.supplier_id) || null : null,
+          productName: item?.product_id ? productMap.get(item.product_id) || null : null,
+          quantity: Number(item?.quantity || 0),
+          unitPrice: Number(item?.unit_price || 0),
+          totalPrice: Number(item?.total_price || 0),
+        };
+      });
+
+      const revenues: DetailFinanceItem[] = revenueRows.map((row: any) => {
+        const item = row.accounts_receivable_items;
+        const account = receivableMap.get(item?.account_receivable_id);
+        return {
+          id: row.id,
+          recordType: "revenue",
+          allocationType: row.allocation_type,
+          documentNumber: account?.document_number || null,
+          status: account?.status || null,
+          dueDate: account?.due_date || null,
+          paymentDate: account?.payment_date || null,
+          partnerName: account?.creditor_id ? creditorMap.get(account.creditor_id) || null : null,
+          productName: item?.product_id ? productMap.get(item.product_id) || null : null,
+          quantity: Number(item?.quantity || 0),
+          unitPrice: Number(item?.unit_price || 0),
+          totalPrice: Number(item?.total_price || 0),
+        };
+      });
+
+      return { expenses, revenues };
+    }
+
     const allocationField = allocationFieldByCategory[category];
 
     const [expenseAlloc, revenueAlloc] = await Promise.all([
@@ -866,6 +1169,45 @@ const AnimaisRebanho = () => {
         ]);
       }
 
+      if (record.category === "recipient") {
+        const { data: recipient } = await supabase.from("animals").select("*").eq("id", record.id).maybeSingle();
+        if (!recipient) return;
+
+        const [breedName, categoryName, auctionName, batchName, storeName, farmName] = await Promise.all([
+          fetchNameById("animal_breeds", recipient.breed_id),
+          fetchNameById("animal_categories", recipient.category_id),
+          fetchNameById("leiloes", recipient.auction_id),
+          fetchNameById("animal_batches", recipient.batch_id),
+          fetchNameById("stores", recipient.store_id),
+          fetchFarmName(recipient.farm_type, recipient.farm_id),
+        ]);
+
+        setDetailSections([
+          {
+            title: "Dados Cadastrais",
+            items: [
+              { label: "Código", value: formatText(recipient.code) },
+              { label: "Nome", value: formatText(recipient.name) },
+              { label: "Registro", value: formatText(recipient.registration) },
+              { label: "Brinco", value: formatText(recipient.ear_tag) },
+              { label: "Status", value: recipient.is_active ? "Ativo" : "Inativo" },
+              { label: "Sexo", value: formatText(recipient.sex) },
+              { label: "Nascimento", value: formatDateBR(recipient.birth_date) },
+              { label: "Entrada na fazenda", value: formatDateBR(recipient.farm_entry_date) },
+              { label: "Raça", value: formatText(breedName) },
+              { label: "Categoria", value: formatText(categoryName) },
+              { label: "Lote", value: formatText(batchName) },
+              { label: "Fazenda", value: formatText(farmName) },
+              { label: "Tipo fazenda", value: formatText(recipient.farm_type) },
+              { label: "Unidade", value: formatText(storeName) },
+              { label: "Leilão", value: formatText(auctionName) },
+              { label: "Lote do leilão", value: formatText(recipient.auction_lot) },
+              { label: "Observações", value: formatText(recipient.observations) },
+            ],
+          },
+        ]);
+      }
+
       const financial = await fetchFinancialDetails(record.category, record.id);
       setDetailExpenses(financial.expenses);
       setDetailRevenues(financial.revenues);
@@ -891,6 +1233,8 @@ const AnimaisRebanho = () => {
         String(record.code || ""),
         record.auctionName || "",
         record.status || "",
+        record.farmName || "",
+        record.batchName || "",
       ]
         .join(" ")
         .toLowerCase();
@@ -964,6 +1308,15 @@ const AnimaisRebanho = () => {
       bg: "bg-amber-50",
       border: "border-amber-200",
     },
+    {
+      key: "recipient" as HerdCategory,
+      title: "Receptoras",
+      value: summary.recipient,
+      icon: Users,
+      color: "text-cyan-700",
+      bg: "bg-cyan-50",
+      border: "border-cyan-200",
+    },
   ];
 
   const totalExpenses = detailExpenses.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -979,13 +1332,13 @@ const AnimaisRebanho = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Rebanho</h1>
-            <p className="text-sm text-slate-600">Visão consolidada do módulo de animais</p>
+            <p className="text-sm text-slate-600">Visão consolidada do rebanho, incluindo receptoras</p>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-6">
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {summaryCards.map((item) => {
             const Icon = item.icon;
             const isActive = activeCategory === item.key;
@@ -1032,7 +1385,7 @@ const AnimaisRebanho = () => {
                   <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <Input
                     id="herd-search"
-                    placeholder="Buscar por nome, código, status ou leilão"
+                    placeholder="Buscar por nome, código, status, leilão, fazenda ou lote"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-9 bg-white"
@@ -1072,7 +1425,7 @@ const AnimaisRebanho = () => {
                   >
                     <Card className="border-slate-200 bg-white h-full transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5">
                       <CardContent className="p-4 space-y-3">
-                        {record.category === "animals" && (
+                        {(record.category === "animals" || record.category === "recipient") && (
                           <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
                             {record.photoUrl ? (
                               <img
@@ -1108,6 +1461,27 @@ const AnimaisRebanho = () => {
                               <div>
                                 <p className="text-slate-500 text-xs">Leilão</p>
                                 <p className="font-medium truncate">{record.auctionName || "Não informado"}</p>
+                              </div>
+                            </>
+                          )}
+
+                          {record.category === "recipient" && (
+                            <>
+                              <div>
+                                <p className="text-slate-500 text-xs">Nascimento</p>
+                                <p className="font-medium">{formatDateBR(record.birthDate)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Fazenda</p>
+                                <p className="font-medium truncate">{record.farmName || "Não informado"}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Lote</p>
+                                <p className="font-medium truncate">{record.batchName || "Não informado"}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-500 text-xs">Status</p>
+                                <p className="font-medium">{statusLabel(record.status)}</p>
                               </div>
                             </>
                           )}
