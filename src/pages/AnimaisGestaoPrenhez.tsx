@@ -53,6 +53,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
+import { createPdfReportLayout } from "@/lib/pdfReportLayout";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -750,25 +751,129 @@ const AnimaisGestaoPrenhez = () => {
     XLSX.writeFile(wb, "gestao_prenhez.xlsx");
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF("landscape");
-    doc.setFontSize(16);
-    doc.text("Gestão de Prenhez", 14, 15);
-    const headers = [["Código", "Nome", "Raça", "Fazenda", "Mês Prev. Nasc.", "Status", "Leilão", "Mãe", "Pai", "Receptora"]];
-    const data = filteredRecords.map((r) => [
-      r.code,
-      r.name,
-      getBreedName(r.breed_id),
-      getFarmName(r.farm_id, r.farm_type),
-      r.expected_birth_month ? format(new Date(r.expected_birth_month), "MM/yyyy") : "-",
-      getStatusLabel(r.status),
-      getAuctionName(r.auction_id),
-      getDamName(r.dam_id),
-      getSireName(r.sire_id),
-      getRecipientName(r.recipient_id),
-    ]);
-    autoTable(doc, { head: headers, body: data, startY: 22, styles: { fontSize: 8 } });
-    doc.save("gestao_prenhez.pdf");
+  const exportPDF = async () => {
+    try {
+      const doc = new jsPDF("landscape");
+      doc.setProperties({
+        title: "Relatório de Gestão de Prenhez",
+        subject: "Relatório operacional de prenhez",
+        author: "EliteBov",
+        creator: "EliteBov",
+      });
+
+      const resolveFarmFilterName = () => {
+        if (!filterFarm || filterFarm === "all") return "";
+        const separatorIndex = filterFarm.indexOf("-");
+        if (separatorIndex === -1) return "";
+        const farmType = filterFarm.substring(0, separatorIndex);
+        const farmId = filterFarm.substring(separatorIndex + 1);
+        return getFarmName(farmId, farmType);
+      };
+
+      const appliedFilters = [
+        filterName ? { label: "Nome", value: filterName } : null,
+        filterBreed && filterBreed !== "all" ? { label: "Raça", value: getBreedName(filterBreed) } : null,
+        filterFarm && filterFarm !== "all" ? { label: "Fazenda", value: resolveFarmFilterName() } : null,
+        filterStatus && filterStatus !== "all" ? { label: "Status", value: getStatusLabel(filterStatus) } : null,
+        filterAuction && filterAuction !== "all" ? { label: "Leilão", value: getAuctionName(filterAuction) } : null,
+        filterDam && filterDam !== "all" ? { label: "Mãe", value: getDamName(filterDam) } : null,
+        filterSire && filterSire !== "all" ? { label: "Pai", value: getSireName(filterSire) } : null,
+        filterRecipient && filterRecipient !== "all" ? { label: "Receptora", value: getRecipientName(filterRecipient) } : null,
+        filterBirthMonthStart ? { label: "Prev. nasc. inicial", value: format(filterBirthMonthStart, "MM/yyyy") } : null,
+        filterBirthMonthEnd ? { label: "Prev. nasc. final", value: format(filterBirthMonthEnd, "MM/yyyy") } : null,
+      ].filter((item): item is { label: string; value: string } => Boolean(item && item.value && item.value !== "-"));
+
+      const layout = await createPdfReportLayout(doc, {
+        title: "Relatório de Gestão de Prenhez",
+        emittedAt: new Date(),
+        totalRecords: filteredRecords.length,
+        filters: appliedFilters,
+      });
+
+      const headers = [[
+        "Código",
+        "Nome",
+        "Raça",
+        "Fazenda",
+        "Prev. Nasc.",
+        "Status",
+        "Leilão",
+        "Mãe",
+        "Pai",
+        "Receptora",
+      ]];
+
+      const data = filteredRecords.map((r) => [
+        String(r.code),
+        r.name || "-",
+        getBreedName(r.breed_id),
+        getFarmName(r.farm_id, r.farm_type),
+        r.expected_birth_month ? format(new Date(`${r.expected_birth_month}T12:00:00`), "MM/yyyy") : "-",
+        getStatusLabel(r.status),
+        getAuctionName(r.auction_id),
+        getDamName(r.dam_id),
+        getSireName(r.sire_id),
+        getRecipientName(r.recipient_id),
+      ]);
+
+      autoTable(doc, {
+        head: headers,
+        body: data,
+        startY: layout.startY,
+        margin: layout.tableMargin,
+        theme: "grid",
+        showHead: "everyPage",
+        willDrawPage: layout.willDrawPage,
+        styles: {
+          fontSize: 8,
+          textColor: [15, 23, 42],
+          cellPadding: { top: 2.6, right: 2.4, bottom: 2.6, left: 2.4 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          overflow: "linebreak",
+          valign: "middle",
+        },
+        headStyles: {
+          fillColor: [17, 94, 89],
+          textColor: [255, 255, 255],
+          fontSize: 8.2,
+          fontStyle: "bold",
+          halign: "center",
+          valign: "middle",
+          minCellHeight: 10,
+        },
+        bodyStyles: {
+          minCellHeight: 8.5,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: "center" },
+          1: { cellWidth: 33 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 32 },
+          4: { cellWidth: 20, halign: "center" },
+          5: { cellWidth: 28, halign: "center" },
+          6: { cellWidth: 34 },
+          7: { cellWidth: 30 },
+          8: { cellWidth: 30 },
+          9: { cellWidth: 31 },
+        },
+        didParseCell: (hookData) => {
+          if (hookData.section === "body" && [6, 7, 8, 9].includes(hookData.column.index)) {
+            hookData.cell.styles.fontSize = 7.6;
+          }
+        },
+      });
+
+      layout.finalize();
+      doc.save("relatorio_gestao_prenhez.pdf");
+      toast({ title: "PDF gerado com sucesso!" });
+    } catch (error) {
+      console.error("Error exporting pregnancy PDF:", error);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    }
   };
 
   useEffect(() => {
