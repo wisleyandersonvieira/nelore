@@ -53,7 +53,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
-import { createPdfReportLayout } from "@/lib/pdfReportLayout";
+import { createPdfReportLayout, getSoftStatusRowFillColor } from "@/lib/pdfReportLayout";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -844,9 +844,7 @@ const AnimaisGestaoPrenhez = () => {
         },
         bodyStyles: {
           minCellHeight: 8.5,
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252],
+          fillColor: [255, 255, 255],
         },
         columnStyles: {
           0: { cellWidth: 15, halign: "center" },
@@ -861,8 +859,15 @@ const AnimaisGestaoPrenhez = () => {
           9: { cellWidth: 31 },
         },
         didParseCell: (hookData) => {
-          if (hookData.section === "body" && [6, 7, 8, 9].includes(hookData.column.index)) {
-            hookData.cell.styles.fontSize = 7.6;
+          if (hookData.section === "body") {
+            const rowStatus = filteredRecords[hookData.row.index]?.status;
+            const fillColor = getSoftStatusRowFillColor(rowStatus);
+            hookData.cell.styles.fillColor = fillColor;
+            hookData.cell.styles.textColor = [15, 23, 42];
+
+            if ([6, 7, 8, 9].includes(hookData.column.index)) {
+              hookData.cell.styles.fontSize = 7.6;
+            }
           }
         },
       });

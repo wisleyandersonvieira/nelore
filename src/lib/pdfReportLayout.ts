@@ -32,6 +32,50 @@ interface PdfReportLayout {
   finalize: () => void;
 }
 
+export type PdfRgbColor = [number, number, number];
+
+const STATUS_ROW_WHITE: PdfRgbColor = [255, 255, 255];
+const STATUS_ROW_GREEN: PdfRgbColor = [236, 253, 245];
+const STATUS_ROW_RED: PdfRgbColor = [254, 242, 242];
+
+const normalizeStatusValue = (value: string | null | undefined) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+export const getSoftStatusRowFillColor = (status: string | null | undefined): PdfRgbColor => {
+  const normalized = normalizeStatusValue(status);
+
+  if (
+    normalized.includes("natimorto") ||
+    normalized.includes("stillborn") ||
+    normalized === "finalized_stillborn"
+  ) {
+    return STATUS_ROW_RED;
+  }
+
+  if (
+    normalized === "in_progress" ||
+    normalized.includes("em andamento") ||
+    normalized.includes("andamento")
+  ) {
+    return STATUS_ROW_WHITE;
+  }
+
+  if (
+    normalized.includes("finalizado") ||
+    normalized === "finalized" ||
+    normalized === "sold" ||
+    normalized.includes("vendido")
+  ) {
+    return STATUS_ROW_GREEN;
+  }
+
+  return STATUS_ROW_WHITE;
+};
+
 const blobToDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
