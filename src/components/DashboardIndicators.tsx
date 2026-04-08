@@ -132,6 +132,11 @@ interface QuickActionCardProps {
   onClick?: () => void;
 }
 
+interface WeeklyFinancialEntry {
+  due_date: string | null;
+  amount: number;
+}
+
 const formatCurrencyBR = (value: number) =>
   value.toLocaleString("pt-BR", {
     style: "currency",
@@ -464,31 +469,49 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           .order("expected_birth_month", { ascending: true }),
         supabase
           .from("accounts_payable")
-          .select("id, due_date, status, accounts_payable_items(total_price)")
-          .in("store_id", storeIds)
-          .in("status", ["pending", "partial"])
-          .gte("due_date", todayIso)
-          .lte("due_date", weekEndIso)
-          .order("due_date", { ascending: true }),
+          .select("id, amount, due_date, payment_date, status, accounts_payable_installments(amount, due_date, payment_date, status)")
+          .in("store_id", storeIds),
         supabase
           .from("accounts_receivable")
-          .select("id, due_date, status, accounts_receivable_items(total_price)")
+          .select("id, amount, due_date, payment_date, status, accounts_receivable_installments(amount, due_date, payment_date)")
           .in("store_id", storeIds)
-          .in("status", ["pending", "partial"])
-          .gte("due_date", todayIso)
-          .lte("due_date", weekEndIso)
-          .order("due_date", { ascending: true }),
       ]);
 
-      const payables = (payablesRes.data || []) as PayableAccountSummary[];
-      const receivables = (receivablesRes.data || []) as ReceivableAccountSummary[];
+      const payables = buildPayableEntries((payablesRes.data || []) as PayableFinancialAccountSummary[])
+        .filter((entry) =>
+          entry.dueDate &&
+          entry.dueDate >= today &&
+          entry.dueDate <= weekEnd &&
+          !entry.paymentDate &&
+          entry.status !== "paid" &&
+          entry.status !== "pagamento_suspenso",
+        )
+        .sort((a, b) => (a.dueDate?.getTime() || 0) - (b.dueDate?.getTime() || 0))
+        .map((entry) => ({
+          due_date: entry.dueDate ? format(entry.dueDate, "yyyy-MM-dd") : null,
+          amount: entry.amount,
+        })) as WeeklyFinancialEntry[];
+
+      const receivables = buildReceivableEntries((receivablesRes.data || []) as ReceivableFinancialAccountSummary[])
+        .filter((entry) =>
+          entry.dueDate &&
+          entry.dueDate >= today &&
+          entry.dueDate <= weekEnd &&
+          !entry.paymentDate &&
+          entry.status !== "paid",
+        )
+        .sort((a, b) => (a.dueDate?.getTime() || 0) - (b.dueDate?.getTime() || 0))
+        .map((entry) => ({
+          due_date: entry.dueDate ? format(entry.dueDate, "yyyy-MM-dd") : null,
+          amount: entry.amount,
+        })) as WeeklyFinancialEntry[];
 
       return {
         pregnancies: pregnanciesRes.data || [],
         payables,
         receivables,
-        totalPayablesWeek: payables.reduce((sum, account) => sum + sumNestedItems(account.accounts_payable_items), 0),
-        totalReceivablesWeek: receivables.reduce((sum, account) => sum + sumNestedItems(account.accounts_receivable_items), 0),
+        totalPayablesWeek: payables.reduce((sum, entry) => sum + entry.amount, 0),
+        totalReceivablesWeek: receivables.reduce((sum, entry) => sum + entry.amount, 0),
       };
     },
     staleTime: 5 * 60 * 1000,
