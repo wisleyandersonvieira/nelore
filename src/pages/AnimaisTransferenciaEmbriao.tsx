@@ -34,6 +34,7 @@ import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { getRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -160,6 +161,7 @@ const AnimaisTransferenciaEmbriao = () => {
 
   const [breeds, setBreeds] = useState<Breed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const recipientCategoryIds = useMemo(() => getRecipientCategoryIds(categories), [categories]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
@@ -188,7 +190,7 @@ const AnimaisTransferenciaEmbriao = () => {
 
   // Search recipients
   useEffect(() => {
-    if (!debouncedRecipientSearch || debouncedRecipientSearch.length < 2 || !storeId) {
+    if (!debouncedRecipientSearch || debouncedRecipientSearch.length < 2 || !storeId || recipientCategoryIds.length === 0) {
       setRecipientResults([]);
       return;
     }
@@ -201,7 +203,8 @@ const AnimaisTransferenciaEmbriao = () => {
           .from("animals")
           .select("id, name, ear_tag, registration, category_id")
           .eq("store_id", storeId)
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .in("category_id", recipientCategoryIds);
 
         if (isNumeric) {
           query = query.or(`name.ilike.${term},registration.ilike.${term},ear_tag.eq.${debouncedRecipientSearch}`);
@@ -219,7 +222,7 @@ const AnimaisTransferenciaEmbriao = () => {
       }
     };
     searchRecipients();
-  }, [debouncedRecipientSearch, storeId]);
+  }, [debouncedRecipientSearch, recipientCategoryIds, storeId]);
 
   const fetchRecords = async () => {
     try {

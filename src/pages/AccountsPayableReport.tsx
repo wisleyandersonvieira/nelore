@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import { fetchRecipientAllocationOptions } from "@/lib/financialAllocations";
+import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -78,10 +79,17 @@ const AccountsPayableReport = () => {
           .order("code", { ascending: false });
         setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
       } else if (allocationType === "animal") {
-        const { data } = await supabase
-          .from("animals")
-          .select("id, name, code")
-          .order("code", { ascending: false });
+        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const { data } = await (recipientCategoryIds.length > 0
+          ? supabase
+              .from("animals")
+              .select("id, name, code")
+              .not("category_id", "in", `("${recipientCategoryIds.join('","')}")`)
+              .order("code", { ascending: false })
+          : supabase
+              .from("animals")
+              .select("id, name, code")
+              .order("code", { ascending: false }));
         setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
       } else if (allocationType === "recipient") {
         const data = await fetchRecipientAllocationOptions();

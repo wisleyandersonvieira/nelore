@@ -49,6 +49,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getFinancialAllocationLabel } from "@/lib/financialAllocations";
+import { getRecipientCategoryIds } from "@/lib/animalCategoryRules";
 
 interface ReceptoraRecord {
   id: string;
@@ -163,11 +164,9 @@ const Receptoras = () => {
   const isReadOnly = modalMode === "view";
 
   const recipientCategoryIds = useMemo(
-    () => categories.filter((c) => /recept/i.test(c.name)).map((c) => c.id),
+    () => getRecipientCategoryIds(categories),
     [categories],
   );
-
-  const effectiveCategoryIds = recipientCategoryIds.length > 0 ? recipientCategoryIds : categories.map((c) => c.id);
 
   const getContext = async () => {
     const { data: auth } = await supabase.auth.getUser();
@@ -282,7 +281,7 @@ const Receptoras = () => {
         return;
       }
 
-      const categoryIds = forcedCategoryIds ?? effectiveCategoryIds;
+      const categoryIds = forcedCategoryIds ?? recipientCategoryIds;
       if (categoryIds.length === 0) {
         setRecords([]);
         return;
@@ -316,7 +315,7 @@ const Receptoras = () => {
   useEffect(() => {
     const bootstrap = async () => {
       const loadedCategories = await fetchDropdowns();
-      const receptorCategoryIds = loadedCategories.filter((c) => /recept/i.test(c.name)).map((c) => c.id);
+      const receptorCategoryIds = getRecipientCategoryIds(loadedCategories);
       await fetchRecords(receptorCategoryIds);
     };
     bootstrap();

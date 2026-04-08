@@ -18,7 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Beef, Baby, Dna, Microscope, Search, ImageOff, ExternalLink, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchRecipientCategoryIds } from "@/lib/financialAllocations";
+import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 
 type HerdCategory = "animals" | "pregnancy" | "embryo_transfer" | "aspiration" | "recipient";
 
@@ -250,7 +250,7 @@ const AnimaisRebanho = () => {
 
       setLoadingSummary(true);
       try {
-        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const recipientCategoryIds = await fetchRecipientCategoryIds({ storeIds });
         const animalsBaseQuery = supabase
           .from("animals")
           .select("id", { count: "exact", head: true })
@@ -431,7 +431,7 @@ const AnimaisRebanho = () => {
     setLoadingDetails(true);
     try {
       if (category === "animals") {
-        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const recipientCategoryIds = await fetchRecipientCategoryIds({ storeIds });
         const animals = await fetchAllPaginated(() =>
           (recipientCategoryIds.length > 0
             ? supabase
@@ -615,7 +615,7 @@ const AnimaisRebanho = () => {
       }
 
       if (category === "recipient") {
-        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const recipientCategoryIds = await fetchRecipientCategoryIds({ storeIds });
         if (recipientCategoryIds.length === 0) {
           setDetailsCache((prev) => ({ ...prev, recipient: [] }));
         } else {

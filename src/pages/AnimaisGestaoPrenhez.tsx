@@ -52,6 +52,7 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -1463,16 +1464,27 @@ const AnimaisGestaoPrenhez = () => {
     return categories.find((c) => c.id === categoryId)?.name || "-";
   };
 
+  const recipientCategoryIds = useMemo(() => getRecipientCategoryIds(categories), [categories]);
+  const recipientCategories = useMemo(
+    () => categories.filter((category) => isRecipientCategoryId(category.id, recipientCategoryIds)),
+    [categories, recipientCategoryIds],
+  );
+
   // Filter animals for recipient search
-  const filteredAnimals = animals.filter((animal) => {
-    const searchLower = recipientSearchTerm.toLowerCase();
-    const matchesSearch =
-      animal.name.toLowerCase().includes(searchLower) ||
-      animal.code.toString().includes(searchLower) ||
-      (animal.ear_tag && animal.ear_tag.toString().includes(searchLower));
-    const matchesCategory = !recipientCategoryFilter || animal.category_id === recipientCategoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredAnimals = useMemo(
+    () =>
+      animals.filter((animal) => {
+        if (!isRecipientCategoryId(animal.category_id, recipientCategoryIds)) return false;
+        const searchLower = recipientSearchTerm.toLowerCase();
+        const matchesSearch =
+          animal.name.toLowerCase().includes(searchLower) ||
+          animal.code.toString().includes(searchLower) ||
+          (animal.ear_tag && animal.ear_tag.toString().includes(searchLower));
+        const matchesCategory = !recipientCategoryFilter || animal.category_id === recipientCategoryFilter;
+        return matchesSearch && matchesCategory;
+      }),
+    [animals, recipientCategoryFilter, recipientCategoryIds, recipientSearchTerm],
+  );
 
   const handleSelectRecipient = (animal: Animal) => {
     setSelectedRecipient(animal);
@@ -2502,7 +2514,7 @@ const AnimaisGestaoPrenhez = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as categorias</SelectItem>
-                    {categories.map((category) => (
+                    {recipientCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
                       </SelectItem>

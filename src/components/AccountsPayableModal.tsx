@@ -30,6 +30,7 @@ import {
   getFinancialAllocationLabel,
   getFinancialAllocationTargetId,
 } from "@/lib/financialAllocations";
+import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import * as pdfjsLib from 'pdfjs-dist';
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 
@@ -400,15 +401,23 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   const fetchAllocationData = async () => {
     try {
+      const recipientCategoryIds = await fetchRecipientCategoryIds();
       const [
         animalsResponse,
         recipientData,
       ] = await Promise.all([
-        supabase
-          .from("animals")
-          .select("id, name, code, ear_tag, registration")
-          .eq("is_active", true)
-          .order("name"),
+        (recipientCategoryIds.length > 0
+          ? supabase
+              .from("animals")
+              .select("id, name, code, ear_tag, registration")
+              .eq("is_active", true)
+              .not("category_id", "in", `("${recipientCategoryIds.join('","')}")`)
+              .order("name")
+          : supabase
+              .from("animals")
+              .select("id, name, code, ear_tag, registration")
+              .eq("is_active", true)
+              .order("name")),
         fetchRecipientAllocationOptions(),
       ]);
       setAllocationAnimals(animalsResponse.data || []);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
 import { CreateLeilaoModal } from "@/components/CreateLeilaoModal";
 import { useNavigate } from "react-router-dom";
@@ -54,6 +54,7 @@ import { toast } from "@/hooks/use-toast";
 import { format, parse, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 
 interface Animal {
   id: string;
@@ -203,6 +204,24 @@ const AnimaisCadastro = () => {
   const [loadingWeighings, setLoadingWeighings] = useState(false);
   const [veterinarians, setVeterinarians] = useState<{ id: string; name: string }[]>([]);
   const [laboratories, setLaboratories] = useState<{ id: string; name: string }[]>([]);
+
+  const recipientCategoryIds = useMemo(() => getRecipientCategoryIds(categories), [categories]);
+  const animalCategories = useMemo(
+    () => categories.filter((category) => !isRecipientCategoryId(category.id, recipientCategoryIds)),
+    [categories, recipientCategoryIds],
+  );
+  const recipientCategories = useMemo(
+    () => categories.filter((category) => isRecipientCategoryId(category.id, recipientCategoryIds)),
+    [categories, recipientCategoryIds],
+  );
+  const listedAnimals = useMemo(
+    () => animals.filter((animal) => !isRecipientCategoryId(animal.category_id, recipientCategoryIds)),
+    [animals, recipientCategoryIds],
+  );
+  const recipientAnimals = useMemo(
+    () => animals.filter((animal) => isRecipientCategoryId(animal.category_id, recipientCategoryIds)),
+    [animals, recipientCategoryIds],
+  );
 
   // Financial data state
   interface FinancialRecord {
@@ -1586,7 +1605,7 @@ const AnimaisCadastro = () => {
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
                   <SelectItem value="_all">Todas</SelectItem>
-                  {categories.map((category) => (
+                  {animalCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
                     </SelectItem>
@@ -1682,7 +1701,7 @@ const AnimaisCadastro = () => {
 
         {(() => {
           // Apply filters
-          const filteredAnimals = animals.filter((animal) => {
+          const filteredAnimals = listedAnimals.filter((animal) => {
             // Name filter
             if (filters.name && !animal.name.toLowerCase().includes(filters.name.toLowerCase())) {
               return false;
@@ -1732,7 +1751,7 @@ const AnimaisCadastro = () => {
             return <p className="text-center text-muted-foreground">Carregando...</p>;
           }
           
-          if (animals.length === 0) {
+          if (listedAnimals.length === 0) {
             return <p className="text-center text-muted-foreground">Nenhum animal cadastrado.</p>;
           }
           
@@ -2808,7 +2827,7 @@ const AnimaisCadastro = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as categorias</SelectItem>
-                    {categories.map((category) => (
+                    {recipientCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
                       </SelectItem>
@@ -2830,7 +2849,7 @@ const AnimaisCadastro = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {animals
+                  {recipientAnimals
                     .filter((animal) => {
                       // Exclude current animal being edited
                       if (selectedAnimal && animal.id === selectedAnimal.id) return false;
@@ -2849,7 +2868,7 @@ const AnimaisCadastro = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    animals
+                    recipientAnimals
                       .filter((animal) => {
                         if (selectedAnimal && animal.id === selectedAnimal.id) return false;
                         const searchLower = recipientSearchTerm.toLowerCase();

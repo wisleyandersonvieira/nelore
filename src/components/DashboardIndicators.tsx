@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bug, Baby, Calendar, Users, Landmark, Home, Clock } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -53,16 +54,30 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: recipientCategoryIds = [] } = useQuery({
+    queryKey: ['dashboard-recipient-category-ids', userId, storeIds],
+    queryFn: async () => {
+      if (storeIds.length === 0) return [];
+      return fetchRecipientCategoryIds({ storeIds });
+    },
+    enabled: storeIds.length > 0,
+    staleTime: 10 * 60 * 1000,
+  });
+
   // 1. Active animals count
   const { data: activeAnimalsCount = 0, isLoading: animalsLoading } = useQuery({
-    queryKey: ['dashboard-active-animals', userId, storeIds],
+    queryKey: ['dashboard-active-animals', userId, storeIds, recipientCategoryIds],
     queryFn: async () => {
       if (storeIds.length === 0) return 0;
-      const { count } = await supabase
+      let query = supabase
         .from("animals")
         .select("id", { count: "exact", head: true })
         .eq("is_active", true)
         .in("store_id", storeIds);
+      if (recipientCategoryIds.length > 0) {
+        query = query.not("category_id", "in", `("${recipientCategoryIds.join('","')}")`);
+      }
+      const { count } = await query;
       return count || 0;
     },
     enabled: storeIds.length > 0,
@@ -137,14 +152,18 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
   // 6. Animals by farm type (own vs third-party)
   const { data: farmTypeData = [], isLoading: farmTypeLoading } = useQuery({
-    queryKey: ['dashboard-farm-type', userId, storeIds],
+    queryKey: ['dashboard-farm-type', userId, storeIds, recipientCategoryIds],
     queryFn: async () => {
       if (storeIds.length === 0) return [];
-      const { data } = await supabase
+      let query = supabase
         .from("animals")
-        .select("farm_type")
+        .select("farm_type, category_id")
         .eq("is_active", true)
         .in("store_id", storeIds);
+      if (recipientCategoryIds.length > 0) {
+        query = query.not("category_id", "in", `("${recipientCategoryIds.join('","')}")`);
+      }
+      const { data } = await query;
       if (!data) return [];
       let own = 0;
       let thirdParty = 0;
