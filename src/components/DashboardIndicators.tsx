@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { addDays, addMonths, endOfMonth, format, startOfMonth, startOfToday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ArrowRight,
   Baby,
@@ -113,7 +116,7 @@ interface AttentionCardProps {
   count: number;
   description: string;
   amount?: number;
-  route: string;
+  onClick: () => void;
 }
 
 interface FinanceMetricCardProps {
@@ -136,6 +139,23 @@ interface WeeklyFinancialEntry {
   due_date: string | null;
   amount: number;
 }
+
+interface AttentionPregnancyItem {
+  id: string;
+  name: string;
+  expected_birth_month: string | null;
+  farm_name: string;
+}
+
+interface AttentionFinancialItem {
+  id: string;
+  partner_name: string;
+  amount: number;
+  due_date: string | null;
+  allocation_names: string[];
+}
+
+type AttentionModalType = "pregnancies" | "payables" | "receivables" | null;
 
 const formatCurrencyBR = (value: number) =>
   value.toLocaleString("pt-BR", {
@@ -242,9 +262,7 @@ const SummaryCard = ({ title, value, description, icon: Icon, accent, route, loa
   );
 };
 
-const AttentionCard = ({ title, count, description, amount, route }: AttentionCardProps) => {
-  const navigate = useNavigate();
-
+const AttentionCard = ({ title, count, description, amount, onClick }: AttentionCardProps) => {
   return (
     <Card className="border-amber-200 bg-amber-50/80 shadow-sm">
       <CardContent className="p-5">
@@ -260,7 +278,7 @@ const AttentionCard = ({ title, count, description, amount, route }: AttentionCa
           <Button
             variant="outline"
             className="mt-auto w-full justify-between border-amber-300 bg-white/70 text-amber-950 hover:bg-white"
-            onClick={() => navigate(route)}
+            onClick={onClick}
           >
             Ver listagem
             <ArrowRight className="h-4 w-4" />
@@ -327,6 +345,7 @@ const QuickActionCard = ({ title, description, route, icon: Icon, onClick }: Qui
 
 const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   const navigate = useNavigate();
+  const [attentionModal, setAttentionModal] = useState<AttentionModalType>(null);
 
   const { data: userScope = { matrixId: null, storeId: null, storeIds: [] } } = useQuery({
     queryKey: ["dashboard-user-scope", userId],
@@ -454,60 +473,310 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     queryFn: async () => {
       const today = startOfToday();
       const weekEnd = addDays(today, 6);
+      const next30Days = addDays(today, 30);
       const todayIso = format(today, "yyyy-MM-dd");
       const weekEndIso = format(weekEnd, "yyyy-MM-dd");
+      const next30DaysIso = format(next30Days, "yyyy-MM-dd");
+
+      const buildAccountAllocationMap = async (
+        allocationTable: "accounts_payable_item_allocations" | "accounts_receivable_item_allocations",
+        itemColumn: "account_payable_item_id" | "account_receivable_item_id",
+        accountItems: Array<{ account_id: string; item_ids: string[] }>,
+      ) => {
+        const itemToAccount = new Map<string, string>();
+        accountItems.forEach((account) => {
+          account.item_ids.forEach((itemId) => itemToAccount.set(itemId, account.account_id));
+        });
+
+        const allItemIds = Array.from(itemToAccount.keys());
+        if (allItemIds.length === 0) return new Map<string, string[]>();
+
+        const { data: allocations } = await supabase
+          .from(allocationTable)
+          .select(`
+            ${itemColumn},
+            animal_id,
+            aspiration_id,
+            pregnancy_id,
+            embryo_transfer_id,
+            recipient_id,
+            animals:animal_id(name, code),
+            aspiration_management:aspiration_id(name, code),
+            pregnancy_management:pregnancy_id(name, code),
+            embryo_transfer_management:embryo_transfer_id(name, code)
+          `)
+          .in(itemColumn, allItemIds);
+
+        const recipientIds = Array.from(
+          new Set((allocations || []).map((allocation: any) => allocation.recipient_id).filter(Boolean)),
+        ) as string[];
+
+        const { data: recipients } = recipientIds.length > 0
+          ? await supabase.from("animals").select("id, name, code").in("id", recipientIds)
+          : { data: [] as any[] };
+
+        const recipientMap = new Map(
+          (recipients || []).map((recipient: any) => [recipient.id, `${recipient.code} - ${recipient.name}`]),
+        );
+
+        const accountAllocations = new Map<string, Set<string>>();
+
+        (allocations || []).forEach((allocation: any) => {
+          const accountId = itemToAccount.get(allocation[itemColumn]);
+          if (!accountId) return;
+
+          if (!accountAllocations.has(accountId)) {
+            accountAllocations.set(accountId, new Set());
+          }
+
+          let label = "";
+          if (allocation.animal_id && allocation.animals) {
+            label = `Animal: ${allocation.animals.code} - ${allocation.animals.name}`;
+          } else if (allocation.aspiration_id && allocation.aspiration_management) {
+            label = `Aspiração: ${allocation.aspiration_management.code} - ${allocation.aspiration_management.name}`;
+          } else if (allocation.pregnancy_id && allocation.pregnancy_management) {
+            label = `Prenhez: ${allocation.pregnancy_management.code} - ${allocation.pregnancy_management.name}`;
+          } else if (allocation.embryo_transfer_id && allocation.embryo_transfer_management) {
+            label = `Pós TE: ${allocation.embryo_transfer_management.code} - ${allocation.embryo_transfer_management.name}`;
+          } else if (allocation.recipient_id && recipientMap.has(allocation.recipient_id)) {
+            label = `Receptora: ${recipientMap.get(allocation.recipient_id)}`;
+          }
+
+          if (label) {
+            accountAllocations.get(accountId)!.add(label);
+          }
+        });
+
+        const result = new Map<string, string[]>();
+        accountAllocations.forEach((labels, accountId) => {
+          result.set(accountId, Array.from(labels));
+        });
+
+        return result;
+      };
 
       const [pregnanciesRes, payablesRes, receivablesRes] = await Promise.all([
         supabase
           .from("pregnancy_management")
-          .select("id, name, expected_birth_month")
+          .select("id, name, expected_birth_month, farm_id, farm_type")
           .eq("status", "in_progress")
           .not("expected_birth_month", "is", null)
           .gte("expected_birth_month", todayIso)
-          .lte("expected_birth_month", weekEndIso)
+          .lte("expected_birth_month", next30DaysIso)
           .in("store_id", storeIds)
           .order("expected_birth_month", { ascending: true }),
         supabase
           .from("accounts_payable")
-          .select("id, amount, due_date, payment_date, status, accounts_payable_installments(amount, due_date, payment_date, status)")
+          .select("id, amount, due_date, payment_date, status, supplier_id, accounts_payable_installments(id, amount, due_date, payment_date, status), accounts_payable_items(id)")
           .in("store_id", storeIds),
         supabase
           .from("accounts_receivable")
-          .select("id, amount, due_date, payment_date, status, accounts_receivable_installments(amount, due_date, payment_date)")
-          .in("store_id", storeIds)
+          .select("id, amount, due_date, payment_date, status, creditor_id, accounts_receivable_installments(id, amount, due_date, payment_date), accounts_receivable_items(id)")
+          .in("store_id", storeIds),
       ]);
 
-      const payables = buildPayableEntries((payablesRes.data || []) as PayableFinancialAccountSummary[])
-        .filter((entry) =>
-          entry.dueDate &&
-          entry.dueDate >= today &&
-          entry.dueDate <= weekEnd &&
-          !entry.paymentDate &&
-          entry.status !== "paid" &&
-          entry.status !== "pagamento_suspenso",
-        )
-        .sort((a, b) => (a.dueDate?.getTime() || 0) - (b.dueDate?.getTime() || 0))
-        .map((entry) => ({
-          due_date: entry.dueDate ? format(entry.dueDate, "yyyy-MM-dd") : null,
-          amount: entry.amount,
-        })) as WeeklyFinancialEntry[];
+      const pregnanciesRaw = (pregnanciesRes.data || []) as Array<{
+        id: string;
+        name: string;
+        expected_birth_month: string | null;
+        farm_id: string | null;
+        farm_type: string | null;
+      }>;
 
-      const receivables = buildReceivableEntries((receivablesRes.data || []) as ReceivableFinancialAccountSummary[])
-        .filter((entry) =>
-          entry.dueDate &&
-          entry.dueDate >= today &&
-          entry.dueDate <= weekEnd &&
-          !entry.paymentDate &&
-          entry.status !== "paid",
-        )
-        .sort((a, b) => (a.dueDate?.getTime() || 0) - (b.dueDate?.getTime() || 0))
-        .map((entry) => ({
-          due_date: entry.dueDate ? format(entry.dueDate, "yyyy-MM-dd") : null,
-          amount: entry.amount,
-        })) as WeeklyFinancialEntry[];
+      const ownFarmIds = Array.from(
+        new Set(
+          pregnanciesRaw
+            .filter((item) => item.farm_type === "own")
+            .map((item) => item.farm_id)
+            .filter(Boolean),
+        ),
+      ) as string[];
+      const thirdFarmIds = Array.from(
+        new Set(
+          pregnanciesRaw
+            .filter((item) => item.farm_type === "third_party")
+            .map((item) => item.farm_id)
+            .filter(Boolean),
+        ),
+      ) as string[];
+
+      const [ownFarmsRes, thirdFarmsRes] = await Promise.all([
+        ownFarmIds.length > 0
+          ? supabase.from("stores").select("id, name").in("id", ownFarmIds)
+          : Promise.resolve({ data: [] as any[] }),
+        thirdFarmIds.length > 0
+          ? supabase.from("third_party_farms").select("id, name").in("id", thirdFarmIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const ownFarmMap = new Map((ownFarmsRes.data || []).map((farm: any) => [farm.id, farm.name]));
+      const thirdFarmMap = new Map((thirdFarmsRes.data || []).map((farm: any) => [farm.id, farm.name]));
+
+      const pregnancies = pregnanciesRaw.map((item) => ({
+        id: item.id,
+        name: item.name,
+        expected_birth_month: item.expected_birth_month,
+        farm_name:
+          item.farm_type === "third_party"
+            ? thirdFarmMap.get(item.farm_id || "") || "-"
+            : ownFarmMap.get(item.farm_id || "") || "-",
+      })) as AttentionPregnancyItem[];
+
+      const payableAccounts = (payablesRes.data || []) as Array<
+        PayableFinancialAccountSummary & {
+          supplier_id?: string | null;
+          accounts_payable_items?: Array<{ id: string }>;
+          accounts_payable_installments?: Array<{
+            id: string;
+            amount: number | string | null;
+            due_date: string | null;
+            payment_date: string | null;
+            status?: string | null;
+          }>;
+        }
+      >;
+
+      const receivableAccounts = (receivablesRes.data || []) as Array<
+        ReceivableFinancialAccountSummary & {
+          creditor_id?: string | null;
+          accounts_receivable_items?: Array<{ id: string }>;
+          accounts_receivable_installments?: Array<{
+            id: string;
+            amount: number | string | null;
+            due_date: string | null;
+            payment_date: string | null;
+          }>;
+        }
+      >;
+
+      const [payableAllocationMap, receivableAllocationMap] = await Promise.all([
+        buildAccountAllocationMap(
+          "accounts_payable_item_allocations",
+          "account_payable_item_id",
+          payableAccounts.map((account) => ({
+            account_id: account.id,
+            item_ids: (account.accounts_payable_items || []).map((item) => item.id),
+          })),
+        ),
+        buildAccountAllocationMap(
+          "accounts_receivable_item_allocations",
+          "account_receivable_item_id",
+          receivableAccounts.map((account) => ({
+            account_id: account.id,
+            item_ids: (account.accounts_receivable_items || []).map((item) => item.id),
+          })),
+        ),
+      ]);
+
+      const supplierIds = Array.from(
+        new Set(payableAccounts.map((account) => account.supplier_id).filter(Boolean)),
+      ) as string[];
+      const creditorIds = Array.from(
+        new Set(receivableAccounts.map((account) => account.creditor_id).filter(Boolean)),
+      ) as string[];
+
+      const [suppliersRes, creditorsRes] = await Promise.all([
+        supplierIds.length > 0
+          ? supabase.from("suppliers").select("id, name").in("id", supplierIds)
+          : Promise.resolve({ data: [] as any[] }),
+        creditorIds.length > 0
+          ? supabase.from("suppliers").select("id, name").in("id", creditorIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const supplierMap = new Map((suppliersRes.data || []).map((supplier: any) => [supplier.id, supplier.name]));
+      const creditorMap = new Map((creditorsRes.data || []).map((creditor: any) => [creditor.id, creditor.name]));
+
+      const payables = payableAccounts
+        .flatMap((account) => {
+          const baseItem = {
+            partner_name: supplierMap.get(account.supplier_id || "") || "-",
+            allocation_names: payableAllocationMap.get(account.id) || [],
+          };
+
+          if ((account.accounts_payable_installments || []).length > 0) {
+            return (account.accounts_payable_installments || [])
+              .filter((installment) => {
+                const dueDate = parseDate(installment.due_date);
+                return (
+                  dueDate &&
+                  dueDate >= today &&
+                  dueDate <= weekEnd &&
+                  !installment.payment_date &&
+                  installment.status !== "paid" &&
+                  installment.status !== "pagamento_suspenso"
+                );
+              })
+              .map((installment) => ({
+                id: `${account.id}-${installment.id}`,
+                partner_name: baseItem.partner_name,
+                allocation_names: baseItem.allocation_names,
+                due_date: installment.due_date,
+                amount: Number(installment.amount || 0),
+              }));
+          }
+
+          const dueDate = parseDate(account.due_date);
+          if (
+            dueDate &&
+            dueDate >= today &&
+            dueDate <= weekEnd &&
+            !account.payment_date &&
+            account.status !== "paid" &&
+            account.status !== "pagamento_suspenso"
+          ) {
+            return [{
+              id: account.id,
+              partner_name: baseItem.partner_name,
+              allocation_names: baseItem.allocation_names,
+              due_date: account.due_date,
+              amount: Number(account.amount || 0),
+            }];
+          }
+
+          return [];
+        })
+        .sort((a, b) => (parseDate(a.due_date)?.getTime() || 0) - (parseDate(b.due_date)?.getTime() || 0)) as AttentionFinancialItem[];
+
+      const receivables = receivableAccounts
+        .flatMap((account) => {
+          const baseItem = {
+            partner_name: creditorMap.get(account.creditor_id || "") || "-",
+            allocation_names: receivableAllocationMap.get(account.id) || [],
+          };
+
+          if ((account.accounts_receivable_installments || []).length > 0) {
+            return (account.accounts_receivable_installments || [])
+              .filter((installment) => {
+                const dueDate = parseDate(installment.due_date);
+                return dueDate && dueDate >= today && dueDate <= weekEnd && !installment.payment_date;
+              })
+              .map((installment) => ({
+                id: `${account.id}-${installment.id}`,
+                partner_name: baseItem.partner_name,
+                allocation_names: baseItem.allocation_names,
+                due_date: installment.due_date,
+                amount: Number(installment.amount || 0),
+              }));
+          }
+
+          const dueDate = parseDate(account.due_date);
+          if (dueDate && dueDate >= today && dueDate <= weekEnd && !account.payment_date && account.status !== "paid") {
+            return [{
+              id: account.id,
+              partner_name: baseItem.partner_name,
+              allocation_names: baseItem.allocation_names,
+              due_date: account.due_date,
+              amount: Number(account.amount || 0),
+            }];
+          }
+
+          return [];
+        })
+        .sort((a, b) => (parseDate(a.due_date)?.getTime() || 0) - (parseDate(b.due_date)?.getTime() || 0)) as AttentionFinancialItem[];
 
       return {
-        pregnancies: pregnanciesRes.data || [],
+        pregnancies,
         payables,
         receivables,
         totalPayablesWeek: payables.reduce((sum, entry) => sum + entry.amount, 0),
@@ -804,9 +1073,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                 ? "Carregando alertas..."
                 : attentionData?.pregnancies[0]
                   ? `Próximo parto previsto em ${formatDateBR(attentionData.pregnancies[0].expected_birth_month)}`
-                  : "Nenhuma prenhez prevista para os próximos 7 dias"
+                  : "Nenhuma prenhez prevista para os próximos 30 dias"
             }
-            route="/animais/prenhez"
+            onClick={() => setAttentionModal("pregnancies")}
           />
           <AttentionCard
             title="Contas a pagar vencendo na semana"
@@ -819,7 +1088,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                   : "Nenhum vencimento pendente nesta semana"
             }
             amount={attentionData?.totalPayablesWeek}
-            route="/reports/accounts-payable/pending"
+            onClick={() => setAttentionModal("payables")}
           />
           <AttentionCard
             title="Contas a receber da semana"
@@ -832,7 +1101,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                   : "Nenhum recebimento previsto nesta semana"
             }
             amount={attentionData?.totalReceivablesWeek}
-            route="/reports/accounts-receivable/pending"
+            onClick={() => setAttentionModal("receivables")}
           />
         </div>
       </section>
@@ -1063,6 +1332,88 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           ))}
         </div>
       </section>
+
+      <Dialog open={attentionModal !== null} onOpenChange={(open) => !open && setAttentionModal(null)}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              {attentionModal === "pregnancies" && "Prenhezes próximas do parto"}
+              {attentionModal === "payables" && "Contas a pagar vencendo na semana"}
+              {attentionModal === "receivables" && "Contas a receber vencendo na semana"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {attentionModal === "pregnancies" && (
+            <div className="max-h-[70vh] overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Data prevista</TableHead>
+                    <TableHead>Fazenda</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(attentionData?.pregnancies || []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                        Nenhuma prenhez prevista para os próximos 30 dias.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (attentionData?.pregnancies || []).map((item: AttentionPregnancyItem) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>{formatDateBR(item.expected_birth_month)}</TableCell>
+                        <TableCell>{item.farm_name}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {(attentionModal === "payables" || attentionModal === "receivables") && (
+            <div className="max-h-[70vh] overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Valor da parcela</TableHead>
+                    <TableHead>Vínculo</TableHead>
+                    <TableHead>Data de vencimento</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {((attentionModal === "payables" ? attentionData?.payables : attentionData?.receivables) || []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                        {attentionModal === "payables"
+                          ? "Nenhuma conta a pagar vencendo nesta semana."
+                          : "Nenhuma conta a receber vencendo nesta semana."}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    ((attentionModal === "payables" ? attentionData?.payables : attentionData?.receivables) || []).map(
+                      (item: AttentionFinancialItem) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.partner_name}</TableCell>
+                          <TableCell>{formatCurrencyBR(item.amount)}</TableCell>
+                          <TableCell className="whitespace-pre-line">
+                            {item.allocation_names.length > 0 ? item.allocation_names.join("\n") : "-"}
+                          </TableCell>
+                          <TableCell>{formatDateBR(item.due_date)}</TableCell>
+                        </TableRow>
+                      ),
+                    )
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
