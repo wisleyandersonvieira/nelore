@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getFinancialAllocationLabel } from "@/lib/financialAllocations";
 
 interface ReceptoraRecord {
   id: string;
@@ -333,11 +334,11 @@ const Receptoras = () => {
         supabase
           .from("accounts_payable_item_allocations")
           .select(`id, allocation_type, accounts_payable_items!inner(total_price, account_payable_id, accounts_payable!inner(id, document_number, due_date, payment_date, status, supplier_id))`)
-          .eq("animal_id", animalId),
+          .or(`animal_id.eq.${animalId},recipient_id.eq.${animalId}`),
         supabase
           .from("accounts_receivable_item_allocations")
           .select(`id, allocation_type, accounts_receivable_items!inner(total_price, account_receivable_id, accounts_receivable!inner(id, document_number, due_date, payment_date, status, creditor_id))`)
-          .eq("animal_id", animalId),
+          .or(`animal_id.eq.${animalId},recipient_id.eq.${animalId}`),
       ]);
 
       const expensesRaw = expRes.data || [];
@@ -1067,7 +1068,7 @@ const Receptoras = () => {
                                 </TableCell>
                                 <TableCell>{item.document_number || "-"}</TableCell>
                                 <TableCell>{item.partner_name || "-"}</TableCell>
-                                <TableCell>{item.allocation_type}</TableCell>
+                                <TableCell>{getFinancialAllocationLabel(item.allocation_type)}</TableCell>
                                 <TableCell>{item.due_date ? new Date(`${item.due_date}T12:00:00`).toLocaleDateString("pt-BR") : "-"}</TableCell>
                                 <TableCell>{item.payment_date ? new Date(`${item.payment_date}T12:00:00`).toLocaleDateString("pt-BR") : "-"}</TableCell>
                                 <TableCell>{item.status || "-"}</TableCell>

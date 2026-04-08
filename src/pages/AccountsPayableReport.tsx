@@ -19,6 +19,7 @@ import { ArrowLeft, Download, Filter, FileDown, ChevronDown, ChevronsUpDown, Arr
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
+import { fetchRecipientAllocationOptions } from "@/lib/financialAllocations";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -82,6 +83,9 @@ const AccountsPayableReport = () => {
           .select("id, name, code")
           .order("code", { ascending: false });
         setAllocationItems((data || []).map(d => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "recipient") {
+        const data = await fetchRecipientAllocationOptions();
+        setAllocationItems(data.map((d) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
       }
     };
     fetchAllocationItems();
@@ -165,6 +169,8 @@ const AccountsPayableReport = () => {
           allocationQuery = allocationQuery.in("pregnancy_id", selectedAllocationIds);
         } else if (allocationType === "animal") {
           allocationQuery = allocationQuery.in("animal_id", selectedAllocationIds);
+        } else if (allocationType === "recipient") {
+          allocationQuery = allocationQuery.in("recipient_id", selectedAllocationIds);
         }
 
         const { data: allocations } = await allocationQuery;
@@ -1132,11 +1138,22 @@ const AccountsPayableReport = () => {
         animal_id,
         aspiration_id,
         pregnancy_id,
+        recipient_id,
         animals:animal_id(name, code),
         aspiration_management:aspiration_id(name, code),
         pregnancy_management:pregnancy_id(name, code)
       `)
       .in("account_payable_item_id", allItemIds);
+
+    const recipientIds = Array.from(
+      new Set((allocations || []).map((alloc: any) => alloc.recipient_id).filter(Boolean)),
+    ) as string[];
+
+    const { data: recipients } = recipientIds.length > 0
+      ? await supabase.from("animals").select("id, name, code").in("id", recipientIds)
+      : { data: [] as any[] };
+
+    const recipientMap = new Map((recipients || []).map((recipient: any) => [recipient.id, `${recipient.code} - ${recipient.name}`]));
 
     // Build a map: account_payable_id -> list of vínculo labels
     const itemToAccount = new Map<string, string>();
@@ -1165,6 +1182,8 @@ const AccountsPayableReport = () => {
         label = `Aspiração: ${(alloc.aspiration_management as any).code} - ${(alloc.aspiration_management as any).name}`;
       } else if (alloc.pregnancy_id && alloc.pregnancy_management) {
         label = `Prenhez: ${(alloc.pregnancy_management as any).code} - ${(alloc.pregnancy_management as any).name}`;
+      } else if (alloc.recipient_id && recipientMap.has(alloc.recipient_id)) {
+        label = `Receptora: ${recipientMap.get(alloc.recipient_id)}`;
       }
 
       if (label) {
@@ -1414,13 +1433,20 @@ const AccountsPayableReport = () => {
                     <SelectItem value="aspiration">Aspiração</SelectItem>
                     <SelectItem value="pregnancy">Prenhez</SelectItem>
                     <SelectItem value="animal">Animais</SelectItem>
+                    <SelectItem value="recipient">Receptoras</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {allocationType !== "none" && allocationItems.length > 0 && (
                 <div>
                   <Label>
-                    {allocationType === "aspiration" ? "Aspirações" : allocationType === "pregnancy" ? "Prenhez" : "Animais"}
+                    {allocationType === "aspiration"
+                      ? "Aspirações"
+                      : allocationType === "pregnancy"
+                      ? "Prenhez"
+                      : allocationType === "recipient"
+                      ? "Receptoras"
+                      : "Animais"}
                   </Label>
                   <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
                     <PopoverTrigger asChild>

@@ -228,6 +228,7 @@ export type Database = {
           embryo_transfer_id: string | null
           id: string
           pregnancy_id: string | null
+          recipient_id: string | null
           updated_at: string
         }
         Insert: {
@@ -239,6 +240,7 @@ export type Database = {
           embryo_transfer_id?: string | null
           id?: string
           pregnancy_id?: string | null
+          recipient_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -250,6 +252,7 @@ export type Database = {
           embryo_transfer_id?: string | null
           id?: string
           pregnancy_id?: string | null
+          recipient_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -286,6 +289,13 @@ export type Database = {
             columns: ["pregnancy_id"]
             isOneToOne: false
             referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_item_allocations_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
             referencedColumns: ["id"]
           },
         ]
@@ -574,6 +584,7 @@ export type Database = {
           embryo_transfer_id: string | null
           id: string
           pregnancy_id: string | null
+          recipient_id: string | null
           updated_at: string
         }
         Insert: {
@@ -585,6 +596,7 @@ export type Database = {
           embryo_transfer_id?: string | null
           id?: string
           pregnancy_id?: string | null
+          recipient_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -596,6 +608,7 @@ export type Database = {
           embryo_transfer_id?: string | null
           id?: string
           pregnancy_id?: string | null
+          recipient_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -632,6 +645,13 @@ export type Database = {
             columns: ["pregnancy_id"]
             isOneToOne: false
             referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_item_allocations_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
             referencedColumns: ["id"]
           },
         ]

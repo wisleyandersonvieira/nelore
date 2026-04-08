@@ -135,7 +135,8 @@ const ReceivedAccountsReport = () => {
                   animal_id,
                   aspiration_id,
                   embryo_transfer_id,
-                  pregnancy_id
+                  pregnancy_id,
+                  recipient_id
                 )
               )
             `)
@@ -251,6 +252,7 @@ const ReceivedAccountsReport = () => {
       const aspirationIds = new Set<string>();
       const pregnancyIds = new Set<string>();
       const embryoTransferIds = new Set<string>();
+      const recipientIds = new Set<string>();
 
       accountsData.forEach((account: any) => {
         (account.accounts_receivable_items || []).forEach((item: any) => {
@@ -259,6 +261,7 @@ const ReceivedAccountsReport = () => {
             if (alloc.aspiration_id) aspirationIds.add(alloc.aspiration_id);
             if (alloc.pregnancy_id) pregnancyIds.add(alloc.pregnancy_id);
             if (alloc.embryo_transfer_id) embryoTransferIds.add(alloc.embryo_transfer_id);
+            if (alloc.recipient_id) recipientIds.add(alloc.recipient_id);
           });
         });
       });
@@ -288,6 +291,12 @@ const ReceivedAccountsReport = () => {
         fetchPromises.push(
           Promise.resolve(supabase.from("embryo_transfer_management").select("id, name, code").in("id", Array.from(embryoTransferIds)))
             .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`embryo-${a.id}`] = `${a.code} - ${a.name}`; }); })
+        );
+      }
+      if (recipientIds.size > 0) {
+        fetchPromises.push(
+          Promise.resolve(supabase.from("animals").select("id, name, code").in("id", Array.from(recipientIds)))
+            .then(({ data }) => { (data || []).forEach((a: any) => { namesMap[`recipient-${a.id}`] = `${a.code} - ${a.name}`; }); })
         );
       }
 
@@ -973,6 +982,9 @@ const ReceivedAccountsReport = () => {
             }
             if (alloc.embryo_transfer_id && allocationNames[`embryo-${alloc.embryo_transfer_id}`]) {
               allocations.push(`Pós TE: ${allocationNames[`embryo-${alloc.embryo_transfer_id}`]}`);
+            }
+            if (alloc.recipient_id && allocationNames[`recipient-${alloc.recipient_id}`]) {
+              allocations.push(`Receptora: ${allocationNames[`recipient-${alloc.recipient_id}`]}`);
             }
           });
         });
