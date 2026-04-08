@@ -768,25 +768,24 @@ const Receptoras = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/70">
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-3">
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/70 bg-card/80 backdrop-blur">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex items-center gap-3">
-            <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
+            <Button onClick={() => navigate("/dashboard")} variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Receptoras</h1>
-              <p className="text-sm text-slate-600">Módulo exclusivo de cadastro de receptoras</p>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Receptoras</h1>
+              <p className="text-sm text-muted-foreground">Módulo exclusivo de cadastro de receptoras</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={openGroupModal}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openGroupModal} className="h-10 rounded-lg border-border/70 bg-background/90 px-4">
               <Users className="h-4 w-4 mr-2" />
               Cadastro em Grupo
             </Button>
-            <Button onClick={openCreateModal}>
+            <Button onClick={openCreateModal} className="h-10 rounded-lg px-4 shadow-sm">
               <Plus className="h-4 w-4 mr-2" />
               Nova Receptora
             </Button>
@@ -795,86 +794,87 @@ const Receptoras = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <Card className="mb-4">
-          <CardHeader className="pb-3">
+        <Card className="mb-4 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+          <CardHeader className="border-b border-border/60 bg-card/70 pb-3">
             <CardTitle className="text-lg">Listagem de Receptoras</CardTitle>
             <CardDescription>Busca e gestão das receptoras cadastradas</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="relative mb-4 max-w-md">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome, código, registro ou brinco"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-white"
+                className="h-10 rounded-lg border-border/70 bg-background pl-9"
               />
             </div>
 
             {loading ? (
-              <p className="text-center py-8 text-slate-500">Carregando receptoras...</p>
+              <p className="py-8 text-center text-muted-foreground">Carregando receptoras...</p>
             ) : filteredRecords.length === 0 ? (
-              <p className="text-center py-8 text-slate-500">Nenhuma receptora encontrada</p>
+              <p className="py-8 text-center text-muted-foreground">Nenhuma receptora encontrada</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border bg-white">
+              <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                     <TableRow>
-                      <TableHead>Foto</TableHead>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Brinco</TableHead>
-                      <TableHead>Fazenda</TableHead>
-                      <TableHead>Lote</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Entrada</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nome</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Brinco</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Fazenda</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Lote</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Status</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Entrada</TableHead>
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Categoria</TableHead>
+                      <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRecords.map((record) => (
                       <TableRow
                         key={record.id}
-                        className="cursor-pointer hover:bg-slate-50 transition-colors"
+                        className="cursor-pointer border-border/60 hover:bg-muted/25"
                         onClick={() => openEditModal(record, "view")}
                       >
-                        <TableCell>
+                        <TableCell className="px-4 py-3">
                           {record.cover_photo ? (
-                            <img src={record.cover_photo} alt={record.name} className="w-10 h-10 rounded-md object-cover" />
+                            <img src={record.cover_photo} alt={record.name} className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm" />
                           ) : (
-                            <div className="w-10 h-10 rounded-md bg-slate-100 flex items-center justify-center">
-                              <ImageIcon className="h-4 w-4 text-slate-400" />
+                            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>{record.code}</TableCell>
-                        <TableCell className="font-medium">{record.name}</TableCell>
-                        <TableCell>{record.ear_tag || "-"}</TableCell>
-                        <TableCell>{record.farm_id ? farmNameById.get(record.farm_id) || "-" : "-"}</TableCell>
-                        <TableCell>{record.batch_id ? batchNameById.get(record.batch_id) || "-" : "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant={record.is_active ? "default" : "secondary"}>
+                        <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{record.code}</TableCell>
+                        <TableCell className="px-4 py-3 font-medium text-foreground">{record.name}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.ear_tag || "-"}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.farm_id ? farmNameById.get(record.farm_id) || "-" : "-"}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.batch_id ? batchNameById.get(record.batch_id) || "-" : "-"}</TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Badge className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent", record.is_active ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700")}>
                             {record.is_active ? "Ativo" : "Inativo"}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">
                           {record.farm_entry_date
                             ? new Date(`${record.farm_entry_date}T12:00:00`).toLocaleDateString("pt-BR")
                             : "-"}
                         </TableCell>
-                        <TableCell>{record.category_id ? categoryNameById.get(record.category_id) || "-" : "-"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEditModal(record, "view"); }}>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.category_id ? categoryNameById.get(record.category_id) || "-" : "-"}</TableCell>
+                        <TableCell className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "view"); }}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEditModal(record, "edit"); }}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "edit"); }}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-8 w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setRecordToDelete(record);

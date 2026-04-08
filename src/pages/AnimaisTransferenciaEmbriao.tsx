@@ -1074,56 +1074,66 @@ const AnimaisTransferenciaEmbriao = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Gestão de Pós Transferência de Embrião</h1>
-            <p className="text-sm text-muted-foreground">Acompanhamento pós transferência de embrião</p>
+      <header className="border-b border-border/70 bg-card/80 backdrop-blur">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="h-9 w-9 rounded-full">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Gestão de Pós Transferência de Embrião</h1>
+              <p className="text-sm text-muted-foreground">Acompanhamento pós transferência de embrião</p>
+            </div>
           </div>
+          <Button onClick={() => handleOpenModal("create")} className="h-10 gap-2 rounded-lg px-4 shadow-sm">
+            <Plus className="h-4 w-4" />
+            Cadastrar
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-              <Filter className="h-4 w-4 mr-2" />
+      <main className="container mx-auto px-4 py-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-sm">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">Listagem de pós TE</p>
+            <p className="text-xs text-muted-foreground">Leitura mais objetiva para monitoramento do pós transferência.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
+              <Filter className="h-4 w-4" />
               {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
             </Button>
             {hasFiltered && (
               <>
-                <Button variant="outline" onClick={exportExcel}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={exportExcel} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
+                  <FileSpreadsheet className="h-4 w-4" />
                   Excel
                 </Button>
-                <Button variant="outline" onClick={exportPDF}>
-                  <FileText className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={exportPDF} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
+                  <FileText className="h-4 w-4" />
                   PDF
                 </Button>
               </>
             )}
           </div>
-          <Button onClick={() => handleOpenModal("create")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Cadastrar
-          </Button>
         </div>
 
         {/* Filters */}
         {showFilters && (
-          <div className="border rounded-lg p-4 mb-6 bg-card space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="mb-5 rounded-xl border border-border/70 bg-card px-4 py-4 shadow-sm">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-foreground">Filtros</p>
+              <p className="text-xs text-muted-foreground">Refine a visualização da listagem sem alterar o fluxo da tela.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div>
-                <Label>Nome</Label>
-                <Input value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Filtrar por nome..." />
+                <Label className="text-xs font-medium text-muted-foreground">Nome</Label>
+                <Input className="mt-1 h-10 rounded-lg" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Filtrar por nome..." />
               </div>
               <div>
-                <Label>Raça</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Raça</Label>
                 <Select value={filterBreed} onValueChange={setFilterBreed}>
-                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {breeds.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -1131,9 +1141,9 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Select>
               </div>
               <div>
-                <Label>Fazenda</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Fazenda</Label>
                 <Select value={filterFarm} onValueChange={setFilterFarm}>
-                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {ownFarms.map(f => <SelectItem key={`own-${f.id}`} value={`own-${f.id}`}>{f.name}</SelectItem>)}
@@ -1142,9 +1152,9 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Select>
               </div>
               <div>
-                <Label>Status</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Status</Label>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="in_progress">Em Andamento</SelectItem>
@@ -1154,9 +1164,9 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Select>
               </div>
               <div>
-                <Label>Leilão</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Leilão</Label>
                 <Select value={filterAuction} onValueChange={setFilterAuction}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
@@ -1164,9 +1174,9 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Select>
               </div>
               <div>
-                <Label>Nome da Mãe</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Nome da Mãe</Label>
                 <Select value={filterDam} onValueChange={setFilterDam}>
-                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {dams.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
@@ -1174,9 +1184,9 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Select>
               </div>
               <div>
-                <Label>Nome do Pai</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Nome do Pai</Label>
                 <Select value={filterSire} onValueChange={setFilterSire}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {sires.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -1184,14 +1194,14 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Select>
               </div>
               <div>
-                <Label>Receptora</Label>
-                <Input value={filterRecipient} onChange={e => setFilterRecipient(e.target.value)} placeholder="Filtrar por receptora..." />
+                <Label className="text-xs font-medium text-muted-foreground">Receptora</Label>
+                <Input className="mt-1 h-10 rounded-lg" value={filterRecipient} onChange={e => setFilterRecipient(e.target.value)} placeholder="Filtrar por receptora..." />
               </div>
               <div>
-                <Label>Data Transferência (Início)</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Data Transferência (Início)</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filterTransferDateStart && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("mt-1 h-10 w-full justify-start rounded-lg text-left font-normal", !filterTransferDateStart && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {filterTransferDateStart ? format(filterTransferDateStart, "dd/MM/yyyy") : "Selecione..."}
                     </Button>
@@ -1200,10 +1210,10 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Popover>
               </div>
               <div>
-                <Label>Data Transferência (Fim)</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Data Transferência (Fim)</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filterTransferDateEnd && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("mt-1 h-10 w-full justify-start rounded-lg text-left font-normal", !filterTransferDateEnd && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {filterTransferDateEnd ? format(filterTransferDateEnd, "dd/MM/yyyy") : "Selecione..."}
                     </Button>
@@ -1212,9 +1222,9 @@ const AnimaisTransferenciaEmbriao = () => {
                 </Popover>
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={handleClearFilters}>Limpar Filtros</Button>
-              <Button onClick={handleFilter}>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={handleClearFilters} className="h-9 rounded-lg px-3">Limpar Filtros</Button>
+              <Button onClick={handleFilter} className="h-9 rounded-lg px-3">
                 <Search className="h-4 w-4 mr-2" />
                 Filtrar
               </Button>
@@ -1230,19 +1240,19 @@ const AnimaisTransferenciaEmbriao = () => {
           <div className="text-center py-8">Carregando...</div>
         ) : (
           <>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                   <TableRow>
-                     <TableHead>Código</TableHead>
-                     <TableHead>Nome</TableHead>
-                     <TableHead>Receptora</TableHead>
-                     <TableHead>Raça</TableHead>
-                     <TableHead>Fazenda</TableHead>
-                     <TableHead>Data Transferência</TableHead>
-                     <TableHead>Dias após Transf.</TableHead>
-                     <TableHead>Status</TableHead>
-                     <TableHead className="text-right">Ações</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nome</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Receptora</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Raça</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Fazenda</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Data Transferência</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Dias após Transf.</TableHead>
+                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Status</TableHead>
+                     <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1256,18 +1266,18 @@ const AnimaisTransferenciaEmbriao = () => {
                     paginatedRecords.map((record) => {
                       const daysAfter = getDaysAfterTransfer(record.transfer_date);
                       return (
-                        <TableRow key={record.id}>
-                          <TableCell>{record.code}</TableCell>
-                          <TableCell>{record.name}</TableCell>
-                          <TableCell>{record.recipient_id ? (recipientNames[record.recipient_id] || "...") : "-"}</TableCell>
-                          <TableCell>{getBreedName(record.breed_id)}</TableCell>
-                          <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
-                          <TableCell>
+                        <TableRow key={record.id} className="border-border/60 hover:bg-muted/25">
+                          <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{record.code}</TableCell>
+                          <TableCell className="px-4 py-3 font-medium text-foreground">{record.name}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.recipient_id ? (recipientNames[record.recipient_id] || "...") : "-"}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getBreedName(record.breed_id)}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                          <TableCell className="px-4 py-3 text-sm text-foreground">
                             {record.transfer_date
                               ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy")
                               : "-"}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="px-4 py-3 text-sm">
                             {daysAfter !== null ? (
                               <span className={cn(
                                 daysAfter > 35 && "font-bold text-destructive"
@@ -1276,20 +1286,20 @@ const AnimaisTransferenciaEmbriao = () => {
                               </span>
                             ) : "-"}
                           </TableCell>
-                          <TableCell>
-                            <span className={cn("px-2 py-1 rounded-full text-xs font-medium",
-                              record.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
-                              record.status === "finalized_pregnant" ? "bg-green-100 text-green-800" :
-                              record.status === "finalized_empty" ? "bg-red-100 text-red-800" :
-                              "bg-green-100 text-green-800"
+                          <TableCell className="px-4 py-3">
+                            <Badge className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+                              record.status === "in_progress" ? "border-yellow-200 bg-yellow-50 text-yellow-700" :
+                              record.status === "finalized_pregnant" ? "border-green-200 bg-green-50 text-green-700" :
+                              record.status === "finalized_empty" ? "border-red-200 bg-red-50 text-red-700" :
+                              "border-green-200 bg-green-50 text-green-700"
                             )}>
                               {getStatusLabel(record.status)}
-                            </span>
+                            </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-4 py-3 text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -1327,7 +1337,7 @@ const AnimaisTransferenciaEmbriao = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
                 <p className="text-sm text-muted-foreground">
                   Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length)} de {filteredRecords.length} registros
                 </p>

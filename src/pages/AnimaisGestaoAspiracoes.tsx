@@ -557,10 +557,10 @@ const AnimaisGestaoAspiracoes = () => {
   // Date picker helper component
   const DateFilterPicker = ({ label, value, onChange }: { label: string; value: Date | null; onChange: (d: Date | null) => void }) => (
     <div>
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-9 text-sm", !value && "text-muted-foreground")}>
+          <Button variant="outline" className={cn("mt-1 h-10 w-full justify-start rounded-lg text-left text-sm font-normal", !value && "text-muted-foreground")}>
             <CalendarIcon className="mr-2 h-3 w-3" />
             {value ? format(value, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
           </Button>
@@ -1541,56 +1541,66 @@ const AnimaisGestaoAspiracoes = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Gestão de Aspirações</h1>
-            <p className="text-sm text-muted-foreground">Acompanhamento de aspirações</p>
+      <header className="border-b border-border/70 bg-card/80 backdrop-blur">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="h-9 w-9 rounded-full">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Gestão de Aspirações</h1>
+              <p className="text-sm text-muted-foreground">Acompanhamento de aspirações</p>
+            </div>
           </div>
+          <Button onClick={() => handleOpenModal("create")} className="h-10 gap-2 rounded-lg px-4 shadow-sm">
+            <Plus className="h-4 w-4" />
+            Cadastrar
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-              <Filter className="h-4 w-4 mr-2" />
+      <main className="container mx-auto px-4 py-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-sm">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">Listagem de aspirações</p>
+            <p className="text-xs text-muted-foreground">Mais densidade visual para leitura operacional e financeira.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
+              <Filter className="h-4 w-4" />
               {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
             </Button>
             {hasFiltered && filteredRecords.length > 0 && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleExportExcel}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={handleExportExcel} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
+                  <FileSpreadsheet className="h-4 w-4" />
                   Excel
                 </Button>
-                <Button variant="outline" onClick={handleExportPDF}>
-                  <FileText className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={handleExportPDF} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
+                  <FileText className="h-4 w-4" />
                   PDF
                 </Button>
               </div>
             )}
           </div>
-          <Button onClick={() => handleOpenModal("create")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Cadastrar
-          </Button>
         </div>
 
         {/* Filter Panel */}
         {showFilters && (
-          <div className="border rounded-lg p-4 mb-6 bg-card space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="mb-5 rounded-xl border border-border/70 bg-card px-4 py-4 shadow-sm">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-foreground">Filtros</p>
+              <p className="text-xs text-muted-foreground">Refine a busca sem alterar o fluxo principal da tela.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div>
-                <Label className="text-xs">Nome</Label>
-                <Input value={filterName} onChange={(e) => setFilterName(e.target.value)} placeholder="Filtrar por nome..." className="h-9" />
+                <Label className="text-xs font-medium text-muted-foreground">Nome</Label>
+                <Input value={filterName} onChange={(e) => setFilterName(e.target.value)} placeholder="Filtrar por nome..." className="mt-1 h-10 rounded-lg" />
               </div>
               <div>
-                <Label className="text-xs">Raça</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Raça</Label>
                 <Select value={filterBreed} onValueChange={setFilterBreed}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {breeds.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -1598,9 +1608,9 @@ const AnimaisGestaoAspiracoes = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Fazenda</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Fazenda</Label>
                 <Select value={filterFarm} onValueChange={setFilterFarm}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {ownFarms.length > 0 && (
@@ -1619,9 +1629,9 @@ const AnimaisGestaoAspiracoes = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Status</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Status</Label>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="pending">Pendente</SelectItem>
@@ -1631,9 +1641,9 @@ const AnimaisGestaoAspiracoes = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Leilão</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Leilão</Label>
                 <Select value={filterAuction} onValueChange={setFilterAuction}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
@@ -1641,28 +1651,28 @@ const AnimaisGestaoAspiracoes = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Nome da Mãe</Label>
-                <Input value={filterDamName} onChange={(e) => setFilterDamName(e.target.value)} placeholder="Filtrar por mãe..." className="h-9" />
+                <Label className="text-xs font-medium text-muted-foreground">Nome da Mãe</Label>
+                <Input value={filterDamName} onChange={(e) => setFilterDamName(e.target.value)} placeholder="Filtrar por mãe..." className="mt-1 h-10 rounded-lg" />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="space-y-1">
-                <Label className="text-xs font-semibold">Mês Prev. Aspiração</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Mês Prev. Aspiração</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <DateFilterPicker label="Início" value={filterExpectedMonthStart} onChange={setFilterExpectedMonthStart} />
                   <DateFilterPicker label="Fim" value={filterExpectedMonthEnd} onChange={setFilterExpectedMonthEnd} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-semibold">Data Aspiração</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Data Aspiração</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <DateFilterPicker label="Início" value={filterAspirationDateStart} onChange={setFilterAspirationDateStart} />
                   <DateFilterPicker label="Fim" value={filterAspirationDateEnd} onChange={setFilterAspirationDateEnd} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-semibold">Data Transferência</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Data Transferência</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <DateFilterPicker label="Início" value={filterTransferDateStart} onChange={setFilterTransferDateStart} />
                   <DateFilterPicker label="Fim" value={filterTransferDateEnd} onChange={setFilterTransferDateEnd} />
@@ -1670,9 +1680,9 @@ const AnimaisGestaoAspiracoes = () => {
               </div>
             </div>
 
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={handleClearFilters}>Limpar Filtros</Button>
-              <Button onClick={handleApplyFilters}>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={handleClearFilters} className="h-9 rounded-lg px-3">Limpar Filtros</Button>
+              <Button onClick={handleApplyFilters} className="h-9 rounded-lg px-3">
                 <Search className="h-4 w-4 mr-2" />
                 Filtrar
               </Button>
@@ -1688,20 +1698,20 @@ const AnimaisGestaoAspiracoes = () => {
           <div className="text-center py-8">Carregando...</div>
         ) : (
           <>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                    <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Raça</TableHead>
-                    <TableHead>Fazenda</TableHead>
-                    <TableHead>Mês Prev. Aspiração</TableHead>
-                    <TableHead>Data Aspiração</TableHead>
-                    <TableHead>Data Transferência</TableHead>
-                    <TableHead>Qtd. Embriões</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nome</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Raça</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Fazenda</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Mês Prev. Aspiração</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Data Aspiração</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Data Transferência</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Qtd. Embriões</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Status</TableHead>
+                    <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1713,59 +1723,68 @@ const AnimaisGestaoAspiracoes = () => {
                      </TableRow>
                   ) : (
                     paginatedRecords.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell>{record.code}</TableCell>
-                        <TableCell>{record.name}</TableCell>
-                        <TableCell>{getBreedName(record.breed_id)}</TableCell>
-                        <TableCell>{getFarmName(record.farm_id, record.farm_type)}</TableCell>
-                        <TableCell>
+                      <TableRow key={record.id} className="border-border/60 hover:bg-muted/25">
+                        <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{record.code}</TableCell>
+                        <TableCell className="px-4 py-3 font-medium text-foreground">{record.name}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getBreedName(record.breed_id)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">
                           {record.expected_aspiration_month
                             ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
                             : "-"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">
                           {record.aspiration_date
                             ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
                             : "-"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">
                           {record.transfer_date
                             ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
                             : "-"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">
                           {record.embryo_count ?? "-"}
                         </TableCell>
-                        <TableCell>
-                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusClasses(record.status))}>
+                        <TableCell className="px-4 py-3">
+                          <Badge className={cn(
+                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+                            record.status === "pending"
+                              ? "border-blue-200 bg-blue-50 text-blue-700"
+                              : record.status === "in_progress"
+                              ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+                              : record.status === "finalized"
+                              ? "border-green-200 bg-green-50 text-green-700"
+                              : "border-sky-200 bg-sky-50 text-sky-700"
+                          )}>
                             {getStatusLabel(record.status)}
-                          </span>
+                          </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+                        <TableCell className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
                               <Eye className="h-4 w-4" />
                             </Button>
                             {record.status === "pending" && (
                               <>
-                                <Button variant="ghost" size="icon" onClick={() => handleOpenModal("edit", record)} title="Editar">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="text-green-600 hover:text-green-700">
+                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>
                               </>
                             )}
                             {record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Finalizar" className="text-green-600 hover:text-green-700">
+                              <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Finalizar" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
                             {record.status !== "sold" && (
-                              <Button variant="ghost" size="icon" onClick={() => handleOpenSaleModal(record)} title="Venda">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
                                 <DollarSign className="h-4 w-4" />
                               </Button>
                             )}
@@ -1775,7 +1794,10 @@ const AnimaisGestaoAspiracoes = () => {
                                 size="icon"
                                 onClick={() => handleToggleFinancialReleased(record)}
                                 title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
-                                className={record.financial_released ? "text-green-600" : ""}
+                                className={cn(
+                                  "h-8 w-8 rounded-lg hover:bg-muted/60",
+                                  record.financial_released ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground",
+                                )}
                               >
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
@@ -1791,7 +1813,7 @@ const AnimaisGestaoAspiracoes = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
                 <p className="text-sm text-muted-foreground">
                   Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length)} de {filteredRecords.length} registros
                 </p>

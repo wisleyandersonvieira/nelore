@@ -518,60 +518,75 @@ const AnimaisMatrizes = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground">Matrizes & Genitores</h1>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          <Button onClick={() => handleOpenModal()} className="bg-pink-500 hover:bg-pink-600">
-            <Plus className="h-4 w-4 mr-2" />
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/70 bg-card/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="h-9 w-9 rounded-full">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Matrizes & Genitores</h1>
+              <p className="text-sm text-muted-foreground">Consulta e gestão de matrizes e reprodutores cadastrados.</p>
+            </div>
+          </div>
+          <Button onClick={() => handleOpenModal()} className="h-10 gap-2 rounded-lg px-4 shadow-sm">
+            <Plus className="h-4 w-4" />
             Cadastrar
           </Button>
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Filtrar por nome"
-              value={filters.name}
-              onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-              className="w-48"
-            />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-6 py-6">
+        <div className="mb-5 rounded-xl border border-border/70 bg-card/70 px-4 py-4 shadow-sm">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-foreground">Filtros</p>
+            <p className="text-xs text-muted-foreground">Refine a listagem com uma visualização mais compacta e direta.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Select value={filters.sex} onValueChange={(value) => setFilters({ ...filters, sex: value })}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filtrar por sexo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="macho">Macho</SelectItem>
-                <SelectItem value="femea">Fêmea</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Nome</Label>
+              <Input
+                placeholder="Filtrar por nome"
+                value={filters.name}
+                onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                className="mt-1 h-10 rounded-lg"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Sexo</Label>
+              <Select value={filters.sex} onValueChange={(value) => setFilters({ ...filters, sex: value })}>
+                <SelectTrigger className="mt-1 h-10 rounded-lg">
+                  <SelectValue placeholder="Filtrar por sexo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="macho">Macho</SelectItem>
+                  <SelectItem value="femea">Fêmea</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        <div className="bg-card rounded-lg border">
+        <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
               <TableRow>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")}>
+                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("name")}>
                   <div className="flex items-center gap-1">Nome <ArrowUpDown className="h-3 w-3" /></div>
                 </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("sex")}>
+                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("sex")}>
                   <div className="flex items-center gap-1">Sexo <ArrowUpDown className="h-3 w-3" /></div>
                 </TableHead>
-                <TableHead>Registro</TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("offspringCount")}>
+                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Registro</TableHead>
+                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("offspringCount")}>
                   <div className="flex items-center gap-1">Animais Filhos Ativos <ArrowUpDown className="h-3 w-3" /></div>
                 </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort("grandchildrenCount")}>
+                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("grandchildrenCount")}>
                   <div className="flex items-center gap-1">Animais Netos Ativos <ArrowUpDown className="h-3 w-3" /></div>
                 </TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -583,23 +598,23 @@ const AnimaisMatrizes = () => {
                 </TableRow>
               ) : paginatedAnimals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
                     Nenhuma matriz ou genitor encontrado
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedAnimals.map((animal) => (
-                  <TableRow key={animal.id} className="h-10">
-                    <TableCell className="font-medium py-2">{animal.name}</TableCell>
-                    <TableCell className="py-2">{getSexLabel(animal.sex)}</TableCell>
-                    <TableCell className="py-2">{animal.registration || "-"}</TableCell>
-                    <TableCell className="py-2">{animal.offspringCount}</TableCell>
-                    <TableCell className="py-2">{animal.grandchildrenCount}</TableCell>
-                    <TableCell className="text-right py-2">
-                      <div className="flex justify-end gap-1">
+                  <TableRow key={animal.id} className="border-border/60 hover:bg-muted/25">
+                    <TableCell className="px-4 py-3 font-medium text-foreground">{animal.name}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-foreground">{getSexLabel(animal.sex)}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">{animal.registration || "-"}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-foreground">{animal.offspringCount}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-foreground">{animal.grandchildrenCount}</TableCell>
+                    <TableCell className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1.5">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8">
+                            <Button variant="outline" size="sm" className="h-8 rounded-lg">
                               <FileText className="h-3 w-3 mr-1" />
                               Relatório
                               <ChevronDown className="h-3 w-3 ml-1" />
@@ -617,7 +632,7 @@ const AnimaisMatrizes = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 rounded-lg"
                           onClick={() => handleOpenModal(animal)}
                         >
                           <Pencil className="h-3 w-3" />
@@ -625,7 +640,7 @@ const AnimaisMatrizes = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 rounded-lg"
                           onClick={() => openDeleteDialog(animal)}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -640,7 +655,7 @@ const AnimaisMatrizes = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
               <span className="text-sm text-muted-foreground">
                 Página {currentPage} de {totalPages} ({sortedAnimals.length} registros)
               </span>
@@ -648,6 +663,7 @@ const AnimaisMatrizes = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="rounded-lg"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
@@ -657,6 +673,7 @@ const AnimaisMatrizes = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="rounded-lg"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
@@ -667,7 +684,7 @@ const AnimaisMatrizes = () => {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-lg">
