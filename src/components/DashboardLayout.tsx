@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,6 +89,19 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
+
+  useEffect(() => {
+    const openAccountsPayable = () => setAccountsPayableOpen(true);
+    const openAccountsReceivable = () => setAccountsReceivableOpen(true);
+
+    window.addEventListener("dashboard-open-accounts-payable", openAccountsPayable);
+    window.addEventListener("dashboard-open-accounts-receivable", openAccountsReceivable);
+
+    return () => {
+      window.removeEventListener("dashboard-open-accounts-payable", openAccountsPayable);
+      window.removeEventListener("dashboard-open-accounts-receivable", openAccountsReceivable);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

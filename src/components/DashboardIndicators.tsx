@@ -41,6 +41,12 @@ interface DashboardIndicatorsProps {
   userId?: string;
 }
 
+interface DashboardUserScope {
+  matrixId: string | null;
+  storeId: string | null;
+  storeIds: string[];
+}
+
 interface NestedItem {
   total_price: number | string | null;
 }
@@ -121,8 +127,9 @@ interface FinanceMetricCardProps {
 interface QuickActionCardProps {
   title: string;
   description: string;
-  route: string;
+  route?: string;
   icon: React.ComponentType<{ className?: string }>;
+  onClick?: () => void;
 }
 
 const formatCurrencyBR = (value: number) =>
@@ -285,13 +292,19 @@ const FinanceMetricCard = ({ title, value, description, icon: Icon, tone }: Fina
   );
 };
 
-const QuickActionCard = ({ title, description, route, icon: Icon }: QuickActionCardProps) => {
+const QuickActionCard = ({ title, description, route, icon: Icon, onClick }: QuickActionCardProps) => {
   const navigate = useNavigate();
 
   return (
     <button
       type="button"
-      onClick={() => navigate(route)}
+      onClick={() => {
+        if (onClick) {
+          onClick();
+          return;
+        }
+        if (route) navigate(route);
+      }}
       className="text-left rounded-2xl border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
@@ -310,11 +323,13 @@ const QuickActionCard = ({ title, description, route, icon: Icon }: QuickActionC
 const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   const navigate = useNavigate();
 
-  const { data: storeIds = [] } = useQuery({
-    queryKey: ["dashboard-store-ids", userId],
+  const { data: userScope = { matrixId: null, storeId: null, storeIds: [] } } = useQuery({
+    queryKey: ["dashboard-user-scope", userId],
     enabled: !!userId,
     queryFn: async () => {
-      if (!userId) return [];
+      if (!userId) {
+        return { matrixId: null, storeId: null, storeIds: [] } as DashboardUserScope;
+      }
 
       const [{ data: profile }, { data: userStores }] = await Promise.all([
         supabase.from("profiles").select("store_id, matrix_id").eq("id", userId).single(),
@@ -325,7 +340,13 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       if (profile?.store_id) candidateStoreIds.add(profile.store_id);
       userStores?.forEach((store) => candidateStoreIds.add(store.store_id));
 
-      if (candidateStoreIds.size === 0) return [];
+      if (candidateStoreIds.size === 0) {
+        return {
+          matrixId: profile?.matrix_id || null,
+          storeId: profile?.store_id || null,
+          storeIds: [],
+        } as DashboardUserScope;
+      }
 
       if (profile?.matrix_id) {
         const { data: validStores } = await supabase
@@ -334,18 +355,28 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           .eq("matrix_id", profile.matrix_id)
           .in("id", Array.from(candidateStoreIds));
 
-        return (validStores || []).map((store) => store.id);
+        return {
+          matrixId: profile.matrix_id,
+          storeId: profile?.store_id || null,
+          storeIds: (validStores || []).map((store) => store.id),
+        } as DashboardUserScope;
       }
 
-      return Array.from(candidateStoreIds);
+      return {
+        matrixId: null,
+        storeId: profile?.store_id || null,
+        storeIds: Array.from(candidateStoreIds),
+      } as DashboardUserScope;
     },
     staleTime: 10 * 60 * 1000,
   });
 
+  const { matrixId, storeId, storeIds } = userScope;
+
   const { data: recipientCategoryIds = [] } = useQuery({
-    queryKey: ["dashboard-recipient-category-ids", userId, storeIds],
+    queryKey: ["dashboard-recipient-category-ids", userId, matrixId, storeId, storeIds],
     enabled: storeIds.length > 0,
-    queryFn: async () => fetchRecipientCategoryIds({ storeIds }),
+    queryFn: async () => fetchRecipientCategoryIds({ matrixId, storeId, storeIds }),
     staleTime: 10 * 60 * 1000,
   });
 
@@ -565,7 +596,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   });
 
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
-    queryKey: ["dashboard-analytics", userId, storeIds, recipientCategoryIds],
+    queryKey: ["dashboard-analytics", userId, matrixId, storeId, storeIds, recipientCategoryIds],
     enabled: storeIds.length > 0,
     queryFn: async () => {
       const [farmTypeRes, birthsRes, categoriesRes] = await Promise.all([
@@ -582,11 +613,19 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           .in("store_id", storeIds),
         supabase
           .from("animal_categories")
-          .select("id, name")
+          .select("id, name, matrix_id, store_id")
           .eq("is_active", true)
-          .eq("show_on_dashboard", true)
-          .in("store_id", storeIds),
+          .order("name"),
       ]);
+
+      let filteredCategories = categoriesRes.data || [];
+      if (matrixId) {
+        filteredCategories = filteredCategories.filter((category: any) => category.matrix_id === matrixId);
+      } else if (storeId) {
+        filteredCategories = filteredCategories.filter((category: any) => category.store_id === storeId);
+      } else if (storeIds.length > 0) {
+        filteredCategories = filteredCategories.filter((category: any) => storeIds.includes(category.store_id));
+      }
 
       const farmAnimals = (farmTypeRes.data || []).filter((animal) => {
         if (recipientCategoryIds.length === 0) return true;
@@ -617,7 +656,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         };
       });
 
-      const categories = categoriesRes.data || [];
+      const categories = filteredCategories;
       const categoryIds = categories.map((category) => category.id);
       const { data: animalsByCategory } =
         categoryIds.length > 0
@@ -700,8 +739,18 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
     { title: "Nova Receptora", description: "Abrir módulo de receptoras", route: "/animais/receptoras", icon: Users },
     { title: "Nova Prenhez", description: "Registrar nova prenhez", route: "/animais/prenhez", icon: Baby },
     { title: "Nova Aspiração", description: "Registrar nova aspiração", route: "/animais/aspiracoes", icon: Plus },
-    { title: "Novo Contas a Pagar", description: "Abrir contas a pagar", route: "/reports/accounts-payable", icon: CreditCard },
-    { title: "Novo Contas a Receber", description: "Abrir contas a receber", route: "/reports/accounts-receivable", icon: HandCoins },
+    {
+      title: "Novo Contas a Pagar",
+      description: "Abrir Financeiro > Contas a Pagar",
+      icon: CreditCard,
+      onClick: () => window.dispatchEvent(new CustomEvent("dashboard-open-accounts-payable")),
+    },
+    {
+      title: "Novo Contas a Receber",
+      description: "Abrir Financeiro > Contas a Receber",
+      icon: HandCoins,
+      onClick: () => window.dispatchEvent(new CustomEvent("dashboard-open-accounts-receivable")),
+    },
   ];
 
   return (
