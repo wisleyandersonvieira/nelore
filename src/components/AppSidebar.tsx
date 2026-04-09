@@ -499,11 +499,11 @@ const AppSidebar = ({
   return (
     <>
       {/* Barra lateral fixa com ícones */}
-      <aside className="fixed left-0 top-0 h-full w-16 bg-secondary z-50 flex flex-col">
+      <aside className="fixed left-0 top-0 h-full w-16 bg-secondary border-r border-white/5 z-50 flex flex-col">
         {/* Logo - Link para Dashboard */}
-        <button 
+        <button
           onClick={() => navigate('/dashboard')}
-          className="h-14 flex items-center justify-center bg-green-700 hover:bg-green-800 transition-colors cursor-pointer"
+          className="h-14 flex items-center justify-center hover:bg-secondary-foreground/8 transition-colors cursor-pointer border-b border-white/5"
         >
           <Home className="h-6 w-6 text-white" />
         </button>
@@ -521,8 +521,8 @@ const AppSidebar = ({
                     onClick={() => handleMenuClick(item)}
                     className={cn(
                       "w-full h-14 flex items-center justify-center transition-all duration-200",
-                      "hover:bg-secondary-foreground/10",
-                      isActive && "bg-green-700 text-white"
+                      "hover:bg-secondary-foreground/8",
+                      isActive && "bg-secondary-foreground/15"
                     )}
                   >
                     {item.customIcon ? (
@@ -565,10 +565,10 @@ const AppSidebar = ({
           />
           
           {/* Painel de submenus */}
-          <div className="fixed left-16 top-0 h-full w-72 bg-card border-r shadow-lg z-50 animate-slide-in-right">
+          <div className="fixed left-16 top-0 h-full w-64 bg-card border-r border-border shadow-md z-50 animate-slide-in-right">
             {/* Header do painel */}
-            <div className="h-14 px-4 flex items-center justify-between border-b bg-card">
-              <h2 className="font-semibold text-lg">{activeItem.title}</h2>
+            <div className="h-14 px-4 flex items-center justify-between border-b border-border bg-card">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-foreground/50">{activeItem.title}</h2>
               <button
                 onClick={() => {
                   setActiveModule(null);
@@ -591,11 +591,11 @@ const AppSidebar = ({
                   <button
                     key={subMenu.id}
                     onClick={() => handleSubMenuClick(subMenu)}
-                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-muted transition-colors"
+                    className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-muted/60 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       {(activeItem.id === "caixa" || activeItem.id === "estoque") && <Store className="h-4 w-4 text-muted-foreground" />}
-                      <span className="text-sm">{subMenu.label}</span>
+                      <span className="text-sm text-foreground/80">{subMenu.label}</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>

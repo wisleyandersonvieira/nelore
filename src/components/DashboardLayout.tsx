@@ -134,15 +134,15 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
       {/* Main Content Area */}
       <div className="pl-16">
         {/* Header */}
-        <header className="border-b bg-card h-14 sticky top-0 z-30">
-          <div className="h-full px-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <img src={elitebovLogo} alt="ELITEBOV" className="h-8" />
-              <span className="font-bold text-lg tracking-wide text-foreground">ELITEBOV</span>
+        <header className="border-b border-border bg-card h-14 sticky top-0 z-30 shadow-sm">
+          <div className="h-full px-6 flex justify-between items-center">
+            <div className="flex items-center gap-2.5">
+              <img src={elitebovLogo} alt="ELITEBOV" className="h-7" />
+              <span className="font-semibold text-sm tracking-widest uppercase text-foreground/70">ELITEBOV</span>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground hidden md:inline">
-                Olá, {user?.user_metadata?.name || user?.email}
+            <div className="flex items-center space-x-3">
+              <span className="text-xs text-muted-foreground hidden md:inline">
+                {user?.user_metadata?.name || user?.email}
               </span>
               
               <DropdownMenu>
@@ -175,16 +175,15 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button onClick={handleSignOut} variant="outline" size="sm">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
+              <Button onClick={handleSignOut} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="p-6">
+        <main className="p-8">
           {children}
         </main>
       </div>

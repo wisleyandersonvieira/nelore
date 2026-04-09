@@ -38,7 +38,7 @@ import {
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const PIE_COLORS = ["hsl(142, 72%, 38%)", "hsl(28, 89%, 58%)", "hsl(198, 74%, 48%)", "hsl(340, 76%, 55%)"];
+const PIE_COLORS = ["hsl(220, 14%, 32%)", "hsl(220, 10%, 58%)", "hsl(220, 7%, 74%)", "hsl(210, 5%, 84%)"];
 
 interface DashboardIndicatorsProps {
   userId?: string;
@@ -232,29 +232,29 @@ const buildReceivableEntries = (accounts: ReceivableFinancialAccountSummary[]) =
   });
 
 const SectionHeader = ({ title, description }: { title: string; description: string }) => (
-  <div className="space-y-1">
-    <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-    <p className="text-sm text-muted-foreground">{description}</p>
+  <div className="space-y-1 border-b border-border pb-3">
+    <h2 className="text-sm font-semibold uppercase tracking-widest text-foreground/60">{title}</h2>
+    <p className="text-xs text-muted-foreground">{description}</p>
   </div>
 );
 
-const SummaryCard = ({ title, value, description, icon: Icon, accent, route, loading }: SummaryCardProps) => {
+const SummaryCard = ({ title, value, description, icon: Icon, accent: _accent, route, loading }: SummaryCardProps) => {
   const navigate = useNavigate();
 
   return (
     <Card
       onClick={() => route && navigate(route)}
-      className={`border transition-all ${route ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md" : ""} ${accent}`}
+      className={`border border-border bg-card shadow-sm transition-all ${route ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md" : ""}`}
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "..." : value}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "—" : value}</p>
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>
-          <div className="rounded-xl bg-background/80 p-3 shadow-sm">
-            <Icon className="h-5 w-5 text-foreground" />
+          <div className="rounded-md bg-muted/40 p-2.5">
+            <Icon className="h-4 w-4 text-foreground/50" />
           </div>
         </div>
       </CardContent>
@@ -264,20 +264,20 @@ const SummaryCard = ({ title, value, description, icon: Icon, accent, route, loa
 
 const AttentionCard = ({ title, count, description, amount, onClick }: AttentionCardProps) => {
   return (
-    <Card className="border-amber-200 bg-amber-50/80 shadow-sm">
+    <Card className="border border-border bg-muted/30 shadow-sm">
       <CardContent className="p-5">
         <div className="flex h-full flex-col gap-4">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-amber-900">{title}</p>
-            <p className="text-3xl font-semibold text-amber-950">{count}</p>
-            <p className="text-sm text-amber-900/80">{description}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+            <p className="text-3xl font-semibold text-foreground">{count}</p>
+            <p className="text-sm text-muted-foreground">{description}</p>
             {typeof amount === "number" && (
-              <p className="text-xs font-medium text-amber-900/70">Valor envolvido: {formatCurrencyBR(amount)}</p>
+              <p className="text-xs text-muted-foreground">Valor envolvido: {formatCurrencyBR(amount)}</p>
             )}
           </div>
           <Button
             variant="outline"
-            className="mt-auto w-full justify-between border-amber-300 bg-white/70 text-amber-950 hover:bg-white"
+            className="mt-auto w-full justify-between border-border bg-card text-foreground hover:bg-muted/40"
             onClick={onClick}
           >
             Ver listagem
@@ -290,24 +290,30 @@ const AttentionCard = ({ title, count, description, amount, onClick }: Attention
 };
 
 const FinanceMetricCard = ({ title, value, description, icon: Icon, tone }: FinanceMetricCardProps) => {
-  const toneClasses =
+  const iconBg =
     tone === "success"
-      ? "border-emerald-200 bg-emerald-50/70 text-emerald-900"
+      ? "rounded-md bg-emerald-50/80 p-2.5"
       : tone === "danger"
-        ? "border-rose-200 bg-rose-50/70 text-rose-900"
-        : "border-slate-200 bg-white";
+        ? "rounded-md bg-rose-50/80 p-2.5"
+        : "rounded-md bg-muted/40 p-2.5";
+  const iconColor =
+    tone === "success"
+      ? "h-4 w-4 text-emerald-600/80"
+      : tone === "danger"
+        ? "h-4 w-4 text-rose-500/80"
+        : "h-4 w-4 text-foreground/40";
 
   return (
-    <Card className={toneClasses}>
+    <Card className="border border-border bg-card shadow-sm">
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-sm font-medium">{title}</p>
-            <p className="text-2xl font-semibold tracking-tight">{formatCurrencyBR(value)}</p>
-            <p className="text-xs opacity-80">{description}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+            <p className="text-2xl font-semibold tracking-tight text-foreground">{formatCurrencyBR(value)}</p>
+            <p className="text-xs text-muted-foreground">{description}</p>
           </div>
-          <div className="rounded-xl bg-background/80 p-3 shadow-sm">
-            <Icon className="h-5 w-5" />
+          <div className={iconBg}>
+            <Icon className={iconColor} />
           </div>
         </div>
       </CardContent>
@@ -328,15 +334,15 @@ const QuickActionCard = ({ title, description, route, icon: Icon, onClick }: Qui
         }
         if (route) navigate(route);
       }}
-      className="text-left rounded-2xl border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="text-left rounded-lg border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-base font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         </div>
-        <div className="rounded-xl bg-slate-100 p-3">
-          <Icon className="h-5 w-5 text-slate-700" />
+        <div className="rounded-md bg-muted/40 p-2.5">
+          <Icon className="h-4 w-4 text-foreground/50" />
         </div>
       </div>
     </button>
@@ -987,7 +993,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.animals || 0,
       description: "Animais ativos na operação",
       icon: Beef,
-      accent: "border-emerald-200 bg-emerald-50/70",
+      accent: "",
       route: "/animais/cadastro",
     },
     {
@@ -995,7 +1001,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.recipients || 0,
       description: "Base exclusiva de receptoras",
       icon: Users,
-      accent: "border-cyan-200 bg-cyan-50/70",
+      accent: "",
       route: "/animais/receptoras",
     },
     {
@@ -1003,7 +1009,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.pregnancies || 0,
       description: "Gestações ativas acompanhadas",
       icon: Baby,
-      accent: "border-sky-200 bg-sky-50/70",
+      accent: "",
       route: "/animais/prenhez",
     },
     {
@@ -1011,7 +1017,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.awaitingValidation || 0,
       description: "Registros em andamento no pós-TE",
       icon: Dna,
-      accent: "border-violet-200 bg-violet-50/70",
+      accent: "",
       route: "/animais/transferencia-embriao",
     },
     {
@@ -1021,7 +1027,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         ? `Mais próximo: ${executiveSummary.nearestBirth.name} em ${formatDateBR(executiveSummary.nearestBirth.expected_birth_month)}`
         : "Partos previstos nos próximos 30 dias",
       icon: CalendarDays,
-      accent: "border-amber-200 bg-amber-50/70",
+      accent: "",
       route: "/animais/prenhez",
     },
   ];
@@ -1112,14 +1118,14 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           description="Visão executiva do mês para leitura rápida de compromisso, entrada e resultado."
         />
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <Card className="border-slate-200 bg-slate-950 text-white shadow-sm xl:col-span-4">
+          <Card className="border border-white/5 bg-zinc-950 text-white shadow-md xl:col-span-4">
             <CardContent className="flex h-full flex-col justify-between p-6">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-300">Resultado do mês</p>
+                <p className="text-xs font-medium uppercase tracking-widest text-white/40">Resultado do mês</p>
                 <p className="text-4xl font-semibold tracking-tight">
-                  {financialLoading ? "..." : formatCurrencyBR(financialSnapshot?.resultMonth || 0)}
+                  {financialLoading ? "—" : formatCurrencyBR(financialSnapshot?.resultMonth || 0)}
                 </p>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-white/50">
                   {financialLoading
                     ? "Apurando desempenho financeiro..."
                     : (financialSnapshot?.resultMonth || 0) >= 0
@@ -1127,12 +1133,12 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                       : "Custos do mês acima da receita realizada."}
                 </p>
               </div>
-              <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-                <span className="text-slate-300">Visão consolidada do mês atual</span>
+              <div className="mt-6 flex items-center justify-between rounded-md border border-white/8 bg-white/4 px-4 py-3 text-sm">
+                <span className="text-white/40 text-xs">Visão consolidada do mês atual</span>
                 {(financialSnapshot?.resultMonth || 0) >= 0 ? (
-                  <TrendingUp className="h-5 w-5 text-emerald-300" />
+                  <TrendingUp className="h-4 w-4 text-white/60" />
                 ) : (
-                  <TrendingDown className="h-5 w-5 text-rose-300" />
+                  <TrendingDown className="h-4 w-4 text-white/40" />
                 )}
               </div>
             </CardContent>
@@ -1200,8 +1206,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                         }}
                       />
                       <Legend />
-                      <Bar dataKey="receita" name="Receita" fill="hsl(142, 72%, 38%)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="custo" name="Custo" fill="hsl(12, 76%, 58%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="receita" name="Receita" fill="hsl(165, 22%, 44%)" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="custo" name="Custo" fill="hsl(0, 12%, 55%)" radius={[3, 3, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -1274,7 +1280,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                           borderRadius: "12px",
                         }}
                       />
-                      <Bar dataKey="nascimentos" name="Nascimentos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="nascimentos" name="Nascimentos" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -1311,7 +1317,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                           borderRadius: "12px",
                         }}
                       />
-                      <Bar dataKey="quantidade" name="Animais" fill="hsl(210, 86%, 54%)" radius={[0, 6, 6, 0]} />
+                      <Bar dataKey="quantidade" name="Animais" fill="hsl(var(--chart-4))" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
