@@ -45,13 +45,40 @@ interface PendingTask {
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  user: User | null;
-  pendingTasks: PendingTask[];
+  user?: User | null;
+  pendingTasks?: PendingTask[];
 }
+
+const fetchLayoutPendingTasks = async (userId: string): Promise<PendingTask[]> => {
+  try {
+    const { data: memberTasks } = await supabase
+      .from("task_members")
+      .select("task_id")
+      .eq("user_id", userId);
+
+    if (!memberTasks || memberTasks.length === 0) {
+      return [];
+    }
+
+    const taskIds = memberTasks.map((memberTask) => memberTask.task_id);
+    const { data: tasks } = await supabase
+      .from("tasks")
+      .select("id, title")
+      .in("id", taskIds)
+      .in("status", ["open", "active"]);
+
+    return tasks || [];
+  } catch (error) {
+    console.error("Error fetching layout pending tasks:", error);
+    return [];
+  }
+};
 
 const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { canEdit: cadastrosCanEdit, canDelete: cadastrosCanDelete, loading: cadastrosLoading } = useCadastrosPermissions();
+  const [resolvedUser, setResolvedUser] = useState<User | null>(user ?? null);
+  const [resolvedPendingTasks, setResolvedPendingTasks] = useState<PendingTask[]>(pendingTasks ?? []);
   
   // Financeiro modals
   const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
@@ -89,6 +116,62 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
+
+  useEffect(() => {
+    if (user !== undefined) {
+      setResolvedUser(user ?? null);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (pendingTasks !== undefined) {
+      setResolvedPendingTasks(pendingTasks);
+    }
+  }, [pendingTasks]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncLayoutData = async (sessionUser?: User | null) => {
+      const nextUser =
+        sessionUser !== undefined
+          ? sessionUser
+          : (await supabase.auth.getUser()).data.user ?? null;
+
+      if (!isMounted) return;
+
+      if (user === undefined) {
+        setResolvedUser(nextUser);
+      }
+
+      if (pendingTasks === undefined) {
+        if (!nextUser) {
+          setResolvedPendingTasks([]);
+          return;
+        }
+
+        const tasks = await fetchLayoutPendingTasks(nextUser.id);
+        if (isMounted) {
+          setResolvedPendingTasks(tasks);
+        }
+      }
+    };
+
+    if (user === undefined || pendingTasks === undefined) {
+      void syncLayoutData(user);
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      void syncLayoutData(session?.user ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [pendingTasks, user]);
 
   useEffect(() => {
     const openAccountsPayable = () => setAccountsPayableOpen(true);
@@ -147,27 +230,27 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
             </div>
             <div className="flex items-center space-x-3">
               <span className="hidden rounded-full border border-border/70 bg-card/85 px-3 py-1.5 text-xs text-muted-foreground shadow-sm md:inline">
-                {user?.user_metadata?.name || user?.email}
+                {resolvedUser?.user_metadata?.name || resolvedUser?.email}
               </span>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="relative rounded-full border border-border/70 bg-card/80 px-3 shadow-sm hover:bg-accent/80">
-                    <Bell className={`h-5 w-5 ${pendingTasks.length > 0 ? 'text-[hsl(18,72%,52%)]' : 'text-muted-foreground'}`} />
-                    {pendingTasks.length > 0 && (
+                    <Bell className={`h-5 w-5 ${resolvedPendingTasks.length > 0 ? 'text-[hsl(18,72%,52%)]' : 'text-muted-foreground'}`} />
+                    {resolvedPendingTasks.length > 0 && (
                       <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/60 bg-[linear-gradient(135deg,rgba(255,182,120,1),rgba(221,109,61,1))] text-[10px] font-semibold text-white shadow-[0_10px_20px_-10px_rgba(221,109,61,0.9)]">
-                        {pendingTasks.length}
+                        {resolvedPendingTasks.length}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
-                  {pendingTasks.length === 0 ? (
+                  {resolvedPendingTasks.length === 0 ? (
                     <DropdownMenuItem disabled>
                       Nenhuma tarefa pendente
                     </DropdownMenuItem>
                   ) : (
-                    pendingTasks.map((task) => (
+                    resolvedPendingTasks.map((task) => (
                       <DropdownMenuItem
                         key={task.id}
                         onClick={() => navigate('/tasks')}

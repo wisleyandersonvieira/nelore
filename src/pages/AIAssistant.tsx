@@ -8,18 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAssistenteIAPermissions } from "@/hooks/useAssistenteIAPermissions";
-import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-}
-
-interface PendingTask {
-  id: string;
-  title: string;
 }
 
 const CHAT_URL = "https://odmqiojfqmqauzedaosa.supabase.co/functions/v1/ai-analytics";
@@ -42,29 +35,8 @@ const AIAssistant = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Fetch user and pending tasks
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      
-      if (user) {
-        // Fetch pending tasks
-        const { data: tasks } = await supabase
-          .from('tasks')
-          .select('id, title')
-          .eq('status', 'pending')
-          .limit(10);
-        setPendingTasks(tasks || []);
-      }
-    };
-    fetchUserData();
-  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -252,32 +224,27 @@ const AIAssistant = () => {
 
   if (permissionLoading) {
     return (
-      <DashboardLayout user={user} pendingTasks={pendingTasks}>
-        <div className="flex items-center justify-center h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </DashboardLayout>
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   if (!canAccess) {
     return (
-      <DashboardLayout user={user} pendingTasks={pendingTasks}>
-        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-          <AlertCircle className="h-16 w-16 text-destructive" />
-          <h2 className="text-2xl font-semibold">Acesso Restrito</h2>
-          <p className="text-muted-foreground text-center max-w-md">
-            Você não tem permissão para acessar a IA Analítica. Entre em contato com o administrador para solicitar acesso.
-          </p>
-          <Button onClick={() => navigate("/dashboard")}>Voltar ao Dashboard</Button>
-        </div>
-      </DashboardLayout>
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+        <AlertCircle className="h-16 w-16 text-destructive" />
+        <h2 className="text-2xl font-semibold">Acesso Restrito</h2>
+        <p className="max-w-md text-center text-muted-foreground">
+          Você não tem permissão para acessar a IA Analítica. Entre em contato com o administrador para solicitar acesso.
+        </p>
+        <Button onClick={() => navigate("/dashboard")}>Voltar ao Dashboard</Button>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout user={user} pendingTasks={pendingTasks}>
-      <div className="h-[calc(100vh-120px)] flex flex-col">
+      <div className="flex h-[calc(100vh-120px)] flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -417,7 +384,6 @@ const AIAssistant = () => {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
   );
 };
 

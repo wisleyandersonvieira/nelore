@@ -532,15 +532,15 @@ const AppSidebar = ({
                         "flex h-10 w-10 items-center justify-center rounded-2xl border border-transparent transition-all duration-200",
                         isActive
                           ? "border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] shadow-[0_16px_30px_-18px_rgba(245,158,11,0.85)]"
-                          : "bg-white/[0.04] text-white/72 hover:border-white/10 hover:bg-white/[0.08]"
+                          : "bg-white/[0.04] text-white hover:border-white/10 hover:bg-white/[0.08]"
                       )}
                     >
                       {item.customIcon ? (
-                        <span className={cn(isActive ? "text-[hsl(38,92%,85%)]" : "text-white/82")}>
+                        <span className="text-white">
                           {item.customIcon}
                         </span>
                       ) : IconComponent ? (
-                        <IconComponent className={cn("h-5 w-5", isActive ? "text-[hsl(38,92%,85%)]" : "text-white/82")} />
+                        <IconComponent className="h-5 w-5 text-white" />
                       ) : null}
                     </span>
                   </button>

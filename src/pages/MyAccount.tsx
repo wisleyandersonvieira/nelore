@@ -203,28 +203,22 @@ const MyAccount = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="pl-16">
-        {/* Header */}
-        <header className="border-b bg-card h-14 sticky top-0 z-30">
-          <div className="h-full px-4 flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <h1 className="text-lg font-semibold">Minha Conta</h1>
-          </div>
-        </header>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+        <h1 className="text-lg font-semibold">Minha Conta</h1>
+      </div>
 
-        {/* Content */}
-        <main className="p-6 max-w-4xl mx-auto space-y-6">
           {/* User Info Card */}
           <Card>
             <CardHeader>
@@ -374,8 +368,6 @@ const MyAccount = () => {
               </form>
             </CardContent>
           </Card>
-        </main>
-      </div>
     </div>
   );
 };

@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import DashboardLayout from "@/components/DashboardLayout";
 import DashboardIndicators from "@/components/DashboardIndicators";
 
 interface PendingTask {
@@ -129,7 +128,7 @@ const Dashboard = () => {
   }
 
   return (
-    <DashboardLayout user={user} pendingTasks={pendingTasks}>
+    <>
       {/* Conteúdo do Dashboard */}
       <DashboardIndicators userId={user?.id} />
 
@@ -159,7 +158,7 @@ const Dashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   );
 };
 
