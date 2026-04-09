@@ -499,17 +499,19 @@ const AppSidebar = ({
   return (
     <>
       {/* Barra lateral fixa com ícones */}
-      <aside className="fixed left-0 top-0 h-full w-16 bg-secondary border-r border-white/5 z-50 flex flex-col">
+      <aside className="fixed left-0 top-0 z-50 flex h-full w-16 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(20,28,43,0.98),rgba(28,38,57,0.98))] shadow-[14px_0_35px_-28px_rgba(15,23,42,0.8)]">
         {/* Logo - Link para Dashboard */}
         <button
           onClick={() => navigate('/dashboard')}
-          className="h-14 flex items-center justify-center hover:bg-secondary-foreground/8 transition-colors cursor-pointer border-b border-white/5"
+          className="group flex h-16 cursor-pointer items-center justify-center border-b border-white/10 transition-colors hover:bg-white/[0.04]"
         >
-          <Home className="h-6 w-6 text-white" />
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all group-hover:border-white/20 group-hover:bg-white/[0.08]">
+            <Home className="h-5 w-5 text-white/90" />
+          </div>
         </button>
 
         {/* Menu Items */}
-        <nav className="flex-1 py-2">
+        <nav className="flex-1 py-3">
           {filteredMenuItems.map((item) => {
             const IconComponent = item.icon;
             const isActive = activeModule === item.id;
@@ -520,28 +522,32 @@ const AppSidebar = ({
                   <button
                     onClick={() => handleMenuClick(item)}
                     className={cn(
-                      "w-full h-14 flex items-center justify-center transition-all duration-200",
-                      "hover:bg-secondary-foreground/8",
-                      isActive && "bg-secondary-foreground/15"
+                      "flex h-14 w-full items-center justify-center transition-all duration-200",
+                      "hover:bg-white/[0.04]",
+                      isActive && "bg-white/[0.06]"
                     )}
                   >
-                    {item.customIcon ? (
-                      <span className={cn(
-                        isActive ? "text-primary-foreground" : "text-secondary-foreground"
-                      )}>
-                        {item.customIcon}
-                      </span>
-                    ) : IconComponent ? (
-                      <IconComponent className={cn(
-                        "h-6 w-6",
-                        isActive ? "text-primary-foreground" : "text-secondary-foreground"
-                      )} />
-                    ) : null}
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-2xl border border-transparent transition-all duration-200",
+                        isActive
+                          ? "border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] shadow-[0_16px_30px_-18px_rgba(245,158,11,0.85)]"
+                          : "bg-white/[0.04] text-white/72 hover:border-white/10 hover:bg-white/[0.08]"
+                      )}
+                    >
+                      {item.customIcon ? (
+                        <span className={cn(isActive ? "text-[hsl(38,92%,85%)]" : "text-white/82")}>
+                          {item.customIcon}
+                        </span>
+                      ) : IconComponent ? (
+                        <IconComponent className={cn("h-5 w-5", isActive ? "text-[hsl(38,92%,85%)]" : "text-white/82")} />
+                      ) : null}
+                    </span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent 
                   side="right" 
-                  className="bg-secondary text-secondary-foreground border-secondary px-3 py-2"
+                  className="border-white/10 bg-[rgba(20,28,43,0.95)] px-3 py-2 text-white shadow-xl"
                   sideOffset={5}
                 >
                   {item.title}
@@ -557,7 +563,7 @@ const AppSidebar = ({
         <>
           {/* Overlay para fechar ao clicar fora */}
           <div 
-            className="fixed inset-0 z-40 bg-black/20"
+            className="fixed inset-0 z-40 bg-[rgba(15,23,42,0.18)] backdrop-blur-[2px]"
             onClick={() => {
               setActiveModule(null);
               setIsPanelOpen(false);
@@ -565,23 +571,26 @@ const AppSidebar = ({
           />
           
           {/* Painel de submenus */}
-          <div className="fixed left-16 top-0 h-full w-64 bg-card border-r border-border shadow-md z-50 animate-slide-in-right">
+          <div className="fixed left-16 top-0 z-50 h-full w-72 animate-slide-in-right border-r border-border/70 bg-background/92 shadow-[22px_0_48px_-26px_rgba(15,23,42,0.36)] backdrop-blur-xl">
             {/* Header do painel */}
-            <div className="h-14 px-4 flex items-center justify-between border-b border-border bg-card">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-foreground/50">{activeItem.title}</h2>
+            <div className="flex h-16 items-center justify-between border-b border-border/70 bg-card/80 px-5">
+              <div className="space-y-1">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/48">{activeItem.title}</h2>
+                <p className="text-xs text-muted-foreground">Acesso rápido ao módulo selecionado</p>
+              </div>
               <button
                 onClick={() => {
                   setActiveModule(null);
                   setIsPanelOpen(false);
                 }}
-                className="p-1 rounded hover:bg-muted transition-colors"
+                className="rounded-full border border-border/70 bg-background/80 p-2 transition-colors hover:bg-accent/75"
               >
                 <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
 
             {/* Lista de submenus */}
-            <nav className="py-2">
+            <nav className="space-y-1 p-3">
               {activeItem.dynamicSubMenus && loadingStores ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -591,13 +600,17 @@ const AppSidebar = ({
                   <button
                     key={subMenu.id}
                     onClick={() => handleSubMenuClick(subMenu)}
-                    className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-muted/60 transition-colors"
+                    className="flex w-full items-center justify-between rounded-2xl border border-transparent px-4 py-3 text-left transition-all hover:border-border/70 hover:bg-card hover:shadow-sm"
                   >
                     <div className="flex items-center gap-2">
-                      {(activeItem.id === "caixa" || activeItem.id === "estoque") && <Store className="h-4 w-4 text-muted-foreground" />}
-                      <span className="text-sm text-foreground/80">{subMenu.label}</span>
+                      {(activeItem.id === "caixa" || activeItem.id === "estoque") && (
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/85 text-muted-foreground">
+                          <Store className="h-4 w-4" />
+                        </span>
+                      )}
+                      <span className="text-sm font-medium text-foreground/82">{subMenu.label}</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/80" />
                   </button>
                 ))
               )}

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { addDays, addMonths, endOfMonth, format, startOfMonth, startOfToday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import type { CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -38,7 +39,7 @@ import {
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const PIE_COLORS = ["hsl(220, 14%, 32%)", "hsl(220, 10%, 58%)", "hsl(220, 7%, 74%)", "hsl(210, 5%, 84%)"];
+const PIE_COLORS = ["hsl(206 42% 43%)", "hsl(164 30% 42%)", "hsl(37 62% 58%)", "hsl(11 58% 63%)"];
 
 interface DashboardIndicatorsProps {
   userId?: string;
@@ -106,7 +107,7 @@ interface SummaryCardProps {
   value: string | number;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  accent: string;
+  accent: "slate" | "teal" | "amber" | "coral" | "sand";
   route?: string;
   loading?: boolean;
 }
@@ -117,6 +118,7 @@ interface AttentionCardProps {
   description: string;
   amount?: number;
   onClick: () => void;
+  tone: "cream" | "amber" | "peach";
 }
 
 interface FinanceMetricCardProps {
@@ -124,7 +126,7 @@ interface FinanceMetricCardProps {
   value: number;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "neutral" | "success" | "danger";
+  tone: "neutral" | "success" | "danger" | "brand";
 }
 
 interface QuickActionCardProps {
@@ -156,6 +158,121 @@ interface AttentionFinancialItem {
 }
 
 type AttentionModalType = "pregnancies" | "payables" | "receivables" | null;
+
+const summaryAccentClasses: Record<SummaryCardProps["accent"], {
+  card: string;
+  line: string;
+  glow: string;
+  iconWrap: string;
+  icon: string;
+}> = {
+  slate: {
+    card: "border-slate-200/80 bg-[linear-gradient(180deg,rgba(243,247,252,0.94),rgba(255,255,255,0.98))] shadow-[0_22px_40px_-30px_rgba(15,23,42,0.28)]",
+    line: "from-sky-500/80 via-sky-300/50 to-transparent",
+    glow: "bg-sky-200/35",
+    iconWrap: "border-sky-100/80 bg-sky-500/10",
+    icon: "text-sky-700",
+  },
+  teal: {
+    card: "border-teal-100/90 bg-[linear-gradient(180deg,rgba(239,250,247,0.94),rgba(255,255,255,0.98))] shadow-[0_22px_40px_-30px_rgba(13,148,136,0.25)]",
+    line: "from-teal-500/80 via-emerald-300/55 to-transparent",
+    glow: "bg-emerald-200/35",
+    iconWrap: "border-teal-100/80 bg-teal-500/10",
+    icon: "text-teal-700",
+  },
+  amber: {
+    card: "border-amber-100/90 bg-[linear-gradient(180deg,rgba(255,249,236,0.96),rgba(255,255,255,0.98))] shadow-[0_22px_40px_-30px_rgba(217,119,6,0.22)]",
+    line: "from-amber-500/80 via-orange-300/55 to-transparent",
+    glow: "bg-amber-200/35",
+    iconWrap: "border-amber-100/80 bg-amber-500/10",
+    icon: "text-amber-700",
+  },
+  coral: {
+    card: "border-orange-100/90 bg-[linear-gradient(180deg,rgba(255,245,240,0.95),rgba(255,255,255,0.98))] shadow-[0_22px_40px_-30px_rgba(234,88,12,0.22)]",
+    line: "from-orange-500/80 via-rose-300/55 to-transparent",
+    glow: "bg-orange-200/35",
+    iconWrap: "border-orange-100/80 bg-orange-500/10",
+    icon: "text-orange-700",
+  },
+  sand: {
+    card: "border-stone-200/90 bg-[linear-gradient(180deg,rgba(247,244,238,0.95),rgba(255,255,255,0.98))] shadow-[0_22px_40px_-30px_rgba(120,113,108,0.2)]",
+    line: "from-stone-500/75 via-amber-300/45 to-transparent",
+    glow: "bg-stone-200/35",
+    iconWrap: "border-stone-200/80 bg-stone-500/10",
+    icon: "text-stone-700",
+  },
+};
+
+const attentionToneClasses: Record<AttentionCardProps["tone"], {
+  card: string;
+  badge: string;
+  count: string;
+  button: string;
+}> = {
+  cream: {
+    card: "border-amber-100/90 bg-[linear-gradient(180deg,rgba(255,249,239,0.96),rgba(255,255,255,0.98))] shadow-[0_24px_44px_-34px_rgba(180,120,32,0.28)]",
+    badge: "border-amber-200/80 bg-white/80 text-amber-700",
+    count: "text-amber-950",
+    button: "border-amber-200/80 bg-white/90 text-amber-900 hover:bg-amber-50",
+  },
+  amber: {
+    card: "border-orange-100/90 bg-[linear-gradient(180deg,rgba(255,246,234,0.96),rgba(255,255,255,0.98))] shadow-[0_24px_44px_-34px_rgba(217,119,6,0.26)]",
+    badge: "border-orange-200/80 bg-white/80 text-orange-700",
+    count: "text-orange-950",
+    button: "border-orange-200/80 bg-white/90 text-orange-900 hover:bg-orange-50",
+  },
+  peach: {
+    card: "border-rose-100/90 bg-[linear-gradient(180deg,rgba(255,244,239,0.96),rgba(255,255,255,0.98))] shadow-[0_24px_44px_-34px_rgba(234,88,12,0.24)]",
+    badge: "border-rose-200/80 bg-white/80 text-rose-700",
+    count: "text-rose-950",
+    button: "border-rose-200/80 bg-white/90 text-rose-900 hover:bg-rose-50",
+  },
+};
+
+const financeToneClasses: Record<FinanceMetricCardProps["tone"], {
+  card: string;
+  iconWrap: string;
+  icon: string;
+  value: string;
+  line: string;
+}> = {
+  danger: {
+    card: "border-rose-100/90 bg-[linear-gradient(180deg,rgba(255,244,245,0.94),rgba(255,255,255,0.98))] shadow-[0_20px_38px_-30px_rgba(225,29,72,0.22)]",
+    iconWrap: "border-rose-100/80 bg-rose-500/10",
+    icon: "text-rose-600",
+    value: "text-rose-950",
+    line: "from-rose-500/80 via-orange-300/40 to-transparent",
+  },
+  success: {
+    card: "border-emerald-100/90 bg-[linear-gradient(180deg,rgba(240,253,248,0.94),rgba(255,255,255,0.98))] shadow-[0_20px_38px_-30px_rgba(5,150,105,0.22)]",
+    iconWrap: "border-emerald-100/80 bg-emerald-500/10",
+    icon: "text-emerald-600",
+    value: "text-emerald-950",
+    line: "from-emerald-500/80 via-teal-300/40 to-transparent",
+  },
+  neutral: {
+    card: "border-stone-200/90 bg-[linear-gradient(180deg,rgba(247,244,238,0.94),rgba(255,255,255,0.98))] shadow-[0_20px_38px_-30px_rgba(120,113,108,0.2)]",
+    iconWrap: "border-stone-200/80 bg-stone-500/10",
+    icon: "text-stone-700",
+    value: "text-stone-950",
+    line: "from-stone-500/70 via-amber-300/35 to-transparent",
+  },
+  brand: {
+    card: "border-sky-100/90 bg-[linear-gradient(180deg,rgba(240,247,255,0.94),rgba(255,255,255,0.98))] shadow-[0_20px_38px_-30px_rgba(37,99,235,0.22)]",
+    iconWrap: "border-sky-100/80 bg-sky-500/10",
+    icon: "text-sky-700",
+    value: "text-sky-950",
+    line: "from-sky-500/80 via-cyan-300/40 to-transparent",
+  },
+};
+
+const chartTooltipStyle: CSSProperties = {
+  backgroundColor: "hsl(var(--popover) / 0.96)",
+  border: "1px solid hsl(var(--border) / 0.9)",
+  borderRadius: "18px",
+  boxShadow: "0 20px 45px -28px rgba(15, 23, 42, 0.38)",
+  backdropFilter: "blur(14px)",
+};
 
 const formatCurrencyBR = (value: number) =>
   value.toLocaleString("pt-BR", {
@@ -232,29 +349,32 @@ const buildReceivableEntries = (accounts: ReceivableFinancialAccountSummary[]) =
   });
 
 const SectionHeader = ({ title, description }: { title: string; description: string }) => (
-  <div className="space-y-1 border-b border-border pb-3">
-    <h2 className="text-sm font-semibold uppercase tracking-widest text-foreground/60">{title}</h2>
-    <p className="text-xs text-muted-foreground">{description}</p>
+  <div className="space-y-1 border-b border-border/75 pb-4">
+    <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-foreground/62">{title}</h2>
+    <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
   </div>
 );
 
-const SummaryCard = ({ title, value, description, icon: Icon, accent: _accent, route, loading }: SummaryCardProps) => {
+const SummaryCard = ({ title, value, description, icon: Icon, accent, route, loading }: SummaryCardProps) => {
   const navigate = useNavigate();
+  const accentClasses = summaryAccentClasses[accent];
 
   return (
     <Card
       onClick={() => route && navigate(route)}
-      className={`border border-border bg-card shadow-sm transition-all ${route ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md" : ""}`}
+      className={`group relative overflow-hidden transition-all ${accentClasses.card} ${route ? "cursor-pointer hover:-translate-y-1 hover:shadow-lg" : ""}`}
     >
+      <div className={`absolute inset-x-5 top-0 h-px bg-gradient-to-r ${accentClasses.line}`} />
+      <div className={`absolute -right-10 top-4 h-24 w-24 rounded-full blur-3xl ${accentClasses.glow}`} />
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
             <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "—" : value}</p>
-            <p className="text-xs text-muted-foreground">{description}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
           </div>
-          <div className="rounded-md bg-muted/40 p-2.5">
-            <Icon className="h-4 w-4 text-foreground/50" />
+          <div className={`rounded-2xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ${accentClasses.iconWrap}`}>
+            <Icon className={`h-4 w-4 ${accentClasses.icon}`} />
           </div>
         </div>
       </CardContent>
@@ -262,22 +382,28 @@ const SummaryCard = ({ title, value, description, icon: Icon, accent: _accent, r
   );
 };
 
-const AttentionCard = ({ title, count, description, amount, onClick }: AttentionCardProps) => {
+const AttentionCard = ({ title, count, description, amount, onClick, tone }: AttentionCardProps) => {
+  const toneClasses = attentionToneClasses[tone];
+
   return (
-    <Card className="border border-border bg-muted/30 shadow-sm">
+    <Card className={`relative overflow-hidden ${toneClasses.card}`}>
+      <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-amber-500/80 via-orange-300/45 to-transparent" />
       <CardContent className="p-5">
         <div className="flex h-full flex-col gap-4">
           <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-            <p className="text-3xl font-semibold text-foreground">{count}</p>
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${toneClasses.badge}`}>
+              Atenção
+            </span>
+            <p className="pt-1 text-sm font-semibold text-foreground">{title}</p>
+            <p className={`text-3xl font-semibold ${toneClasses.count}`}>{count}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
             {typeof amount === "number" && (
-              <p className="text-xs text-muted-foreground">Valor envolvido: {formatCurrencyBR(amount)}</p>
+              <p className="text-xs font-medium text-muted-foreground">Valor envolvido: {formatCurrencyBR(amount)}</p>
             )}
           </div>
           <Button
             variant="outline"
-            className="mt-auto w-full justify-between border-border bg-card text-foreground hover:bg-muted/40"
+            className={`mt-auto w-full justify-between rounded-2xl ${toneClasses.button}`}
             onClick={onClick}
           >
             Ver listagem
@@ -290,30 +416,20 @@ const AttentionCard = ({ title, count, description, amount, onClick }: Attention
 };
 
 const FinanceMetricCard = ({ title, value, description, icon: Icon, tone }: FinanceMetricCardProps) => {
-  const iconBg =
-    tone === "success"
-      ? "rounded-md bg-emerald-50/80 p-2.5"
-      : tone === "danger"
-        ? "rounded-md bg-rose-50/80 p-2.5"
-        : "rounded-md bg-muted/40 p-2.5";
-  const iconColor =
-    tone === "success"
-      ? "h-4 w-4 text-emerald-600/80"
-      : tone === "danger"
-        ? "h-4 w-4 text-rose-500/80"
-        : "h-4 w-4 text-foreground/40";
+  const toneClasses = financeToneClasses[tone];
 
   return (
-    <Card className="border border-border bg-card shadow-sm">
+    <Card className={`relative overflow-hidden ${toneClasses.card}`}>
+      <div className={`absolute inset-x-5 top-0 h-px bg-gradient-to-r ${toneClasses.line}`} />
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-            <p className="text-2xl font-semibold tracking-tight text-foreground">{formatCurrencyBR(value)}</p>
-            <p className="text-xs text-muted-foreground">{description}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+            <p className={`text-2xl font-semibold tracking-tight ${toneClasses.value}`}>{formatCurrencyBR(value)}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
           </div>
-          <div className={iconBg}>
-            <Icon className={iconColor} />
+          <div className={`rounded-2xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ${toneClasses.iconWrap}`}>
+            <Icon className={`h-4 w-4 ${toneClasses.icon}`} />
           </div>
         </div>
       </CardContent>
@@ -334,15 +450,16 @@ const QuickActionCard = ({ title, description, route, icon: Icon, onClick }: Qui
         }
         if (route) navigate(route);
       }}
-      className="text-left rounded-lg border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="group relative overflow-hidden rounded-[1.2rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,242,237,0.82))] p-5 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-border hover:shadow-lg"
     >
+      <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-slate-400/75 via-slate-200/40 to-transparent" />
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
         </div>
-        <div className="rounded-md bg-muted/40 p-2.5">
-          <Icon className="h-4 w-4 text-foreground/50" />
+        <div className="rounded-2xl border border-slate-200/80 bg-slate-500/10 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+          <Icon className="h-4 w-4 text-slate-700" />
         </div>
       </div>
     </button>
@@ -993,7 +1110,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.animals || 0,
       description: "Animais ativos na operação",
       icon: Beef,
-      accent: "",
+      accent: "slate" as const,
       route: "/animais/cadastro",
     },
     {
@@ -1001,7 +1118,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.recipients || 0,
       description: "Base exclusiva de receptoras",
       icon: Users,
-      accent: "",
+      accent: "teal" as const,
       route: "/animais/receptoras",
     },
     {
@@ -1009,7 +1126,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.pregnancies || 0,
       description: "Gestações ativas acompanhadas",
       icon: Baby,
-      accent: "",
+      accent: "amber" as const,
       route: "/animais/prenhez",
     },
     {
@@ -1017,7 +1134,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       value: executiveSummary?.awaitingValidation || 0,
       description: "Registros em andamento no pós-TE",
       icon: Dna,
-      accent: "",
+      accent: "coral" as const,
       route: "/animais/transferencia-embriao",
     },
     {
@@ -1027,7 +1144,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         ? `Mais próximo: ${executiveSummary.nearestBirth.name} em ${formatDateBR(executiveSummary.nearestBirth.expected_birth_month)}`
         : "Partos previstos nos próximos 30 dias",
       icon: CalendarDays,
-      accent: "",
+      accent: "sand" as const,
       route: "/animais/prenhez",
     },
   ];
@@ -1082,6 +1199,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                   : "Nenhuma prenhez prevista para os próximos 30 dias"
             }
             onClick={() => setAttentionModal("pregnancies")}
+            tone="cream"
           />
           <AttentionCard
             title="Contas a pagar vencendo na semana"
@@ -1095,6 +1213,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             }
             amount={attentionData?.totalPayablesWeek}
             onClick={() => setAttentionModal("payables")}
+            tone="amber"
           />
           <AttentionCard
             title="Contas a receber da semana"
@@ -1108,6 +1227,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             }
             amount={attentionData?.totalReceivablesWeek}
             onClick={() => setAttentionModal("receivables")}
+            tone="peach"
           />
         </div>
       </section>
@@ -1118,14 +1238,16 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           description="Visão executiva do mês para leitura rápida de compromisso, entrada e resultado."
         />
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <Card className="border border-white/5 bg-zinc-950 text-white shadow-md xl:col-span-4">
+          <Card className="relative overflow-hidden border border-white/8 bg-[linear-gradient(160deg,rgba(22,30,43,1),rgba(31,42,61,1)_58%,rgba(48,64,89,1))] text-white shadow-[0_28px_50px_-30px_rgba(15,23,42,0.9)] xl:col-span-4">
+            <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-amber-300/90 via-white/50 to-transparent" />
+            <div className="absolute -right-10 top-10 h-32 w-32 rounded-full bg-amber-300/10 blur-3xl" />
             <CardContent className="flex h-full flex-col justify-between p-6">
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-widest text-white/40">Resultado do mês</p>
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/46">Resultado do mês</p>
                 <p className="text-4xl font-semibold tracking-tight">
                   {financialLoading ? "—" : formatCurrencyBR(financialSnapshot?.resultMonth || 0)}
                 </p>
-                <p className="text-sm text-white/50">
+                <p className="text-sm leading-relaxed text-white/62">
                   {financialLoading
                     ? "Apurando desempenho financeiro..."
                     : (financialSnapshot?.resultMonth || 0) >= 0
@@ -1133,12 +1255,12 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                       : "Custos do mês acima da receita realizada."}
                 </p>
               </div>
-              <div className="mt-6 flex items-center justify-between rounded-md border border-white/8 bg-white/4 px-4 py-3 text-sm">
-                <span className="text-white/40 text-xs">Visão consolidada do mês atual</span>
+              <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <span className="text-xs text-white/52">Visão consolidada do mês atual</span>
                 {(financialSnapshot?.resultMonth || 0) >= 0 ? (
-                  <TrendingUp className="h-4 w-4 text-white/60" />
+                  <TrendingUp className="h-4 w-4 text-emerald-300" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-white/40" />
+                  <TrendingDown className="h-4 w-4 text-orange-200" />
                 )}
               </div>
             </CardContent>
@@ -1171,7 +1293,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
               value={financialSnapshot?.revenueMonth || 0}
               description="Entradas realizadas com recebimento no mês"
               icon={CircleDollarSign}
-              tone="neutral"
+              tone="brand"
             />
           </div>
         </div>
@@ -1183,9 +1305,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           description="Leituras visuais de apoio, posicionadas em segundo plano para complementar a operação."
         />
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <Card className="xl:col-span-7">
+          <Card className="overflow-hidden xl:col-span-7">
             <CardHeader>
-              <CardTitle className="text-lg">Custo x Receita nos últimos 6 meses</CardTitle>
+              <CardTitle className="text-lg font-semibold text-foreground">Custo x Receita nos últimos 6 meses</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -1194,20 +1316,26 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={financialSnapshot?.trend || []}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                      <defs>
+                        <linearGradient id="dashboard-revenue-gradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="hsl(var(--chart-2))" stopOpacity={0.55} />
+                        </linearGradient>
+                        <linearGradient id="dashboard-cost-gradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--chart-4))" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="hsl(var(--chart-4))" stopOpacity={0.55} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="4 6" stroke="hsl(var(--border) / 0.55)" />
+                      <XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                       <Tooltip
                         formatter={(value: number) => formatCurrencyBR(Number(value || 0))}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "12px",
-                        }}
+                        contentStyle={chartTooltipStyle}
                       />
-                      <Legend />
-                      <Bar dataKey="receita" name="Receita" fill="hsl(165, 22%, 44%)" radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="custo" name="Custo" fill="hsl(0, 12%, 55%)" radius={[3, 3, 0, 0]} />
+                      <Legend wrapperStyle={{ paddingTop: 16 }} iconType="circle" />
+                      <Bar dataKey="receita" name="Receita" fill="url(#dashboard-revenue-gradient)" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="custo" name="Custo" fill="url(#dashboard-cost-gradient)" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -1215,9 +1343,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             </CardContent>
           </Card>
 
-          <Card className="xl:col-span-5">
+          <Card className="overflow-hidden xl:col-span-5">
             <CardHeader>
-              <CardTitle className="text-lg">Animais por tipo de fazenda</CardTitle>
+              <CardTitle className="text-lg font-semibold text-foreground">Animais por tipo de fazenda</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -1237,6 +1365,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                         paddingAngle={4}
                         dataKey="value"
                         label={({ name, value }) => `${name}: ${value}`}
+                        stroke="rgba(255,255,255,0.85)"
+                        strokeWidth={3}
                       >
                         {(analyticsData?.farmTypeData || []).map((_, index) => (
                           <Cell key={`farm-type-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
@@ -1244,13 +1374,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                       </Pie>
                       <Tooltip
                         formatter={(value: number) => `${value} animais`}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "12px",
-                        }}
+                        contentStyle={chartTooltipStyle}
                       />
-                      <Legend />
+                      <Legend wrapperStyle={{ paddingTop: 16 }} iconType="circle" />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -1258,9 +1384,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             </CardContent>
           </Card>
 
-          <Card className="xl:col-span-6">
+          <Card className="overflow-hidden xl:col-span-6">
             <CardHeader>
-              <CardTitle className="text-lg">Nascimentos por mês</CardTitle>
+              <CardTitle className="text-lg font-semibold text-foreground">Nascimentos por mês</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -1269,18 +1395,20 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analyticsData?.birthsPerMonth || []}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                      <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                      <defs>
+                        <linearGradient id="dashboard-births-gradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--chart-3))" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="hsl(var(--chart-3))" stopOpacity={0.55} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="4 6" stroke="hsl(var(--border) / 0.55)" />
+                      <XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                       <Tooltip
                         formatter={(value: number) => `${value} nascimento(s)`}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "12px",
-                        }}
+                        contentStyle={chartTooltipStyle}
                       />
-                      <Bar dataKey="nascimentos" name="Nascimentos" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="nascimentos" name="Nascimentos" fill="url(#dashboard-births-gradient)" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -1288,9 +1416,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             </CardContent>
           </Card>
 
-          <Card className="xl:col-span-6">
+          <Card className="overflow-hidden xl:col-span-6">
             <CardHeader>
-              <CardTitle className="text-lg">Distribuição por categoria</CardTitle>
+              <CardTitle className="text-lg font-semibold text-foreground">Distribuição por categoria</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -1301,23 +1429,27 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analyticsData?.categoryDistribution || []} layout="vertical" margin={{ left: 12, right: 12 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-muted" />
-                      <XAxis type="number" allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                      <defs>
+                        <linearGradient id="dashboard-category-gradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="hsl(var(--chart-2))" stopOpacity={0.72} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="4 6" horizontal={false} stroke="hsl(var(--border) / 0.55)" />
+                      <XAxis axisLine={false} tickLine={false} type="number" allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis
                         type="category"
                         dataKey="name"
                         width={110}
+                        axisLine={false}
+                        tickLine={false}
                         tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                       />
                       <Tooltip
                         formatter={(value: number) => `${value} animais`}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "12px",
-                        }}
+                        contentStyle={chartTooltipStyle}
                       />
-                      <Bar dataKey="quantidade" name="Animais" fill="hsl(var(--chart-4))" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="quantidade" name="Animais" fill="url(#dashboard-category-gradient)" radius={[0, 8, 8, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -1340,9 +1472,9 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       </section>
 
       <Dialog open={attentionModal !== null} onOpenChange={(open) => !open && setAttentionModal(null)}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl border-border/70 bg-background/95">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-foreground">
               {attentionModal === "pregnancies" && "Prenhezes próximas do parto"}
               {attentionModal === "payables" && "Contas a pagar vencendo na semana"}
               {attentionModal === "receivables" && "Contas a receber vencendo na semana"}
@@ -1350,7 +1482,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           </DialogHeader>
 
           {attentionModal === "pregnancies" && (
-            <div className="max-h-[70vh] overflow-auto rounded-lg border">
+            <div className="max-h-[70vh] overflow-auto rounded-[1.15rem] border border-border/70 bg-card/80">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1381,7 +1513,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           )}
 
           {(attentionModal === "payables" || attentionModal === "receivables") && (
-            <div className="max-h-[70vh] overflow-auto rounded-lg border">
+            <div className="max-h-[70vh] overflow-auto rounded-[1.15rem] border border-border/70 bg-card/80">
               <Table>
                 <TableHeader>
                   <TableRow>

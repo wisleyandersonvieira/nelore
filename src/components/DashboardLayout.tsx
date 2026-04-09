@@ -104,7 +104,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Sidebar */}
       <AppSidebar
         onOpenFinanceiro={() => {}}
@@ -134,29 +134,34 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
       {/* Main Content Area */}
       <div className="pl-16">
         {/* Header */}
-        <header className="border-b border-border bg-card h-14 sticky top-0 z-30 shadow-sm">
-          <div className="h-full px-6 flex justify-between items-center">
-            <div className="flex items-center gap-2.5">
-              <img src={elitebovLogo} alt="ELITEBOV" className="h-7" />
-              <span className="font-semibold text-sm tracking-widest uppercase text-foreground/70">ELITEBOV</span>
+        <header className="sticky top-0 z-30 h-16 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+          <div className="flex h-full items-center justify-between px-6">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl border border-border/70 bg-card/90 p-2 shadow-sm">
+                <img src={elitebovLogo} alt="ELITEBOV" className="h-7" />
+              </div>
+              <div className="space-y-0.5">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/55">ELITEBOV</span>
+                <span className="block text-sm font-medium text-foreground/78">Dashboard executivo</span>
+              </div>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-xs text-muted-foreground hidden md:inline">
+              <span className="hidden rounded-full border border-border/70 bg-card/85 px-3 py-1.5 text-xs text-muted-foreground shadow-sm md:inline">
                 {user?.user_metadata?.name || user?.email}
               </span>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="relative">
-                    <Bell className={`h-5 w-5 ${pendingTasks.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                  <Button variant="ghost" size="sm" className="relative rounded-full border border-border/70 bg-card/80 px-3 shadow-sm hover:bg-accent/80">
+                    <Bell className={`h-5 w-5 ${pendingTasks.length > 0 ? 'text-[hsl(18,72%,52%)]' : 'text-muted-foreground'}`} />
                     {pendingTasks.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/60 bg-[linear-gradient(135deg,rgba(255,182,120,1),rgba(221,109,61,1))] text-[10px] font-semibold text-white shadow-[0_10px_20px_-10px_rgba(221,109,61,0.9)]">
                         {pendingTasks.length}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuContent align="end" className="w-72">
                   {pendingTasks.length === 0 ? (
                     <DropdownMenuItem disabled>
                       Nenhuma tarefa pendente
@@ -175,7 +180,12 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button onClick={handleSignOut} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <Button
+                onClick={handleSignOut}
+                variant="ghost"
+                size="sm"
+                className="rounded-full border border-border/70 bg-card/80 text-muted-foreground shadow-sm hover:border-border hover:bg-accent/80 hover:text-foreground"
+              >
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
@@ -183,7 +193,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
         </header>
 
         {/* Page Content */}
-        <main className="p-8">
+        <main className="p-8 md:p-10">
           {children}
         </main>
       </div>

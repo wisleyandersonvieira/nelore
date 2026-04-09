@@ -122,8 +122,8 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-32 w-32 animate-spin rounded-full border-[3px] border-border border-t-primary"></div>
       </div>
     );
   }
@@ -135,16 +135,18 @@ const Dashboard = () => {
 
       {/* Popup de tarefas pendentes ao logar */}
       <Dialog open={showPendingPopup} onOpenChange={setShowPendingPopup}>
-        <DialogContent>
+        <DialogContent className="border-border/70 bg-background/95">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-destructive" />
+            <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-200/80 bg-amber-500/10">
+                <Bell className="h-5 w-5 text-amber-700" />
+              </span>
               Tarefas Pendentes
             </DialogTitle>
           </DialogHeader>
           <div className="py-4 text-center">
-            <p className="text-lg">
-              Você possui <span className="font-bold text-destructive">{pendingTasks.length}</span> tarefa(s) pendente(s).
+            <p className="text-lg text-foreground/84">
+              Você possui <span className="font-bold text-amber-700">{pendingTasks.length}</span> tarefa(s) pendente(s).
             </p>
           </div>
           <DialogFooter>
