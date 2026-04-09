@@ -17,7 +17,8 @@ import {
   Loader2,
   UserCircle,
   Sparkles,
-  Beef
+  Beef,
+  ShoppingBag
 } from "lucide-react";
 import React from "react";
 import {
@@ -238,6 +239,12 @@ const AppSidebar = ({
         { id: "controle-periodo", label: "Controle de Período", action: "openPeriodControl" },
       ],
     },
+    {
+      id: "sales",
+      title: "Vendas",
+      icon: ShoppingBag,
+      route: "/sales",
+    },
     // Menu Estoque removido do sidebar
     {
       id: "cadastros",
@@ -351,6 +358,11 @@ const AppSidebar = ({
     // Block access to Financeiro if user doesn't have permission
     if (item.id === "financeiro" && !loadingFinanceiro && !canAccessFinanceiro) {
       toast.error("Acesso negado ao módulo Financeiro");
+      return;
+    }
+
+    if (item.id === "sales" && !loadingFinanceiro && !canAccessFinanceiro) {
+      toast.error("Acesso negado ao módulo Vendas");
       return;
     }
 
