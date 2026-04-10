@@ -17,9 +17,7 @@ import {
   Loader2,
   UserCircle,
   Sparkles,
-  Beef,
-  ShoppingBag,
-  ShoppingCart
+  Beef
 } from "lucide-react";
 import React from "react";
 import {
@@ -233,24 +231,14 @@ const AppSidebar = ({
       subMenus: [
         { id: "contas-pagar", label: "Contas a Pagar", action: "openAccountsPayable" },
         { id: "contas-receber", label: "Contas a Receber", action: "openAccountsReceivable" },
+        { id: "compras", label: "Compras", route: "/purchases" },
+        { id: "vendas", label: "Vendas", route: "/sales" },
         { id: "transferencias", label: "Transferências", action: "openTransfers" },
         { id: "aportes-retiradas", label: "Aportes e Retiradas", action: "openPartnerTransactions" },
         { id: "registro-os", label: "Registro de OS", action: "openServiceOrders" },
         { id: "conciliacao-bancaria", label: "Conciliação Bancária", route: "/bank-reconciliation" },
         { id: "controle-periodo", label: "Controle de Período", action: "openPeriodControl" },
       ],
-    },
-    {
-      id: "sales",
-      title: "Vendas",
-      icon: ShoppingBag,
-      route: "/sales",
-    },
-    {
-      id: "purchases",
-      title: "Compras",
-      icon: ShoppingCart,
-      route: "/purchases",
     },
     // Menu Estoque removido do sidebar
     {
@@ -365,16 +353,6 @@ const AppSidebar = ({
     // Block access to Financeiro if user doesn't have permission
     if (item.id === "financeiro" && !loadingFinanceiro && !canAccessFinanceiro) {
       toast.error("Acesso negado ao módulo Financeiro");
-      return;
-    }
-
-    if (item.id === "sales" && !loadingFinanceiro && !canAccessFinanceiro) {
-      toast.error("Acesso negado ao módulo Vendas");
-      return;
-    }
-
-    if (item.id === "purchases" && !loadingFinanceiro && !canAccessFinanceiro) {
-      toast.error("Acesso negado ao módulo Compras");
       return;
     }
 
