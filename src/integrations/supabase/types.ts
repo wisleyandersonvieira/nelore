@@ -77,6 +77,9 @@ export type Database = {
           notes: string | null
           payment_date: string | null
           purchase_id: string | null
+          purchase_link_origin: string | null
+          purchase_linked_at: string | null
+          purchase_linked_by: string | null
           status: string
           store_id: string
           supplier_id: string | null
@@ -101,6 +104,9 @@ export type Database = {
           notes?: string | null
           payment_date?: string | null
           purchase_id?: string | null
+          purchase_link_origin?: string | null
+          purchase_linked_at?: string | null
+          purchase_linked_by?: string | null
           status?: string
           store_id: string
           supplier_id?: string | null
@@ -125,6 +131,9 @@ export type Database = {
           notes?: string | null
           payment_date?: string | null
           purchase_id?: string | null
+          purchase_link_origin?: string | null
+          purchase_linked_at?: string | null
+          purchase_linked_by?: string | null
           status?: string
           store_id?: string
           supplier_id?: string | null
@@ -166,6 +175,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_purchase_linked_by_fkey"
+            columns: ["purchase_linked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4213,6 +4229,7 @@ export type Database = {
           item_name: string
           negotiation_method: string | null
           notes: string | null
+          origin_type: string
           pregnancy_id: string | null
           product_id: string
           purchase_date: string
@@ -4241,6 +4258,7 @@ export type Database = {
           item_name: string
           negotiation_method?: string | null
           notes?: string | null
+          origin_type?: string
           pregnancy_id?: string | null
           product_id: string
           purchase_date: string
@@ -4269,6 +4287,7 @@ export type Database = {
           item_name?: string
           negotiation_method?: string | null
           notes?: string | null
+          origin_type?: string
           pregnancy_id?: string | null
           product_id?: string
           purchase_date?: string
@@ -5769,6 +5788,29 @@ export type Database = {
           account_payable_id: string
           purchase_code: number
           purchase_id: string
+        }[]
+      }
+      migrate_accounts_payable_to_purchase: {
+        Args: {
+          p_account_payable_ids: string[]
+          p_competence_date?: string
+          p_description?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_first_due_date?: string
+          p_issue_date?: string
+          p_item_id: string
+          p_negotiation_method?: string
+          p_notes?: string
+          p_product_id: string
+          p_purchase_date: string
+          p_purchase_type: string
+        }
+        Returns: {
+          linked_accounts: number
+          purchase_code: number
+          purchase_id: string
+          total_amount: number
         }[]
       }
       create_sale_with_receivable: {

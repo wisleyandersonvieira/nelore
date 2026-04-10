@@ -36,7 +36,32 @@ import {
   Search,
   ShoppingCart,
 } from "lucide-react";
-import { PURCHASE_TYPE_LABELS, PURCHASE_TYPE_OPTIONS, PurchaseType } from "@/lib/purchases";
+import {
+  PURCHASE_TYPE_LABELS,
+  PURCHASE_TYPE_OPTIONS,
+  PurchaseOriginType,
+  PurchaseType,
+} from "@/lib/purchases";
+
+interface PurchaseInstallmentRow extends SaleInstallmentDraft {
+  payableDescription: string | null;
+  payableId: string;
+}
+
+interface LinkedPayableRow {
+  id: string;
+  description: string;
+  totalAmount: number;
+  amount: number;
+  paymentDate: string | null;
+  dueDate: string;
+  issueDate: string | null;
+  competenceDate: string | null;
+  documentType: string | null;
+  documentNumber: string | null;
+  status: string;
+  purchaseLinkOrigin: "manual" | "migration" | null;
+}
 
 interface PurchaseRow {
   id: string;
@@ -59,12 +84,12 @@ interface PurchaseRow {
   firstDueDate: string;
   storeId: string;
   storeName: string;
-  payableId: string | null;
-  payableDescription: string | null;
+  originType: PurchaseOriginType;
+  linkedPayables: LinkedPayableRow[];
   paidAmount: number;
   pendingAmount: number;
   status: "pending" | "partial" | "paid";
-  installments: SaleInstallmentDraft[];
+  installments: PurchaseInstallmentRow[];
 }
 
 interface PurchaseTableRow {
@@ -85,16 +110,24 @@ interface PurchaseTableRow {
   issue_date: string;
   competence_date: string;
   first_due_date: string;
+  origin_type: PurchaseOriginType;
   store_id: string;
 }
 
 interface PayableTableRow {
   id: string;
+  amount: number;
+  competence_date: string | null;
   purchase_id: string | null;
   description: string;
-  total_amount: number | null;
-  amount: number;
+  document_number: string | null;
+  document_type: string | null;
+  due_date: string;
+  issue_date: string | null;
   payment_date: string | null;
+  purchase_link_origin: "manual" | "migration" | null;
+  status: string;
+  total_amount: number | null;
 }
 
 interface SummaryCard {
@@ -170,15 +203,17 @@ const buildChartData = (purchases: PurchaseRow[]) => {
   }));
 };
 
-const computeStatus = (totalAmount: number, installments: SaleInstallmentDraft[], fallbackPaid = false) => {
+const computeStatus = (
+  totalAmount: number,
+  installments: SaleInstallmentDraft[],
+  fallbackPaidAmount = 0,
+) => {
   const paidAmount = installments.length
     ? installments.reduce(
         (sum, installment) => sum + (installment.payment_date ? installment.amount : 0),
         0,
       )
-    : fallbackPaid
-      ? totalAmount
-      : 0;
+    : fallbackPaidAmount;
 
   const normalizedPaid = Number(paidAmount.toFixed(2));
   const pendingAmount = Number(Math.max(totalAmount - normalizedPaid, 0).toFixed(2));
@@ -263,10 +298,12 @@ const PurchasesModule = () => {
         (storesRes.data || []).map((store) => [store.id, `${store.code} - ${store.name}`]),
       );
 
-      const payableByPurchaseId = new Map<string, PayableTableRow>();
+      const payableByPurchaseId = new Map<string, PayableTableRow[]>();
       payablesData.forEach((payable) => {
         if (payable.purchase_id) {
-          payableByPurchaseId.set(payable.purchase_id, payable);
+          const current = payableByPurchaseId.get(payable.purchase_id) || [];
+          current.push(payable);
+          payableByPurchaseId.set(payable.purchase_id, current);
         }
       });
 
@@ -283,26 +320,56 @@ const PurchasesModule = () => {
 
       if (installmentsRes.error) throw installmentsRes.error;
 
-      const installmentsMap = new Map<string, SaleInstallmentDraft[]>();
+      const installmentsMap = new Map<string, PurchaseInstallmentRow[]>();
       (installmentsRes.data || []).forEach((installment) => {
         const current = installmentsMap.get(installment.account_payable_id) || [];
+        const payable = payablesData.find((entry) => entry.id === installment.account_payable_id);
         current.push({
           installment_number: installment.installment_number,
           due_date: installment.due_date,
           amount: Number(installment.amount || 0),
           payment_date: installment.payment_date,
+          payableDescription: payable?.description || null,
+          payableId: installment.account_payable_id,
         });
         installmentsMap.set(installment.account_payable_id, current);
       });
 
       const rows = purchasesData.map((purchase) => {
-        const payable = payableByPurchaseId.get(purchase.id);
-        const installments = payable?.id ? installmentsMap.get(payable.id) || [] : [];
+        const linkedPayables = (payableByPurchaseId.get(purchase.id) || []).map((payable) => ({
+          id: payable.id,
+          description: payable.description,
+          totalAmount: Number(payable.total_amount ?? payable.amount ?? 0),
+          amount: Number(payable.amount || 0),
+          paymentDate: payable.payment_date,
+          dueDate: payable.due_date,
+          issueDate: payable.issue_date,
+          competenceDate: payable.competence_date,
+          documentType: payable.document_type,
+          documentNumber: payable.document_number,
+          status: payable.status,
+          purchaseLinkOrigin: payable.purchase_link_origin,
+        }));
+        const installments = linkedPayables
+          .flatMap((payable) => installmentsMap.get(payable.id) || [])
+          .sort((left, right) => {
+            if (left.due_date === right.due_date) {
+              return left.installment_number - right.installment_number;
+            }
+            return left.due_date.localeCompare(right.due_date);
+          });
         const totalAmount = Number(purchase.total_amount || 0);
+        const fallbackPaidAmount = linkedPayables.reduce((sum, payable) => {
+          const payableInstallments = installmentsMap.get(payable.id) || [];
+          if (payableInstallments.length > 0) {
+            return sum;
+          }
+          return sum + (payable.paymentDate || payable.status === "paid" ? payable.totalAmount : 0);
+        }, 0);
         const { status, paidAmount, pendingAmount } = computeStatus(
           totalAmount,
           installments,
-          Boolean(payable?.payment_date),
+          fallbackPaidAmount,
         );
 
         return {
@@ -324,10 +391,10 @@ const PurchasesModule = () => {
           issueDate: purchase.issue_date,
           competenceDate: purchase.competence_date,
           firstDueDate: purchase.first_due_date,
+          originType: purchase.origin_type,
           storeId: purchase.store_id,
           storeName: storeMap.get(purchase.store_id) || "Fazenda não encontrada",
-          payableId: payable?.id || null,
-          payableDescription: payable?.description || null,
+          linkedPayables,
           paidAmount,
           pendingAmount,
           status,
@@ -671,7 +738,7 @@ const PurchasesModule = () => {
               <DialogHeader>
                 <DialogTitle>Compra #{selectedPurchase.code}</DialogTitle>
                 <DialogDescription>
-                  Rastreabilidade completa entre a aquisição e os títulos criados no financeiro.
+                  Rastreabilidade completa entre a aquisição e os títulos vinculados no financeiro.
                 </DialogDescription>
               </DialogHeader>
 
@@ -711,6 +778,21 @@ const PurchasesModule = () => {
                       <span className="font-medium">{formatCurrencyBRL(selectedPurchase.totalAmount)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
+                      <span className="text-muted-foreground">Origem</span>
+                      <Badge
+                        variant="outline"
+                        className={
+                          selectedPurchase.originType === "migrated_from_accounts_payable"
+                            ? "border-sky-200 bg-sky-100 text-sky-800"
+                            : "border-indigo-200 bg-indigo-100 text-indigo-800"
+                        }
+                      >
+                        {selectedPurchase.originType === "migrated_from_accounts_payable"
+                          ? "Migrada do financeiro"
+                          : "Compra manual"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Negociação</span>
                       <span className="text-right font-medium">
                         {selectedPurchase.negotiationMethod || "Não informado"}
@@ -728,16 +810,12 @@ const PurchasesModule = () => {
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Título no contas a pagar</span>
-                      <span className="font-medium">
-                        {selectedPurchase.payableId ? selectedPurchase.payableId.slice(0, 8) : "Não gerado"}
-                      </span>
+                      <span className="text-muted-foreground">Títulos vinculados</span>
+                      <span className="font-medium">{selectedPurchase.linkedPayables.length}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Descrição</span>
-                      <span className="max-w-[55%] text-right font-medium">
-                        {selectedPurchase.payableDescription || "Não disponível"}
-                      </span>
+                      <span className="text-muted-foreground">Parcelas</span>
+                      <span className="font-medium">{selectedPurchase.installments.length || selectedPurchase.installmentCount}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Emissão</span>
@@ -771,6 +849,79 @@ const PurchasesModule = () => {
 
               <Card className="border-border/70">
                 <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Títulos vinculados</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto rounded-2xl border border-border/70">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Documento</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Origem do vínculo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedPurchase.linkedPayables.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                              Nenhum título vinculado encontrado.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          selectedPurchase.linkedPayables.map((payable) => (
+                            <TableRow key={payable.id}>
+                              <TableCell className="font-medium">{payable.id.slice(0, 8)}</TableCell>
+                              <TableCell className="min-w-[260px]">{payable.description}</TableCell>
+                              <TableCell>
+                                {payable.documentType || payable.documentNumber
+                                  ? `${payable.documentType || ""}${payable.documentType && payable.documentNumber ? " / " : ""}${payable.documentNumber || ""}`
+                                  : "Não informado"}
+                              </TableCell>
+                              <TableCell>{formatDateBR(payable.dueDate)}</TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrencyBRL(payable.totalAmount)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    payable.status === "paid"
+                                      ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                                      : payable.status === "partial"
+                                        ? "border-sky-200 bg-sky-100 text-sky-800"
+                                        : "border-amber-200 bg-amber-100 text-amber-800"
+                                  }
+                                >
+                                  {payable.status === "paid"
+                                    ? "Pago"
+                                    : payable.status === "partial"
+                                      ? "Parcial"
+                                      : "Pendente"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {payable.purchaseLinkOrigin === "migration"
+                                  ? "Migração"
+                                  : payable.purchaseLinkOrigin === "manual"
+                                    ? "Cadastro de compra"
+                                    : "Não identificado"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/70">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-base">Parcelas geradas</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -793,25 +944,34 @@ const PurchasesModule = () => {
                           </TableRow>
                         ) : (
                           selectedPurchase.installments.map((installment) => (
-                            <TableRow key={`${selectedPurchase.id}-${installment.installment_number}`}>
+                            <TableRow
+                              key={`${selectedPurchase.id}-${installment.payableId}-${installment.installment_number}`}
+                            >
                               <TableCell className="font-medium">{installment.installment_number}</TableCell>
                               <TableCell>{formatDateBR(installment.due_date)}</TableCell>
                               <TableCell className="text-right">
                                 {formatCurrencyBRL(installment.amount)}
                               </TableCell>
                               <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    installment.payment_date
-                                      ? "border-emerald-200 bg-emerald-100 text-emerald-800"
-                                      : "border-amber-200 bg-amber-100 text-amber-800"
-                                  }
-                                >
-                                  {installment.payment_date
-                                    ? `Paga em ${formatDateBR(installment.payment_date)}`
-                                    : "Em aberto"}
-                                </Badge>
+                                <div className="flex flex-col items-start gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      installment.payment_date
+                                        ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                                        : "border-amber-200 bg-amber-100 text-amber-800"
+                                    }
+                                  >
+                                    {installment.payment_date
+                                      ? `Paga em ${formatDateBR(installment.payment_date)}`
+                                      : "Em aberto"}
+                                  </Badge>
+                                  {installment.payableDescription && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {installment.payableDescription}
+                                    </span>
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))

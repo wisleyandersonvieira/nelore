@@ -232,6 +232,7 @@ const AppSidebar = ({
         { id: "contas-pagar", label: "Contas a Pagar", action: "openAccountsPayable" },
         { id: "contas-receber", label: "Contas a Receber", action: "openAccountsReceivable" },
         { id: "compras", label: "Compras", route: "/purchases" },
+        { id: "migracao-compras", label: "Migração de Compras", route: "/purchases/migration" },
         { id: "vendas", label: "Vendas", route: "/sales" },
         { id: "transferencias", label: "Transferências", action: "openTransfers" },
         { id: "aportes-retiradas", label: "Aportes e Retiradas", action: "openPartnerTransactions" },

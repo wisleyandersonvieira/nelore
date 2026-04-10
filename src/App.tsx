@@ -60,6 +60,7 @@ import BankReconciliation from "./pages/BankReconciliation";
 import DashboardLayout from "./components/DashboardLayout";
 import SalesModule from "./pages/SalesModule";
 import PurchasesModule from "./pages/PurchasesModule";
+import PurchaseMigrationModule from "./pages/PurchaseMigrationModule";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -91,6 +92,7 @@ function App() {
               <Route element={<AppShellLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/purchases" element={<PurchasesModule />} />
+                <Route path="/purchases/migration" element={<PurchaseMigrationModule />} />
                 <Route path="/sales" element={<SalesModule />} />
                 <Route path="/cash-control/:storeId" element={<CashControl />} />
                 <Route path="/cadastros" element={<Cadastros />} />
