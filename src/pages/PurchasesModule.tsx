@@ -64,6 +64,8 @@ interface LinkedPayableRow {
 }
 
 interface PurchaseRow {
+  animalId: string | null;
+  aspirationId: string | null;
   id: string;
   code: number;
   supplierId: string;
@@ -76,6 +78,7 @@ interface PurchaseRow {
   totalAmount: number;
   installmentCount: number;
   notes: string | null;
+  pregnancyId: string | null;
   documentType: string | null;
   documentNumber: string | null;
   negotiationMethod: string | null;
@@ -85,6 +88,7 @@ interface PurchaseRow {
   storeId: string;
   storeName: string;
   originType: PurchaseOriginType;
+  recipientId: string | null;
   linkedPayables: LinkedPayableRow[];
   paidAmount: number;
   pendingAmount: number;
@@ -93,6 +97,8 @@ interface PurchaseRow {
 }
 
 interface PurchaseTableRow {
+  animal_id: string | null;
+  aspiration_id: string | null;
   id: string;
   code: number;
   supplier_id: string;
@@ -111,6 +117,8 @@ interface PurchaseTableRow {
   competence_date: string;
   first_due_date: string;
   origin_type: PurchaseOriginType;
+  pregnancy_id: string | null;
+  recipient_id: string | null;
   store_id: string;
 }
 
@@ -163,6 +171,23 @@ const statusMeta: Record<PurchaseRow["status"], { label: string; className: stri
 const formatDateBR = (value?: string | null) => {
   if (!value) return "N/D";
   return new Date(`${value}T00:00:00`).toLocaleDateString("pt-BR");
+};
+
+const getPurchaseEntityKey = (purchase: PurchaseRow) => {
+  const entityId =
+    purchase.purchaseType === "animal"
+      ? purchase.animalId
+      : purchase.purchaseType === "pregnancy"
+        ? purchase.pregnancyId
+        : purchase.purchaseType === "aspiration"
+          ? purchase.aspirationId
+          : purchase.recipientId;
+
+  if (entityId) {
+    return `${purchase.purchaseType}:${entityId}`;
+  }
+
+  return `${purchase.purchaseType}:${purchase.itemCode || purchase.itemName || purchase.id}`;
 };
 
 const getMonthKey = (date: Date) =>
@@ -373,6 +398,8 @@ const PurchasesModule = () => {
         );
 
         return {
+          animalId: purchase.animal_id,
+          aspirationId: purchase.aspiration_id,
           id: purchase.id,
           code: Number(purchase.code),
           supplierId: purchase.supplier_id,
@@ -385,6 +412,7 @@ const PurchasesModule = () => {
           totalAmount,
           installmentCount: Number(purchase.installment_count || installments.length || 1),
           notes: purchase.notes,
+          pregnancyId: purchase.pregnancy_id,
           documentType: purchase.document_type,
           documentNumber: purchase.document_number,
           negotiationMethod: purchase.negotiation_method,
@@ -392,6 +420,7 @@ const PurchasesModule = () => {
           competenceDate: purchase.competence_date,
           firstDueDate: purchase.first_due_date,
           originType: purchase.origin_type,
+          recipientId: purchase.recipient_id,
           storeId: purchase.store_id,
           storeName: storeMap.get(purchase.store_id) || "Fazenda não encontrada",
           linkedPayables,
@@ -476,7 +505,11 @@ const PurchasesModule = () => {
 
   const purchasesByType = useMemo(() => {
     return PURCHASE_TYPE_OPTIONS.map((type) => {
-      const count = purchases.filter((purchase) => purchase.purchaseType === type.value).length;
+      const count = new Set(
+        purchases
+          .filter((purchase) => purchase.purchaseType === type.value)
+          .map((purchase) => getPurchaseEntityKey(purchase)),
+      ).size;
       return {
         ...type,
         count,
