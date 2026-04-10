@@ -59,6 +59,7 @@ import AccountingExportReport from "./pages/AccountingExportReport";
 import BankReconciliation from "./pages/BankReconciliation";
 import DashboardLayout from "./components/DashboardLayout";
 import SalesModule from "./pages/SalesModule";
+import PurchasesModule from "./pages/PurchasesModule";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,6 +90,7 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route element={<AppShellLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/purchases" element={<PurchasesModule />} />
                 <Route path="/sales" element={<SalesModule />} />
                 <Route path="/cash-control/:storeId" element={<CashControl />} />
                 <Route path="/cadastros" element={<Cadastros />} />

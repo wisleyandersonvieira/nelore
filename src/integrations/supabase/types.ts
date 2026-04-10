@@ -76,6 +76,7 @@ export type Database = {
           issue_date: string | null
           notes: string | null
           payment_date: string | null
+          purchase_id: string | null
           status: string
           store_id: string
           supplier_id: string | null
@@ -99,6 +100,7 @@ export type Database = {
           issue_date?: string | null
           notes?: string | null
           payment_date?: string | null
+          purchase_id?: string | null
           status?: string
           store_id: string
           supplier_id?: string | null
@@ -122,6 +124,7 @@ export type Database = {
           issue_date?: string | null
           notes?: string | null
           payment_date?: string | null
+          purchase_id?: string | null
           status?: string
           store_id?: string
           supplier_id?: string | null
@@ -156,6 +159,13 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
           {
@@ -4184,6 +4194,150 @@ export type Database = {
           },
         ]
       }
+      purchases: {
+        Row: {
+          animal_id: string | null
+          aspiration_id: string | null
+          code: number
+          competence_date: string
+          created_at: string
+          created_by: string
+          description: string
+          document_number: string | null
+          document_type: string | null
+          first_due_date: string
+          id: string
+          installment_count: number
+          issue_date: string
+          item_code: string | null
+          item_name: string
+          negotiation_method: string | null
+          notes: string | null
+          pregnancy_id: string | null
+          product_id: string
+          purchase_date: string
+          purchase_type: string
+          recipient_id: string | null
+          store_id: string
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          animal_id?: string | null
+          aspiration_id?: string | null
+          code?: number
+          competence_date: string
+          created_at?: string
+          created_by: string
+          description: string
+          document_number?: string | null
+          document_type?: string | null
+          first_due_date: string
+          id?: string
+          installment_count?: number
+          issue_date: string
+          item_code?: string | null
+          item_name: string
+          negotiation_method?: string | null
+          notes?: string | null
+          pregnancy_id?: string | null
+          product_id: string
+          purchase_date: string
+          purchase_type: string
+          recipient_id?: string | null
+          store_id: string
+          supplier_id: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          animal_id?: string | null
+          aspiration_id?: string | null
+          code?: number
+          competence_date?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          document_number?: string | null
+          document_type?: string | null
+          first_due_date?: string
+          id?: string
+          installment_count?: number
+          issue_date?: string
+          item_code?: string | null
+          item_name?: string
+          negotiation_method?: string | null
+          notes?: string | null
+          pregnancy_id?: string | null
+          product_id?: string
+          purchase_date?: string
+          purchase_type?: string
+          recipient_id?: string | null
+          store_id?: string
+          supplier_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_permissions: {
         Row: {
           created_at: string
@@ -5593,6 +5747,30 @@ export type Database = {
     }
     Functions: {
       can_access_task: { Args: { p_task_id: string }; Returns: boolean }
+      create_purchase_with_payable: {
+        Args: {
+          p_competence_date: string
+          p_description?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_first_due_date: string
+          p_installments?: Json
+          p_issue_date: string
+          p_item_id: string
+          p_negotiation_method?: string
+          p_notes?: string
+          p_product_id: string
+          p_purchase_date: string
+          p_purchase_type: string
+          p_supplier_id: string
+          p_total_amount: number
+        }
+        Returns: {
+          account_payable_id: string
+          purchase_code: number
+          purchase_id: string
+        }[]
+      }
       create_sale_with_receivable: {
         Args: {
           p_client_id: string

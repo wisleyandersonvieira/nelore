@@ -18,7 +18,8 @@ import {
   UserCircle,
   Sparkles,
   Beef,
-  ShoppingBag
+  ShoppingBag,
+  ShoppingCart
 } from "lucide-react";
 import React from "react";
 import {
@@ -245,6 +246,12 @@ const AppSidebar = ({
       icon: ShoppingBag,
       route: "/sales",
     },
+    {
+      id: "purchases",
+      title: "Compras",
+      icon: ShoppingCart,
+      route: "/purchases",
+    },
     // Menu Estoque removido do sidebar
     {
       id: "cadastros",
@@ -363,6 +370,11 @@ const AppSidebar = ({
 
     if (item.id === "sales" && !loadingFinanceiro && !canAccessFinanceiro) {
       toast.error("Acesso negado ao módulo Vendas");
+      return;
+    }
+
+    if (item.id === "purchases" && !loadingFinanceiro && !canAccessFinanceiro) {
+      toast.error("Acesso negado ao módulo Compras");
       return;
     }
 
