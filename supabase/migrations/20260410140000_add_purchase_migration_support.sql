@@ -399,12 +399,12 @@ BEGIN
 
   SELECT
     COUNT(*),
-    COUNT(DISTINCT supplier_id),
-    COUNT(DISTINCT store_id),
-    ROUND(SUM(COALESCE(total_amount, amount))::numeric, 2),
-    MIN(issue_date),
-    MIN(data_competencia),
-    MIN(due_date)
+    COUNT(DISTINCT ap.supplier_id),
+    COUNT(DISTINCT ap.store_id),
+    ROUND(SUM(COALESCE(ap.total_amount, ap.amount))::numeric, 2),
+    MIN(ap.issue_date),
+    MIN(ap.data_competencia),
+    MIN(ap.due_date)
   INTO
     v_selected_count,
     v_distinct_supplier_count,
@@ -413,9 +413,9 @@ BEGIN
     v_resolved_issue_date,
     v_resolved_competence_date,
     v_resolved_first_due_date
-  FROM public.accounts_payable
-  WHERE id = ANY(p_account_payable_ids)
-    AND purchase_id IS NULL;
+  FROM public.accounts_payable ap
+  WHERE ap.id = ANY(p_account_payable_ids)
+    AND ap.purchase_id IS NULL;
 
   IF v_selected_count <> array_length(p_account_payable_ids, 1) THEN
     RAISE EXCEPTION 'Um ou mais títulos selecionados já foram migrados ou não estão disponíveis.';
@@ -429,12 +429,12 @@ BEGIN
     RAISE EXCEPTION 'Selecione apenas títulos da mesma fazenda.';
   END IF;
 
-  SELECT supplier_id, store_id
+  SELECT ap.supplier_id, ap.store_id
   INTO v_supplier_id, v_store_id
-  FROM public.accounts_payable
-  WHERE id = ANY(p_account_payable_ids)
-    AND purchase_id IS NULL
-  ORDER BY due_date NULLS LAST, id
+  FROM public.accounts_payable ap
+  WHERE ap.id = ANY(p_account_payable_ids)
+    AND ap.purchase_id IS NULL
+  ORDER BY ap.due_date NULLS LAST, ap.id
   LIMIT 1;
 
   IF v_supplier_id IS NULL OR v_store_id IS NULL THEN
@@ -443,8 +443,8 @@ BEGIN
 
   SELECT COUNT(*)
   INTO v_installment_count
-  FROM public.accounts_payable_installments
-  WHERE account_payable_id = ANY(p_account_payable_ids);
+  FROM public.accounts_payable_installments api
+  WHERE api.account_payable_id = ANY(p_account_payable_ids);
 
   IF v_installment_count = 0 THEN
     v_installment_count := v_selected_count;
@@ -454,23 +454,23 @@ BEGIN
     WHEN 'animal' THEN
       SELECT name, code::TEXT
       INTO v_item_name, v_item_code
-      FROM public.animals
-      WHERE id = p_item_id;
+      FROM public.animals a
+      WHERE a.id = p_item_id;
     WHEN 'pregnancy' THEN
       SELECT name, code::TEXT
       INTO v_item_name, v_item_code
-      FROM public.pregnancy_management
-      WHERE id = p_item_id;
+      FROM public.pregnancy_management pm
+      WHERE pm.id = p_item_id;
     WHEN 'aspiration' THEN
       SELECT name, code::TEXT
       INTO v_item_name, v_item_code
-      FROM public.aspiration_management
-      WHERE id = p_item_id;
+      FROM public.aspiration_management am
+      WHERE am.id = p_item_id;
     WHEN 'recipient' THEN
       SELECT name, code::TEXT
       INTO v_item_name, v_item_code
-      FROM public.animals
-      WHERE id = p_item_id;
+      FROM public.animals a
+      WHERE a.id = p_item_id;
   END CASE;
 
   IF v_item_name IS NULL THEN
@@ -540,14 +540,14 @@ BEGIN
   RETURNING id, code
   INTO v_purchase_id, v_purchase_code;
 
-  UPDATE public.accounts_payable
+  UPDATE public.accounts_payable ap
   SET
     purchase_id = v_purchase_id,
     purchase_link_origin = 'migration',
     purchase_linked_at = now(),
     purchase_linked_by = v_user_id,
     updated_by = v_user_id
-  WHERE id = ANY(p_account_payable_ids);
+  WHERE ap.id = ANY(p_account_payable_ids);
 
   RETURN QUERY
   SELECT v_purchase_id, v_purchase_code, v_selected_count, v_total_amount;
