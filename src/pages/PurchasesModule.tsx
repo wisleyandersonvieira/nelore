@@ -28,6 +28,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   Activity,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   HandCoins,
   Loader2,
@@ -272,6 +274,7 @@ const PurchasesModule = () => {
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
+  const [installmentsPage, setInstallmentsPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | PurchaseType>("all");
 
@@ -449,6 +452,10 @@ const PurchasesModule = () => {
     void loadPurchases();
   }, [permissionsLoading, canView]);
 
+  useEffect(() => {
+    setInstallmentsPage(1);
+  }, [selectedPurchase?.id]);
+
   const filteredPurchases = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return purchases.filter((purchase) => {
@@ -465,6 +472,27 @@ const PurchasesModule = () => {
   }, [purchases, searchTerm, typeFilter]);
 
   const chartData = useMemo(() => buildChartData(purchases), [purchases]);
+
+  const selectedPurchaseLastDueDate = useMemo(() => {
+    if (!selectedPurchase) return null;
+    if (selectedPurchase.installments.length === 0) {
+      return selectedPurchase.firstDueDate;
+    }
+
+    return [...selectedPurchase.installments]
+      .sort((left, right) => right.due_date.localeCompare(left.due_date))[0]
+      ?.due_date;
+  }, [selectedPurchase]);
+
+  const paginatedInstallments = useMemo(() => {
+    if (!selectedPurchase) return [];
+    const startIndex = (installmentsPage - 1) * 4;
+    return selectedPurchase.installments.slice(startIndex, startIndex + 4);
+  }, [installmentsPage, selectedPurchase]);
+
+  const installmentsPageCount = selectedPurchase
+    ? Math.max(Math.ceil(selectedPurchase.installments.length / 4), 1)
+    : 1;
 
   const summaryCards = useMemo<SummaryCard[]>(() => {
     const totalBought = purchases.reduce((sum, purchase) => sum + purchase.totalAmount, 0);
@@ -863,6 +891,10 @@ const PurchasesModule = () => {
                       <span className="font-medium">{formatDateBR(selectedPurchase.firstDueDate)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
+                      <span className="text-muted-foreground">Último vencimento</span>
+                      <span className="font-medium">{formatDateBR(selectedPurchaseLastDueDate)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Pago</span>
                       <span className="font-medium">{formatCurrencyBRL(selectedPurchase.paidAmount)}</span>
                     </div>
@@ -955,7 +987,34 @@ const PurchasesModule = () => {
 
               <Card className="border-border/70">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Parcelas geradas</CardTitle>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <CardTitle className="text-base">Parcelas geradas</CardTitle>
+                    {selectedPurchase.installments.length > 4 && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setInstallmentsPage((current) => Math.max(current - 1, 1))}
+                          disabled={installmentsPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          Página {installmentsPage} de {installmentsPageCount}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setInstallmentsPage((current) => Math.min(current + 1, installmentsPageCount))
+                          }
+                          disabled={installmentsPage === installmentsPageCount}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-2xl border border-border/70">
@@ -976,7 +1035,7 @@ const PurchasesModule = () => {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          selectedPurchase.installments.map((installment) => (
+                          paginatedInstallments.map((installment) => (
                             <TableRow
                               key={`${selectedPurchase.id}-${installment.payableId}-${installment.installment_number}`}
                             >
@@ -1012,6 +1071,33 @@ const PurchasesModule = () => {
                       </TableBody>
                     </Table>
                   </div>
+                  {selectedPurchase.installments.length > 4 && (
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                      <p className="text-muted-foreground">
+                        Exibindo {paginatedInstallments.length} de {selectedPurchase.installments.length} parcelas.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setInstallmentsPage((current) => Math.max(current - 1, 1))}
+                          disabled={installmentsPage === 1}
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setInstallmentsPage((current) => Math.min(current + 1, installmentsPageCount))
+                          }
+                          disabled={installmentsPage === installmentsPageCount}
+                        >
+                          Próxima
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>
