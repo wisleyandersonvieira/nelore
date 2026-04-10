@@ -401,8 +401,6 @@ BEGIN
     COUNT(*),
     COUNT(DISTINCT supplier_id),
     COUNT(DISTINCT store_id),
-    MIN(supplier_id),
-    MIN(store_id),
     ROUND(SUM(COALESCE(total_amount, amount))::numeric, 2),
     MIN(issue_date),
     MIN(data_competencia),
@@ -411,8 +409,6 @@ BEGIN
     v_selected_count,
     v_distinct_supplier_count,
     v_distinct_store_count,
-    v_supplier_id,
-    v_store_id,
     v_total_amount,
     v_resolved_issue_date,
     v_resolved_competence_date,
@@ -433,8 +429,16 @@ BEGIN
     RAISE EXCEPTION 'Selecione apenas títulos da mesma fazenda.';
   END IF;
 
-  IF v_supplier_id IS NULL THEN
-    RAISE EXCEPTION 'Os títulos selecionados precisam ter fornecedor informado.';
+  SELECT supplier_id, store_id
+  INTO v_supplier_id, v_store_id
+  FROM public.accounts_payable
+  WHERE id = ANY(p_account_payable_ids)
+    AND purchase_id IS NULL
+  ORDER BY due_date NULLS LAST, id
+  LIMIT 1;
+
+  IF v_supplier_id IS NULL OR v_store_id IS NULL THEN
+    RAISE EXCEPTION 'Não foi possível identificar fornecedor e fazenda dos títulos selecionados.';
   END IF;
 
   SELECT COUNT(*)

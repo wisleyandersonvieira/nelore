@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
+import { getFinancialAllocationTargetId } from "@/lib/financialAllocations";
 import {
   migrateAccountsPayableToPurchase,
   PURCHASE_TYPE_LABELS,
@@ -103,6 +104,8 @@ interface PurchaseLookupRow {
 }
 
 interface PayableListRow {
+  allocationId: string | null;
+  allocationType: PurchaseType | null;
   id: string;
   supplierId: string | null;
   supplierName: string;
@@ -122,8 +125,24 @@ interface PayableListRow {
   paidAmount: number;
   pendingAmount: number;
   paymentDate: string | null;
+  productId: string | null;
   status: string;
   notes: string | null;
+}
+
+interface PayableItemLookupRow {
+  account_payable_id: string;
+  id: string;
+  product_id: string;
+}
+
+interface PayableAllocationLookupRow {
+  account_payable_item_id: string;
+  allocation_type: string;
+  animal_id: string | null;
+  aspiration_id: string | null;
+  pregnancy_id: string | null;
+  recipient_id: string | null;
 }
 
 const EMPTY_ITEMS: Record<PurchaseType, SaleItemOption[]> = {
@@ -141,6 +160,9 @@ const formatDateBR = (value?: string | null) => {
 };
 
 const normalizeText = (value?: string | null) => (value || "").trim().toLowerCase();
+
+const isSupportedPurchaseType = (value?: string | null): value is PurchaseType =>
+  value === "animal" || value === "pregnancy" || value === "aspiration" || value === "recipient";
 
 const PurchaseMigrationModule = () => {
   const navigate = useNavigate();
@@ -362,7 +384,7 @@ const PurchaseMigrationModule = () => {
       const storeIdsUsed = Array.from(new Set(payables.map((payable) => payable.store_id).filter(Boolean)));
       const purchaseIds = Array.from(new Set(payables.map((payable) => payable.purchase_id).filter(Boolean)));
 
-      const [installmentsRes, suppliersRes, storesRes, purchasesRes] = await Promise.all([
+      const [installmentsRes, suppliersRes, storesRes, purchasesRes, itemsRes] = await Promise.all([
         supabase
           .from("accounts_payable_installments")
           .select("account_payable_id, installment_number, due_date, amount, payment_date")
@@ -381,12 +403,17 @@ const PurchaseMigrationModule = () => {
         purchaseIds.length > 0
           ? supabase.from("purchases").select("id, code").in("id", purchaseIds)
           : Promise.resolve({ data: [], error: null }),
+        supabase
+          .from("accounts_payable_items")
+          .select("id, account_payable_id, product_id")
+          .in("account_payable_id", payableIds),
       ]);
 
       if (installmentsRes.error) throw installmentsRes.error;
       if (suppliersRes.error) throw suppliersRes.error;
       if (storesRes.error) throw storesRes.error;
       if (purchasesRes.error) throw purchasesRes.error;
+      if (itemsRes.error) throw itemsRes.error;
 
       const supplierMap = new Map((suppliersRes.data || []).map((supplier) => [supplier.id, supplier]));
       const storeMap = new Map(
@@ -395,6 +422,31 @@ const PurchaseMigrationModule = () => {
       const purchaseCodeMap = new Map(
         ((purchasesRes.data || []) as PurchaseLookupRow[]).map((purchase) => [purchase.id, purchase.code]),
       );
+      const payableItems = (itemsRes.data || []) as PayableItemLookupRow[];
+      const payableItemIds = payableItems.map((item) => item.id);
+      const payableItemsByPayableId = new Map<string, PayableItemLookupRow[]>();
+      payableItems.forEach((item) => {
+        const current = payableItemsByPayableId.get(item.account_payable_id) || [];
+        current.push(item);
+        payableItemsByPayableId.set(item.account_payable_id, current);
+      });
+
+      const allocationsRes =
+        payableItemIds.length > 0
+          ? await supabase
+              .from("accounts_payable_item_allocations")
+              .select(
+                "account_payable_item_id, allocation_type, animal_id, aspiration_id, pregnancy_id, recipient_id",
+              )
+              .in("account_payable_item_id", payableItemIds)
+          : { data: [], error: null };
+
+      if (allocationsRes.error) throw allocationsRes.error;
+
+      const allocationsByItemId = new Map<string, PayableAllocationLookupRow>();
+      ((allocationsRes.data || []) as PayableAllocationLookupRow[]).forEach((allocation) => {
+        allocationsByItemId.set(allocation.account_payable_item_id, allocation);
+      });
 
       const installmentsMap = new Map<string, MigrationInstallmentRow[]>();
       ((installmentsRes.data || []) as MigrationInstallmentRow[]).forEach((installment) => {
@@ -416,8 +468,35 @@ const PurchaseMigrationModule = () => {
             : 0;
         const pendingAmount = Number(Math.max(totalAmount - paidAmount, 0).toFixed(2));
         const supplier = payable.supplier_id ? supplierMap.get(payable.supplier_id) : null;
+        const payableItemsForAccount = payableItemsByPayableId.get(payable.id) || [];
+        const uniqueProductIds = Array.from(
+          new Set(payableItemsForAccount.map((item) => item.product_id).filter(Boolean)),
+        );
+        const supportedAllocations = payableItemsForAccount
+          .map((item) => {
+            const allocation = allocationsByItemId.get(item.id);
+            if (!allocation || !isSupportedPurchaseType(allocation.allocation_type)) {
+              return null;
+            }
+            return {
+              allocationId: getFinancialAllocationTargetId(allocation) || null,
+              allocationType: allocation.allocation_type,
+            };
+          })
+          .filter((value): value is { allocationId: string | null; allocationType: PurchaseType } => Boolean(value));
+        const uniqueAllocationTypes = Array.from(
+          new Set(supportedAllocations.map((allocation) => allocation.allocationType).filter(Boolean)),
+        );
+        const uniqueAllocationIds = Array.from(
+          new Set(supportedAllocations.map((allocation) => allocation.allocationId).filter(Boolean)),
+        );
 
         return {
+          allocationId:
+            uniqueAllocationTypes.length === 1 && uniqueAllocationIds.length === 1
+              ? uniqueAllocationIds[0] || null
+              : null,
+          allocationType: uniqueAllocationTypes.length === 1 ? uniqueAllocationTypes[0] : null,
           id: payable.id,
           supplierId: payable.supplier_id,
           supplierName: supplier?.name || "Fornecedor não identificado",
@@ -437,6 +516,7 @@ const PurchaseMigrationModule = () => {
           paidAmount: Number(paidAmount.toFixed(2)),
           pendingAmount,
           paymentDate: payable.payment_date,
+          productId: uniqueProductIds.length === 1 ? uniqueProductIds[0] : null,
           status: payable.status,
           notes: payable.notes,
         } satisfies PayableListRow;
@@ -533,6 +613,9 @@ const PurchaseMigrationModule = () => {
     const distinctDescriptions = new Set(
       selectedRows.map((row) => normalizeText(row.description)).filter(Boolean),
     );
+    const distinctProducts = new Set(selectedRows.map((row) => row.productId).filter(Boolean));
+    const distinctAllocationTypes = new Set(selectedRows.map((row) => row.allocationType).filter(Boolean));
+    const distinctAllocationIds = new Set(selectedRows.map((row) => row.allocationId).filter(Boolean));
 
     if (distinctSuppliers.size > 1) {
       warnings.push("A seleção contém fornecedores diferentes. O vínculo será bloqueado.");
@@ -546,8 +629,33 @@ const PurchaseMigrationModule = () => {
     if (distinctDescriptions.size > 1) {
       warnings.push("As descrições variam entre os títulos selecionados. Confirme o agrupamento manual.");
     }
+    if (distinctProducts.size > 1) {
+      warnings.push("Os títulos possuem produtos financeiros diferentes. Revise antes de migrar.");
+    }
+    if (distinctAllocationTypes.size > 1 || distinctAllocationIds.size > 1) {
+      warnings.push("Os títulos possuem alocações diferentes. Revise o tipo e o registro comprado.");
+    }
 
     return warnings;
+  }, [selectedRows]);
+
+  const detectedAutofill = useMemo(() => {
+    const uniqueProductIds = Array.from(new Set(selectedRows.map((row) => row.productId).filter(Boolean)));
+    const uniqueAllocationTypes = Array.from(
+      new Set(selectedRows.map((row) => row.allocationType).filter(Boolean)),
+    );
+    const uniqueAllocationIds = Array.from(
+      new Set(selectedRows.map((row) => row.allocationId).filter(Boolean)),
+    );
+
+    return {
+      itemId:
+        uniqueAllocationTypes.length === 1 && uniqueAllocationIds.length === 1
+          ? uniqueAllocationIds[0] || ""
+          : "",
+      productId: uniqueProductIds.length === 1 ? uniqueProductIds[0] || "" : "",
+      purchaseType: uniqueAllocationTypes.length === 1 ? uniqueAllocationTypes[0] : null,
+    };
   }, [selectedRows]);
 
   const selectedItem = itemId
@@ -603,11 +711,11 @@ const PurchaseMigrationModule = () => {
         ? firstRow.documentNumber || ""
         : "";
 
-    setPurchaseType("animal");
-    setItemId("");
+    setPurchaseType(detectedAutofill.purchaseType || "animal");
+    setItemId(detectedAutofill.itemId);
     setItemSearchTerm("");
     setItemPopoverOpen(false);
-    setProductId("");
+    setProductId(detectedAutofill.productId);
     setPurchaseDate(firstRow.issueDate || firstRow.dueDate || todayISO());
     setIssueDate(firstRow.issueDate || firstRow.dueDate || todayISO());
     setCompetenceDate(firstRow.competenceDate || firstRow.issueDate || firstRow.dueDate || todayISO());
@@ -1104,6 +1212,35 @@ const PurchaseMigrationModule = () => {
                       </p>
                     </div>
                   </div>
+
+                  {(detectedAutofill.purchaseType || detectedAutofill.itemId || detectedAutofill.productId) && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                      <div className="mb-2 flex items-center gap-2 font-medium">
+                        <ShieldCheck className="h-4 w-4" />
+                        Dados reaproveitados do Contas a Pagar
+                      </div>
+                      <p>
+                        Tipo do item:{" "}
+                        <span className="font-medium">
+                          {detectedAutofill.purchaseType
+                            ? PURCHASE_TYPE_LABELS[detectedAutofill.purchaseType]
+                            : "preenchimento manual necessário"}
+                        </span>
+                      </p>
+                      <p>
+                        Registro comprado:{" "}
+                        <span className="font-medium">
+                          {detectedAutofill.itemId ? "vínculo encontrado" : "preenchimento manual necessário"}
+                        </span>
+                      </p>
+                      <p>
+                        Produto financeiro:{" "}
+                        <span className="font-medium">
+                          {detectedAutofill.productId ? "produto encontrado" : "preenchimento manual necessário"}
+                        </span>
+                      </p>
+                    </div>
+                  )}
 
                   {selectedWarnings.length > 0 && (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
