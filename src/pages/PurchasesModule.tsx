@@ -28,6 +28,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   Activity,
+  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
@@ -98,6 +99,18 @@ interface PurchaseRow {
   status: "pending" | "partial" | "paid";
   installments: PurchaseInstallmentRow[];
 }
+
+type PurchaseSortField =
+  | "code"
+  | "purchaseDate"
+  | "supplierName"
+  | "purchaseType"
+  | "itemName"
+  | "totalAmount"
+  | "pendingAmount"
+  | "status";
+
+type PurchaseSortDirection = "asc" | "desc";
 
 interface PurchaseTableRow {
   animal_id: string | null;
@@ -269,14 +282,20 @@ const computeStatus = (
   };
 };
 
+const PAGE_SIZE = 10;
+
 const PurchasesModule = () => {
   const { canView, canEdit, loading: permissionsLoading } = useFinanceiroPermissions();
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [installmentsPage, setInstallmentsPage] = useState(1);
+  const [listPage, setListPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortDirection, setSortDirection] = useState<PurchaseSortDirection>("desc");
+  const [sortField, setSortField] = useState<PurchaseSortField>("purchaseDate");
   const [typeFilter, setTypeFilter] = useState<"all" | PurchaseType>("all");
 
   const loadPurchases = async () => {
@@ -314,7 +333,9 @@ const PurchasesModule = () => {
         fetchAllPaginated<PayableTableRow>(() =>
           supabase
             .from("accounts_payable")
-            .select("id, purchase_id, description, total_amount, amount, payment_date")
+            .select(
+              "id, purchase_id, description, total_amount, amount, payment_date, due_date, issue_date, competence_date:data_competencia, document_type, document_number, status, purchase_link_origin",
+            )
             .in("purchase_id", purchasesData.map((purchase) => purchase.id)),
         ),
       ]);
@@ -338,39 +359,6 @@ const PurchasesModule = () => {
 
       const payableIds = Array.from(new Set(payablesData.map((payable) => payable.id).filter(Boolean)));
 
-      const installmentsMap = new Map<string, PurchaseInstallmentRow[]>();
-      const installmentsData =
-        payableIds.length > 0
-          ? await fetchAllPaginated<{
-              account_payable_id: string;
-              installment_number: number;
-              due_date: string;
-              amount: number;
-              payment_date: string | null;
-            }>(() =>
-              supabase
-                .from("accounts_payable_installments")
-                .select("account_payable_id, installment_number, due_date, amount, payment_date")
-                .in("account_payable_id", payableIds)
-                .order("installment_number", { ascending: true }),
-            )
-          : [];
-
-      installmentsData.forEach((installment) => {
-        const current = installmentsMap.get(installment.account_payable_id) || [];
-        const payable = payablesData.find((entry) => entry.id === installment.account_payable_id);
-        current.push({
-          displayInstallmentNumber: installment.installment_number,
-          installment_number: installment.installment_number,
-          due_date: installment.due_date,
-          amount: Number(installment.amount || 0),
-          payment_date: installment.payment_date,
-          payableDescription: payable?.description || null,
-          payableId: installment.account_payable_id,
-        });
-        installmentsMap.set(installment.account_payable_id, current);
-      });
-
       const rows = purchasesData.map((purchase) => {
         const linkedPayables = (payableByPurchaseId.get(purchase.id) || []).map((payable) => ({
           id: payable.id,
@@ -386,46 +374,15 @@ const PurchasesModule = () => {
           status: payable.status,
           purchaseLinkOrigin: payable.purchase_link_origin,
         }));
-        const installments = linkedPayables
-          .flatMap((payable) => {
-            const payableInstallments = installmentsMap.get(payable.id) || [];
-            if (payableInstallments.length > 0) {
-              return payableInstallments;
-            }
-
-            return [
-              {
-                displayInstallmentNumber: 1,
-                installment_number: 1,
-                due_date: payable.dueDate,
-                amount: payable.totalAmount,
-                payment_date: payable.paymentDate,
-                payableDescription: payable.description,
-                payableId: payable.id,
-              } satisfies PurchaseInstallmentRow,
-            ];
-          })
-          .sort((left, right) => {
-            if (left.due_date === right.due_date) {
-              return left.installment_number - right.installment_number;
-            }
-            return left.due_date.localeCompare(right.due_date);
-          })
-          .map((installment, index) => ({
-            ...installment,
-            displayInstallmentNumber: index + 1,
-          }));
         const totalAmount = Number(purchase.total_amount || 0);
-        const fallbackPaidAmount = linkedPayables.reduce((sum, payable) => {
-          const payableInstallments = installmentsMap.get(payable.id) || [];
-          if (payableInstallments.length > 0) {
-            return sum;
-          }
-          return sum + (payable.paymentDate || payable.status === "paid" ? payable.totalAmount : 0);
-        }, 0);
+        const allPaid = linkedPayables.length > 0 && linkedPayables.every((payable) => payable.status === "paid");
+        const hasPaymentSignal = linkedPayables.some(
+          (payable) => payable.paymentDate || payable.status === "partial" || payable.status === "paid",
+        );
+        const fallbackPaidAmount = allPaid ? totalAmount : 0;
         const { status, paidAmount, pendingAmount } = computeStatus(
           totalAmount,
-          installments,
+          [],
           fallbackPaidAmount,
         );
 
@@ -442,14 +399,7 @@ const PurchasesModule = () => {
           itemCode: purchase.item_code,
           itemName: purchase.item_name,
           totalAmount,
-          installmentCount: Math.max(
-            linkedPayables.reduce((sum, payable) => {
-              const payableInstallments = installmentsMap.get(payable.id) || [];
-              return sum + Math.max(payableInstallments.length, 1);
-            }, 0),
-            Number(purchase.installment_count || 0),
-            1,
-          ),
+          installmentCount: Math.max(Number(purchase.installment_count || 0), linkedPayables.length, 1),
           notes: purchase.notes,
           pregnancyId: purchase.pregnancy_id,
           documentType: purchase.document_type,
@@ -464,9 +414,19 @@ const PurchasesModule = () => {
           storeName: storeMap.get(purchase.store_id) || "Fazenda não encontrada",
           linkedPayables,
           paidAmount,
-          pendingAmount,
-          status,
-          installments,
+          pendingAmount:
+            status === "paid"
+              ? 0
+              : status === "partial" || hasPaymentSignal
+                ? totalAmount
+                : pendingAmount,
+          status:
+            allPaid
+              ? "paid"
+              : linkedPayables.some((payable) => payable.status === "partial") || hasPaymentSignal
+                ? "partial"
+                : "pending",
+          installments: [],
         } satisfies PurchaseRow;
       });
 
@@ -492,6 +452,140 @@ const PurchasesModule = () => {
     setInstallmentsPage(1);
   }, [selectedPurchase?.id]);
 
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, typeFilter, sortDirection, sortField]);
+
+  const loadPurchaseDetails = async (purchase: PurchaseRow) => {
+    setDetailsLoading(true);
+    setSelectedPurchase(purchase);
+
+    try {
+      const payables = await fetchAllPaginated<PayableTableRow>(() =>
+        supabase
+          .from("accounts_payable")
+          .select(
+            "id, purchase_id, description, total_amount, amount, payment_date, due_date, issue_date, competence_date:data_competencia, document_type, document_number, status, purchase_link_origin",
+          )
+          .eq("purchase_id", purchase.id),
+      );
+
+      const payableIds = payables.map((payable) => payable.id);
+      const installmentsData =
+        payableIds.length > 0
+          ? await fetchAllPaginated<{
+              account_payable_id: string;
+              installment_number: number;
+              due_date: string;
+              amount: number;
+              payment_date: string | null;
+            }>(() =>
+              supabase
+                .from("accounts_payable_installments")
+                .select("account_payable_id, installment_number, due_date, amount, payment_date")
+                .in("account_payable_id", payableIds)
+                .order("installment_number", { ascending: true }),
+            )
+          : [];
+
+      const linkedPayables = payables.map((payable) => ({
+        id: payable.id,
+        description: payable.description,
+        totalAmount: Number(payable.total_amount ?? payable.amount ?? 0),
+        amount: Number(payable.amount || 0),
+        paymentDate: payable.payment_date,
+        dueDate: payable.due_date,
+        issueDate: payable.issue_date,
+        competenceDate: payable.competence_date,
+        documentType: payable.document_type,
+        documentNumber: payable.document_number,
+        status: payable.status,
+        purchaseLinkOrigin: payable.purchase_link_origin,
+      }));
+
+      const installmentsMap = new Map<string, PurchaseInstallmentRow[]>();
+      installmentsData.forEach((installment) => {
+        const current = installmentsMap.get(installment.account_payable_id) || [];
+        const payable = payables.find((entry) => entry.id === installment.account_payable_id);
+        current.push({
+          displayInstallmentNumber: installment.installment_number,
+          installment_number: installment.installment_number,
+          due_date: installment.due_date,
+          amount: Number(installment.amount || 0),
+          payment_date: installment.payment_date,
+          payableDescription: payable?.description || null,
+          payableId: installment.account_payable_id,
+        });
+        installmentsMap.set(installment.account_payable_id, current);
+      });
+
+      const installments = linkedPayables
+        .flatMap((payable) => {
+          const payableInstallments = installmentsMap.get(payable.id) || [];
+          if (payableInstallments.length > 0) {
+            return payableInstallments;
+          }
+
+          return [
+            {
+              displayInstallmentNumber: 1,
+              installment_number: 1,
+              due_date: payable.dueDate,
+              amount: payable.totalAmount,
+              payment_date: payable.paymentDate,
+              payableDescription: payable.description,
+              payableId: payable.id,
+            } satisfies PurchaseInstallmentRow,
+          ];
+        })
+        .sort((left, right) => {
+          if (left.due_date === right.due_date) {
+            return left.installment_number - right.installment_number;
+          }
+          return left.due_date.localeCompare(right.due_date);
+        })
+        .map((installment, index) => ({
+          ...installment,
+          displayInstallmentNumber: index + 1,
+        }));
+
+      const fallbackPaidAmount = linkedPayables.reduce((sum, payable) => {
+        const payableInstallments = installmentsMap.get(payable.id) || [];
+        if (payableInstallments.length > 0) {
+          return sum;
+        }
+        return sum + (payable.paymentDate || payable.status === "paid" ? payable.totalAmount : 0);
+      }, 0);
+      const { status, paidAmount, pendingAmount } = computeStatus(
+        purchase.totalAmount,
+        installments,
+        fallbackPaidAmount,
+      );
+
+      setSelectedPurchase({
+        ...purchase,
+        installmentCount: Math.max(
+          linkedPayables.reduce((sum, payable) => {
+            const payableInstallments = installmentsMap.get(payable.id) || [];
+            return sum + Math.max(payableInstallments.length, 1);
+          }, 0),
+          purchase.installmentCount,
+          1,
+        ),
+        linkedPayables,
+        paidAmount,
+        pendingAmount,
+        status,
+        installments,
+      });
+    } catch (error) {
+      console.error("Erro ao carregar detalhes da compra:", error);
+      setSelectedPurchase(purchase);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
   const filteredPurchases = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return purchases.filter((purchase) => {
@@ -506,6 +600,63 @@ const PurchasesModule = () => {
       return matchesType && matchesSearch;
     });
   }, [purchases, searchTerm, typeFilter]);
+
+  const sortedPurchases = useMemo(() => {
+    const getComparableValue = (purchase: PurchaseRow, field: PurchaseSortField) => {
+      switch (field) {
+        case "code":
+          return purchase.code;
+        case "purchaseDate":
+          return purchase.purchaseDate;
+        case "supplierName":
+          return purchase.supplierName;
+        case "purchaseType":
+          return PURCHASE_TYPE_LABELS[purchase.purchaseType];
+        case "itemName":
+          return buildSaleItemLabel({ code: purchase.itemCode, name: purchase.itemName });
+        case "totalAmount":
+          return purchase.totalAmount;
+        case "pendingAmount":
+          return purchase.pendingAmount;
+        case "status":
+          return statusMeta[purchase.status].label;
+        default:
+          return "";
+      }
+    };
+
+    return [...filteredPurchases].sort((left, right) => {
+      const leftValue = getComparableValue(left, sortField);
+      const rightValue = getComparableValue(right, sortField);
+
+      if (typeof leftValue === "number" && typeof rightValue === "number") {
+        return sortDirection === "asc" ? leftValue - rightValue : rightValue - leftValue;
+      }
+
+      const comparison = String(leftValue).localeCompare(String(rightValue), "pt-BR", {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [filteredPurchases, sortDirection, sortField]);
+
+  const paginatedPurchases = useMemo(() => {
+    const startIndex = (listPage - 1) * PAGE_SIZE;
+    return sortedPurchases.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [listPage, sortedPurchases]);
+
+  const listPageCount = Math.max(Math.ceil(sortedPurchases.length / PAGE_SIZE), 1);
+
+  const toggleSort = (field: PurchaseSortField) => {
+    if (sortField === field) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection(field === "code" || field === "totalAmount" ? "desc" : "asc");
+  };
 
   const chartData = useMemo(() => buildChartData(purchases), [purchases]);
 
@@ -580,6 +731,30 @@ const PurchasesModule = () => {
       };
     });
   }, [purchases]);
+
+  const renderSortableHeader = (
+    label: string,
+    field: PurchaseSortField,
+    align: "left" | "center" | "right" = "left",
+  ) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(field)}
+      className={cn(
+        "inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground",
+        align === "center" && "mx-auto flex",
+        align === "right" && "ml-auto flex",
+      )}
+    >
+      <span>{label}</span>
+      <ArrowUpDown
+        className={cn(
+          "h-3.5 w-3.5",
+          sortField === field ? "text-foreground" : "text-muted-foreground/70",
+        )}
+      />
+    </button>
+  );
 
   if (permissionsLoading || loading) {
     return (
@@ -762,28 +937,26 @@ const PurchasesModule = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Fornecedor</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Item comprado</TableHead>
-                  <TableHead className="text-right">Valor total</TableHead>
-                  <TableHead className="text-center">Parcelas</TableHead>
-                  <TableHead className="text-right">Pago</TableHead>
-                  <TableHead className="text-right">Pendente</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>{renderSortableHeader("Código", "code")}</TableHead>
+                  <TableHead>{renderSortableHeader("Data", "purchaseDate")}</TableHead>
+                  <TableHead>{renderSortableHeader("Fornecedor", "supplierName")}</TableHead>
+                  <TableHead>{renderSortableHeader("Tipo", "purchaseType")}</TableHead>
+                  <TableHead>{renderSortableHeader("Item comprado", "itemName")}</TableHead>
+                  <TableHead className="text-right">{renderSortableHeader("Valor total", "totalAmount", "right")}</TableHead>
+                  <TableHead className="text-right">{renderSortableHeader("Pendente", "pendingAmount", "right")}</TableHead>
+                  <TableHead>{renderSortableHeader("Status", "status")}</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPurchases.length === 0 ? (
+                {sortedPurchases.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="h-28 text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="h-28 text-center text-muted-foreground">
                       Nenhuma compra encontrada com os filtros atuais.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPurchases.map((purchase) => (
+                  paginatedPurchases.map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell className="font-medium">#{purchase.code}</TableCell>
                       <TableCell>{formatDateBR(purchase.purchaseDate)}</TableCell>
@@ -798,8 +971,6 @@ const PurchasesModule = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrencyBRL(purchase.totalAmount)}</TableCell>
-                      <TableCell className="text-center">{purchase.installmentCount}</TableCell>
-                      <TableCell className="text-right">{formatCurrencyBRL(purchase.paidAmount)}</TableCell>
                       <TableCell className="text-right">{formatCurrencyBRL(purchase.pendingAmount)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusMeta[purchase.status].className}>
@@ -807,7 +978,7 @@ const PurchasesModule = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedPurchase(purchase)}>
+                        <Button variant="outline" size="sm" onClick={() => void loadPurchaseDetails(purchase)}>
                           Ver detalhes
                         </Button>
                       </TableCell>
@@ -816,6 +987,34 @@ const PurchasesModule = () => {
                 )}
               </TableBody>
             </Table>
+          </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Exibindo {paginatedPurchases.length} de {sortedPurchases.length} compras.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setListPage((current) => Math.max(current - 1, 1))}
+                disabled={listPage === 1}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {listPage} de {listPageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setListPage((current) => Math.min(current + 1, listPageCount))}
+                disabled={listPage === listPageCount}
+              >
+                Próxima
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -838,6 +1037,16 @@ const PurchasesModule = () => {
                   Rastreabilidade completa entre a aquisição e os títulos vinculados no financeiro.
                 </DialogDescription>
               </DialogHeader>
+
+              {detailsLoading ? (
+                <div className="flex min-h-[240px] items-center justify-center">
+                  <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card/80 px-5 py-3 text-sm text-muted-foreground shadow-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando detalhes financeiros da compra...
+                  </div>
+                </div>
+              ) : (
+                <>
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card className="border-border/70">
@@ -1138,6 +1347,8 @@ const PurchasesModule = () => {
                   )}
                 </CardContent>
               </Card>
+                </>
+              )}
             </>
           )}
         </DialogContent>
