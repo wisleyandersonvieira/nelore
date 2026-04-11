@@ -46,6 +46,7 @@ import {
 } from "@/lib/purchases";
 
 interface PurchaseInstallmentRow extends SaleInstallmentDraft {
+  displayInstallmentNumber: number;
   payableDescription: string | null;
   payableId: string;
 }
@@ -337,22 +338,29 @@ const PurchasesModule = () => {
 
       const payableIds = Array.from(new Set(payablesData.map((payable) => payable.id).filter(Boolean)));
 
-      const installmentsRes =
-        payableIds.length > 0
-          ? await supabase
-              .from("accounts_payable_installments")
-              .select("account_payable_id, installment_number, due_date, amount, payment_date")
-              .in("account_payable_id", payableIds)
-              .order("installment_number", { ascending: true })
-          : { data: [], error: null };
-
-      if (installmentsRes.error) throw installmentsRes.error;
-
       const installmentsMap = new Map<string, PurchaseInstallmentRow[]>();
-      (installmentsRes.data || []).forEach((installment) => {
+      const installmentsData =
+        payableIds.length > 0
+          ? await fetchAllPaginated<{
+              account_payable_id: string;
+              installment_number: number;
+              due_date: string;
+              amount: number;
+              payment_date: string | null;
+            }>(() =>
+              supabase
+                .from("accounts_payable_installments")
+                .select("account_payable_id, installment_number, due_date, amount, payment_date")
+                .in("account_payable_id", payableIds)
+                .order("installment_number", { ascending: true }),
+            )
+          : [];
+
+      installmentsData.forEach((installment) => {
         const current = installmentsMap.get(installment.account_payable_id) || [];
         const payable = payablesData.find((entry) => entry.id === installment.account_payable_id);
         current.push({
+          displayInstallmentNumber: installment.installment_number,
           installment_number: installment.installment_number,
           due_date: installment.due_date,
           amount: Number(installment.amount || 0),
@@ -379,13 +387,34 @@ const PurchasesModule = () => {
           purchaseLinkOrigin: payable.purchase_link_origin,
         }));
         const installments = linkedPayables
-          .flatMap((payable) => installmentsMap.get(payable.id) || [])
+          .flatMap((payable) => {
+            const payableInstallments = installmentsMap.get(payable.id) || [];
+            if (payableInstallments.length > 0) {
+              return payableInstallments;
+            }
+
+            return [
+              {
+                displayInstallmentNumber: 1,
+                installment_number: 1,
+                due_date: payable.dueDate,
+                amount: payable.totalAmount,
+                payment_date: payable.paymentDate,
+                payableDescription: payable.description,
+                payableId: payable.id,
+              } satisfies PurchaseInstallmentRow,
+            ];
+          })
           .sort((left, right) => {
             if (left.due_date === right.due_date) {
               return left.installment_number - right.installment_number;
             }
             return left.due_date.localeCompare(right.due_date);
-          });
+          })
+          .map((installment, index) => ({
+            ...installment,
+            displayInstallmentNumber: index + 1,
+          }));
         const totalAmount = Number(purchase.total_amount || 0);
         const fallbackPaidAmount = linkedPayables.reduce((sum, payable) => {
           const payableInstallments = installmentsMap.get(payable.id) || [];
@@ -413,7 +442,14 @@ const PurchasesModule = () => {
           itemCode: purchase.item_code,
           itemName: purchase.item_name,
           totalAmount,
-          installmentCount: Number(purchase.installment_count || installments.length || 1),
+          installmentCount: Math.max(
+            linkedPayables.reduce((sum, payable) => {
+              const payableInstallments = installmentsMap.get(payable.id) || [];
+              return sum + Math.max(payableInstallments.length, 1);
+            }, 0),
+            Number(purchase.installment_count || 0),
+            1,
+          ),
           notes: purchase.notes,
           pregnancyId: purchase.pregnancy_id,
           documentType: purchase.document_type,
@@ -793,7 +829,7 @@ const PurchasesModule = () => {
       />
 
       <Dialog open={Boolean(selectedPurchase)} onOpenChange={(open) => !open && setSelectedPurchase(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-[67.2rem] overflow-y-auto">
           {selectedPurchase && (
             <>
               <DialogHeader>
@@ -1039,7 +1075,9 @@ const PurchasesModule = () => {
                             <TableRow
                               key={`${selectedPurchase.id}-${installment.payableId}-${installment.installment_number}`}
                             >
-                              <TableCell className="font-medium">{installment.installment_number}</TableCell>
+                              <TableCell className="font-medium">
+                                {installment.displayInstallmentNumber}
+                              </TableCell>
                               <TableCell>{formatDateBR(installment.due_date)}</TableCell>
                               <TableCell className="text-right">
                                 {formatCurrencyBRL(installment.amount)}
