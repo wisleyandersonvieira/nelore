@@ -282,6 +282,11 @@ const computeStatus = (
   };
 };
 
+const getPaidProgress = (purchase: Pick<PurchaseRow, "paidAmount" | "totalAmount">) => {
+  if (!purchase.totalAmount || purchase.totalAmount <= 0) return 0;
+  return Math.min(100, Math.max(0, Number(((purchase.paidAmount / purchase.totalAmount) * 100).toFixed(1))));
+};
+
 const PAGE_SIZE = 10;
 
 const PurchasesModule = () => {
@@ -358,6 +363,38 @@ const PurchasesModule = () => {
       });
 
       const payableIds = Array.from(new Set(payablesData.map((payable) => payable.id).filter(Boolean)));
+      const installmentsData =
+        payableIds.length > 0
+          ? await fetchAllPaginated<{
+              account_payable_id: string;
+              installment_number: number;
+              due_date: string;
+              amount: number;
+              payment_date: string | null;
+            }>(() =>
+              supabase
+                .from("accounts_payable_installments")
+                .select("account_payable_id, installment_number, due_date, amount, payment_date")
+                .in("account_payable_id", payableIds)
+                .order("installment_number", { ascending: true }),
+            )
+          : [];
+
+      const installmentsMap = new Map<string, PurchaseInstallmentRow[]>();
+      installmentsData.forEach((installment) => {
+        const current = installmentsMap.get(installment.account_payable_id) || [];
+        const payable = payablesData.find((entry) => entry.id === installment.account_payable_id);
+        current.push({
+          displayInstallmentNumber: installment.installment_number,
+          installment_number: installment.installment_number,
+          due_date: installment.due_date,
+          amount: Number(installment.amount || 0),
+          payment_date: installment.payment_date,
+          payableDescription: payable?.description || null,
+          payableId: installment.account_payable_id,
+        });
+        installmentsMap.set(installment.account_payable_id, current);
+      });
 
       const rows = purchasesData.map((purchase) => {
         const linkedPayables = (payableByPurchaseId.get(purchase.id) || []).map((payable) => ({
@@ -374,15 +411,46 @@ const PurchasesModule = () => {
           status: payable.status,
           purchaseLinkOrigin: payable.purchase_link_origin,
         }));
+        const installments = linkedPayables
+          .flatMap((payable) => {
+            const payableInstallments = installmentsMap.get(payable.id) || [];
+            if (payableInstallments.length > 0) {
+              return payableInstallments;
+            }
+
+            return [
+              {
+                displayInstallmentNumber: 1,
+                installment_number: 1,
+                due_date: payable.dueDate,
+                amount: payable.totalAmount,
+                payment_date: payable.paymentDate,
+                payableDescription: payable.description,
+                payableId: payable.id,
+              } satisfies PurchaseInstallmentRow,
+            ];
+          })
+          .sort((left, right) => {
+            if (left.due_date === right.due_date) {
+              return left.installment_number - right.installment_number;
+            }
+            return left.due_date.localeCompare(right.due_date);
+          })
+          .map((installment, index) => ({
+            ...installment,
+            displayInstallmentNumber: index + 1,
+          }));
         const totalAmount = Number(purchase.total_amount || 0);
-        const allPaid = linkedPayables.length > 0 && linkedPayables.every((payable) => payable.status === "paid");
-        const hasPaymentSignal = linkedPayables.some(
-          (payable) => payable.paymentDate || payable.status === "partial" || payable.status === "paid",
-        );
-        const fallbackPaidAmount = allPaid ? totalAmount : 0;
+        const fallbackPaidAmount = linkedPayables.reduce((sum, payable) => {
+          const payableInstallments = installmentsMap.get(payable.id) || [];
+          if (payableInstallments.length > 0) {
+            return sum;
+          }
+          return sum + (payable.paymentDate || payable.status === "paid" ? payable.totalAmount : 0);
+        }, 0);
         const { status, paidAmount, pendingAmount } = computeStatus(
           totalAmount,
-          [],
+          installments,
           fallbackPaidAmount,
         );
 
@@ -399,7 +467,14 @@ const PurchasesModule = () => {
           itemCode: purchase.item_code,
           itemName: purchase.item_name,
           totalAmount,
-          installmentCount: Math.max(Number(purchase.installment_count || 0), linkedPayables.length, 1),
+          installmentCount: Math.max(
+            linkedPayables.reduce((sum, payable) => {
+              const payableInstallments = installmentsMap.get(payable.id) || [];
+              return sum + Math.max(payableInstallments.length, 1);
+            }, 0),
+            Number(purchase.installment_count || 0),
+            1,
+          ),
           notes: purchase.notes,
           pregnancyId: purchase.pregnancy_id,
           documentType: purchase.document_type,
@@ -414,18 +489,8 @@ const PurchasesModule = () => {
           storeName: storeMap.get(purchase.store_id) || "Fazenda não encontrada",
           linkedPayables,
           paidAmount,
-          pendingAmount:
-            status === "paid"
-              ? 0
-              : status === "partial" || hasPaymentSignal
-                ? totalAmount
-                : pendingAmount,
-          status:
-            allPaid
-              ? "paid"
-              : linkedPayables.some((payable) => payable.status === "partial") || hasPaymentSignal
-                ? "partial"
-                : "pending",
+          pendingAmount,
+          status,
           installments: [],
         } satisfies PurchaseRow;
       });
@@ -970,8 +1035,46 @@ const PurchasesModule = () => {
                           <p className="text-xs text-muted-foreground">{purchase.storeName}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{formatCurrencyBRL(purchase.totalAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrencyBRL(purchase.pendingAmount)}</TableCell>
+                      <TableCell className="min-w-[170px] text-right">
+                        <div className="space-y-2">
+                          <p>{formatCurrencyBRL(purchase.totalAmount)}</p>
+                          <div className="space-y-1">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-indigo-100">
+                              <div
+                                className="h-full rounded-full bg-indigo-500 transition-all"
+                                style={{ width: `${getPaidProgress(purchase)}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              {getPaidProgress(purchase).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 1,
+                              })}
+                              % pago
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[170px] text-right">
+                        <div className="space-y-2">
+                          <p>{formatCurrencyBRL(purchase.pendingAmount)}</p>
+                          <div className="space-y-1">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-amber-100">
+                              <div
+                                className="h-full rounded-full bg-amber-500 transition-all"
+                                style={{ width: `${Math.max(0, 100 - getPaidProgress(purchase))}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              {Math.max(0, 100 - getPaidProgress(purchase)).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 1,
+                              })}
+                              % em aberto
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusMeta[purchase.status].className}>
                           {statusMeta[purchase.status].label}
