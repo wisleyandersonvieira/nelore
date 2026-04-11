@@ -208,6 +208,11 @@ const computeStatus = (totalAmount: number, installments: SaleInstallmentDraft[]
   };
 };
 
+const getReceivedProgress = (sale: Pick<SaleRow, "receivedAmount" | "totalAmount">) => {
+  if (!sale.totalAmount || sale.totalAmount <= 0) return 0;
+  return Math.min(100, Math.max(0, Number(((sale.receivedAmount / sale.totalAmount) * 100).toFixed(1))));
+};
+
 const SalesModule = () => {
   const { canView, canEdit, loading: permissionsLoading } = useFinanceiroPermissions();
   const [loading, setLoading] = useState(true);
@@ -276,19 +281,25 @@ const SalesModule = () => {
         new Set(receivablesData.map((receivable) => receivable.id).filter(Boolean)),
       );
 
-      const installmentsRes =
-        receivableIds.length > 0
-          ? await supabase
-              .from("accounts_receivable_installments")
-              .select("account_receivable_id, installment_number, due_date, amount, payment_date")
-              .in("account_receivable_id", receivableIds)
-              .order("installment_number", { ascending: true })
-          : { data: [], error: null };
-
-      if (installmentsRes.error) throw installmentsRes.error;
-
       const installmentsMap = new Map<string, SaleInstallmentDraft[]>();
-      (installmentsRes.data || []).forEach((installment) => {
+      const installmentsData =
+        receivableIds.length > 0
+          ? await fetchAllPaginated<{
+              account_receivable_id: string;
+              installment_number: number;
+              due_date: string;
+              amount: number;
+              payment_date: string | null;
+            }>(() =>
+              supabase
+                .from("accounts_receivable_installments")
+                .select("account_receivable_id, installment_number, due_date, amount, payment_date")
+                .in("account_receivable_id", receivableIds)
+                .order("installment_number", { ascending: true }),
+            )
+          : [];
+
+      installmentsData.forEach((installment) => {
         const current = installmentsMap.get(installment.account_receivable_id) || [];
         current.push({
           installment_number: installment.installment_number,
@@ -637,10 +648,48 @@ const SalesModule = () => {
                           <p className="text-xs text-muted-foreground">{sale.storeName}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{formatCurrencyBRL(sale.totalAmount)}</TableCell>
+                      <TableCell className="min-w-[170px] text-right">
+                        <div className="space-y-2">
+                          <p>{formatCurrencyBRL(sale.totalAmount)}</p>
+                          <div className="space-y-1">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-emerald-100">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-all"
+                                style={{ width: `${getReceivedProgress(sale)}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              {getReceivedProgress(sale).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 1,
+                              })}
+                              % recebido
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">{sale.installmentCount}</TableCell>
                       <TableCell className="text-right">{formatCurrencyBRL(sale.receivedAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrencyBRL(sale.pendingAmount)}</TableCell>
+                      <TableCell className="min-w-[170px] text-right">
+                        <div className="space-y-2">
+                          <p>{formatCurrencyBRL(sale.pendingAmount)}</p>
+                          <div className="space-y-1">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-amber-100">
+                              <div
+                                className="h-full rounded-full bg-amber-500 transition-all"
+                                style={{ width: `${Math.max(0, 100 - getReceivedProgress(sale))}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              {Math.max(0, 100 - getReceivedProgress(sale)).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 1,
+                              })}
+                              % em aberto
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusMeta[sale.status].className}>
                           {statusMeta[sale.status].label}
