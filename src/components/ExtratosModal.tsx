@@ -15,6 +15,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { Progress } from "@/components/ui/progress";
+import { fetchAllPaginated } from "@/utils/supabasePagination";
 
 interface Store {
   id: string;
@@ -304,101 +305,160 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       if (linkedStoreIds.length === 0) {
         linkedStoreIds = [selectedStore];
       }
+
+      const movementStartDateStr = initialBalanceDate || undefined;
       
       // Transferências - busca todas as transferências da conta (sem filtro de loja)
-      const transfersPromise = supabase
-        .from('transfers')
-        .select('*')
-        .or(`source_account_id.eq.${selectedAccount},destination_account_id.eq.${selectedAccount}`)
-        .order('transfer_date');
+      const transfersPromise = fetchAllPaginated(() => {
+        let query = supabase
+          .from('transfers')
+          .select('*')
+          .or(`source_account_id.eq.${selectedAccount},destination_account_id.eq.${selectedAccount}`)
+          .lte('transfer_date', endDateStr)
+          .order('transfer_date', { ascending: true })
+          .order('id', { ascending: true });
+
+        if (movementStartDateStr) {
+          query = query.gte('transfer_date', movementStartDateStr);
+        }
+
+        return query;
+      });
 
       // Financial transactions - busca todas as transações da conta em TODAS as lojas vinculadas
-      const financialTransPromise = supabase
-        .from('financial_transactions')
-        .select('id, amount, transaction_date, description, reference_id, reference_type, transaction_type')
-        .in('store_id', linkedStoreIds)
-        .eq('account_id', selectedAccount);
+      const financialTransPromise = fetchAllPaginated(() => {
+        let query = supabase
+          .from('financial_transactions')
+          .select('id, amount, transaction_date, description, reference_id, reference_type, transaction_type')
+          .in('store_id', linkedStoreIds)
+          .eq('account_id', selectedAccount)
+          .lte('transaction_date', endDateStr)
+          .order('transaction_date', { ascending: true })
+          .order('id', { ascending: true });
+
+        if (movementStartDateStr) {
+          query = query.gte('transaction_date', movementStartDateStr);
+        }
+
+        return query;
+      });
 
       // Cash control items baseado no tipo de conta - busca com o cash_control para obter a data diretamente
-      let cashControlItemPromise;
+      let cashControlItemPromise: Promise<any[]>;
       if (account.type === 'cash') {
-        cashControlItemPromise = supabase
-          .from('cash_control_cash_items')
-          .select('valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
-          .eq('cash_account_id', selectedAccount);
+        cashControlItemPromise = fetchAllPaginated(() =>
+          supabase
+            .from('cash_control_cash_items')
+            .select('id, valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
+            .eq('cash_account_id', selectedAccount)
+            .order('id', { ascending: true })
+        );
       } else if (account.type === 'card') {
-        cashControlItemPromise = supabase
-          .from('cash_control_card_items')
-          .select('valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
-          .eq('card_account_id', selectedAccount);
+        cashControlItemPromise = fetchAllPaginated(() =>
+          supabase
+            .from('cash_control_card_items')
+            .select('id, valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
+            .eq('card_account_id', selectedAccount)
+            .order('id', { ascending: true })
+        );
       } else if (account.type === 'delivery') {
-        cashControlItemPromise = supabase
-          .from('cash_control_delivery_items')
-          .select('valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
-          .eq('delivery_account_id', selectedAccount);
+        cashControlItemPromise = fetchAllPaginated(() =>
+          supabase
+            .from('cash_control_delivery_items')
+            .select('id, valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
+            .eq('delivery_account_id', selectedAccount)
+            .order('id', { ascending: true })
+        );
       } else if (account.type === 'current') {
-        cashControlItemPromise = supabase
-          .from('cash_control_account_items')
-          .select('valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
-          .eq('current_account_id', selectedAccount);
+        cashControlItemPromise = fetchAllPaginated(() =>
+          supabase
+            .from('cash_control_account_items')
+            .select('id, valor, cash_control_id, cash_control:cash_control_id(id, date, store_id)')
+            .eq('current_account_id', selectedAccount)
+            .order('id', { ascending: true })
+        );
       } else {
-        cashControlItemPromise = Promise.resolve({ data: [] });
+        cashControlItemPromise = Promise.resolve([]);
       }
 
-      // Cash controls não é mais necessário buscar separadamente - já vem no join acima
-      const cashControlsPromise = Promise.resolve({ data: [] });
-
       // Partner transactions - busca de TODAS as lojas vinculadas à conta
-      const partnerTransPromise = supabase
-        .from('partner_transactions')
-        .select('id, amount, payment_date, transaction_type, notes, partners:partner_id(name)')
-        .in('store_id', linkedStoreIds)
-        .eq('account_id', selectedAccount);
+      const partnerTransPromise = fetchAllPaginated(() => {
+        let query = supabase
+          .from('partner_transactions')
+          .select('id, amount, payment_date, transaction_type, notes, partners:partner_id(name)')
+          .in('store_id', linkedStoreIds)
+          .eq('account_id', selectedAccount)
+          .lte('payment_date', endDateStr)
+          .order('payment_date', { ascending: true })
+          .order('id', { ascending: true });
+
+        if (movementStartDateStr) {
+          query = query.gte('payment_date', movementStartDateStr);
+        }
+
+        return query;
+      });
 
       // Dados de referência para validação - busca de TODAS as lojas vinculadas
-      const payableInstallmentsPromise = supabase
-        .from('accounts_payable_installments')
-        .select('id, installment_number, payment_date, account_payable_id');
+      const payableInstallmentsPromise = fetchAllPaginated(() =>
+        supabase
+          .from('accounts_payable_installments')
+          .select('id, installment_number, payment_date, account_payable_id')
+          .order('id', { ascending: true })
+      );
 
-      const payablesPromise = supabase
-        .from('accounts_payable')
-        .select('id, document_number, description, payment_date, status, employee_id, supplier_id, store_id')
-        .in('store_id', linkedStoreIds);
+      const payablesPromise = fetchAllPaginated(() =>
+        supabase
+          .from('accounts_payable')
+          .select('id, document_number, description, payment_date, status, employee_id, supplier_id, store_id')
+          .in('store_id', linkedStoreIds)
+          .order('id', { ascending: true })
+      );
 
-      const receivableInstallmentsPromise = supabase
-        .from('accounts_receivable_installments')
-        .select('id, installment_number, payment_date, account_receivable_id');
+      const receivableInstallmentsPromise = fetchAllPaginated(() =>
+        supabase
+          .from('accounts_receivable_installments')
+          .select('id, installment_number, payment_date, account_receivable_id')
+          .order('id', { ascending: true })
+      );
 
-      const receivablesPromise = supabase
-        .from('accounts_receivable')
-        .select('id, document_number, description, payment_date, status, creditor_id, store_id')
-        .in('store_id', linkedStoreIds);
+      const receivablesPromise = fetchAllPaginated(() =>
+        supabase
+          .from('accounts_receivable')
+          .select('id, document_number, description, payment_date, status, creditor_id, store_id')
+          .in('store_id', linkedStoreIds)
+          .order('id', { ascending: true })
+      );
 
       // Fornecedores, credores e funcionários
-      const suppliersPromise = supabase.from('suppliers').select('id, name');
-      const creditorsPromise = supabase.from('creditors').select('id, name');
-      const employeesPromise = supabase.from('employees').select('id, name');
+      const suppliersPromise = fetchAllPaginated(() =>
+        supabase.from('suppliers').select('id, name').order('id', { ascending: true })
+      );
+      const creditorsPromise = fetchAllPaginated(() =>
+        supabase.from('creditors').select('id, name').order('id', { ascending: true })
+      );
+      const employeesPromise = fetchAllPaginated(() =>
+        supabase.from('employees').select('id, name').order('id', { ascending: true })
+      );
 
       setLoadingProgress(20);
 
       const [
-        transfersResult,
-        financialTransResult,
-        cashControlItemsResult,
-        cashControlsResult,
-        partnerTransResult,
-        payableInstallmentsResult,
-        payablesResult,
-        receivableInstallmentsResult,
-        receivablesResult,
-        suppliersResult,
-        creditorsResult,
-        employeesResult
+        transfersData,
+        financialTransactionsData,
+        cashControlItemsData,
+        partnerTransactionsData,
+        payableInstallmentsData,
+        payablesData,
+        receivableInstallmentsData,
+        receivablesData,
+        suppliersData,
+        creditorsData,
+        employeesData
       ] = await Promise.all([
         transfersPromise,
         financialTransPromise,
         cashControlItemPromise,
-        cashControlsPromise,
         partnerTransPromise,
         payableInstallmentsPromise,
         payablesPromise,
@@ -413,52 +473,52 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
 
 
       // ========== ETAPA 2: Criar mapas de lookup para processamento rápido ==========
-      // Nota: cashControlMap não é mais necessário pois a data vem no join do cashControlItemsResult
+      // Nota: cashControlMap não é mais necessário pois a data vem no join do cashControlItemsData
 
       const payableInstallmentsMap = new Map<string, any>();
-      (payableInstallmentsResult.data || []).forEach((inst: any) => {
+      payableInstallmentsData.forEach((inst: any) => {
         payableInstallmentsMap.set(inst.id, inst);
       });
 
       const payablesMap = new Map<string, any>();
-      (payablesResult.data || []).forEach((p: any) => {
+      payablesData.forEach((p: any) => {
         payablesMap.set(p.id, p);
       });
 
       const receivableInstallmentsMap = new Map<string, any>();
-      (receivableInstallmentsResult.data || []).forEach((inst: any) => {
+      receivableInstallmentsData.forEach((inst: any) => {
         receivableInstallmentsMap.set(inst.id, inst);
       });
 
       const receivablesMap = new Map<string, any>();
-      (receivablesResult.data || []).forEach((r: any) => {
+      receivablesData.forEach((r: any) => {
         receivablesMap.set(r.id, r);
       });
 
       const suppliersMap = new Map<string, string>();
-      (suppliersResult.data || []).forEach((s: any) => {
+      suppliersData.forEach((s: any) => {
         suppliersMap.set(s.id, s.name);
       });
 
       const creditorsMap = new Map<string, string>();
-      (creditorsResult.data || []).forEach((c: any) => {
+      creditorsData.forEach((c: any) => {
         creditorsMap.set(c.id, c.name);
       });
 
       const employeesMap = new Map<string, string>();
-      (employeesResult.data || []).forEach((e: any) => {
+      employeesData.forEach((e: any) => {
         employeesMap.set(e.id, e.name);
       });
 
       // Calcular total de parcelas por conta a pagar
       const payableInstallmentCounts = new Map<string, number>();
-      (payableInstallmentsResult.data || []).forEach((inst: any) => {
+      payableInstallmentsData.forEach((inst: any) => {
         const current = payableInstallmentCounts.get(inst.account_payable_id) || 0;
         payableInstallmentCounts.set(inst.account_payable_id, Math.max(current, inst.installment_number));
       });
 
       const receivableInstallmentCounts = new Map<string, number>();
-      (receivableInstallmentsResult.data || []).forEach((inst: any) => {
+      receivableInstallmentsData.forEach((inst: any) => {
         const current = receivableInstallmentCounts.get(inst.account_receivable_id) || 0;
         receivableInstallmentCounts.set(inst.account_receivable_id, Math.max(current, inst.installment_number));
       });
@@ -472,7 +532,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         const inicialDateStr = initialBalanceDate;
         
         // Processar transferências anteriores
-        (transfersResult.data || []).forEach((transfer: any) => {
+        transfersData.forEach((transfer: any) => {
           if (transfer.transfer_date >= inicialDateStr && transfer.transfer_date <= dayBeforeStr) {
             if (transfer.source_account_id === selectedAccount) {
               saldoDiaAnterior -= transfer.amount;
@@ -483,7 +543,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         });
 
         // Processar financial transactions anteriores
-        (financialTransResult.data || []).forEach((trans: any) => {
+        financialTransactionsData.forEach((trans: any) => {
           if (trans.transaction_date >= inicialDateStr && trans.transaction_date <= dayBeforeStr) {
             // Validar se a transação ainda é válida
             if (trans.reference_type === 'accounts_payable_installments') {
@@ -511,7 +571,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         });
 
         // Processar cash control items anteriores (data vem do join)
-        (cashControlItemsResult.data || []).forEach((item: any) => {
+        cashControlItemsData.forEach((item: any) => {
           const ccDate = (item.cash_control as any)?.date;
           if (ccDate && ccDate >= inicialDateStr && ccDate <= dayBeforeStr) {
             saldoDiaAnterior += item.valor;
@@ -519,7 +579,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         });
 
         // Processar partner transactions anteriores
-        (partnerTransResult.data || []).forEach((trans: any) => {
+        partnerTransactionsData.forEach((trans: any) => {
           if (trans.payment_date >= inicialDateStr && trans.payment_date <= dayBeforeStr) {
             if (trans.transaction_type === 'aporte') {
               saldoDiaAnterior += Number(trans.amount);
@@ -537,7 +597,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       const items: ExtratoItem[] = [];
 
       // Transferências do período
-      (transfersResult.data || []).forEach((transfer: any) => {
+      transfersData.forEach((transfer: any) => {
         if (transfer.transfer_date >= startDateStr && transfer.transfer_date <= endDateStr) {
           const isSource = transfer.source_account_id === selectedAccount;
           const otherAccountId = isSource ? transfer.destination_account_id : transfer.source_account_id;
@@ -559,7 +619,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       setLoadingProgress(80);
 
       // Financial transactions do período
-      (financialTransResult.data || []).forEach((trans: any) => {
+      financialTransactionsData.forEach((trans: any) => {
         if (trans.transaction_date >= startDateStr && trans.transaction_date <= endDateStr) {
           let isValid = false;
           let documentNumber = '';
@@ -646,7 +706,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
         current: 'Faturamento: Conta - Fechamento de Caixa'
       };
 
-      (cashControlItemsResult.data || []).forEach((item: any) => {
+      cashControlItemsData.forEach((item: any) => {
         const ccDate = (item.cash_control as any)?.date;
         if (ccDate && ccDate >= startDateStr && ccDate <= endDateStr) {
           items.push({
@@ -663,7 +723,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
       });
 
       // Partner transactions do período
-      (partnerTransResult.data || []).forEach((trans: any) => {
+      partnerTransactionsData.forEach((trans: any) => {
         if (trans.payment_date >= startDateStr && trans.payment_date <= endDateStr) {
           const partnerName = (trans.partners as any)?.name || 'Sócio não informado';
           const isAporte = trans.transaction_type === 'aporte';
