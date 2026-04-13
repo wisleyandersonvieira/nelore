@@ -61,6 +61,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import SalesModule from "./pages/SalesModule";
 import PurchasesModule from "./pages/PurchasesModule";
 import PurchaseMigrationModule from "./pages/PurchaseMigrationModule";
+import AccountsPayableBatchPayment from "./pages/AccountsPayableBatchPayment";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,6 +111,7 @@ function App() {
                 <Route path="/reports/accounts-payable" element={<AccountsPayableModule />} />
                 <Route path="/reports/accounts-payable/pending" element={<AccountsPayableReport />} />
                 <Route path="/reports/accounts-payable/paid" element={<PaidAccountsReport />} />
+                <Route path="/financeiro/accounts-payable/batch-payment" element={<AccountsPayableBatchPayment />} />
                 <Route path="/reports/accounts-receivable" element={<AccountsReceivableModule />} />
                 <Route path="/reports/accounts-receivable/pending" element={<AccountsReceivableReport />} />
                 <Route path="/reports/accounts-receivable/received" element={<ReceivedAccountsReport />} />

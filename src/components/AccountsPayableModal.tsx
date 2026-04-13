@@ -1532,6 +1532,33 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
     setLoading(true);
     try {
       if (installmentIds && installmentIds.length > 0) {
+        const { data: batchLinks, error: batchLinksError } = await supabase
+          .from("accounts_payable_payment_batch_items")
+          .select(`
+            installment_id,
+            accounts_payable_payment_batches!inner(
+              batch_number,
+              status
+            )
+          `)
+          .in("installment_id", installmentIds)
+          .eq("accounts_payable_payment_batches.status", "active");
+
+        if (batchLinksError) throw batchLinksError;
+
+        if ((batchLinks || []).length > 0) {
+          const activeBatchNumber = batchLinks?.[0]?.accounts_payable_payment_batches?.batch_number;
+          toast({
+            title: "Estorno bloqueado",
+            description: activeBatchNumber
+              ? `Estas parcelas pertencem ao lote ${String(activeBatchNumber).padStart(6, "0")}. Use o módulo de Baixa em Lote para desfazer essa operação com segurança.`
+              : "Estas parcelas pertencem a um lote de baixa ativo. Use o módulo de Baixa em Lote para desfazer essa operação com segurança.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
         // Reverse specific installments
         for (const installmentId of installmentIds) {
           // Buscar a data de pagamento da parcela antes de estornar

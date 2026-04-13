@@ -464,6 +464,144 @@ export type Database = {
           },
         ]
       }
+      accounts_payable_payment_batches: {
+        Row: {
+          batch_number: number
+          created_at: string
+          created_by: string
+          id: string
+          installments_count: number
+          payment_account_id: string
+          payment_account_name: string
+          payment_account_type: string
+          payment_date: string
+          reversed_at: string | null
+          reversed_by: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          batch_number?: number
+          created_at?: string
+          created_by: string
+          id?: string
+          installments_count?: number
+          payment_account_id: string
+          payment_account_name: string
+          payment_account_type: string
+          payment_date: string
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          installments_count?: number
+          payment_account_id?: string
+          payment_account_name?: string
+          payment_account_type?: string
+          payment_date?: string
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_payment_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batches_reversed_by_fkey"
+            columns: ["reversed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_payable_payment_batch_items: {
+        Row: {
+          account_payable_id: string
+          amount: number
+          batch_id: string
+          created_at: string
+          financial_transaction_id: string | null
+          id: string
+          installment_id: string
+          payment_record_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_payable_id: string
+          amount?: number
+          batch_id: string
+          created_at?: string
+          financial_transaction_id?: string | null
+          id?: string
+          installment_id: string
+          payment_record_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_payable_id?: string
+          amount?: number
+          batch_id?: string
+          created_at?: string
+          financial_transaction_id?: string | null
+          id?: string
+          installment_id?: string
+          payment_record_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_payment_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_financial_transaction_id_fkey"
+            columns: ["financial_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_payment_record_id_fkey"
+            columns: ["payment_record_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_receivable: {
         Row: {
           account_id: string | null
@@ -5766,6 +5904,20 @@ export type Database = {
     }
     Functions: {
       can_access_task: { Args: { p_task_id: string }; Returns: boolean }
+      create_accounts_payable_payment_batch: {
+        Args: {
+          p_installment_ids: string[]
+          p_payment_account_id: string
+          p_payment_account_type: string
+          p_payment_date: string
+        }
+        Returns: {
+          batch_id: string
+          batch_number: number
+          installments_count: number
+          total_amount: number
+        }[]
+      }
       create_purchase_with_payable: {
         Args: {
           p_competence_date: string
@@ -5898,6 +6050,14 @@ export type Database = {
       is_master_user: { Args: never; Returns: boolean }
       is_matriz_profile_user: { Args: never; Returns: boolean }
       is_matriz_user: { Args: never; Returns: boolean }
+      reverse_accounts_payable_payment_batch: {
+        Args: { p_batch_id: string }
+        Returns: {
+          batch_id: string
+          batch_number: number
+          reversed_count: number
+        }[]
+      }
       store_in_user_matrix: {
         Args: { target_store_id: string }
         Returns: boolean
