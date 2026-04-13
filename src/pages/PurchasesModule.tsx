@@ -6,6 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -38,12 +48,15 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   PURCHASE_TYPE_LABELS,
   PURCHASE_TYPE_OPTIONS,
   PurchaseOriginType,
   PurchaseType,
+  deletePurchaseWithPayable,
 } from "@/lib/purchases";
 
 interface PurchaseInstallmentRow extends SaleInstallmentDraft {
@@ -296,6 +309,8 @@ const PurchasesModule = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [installmentsPage, setInstallmentsPage] = useState(1);
   const [listPage, setListPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -523,6 +538,7 @@ const PurchasesModule = () => {
 
   const loadPurchaseDetails = async (purchase: PurchaseRow) => {
     setDetailsLoading(true);
+    setDeleteDialogOpen(false);
     setSelectedPurchase(purchase);
 
     try {
@@ -725,6 +741,38 @@ const PurchasesModule = () => {
 
   const chartData = useMemo(() => buildChartData(purchases), [purchases]);
 
+  const canDeleteSelectedPurchase = useMemo(() => {
+    if (!selectedPurchase || !canEdit || detailsLoading || deleting) return false;
+
+    const payablesArePending = selectedPurchase.linkedPayables.every(
+      (payable) => payable.status === "pending" && !payable.paymentDate,
+    );
+    const installmentsArePending = selectedPurchase.installments.every(
+      (installment) => !installment.payment_date,
+    );
+
+    return selectedPurchase.status === "pending" && payablesArePending && installmentsArePending;
+  }, [canEdit, deleting, detailsLoading, selectedPurchase]);
+
+  const deletePurchaseBlockedReason = useMemo(() => {
+    if (!selectedPurchase || !canEdit) return null;
+    if (detailsLoading) return "Aguarde o carregamento completo dos detalhes para validar a exclusão.";
+    if (selectedPurchase.status !== "pending") {
+      return "Somente compras com status pendente podem ser excluídas.";
+    }
+    if (
+      selectedPurchase.linkedPayables.some(
+        (payable) => payable.status !== "pending" || Boolean(payable.paymentDate),
+      )
+    ) {
+      return "A compra possui título com pagamento realizado ou com status diferente de pendente.";
+    }
+    if (selectedPurchase.installments.some((installment) => installment.payment_date)) {
+      return "A compra possui parcela paga e não pode ser excluída.";
+    }
+    return null;
+  }, [canEdit, detailsLoading, selectedPurchase]);
+
   const selectedPurchaseLastDueDate = useMemo(() => {
     if (!selectedPurchase) return null;
     if (selectedPurchase.installments.length === 0) {
@@ -820,6 +868,31 @@ const PurchasesModule = () => {
       />
     </button>
   );
+
+  const handleDeletePurchase = async () => {
+    if (!selectedPurchase) return;
+
+    setDeleting(true);
+    try {
+      const result = await deletePurchaseWithPayable(selectedPurchase.id);
+
+      toast.success(
+        result?.deleted_payables
+          ? `Compra #${result.purchase_code} excluída com ${result.deleted_payables} título(s) no contas a pagar.`
+          : `Compra #${selectedPurchase.code} excluída com sucesso.`,
+      );
+
+      setDeleteDialogOpen(false);
+      setSelectedPurchase(null);
+      await loadPurchases();
+    } catch (error: unknown) {
+      console.error("Erro ao excluir compra:", error);
+      const message = error instanceof Error ? error.message : "Não foi possível excluir a compra.";
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (permissionsLoading || loading) {
     return (
@@ -1130,16 +1203,45 @@ const PurchasesModule = () => {
         }}
       />
 
-      <Dialog open={Boolean(selectedPurchase)} onOpenChange={(open) => !open && setSelectedPurchase(null)}>
+      <Dialog
+        open={Boolean(selectedPurchase)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogOpen(false);
+            setSelectedPurchase(null);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] max-w-[67.2rem] overflow-y-auto">
           {selectedPurchase && (
             <>
-              <DialogHeader>
-                <DialogTitle>Compra #{selectedPurchase.code}</DialogTitle>
-                <DialogDescription>
-                  Rastreabilidade completa entre a aquisição e os títulos vinculados no financeiro.
-                </DialogDescription>
-              </DialogHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <DialogHeader>
+                  <DialogTitle>Compra #{selectedPurchase.code}</DialogTitle>
+                  <DialogDescription>
+                    Rastreabilidade completa entre a aquisição e os títulos vinculados no financeiro.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {canEdit && (
+                  <div className="flex flex-col gap-2 sm:items-end">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                      disabled={!canDeleteSelectedPurchase}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Excluir compra
+                    </Button>
+                    {deletePurchaseBlockedReason && (
+                      <p className="max-w-xs text-xs text-muted-foreground sm:text-right">
+                        {deletePurchaseBlockedReason}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {detailsLoading ? (
                 <div className="flex min-h-[240px] items-center justify-center">
@@ -1456,6 +1558,39 @@ const PurchasesModule = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedPurchase
+                ? `Tem certeza que deseja excluir a compra #${selectedPurchase.code}? Esta ação também removerá o registro vinculado no Contas a Pagar.`
+                : "Tem certeza que deseja excluir esta compra?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeletePurchase();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir compra"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

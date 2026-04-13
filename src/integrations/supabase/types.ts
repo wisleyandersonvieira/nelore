@@ -5942,6 +5942,16 @@ export type Database = {
           purchase_id: string
         }[]
       }
+      delete_purchase_with_payable: {
+        Args: {
+          p_purchase_id: string
+        }
+        Returns: {
+          deleted_payables: number
+          purchase_code: number
+          purchase_id: string
+        }[]
+      }
       migrate_accounts_payable_to_purchase: {
         Args: {
           p_account_payable_ids: string[]

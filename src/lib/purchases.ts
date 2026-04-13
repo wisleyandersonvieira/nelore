@@ -88,3 +88,15 @@ export const migrateAccountsPayableToPurchase = async (input: {
 
   return data?.[0] || null;
 };
+
+export const deletePurchaseWithPayable = async (purchaseId: string) => {
+  const { data, error } = await supabase.rpc("delete_purchase_with_payable", {
+    p_purchase_id: purchaseId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.[0] || null;
+};
