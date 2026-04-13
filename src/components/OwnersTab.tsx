@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -19,16 +20,26 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Edit, Trash2, Users, Check, X } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { Loader2, Plus, Edit, Search, Trash2, Users, Check, X } from "lucide-react";
+
+type OwnerType = "supplier" | "store" | "third_party_farm";
 
 interface Owner {
   id: string;
   owner_id: string | null;
   store_owner_id: string | null;
-  owner_type: "supplier" | "store";
+  third_party_farm_id: string | null;
+  owner_type: OwnerType;
   owner_name: string;
+  owner_trade_name: string | null;
   percentage: number;
+}
+
+interface SupplierOption {
+  id: string;
+  name: string;
+  trade_name: string | null;
 }
 
 interface OwnersTabProps {
@@ -37,15 +48,41 @@ interface OwnersTabProps {
   isReadOnly?: boolean;
 }
 
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const getOwnerType = (ownerType?: string | null): OwnerType => {
+  if (ownerType === "store") return "store";
+  if (ownerType === "third_party_farm") return "third_party_farm";
+  return "supplier";
+};
+
+const getOwnerTypeLabel = (ownerType: OwnerType) => {
+  if (ownerType === "store") return "Fazenda Própria";
+  if (ownerType === "third_party_farm") return "Fazenda Terceira";
+  return "Proprietário";
+};
+
+const formatSupplierLabel = (supplier?: SupplierOption | null) => {
+  if (!supplier) return "";
+  return supplier.trade_name ? `${supplier.name} - ${supplier.trade_name}` : supplier.name;
+};
+
 export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTabProps) {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(false);
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [userStores, setUserStores] = useState<{ id: string; name: string }[]>([]);
+  const [thirdPartyFarms, setThirdPartyFarms] = useState<{ id: string; name: string }[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
-  const [selectedOwnerType, setSelectedOwnerType] = useState<"supplier" | "store">("supplier");
+  const [selectedOwnerType, setSelectedOwnerType] = useState<OwnerType>("supplier");
+  const [ownerSearchTerm, setOwnerSearchTerm] = useState("");
+  const [ownerPopoverOpen, setOwnerPopoverOpen] = useState(false);
   const [percentage, setPercentage] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -61,6 +98,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
   useEffect(() => {
     fetchSuppliers();
     fetchUserStores();
+    fetchThirdPartyFarms();
   }, []);
 
   useEffect(() => {
@@ -83,7 +121,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
       if (!profile?.matrix_id) return;
       const { data } = await supabase
         .from("suppliers")
-        .select("id, name")
+        .select("id, name, trade_name")
         .eq("matrix_id", profile.matrix_id)
         .eq("is_active", true)
         .eq("is_owner", true)
@@ -114,15 +152,29 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
     }
   };
 
+  const fetchThirdPartyFarms = async () => {
+    try {
+      const { data } = await supabase
+        .from("third_party_farms")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+
+      setThirdPartyFarms(data || []);
+    } catch (error) {
+      console.error("Error fetching third-party farms:", error);
+    }
+  };
+
   const queryOwners = async (id: string) => {
     if (entityType === "animal") {
-      return supabase.from("animal_owners").select("id, owner_id, store_owner_id, owner_type, percentage").eq("animal_id", id).order("created_at", { ascending: true });
+      return supabase.from("animal_owners").select("id, owner_id, store_owner_id, third_party_farm_id, owner_type, percentage").eq("animal_id", id).order("created_at", { ascending: true });
     } else if (entityType === "pregnancy") {
-      return supabase.from("pregnancy_owners").select("id, owner_id, store_owner_id, owner_type, percentage").eq("pregnancy_id", id).order("created_at", { ascending: true });
+      return supabase.from("pregnancy_owners").select("id, owner_id, store_owner_id, third_party_farm_id, owner_type, percentage").eq("pregnancy_id", id).order("created_at", { ascending: true });
     } else if (entityType === "embryo_transfer") {
-      return supabase.from("embryo_transfer_owners").select("id, owner_id, store_owner_id, owner_type, percentage").eq("embryo_transfer_id", id).order("created_at", { ascending: true });
+      return supabase.from("embryo_transfer_owners").select("id, owner_id, store_owner_id, third_party_farm_id, owner_type, percentage").eq("embryo_transfer_id", id).order("created_at", { ascending: true });
     } else {
-      return supabase.from("aspiration_owners").select("id, owner_id, store_owner_id, owner_type, percentage").eq("aspiration_id", id).order("created_at", { ascending: true });
+      return supabase.from("aspiration_owners").select("id, owner_id, store_owner_id, third_party_farm_id, owner_type, percentage").eq("aspiration_id", id).order("created_at", { ascending: true });
     }
   };
 
@@ -156,8 +208,9 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
 
       const ownersWithNames: Owner[] = [];
       for (const row of data || []) {
-        const ownerType = (row as any).owner_type || "supplier";
+        const ownerType = getOwnerType((row as any).owner_type);
         let ownerName = "Não encontrado";
+        let ownerTradeName: string | null = null;
 
         if (ownerType === "store" && (row as any).store_owner_id) {
           const { data: store } = await supabase
@@ -165,22 +218,32 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
             .select("name")
             .eq("id", (row as any).store_owner_id)
             .single();
-          ownerName = store?.name ? `🏠 ${store.name}` : "Fazenda não encontrada";
+          ownerName = store?.name || "Fazenda não encontrada";
+        } else if (ownerType === "third_party_farm" && (row as any).third_party_farm_id) {
+          const { data: farm } = await supabase
+            .from("third_party_farms")
+            .select("name")
+            .eq("id", (row as any).third_party_farm_id)
+            .single();
+          ownerName = farm?.name || "Fazenda não encontrada";
         } else if (row.owner_id) {
           const { data: supplier } = await supabase
             .from("suppliers")
-            .select("name")
+            .select("name, trade_name")
             .eq("id", row.owner_id)
             .single();
           ownerName = supplier?.name || "Não encontrado";
+          ownerTradeName = supplier?.trade_name || null;
         }
 
         ownersWithNames.push({
           id: row.id,
           owner_id: row.owner_id,
           store_owner_id: (row as any).store_owner_id,
+          third_party_farm_id: (row as any).third_party_farm_id || null,
           owner_type: ownerType,
           owner_name: ownerName,
+          owner_trade_name: ownerTradeName,
           percentage: Number(row.percentage),
         });
       }
@@ -192,9 +255,10 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
     }
   };
 
-  const getEffectiveId = () => {
-    if (selectedOwnerType === "store") return selectedOwnerId;
-    return selectedOwnerId;
+  const resetSelectionState = () => {
+    setSelectedOwnerId("");
+    setOwnerSearchTerm("");
+    setOwnerPopoverOpen(false);
   };
 
   const handleAdd = async () => {
@@ -213,9 +277,12 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
       return;
     }
     // Check duplicate
-    const isDuplicate = selectedOwnerType === "store"
-      ? owners.some(o => o.owner_type === "store" && o.store_owner_id === selectedOwnerId)
-      : owners.some(o => o.owner_type === "supplier" && o.owner_id === selectedOwnerId);
+    const isDuplicate =
+      selectedOwnerType === "store"
+        ? owners.some(o => o.owner_type === "store" && o.store_owner_id === selectedOwnerId)
+        : selectedOwnerType === "third_party_farm"
+          ? owners.some(o => o.owner_type === "third_party_farm" && o.third_party_farm_id === selectedOwnerId)
+          : owners.some(o => o.owner_type === "supplier" && o.owner_id === selectedOwnerId);
     if (isDuplicate) {
       toast({ title: "Erro", description: "Este proprietário já foi adicionado.", variant: "destructive" });
       return;
@@ -233,15 +300,21 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
       if (selectedOwnerType === "store") {
         record.store_owner_id = selectedOwnerId;
         record.owner_id = null;
+        record.third_party_farm_id = null;
+      } else if (selectedOwnerType === "third_party_farm") {
+        record.third_party_farm_id = selectedOwnerId;
+        record.owner_id = null;
+        record.store_owner_id = null;
       } else {
         record.owner_id = selectedOwnerId;
         record.store_owner_id = null;
+        record.third_party_farm_id = null;
       }
       const { error } = await insertOwner(record);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Proprietário adicionado." });
       setShowAddForm(false);
-      setSelectedOwnerId("");
+      resetSelectionState();
       setPercentage("");
       setSelectedOwnerType("supplier");
       fetchOwners();
@@ -256,7 +329,15 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
   const handleStartEdit = (owner: Owner) => {
     setEditingId(owner.id);
     setSelectedOwnerType(owner.owner_type);
-    setSelectedOwnerId(owner.owner_type === "store" ? (owner.store_owner_id || "") : (owner.owner_id || ""));
+    setSelectedOwnerId(
+      owner.owner_type === "store"
+        ? owner.store_owner_id || ""
+        : owner.owner_type === "third_party_farm"
+          ? owner.third_party_farm_id || ""
+          : owner.owner_id || "",
+    );
+    setOwnerSearchTerm("");
+    setOwnerPopoverOpen(false);
     setPercentage(owner.percentage.toString());
   };
 
@@ -279,15 +360,21 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
       if (selectedOwnerType === "store") {
         updateData.store_owner_id = selectedOwnerId;
         updateData.owner_id = null;
+        updateData.third_party_farm_id = null;
+      } else if (selectedOwnerType === "third_party_farm") {
+        updateData.third_party_farm_id = selectedOwnerId;
+        updateData.owner_id = null;
+        updateData.store_owner_id = null;
       } else {
         updateData.owner_id = selectedOwnerId;
         updateData.store_owner_id = null;
+        updateData.third_party_farm_id = null;
       }
       const { error } = await updateOwner(editingId, updateData);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Proprietário atualizado." });
       setEditingId(null);
-      setSelectedOwnerId("");
+      resetSelectionState();
       setPercentage("");
       setSelectedOwnerType("supplier");
       fetchOwners();
@@ -315,46 +402,174 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
   const totalPercentage = owners.reduce((s, o) => s + o.percentage, 0);
 
   // Filter available options based on owner type and not already added
-  const availableSuppliers = suppliers.filter(
-    s => !owners.some(o => o.owner_type === "supplier" && o.owner_id === s.id) || (editingId && owners.find(o => o.id === editingId)?.owner_id === s.id)
+  const editingOwner = owners.find(owner => owner.id === editingId);
+
+  const availableSuppliers = useMemo(
+    () =>
+      suppliers.filter(
+        (supplier) =>
+          !owners.some((owner) => owner.owner_type === "supplier" && owner.owner_id === supplier.id) ||
+          editingOwner?.owner_id === supplier.id,
+      ),
+    [editingOwner?.owner_id, owners, suppliers],
   );
 
-  const availableStores = userStores.filter(
-    s => !owners.some(o => o.owner_type === "store" && o.store_owner_id === s.id) || (editingId && owners.find(o => o.id === editingId)?.store_owner_id === s.id)
+  const availableStores = useMemo(
+    () =>
+      userStores.filter(
+        (store) =>
+          !owners.some((owner) => owner.owner_type === "store" && owner.store_owner_id === store.id) ||
+          editingOwner?.store_owner_id === store.id,
+      ),
+    [editingOwner?.store_owner_id, owners, userStores],
   );
+
+  const availableThirdPartyFarms = useMemo(
+    () =>
+      thirdPartyFarms.filter(
+        (farm) =>
+          !owners.some((owner) => owner.owner_type === "third_party_farm" && owner.third_party_farm_id === farm.id) ||
+          editingOwner?.third_party_farm_id === farm.id,
+      ),
+    [editingOwner?.third_party_farm_id, owners, thirdPartyFarms],
+  );
+
+  const filteredSuppliers = useMemo(
+    () =>
+      availableSuppliers.filter((supplier) => {
+        if (!ownerSearchTerm.trim()) return true;
+        const normalizedTerm = normalizeText(ownerSearchTerm);
+        return (
+          normalizeText(supplier.name).includes(normalizedTerm) ||
+          normalizeText(supplier.trade_name || "").includes(normalizedTerm)
+        );
+      }),
+    [availableSuppliers, ownerSearchTerm],
+  );
+
+  const filteredStores = useMemo(
+    () =>
+      availableStores.filter((store) => {
+        if (!ownerSearchTerm.trim()) return true;
+        return normalizeText(store.name).includes(normalizeText(ownerSearchTerm));
+      }),
+    [availableStores, ownerSearchTerm],
+  );
+
+  const filteredThirdPartyFarms = useMemo(
+    () =>
+      availableThirdPartyFarms.filter((farm) => {
+        if (!ownerSearchTerm.trim()) return true;
+        return normalizeText(farm.name).includes(normalizeText(ownerSearchTerm));
+      }),
+    [availableThirdPartyFarms, ownerSearchTerm],
+  );
+
+  const selectedSupplier = suppliers.find((supplier) => supplier.id === selectedOwnerId);
+  const selectedStore = userStores.find((store) => store.id === selectedOwnerId);
+  const selectedThirdPartyFarm = thirdPartyFarms.find((farm) => farm.id === selectedOwnerId);
+
+  const currentOptions =
+    selectedOwnerType === "store"
+      ? filteredStores.map((store) => ({
+          id: store.id,
+          primaryLabel: store.name,
+          secondaryLabel: null as string | null,
+        }))
+      : selectedOwnerType === "third_party_farm"
+        ? filteredThirdPartyFarms.map((farm) => ({
+            id: farm.id,
+            primaryLabel: farm.name,
+            secondaryLabel: null as string | null,
+          }))
+        : filteredSuppliers.map((supplier) => ({
+            id: supplier.id,
+            primaryLabel: supplier.name,
+            secondaryLabel: supplier.trade_name,
+          }));
+
+  const selectedOwnerLabel =
+    selectedOwnerType === "store"
+      ? selectedStore?.name || ""
+      : selectedOwnerType === "third_party_farm"
+        ? selectedThirdPartyFarm?.name || ""
+        : formatSupplierLabel(selectedSupplier);
 
   const renderOwnerSelect = () => (
     <div className="space-y-2">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label>Tipo *</Label>
-          <Select value={selectedOwnerType} onValueChange={(v: "supplier" | "store") => { setSelectedOwnerType(v); setSelectedOwnerId(""); }}>
+          <Select
+            value={selectedOwnerType}
+            onValueChange={(value: OwnerType) => {
+              setSelectedOwnerType(value);
+              resetSelectionState();
+            }}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="store">Fazenda Própria</SelectItem>
+              <SelectItem value="third_party_farm">Fazenda Terceira</SelectItem>
               <SelectItem value="supplier">Proprietário</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>{selectedOwnerType === "store" ? "Fazenda *" : "Proprietário *"}</Label>
-          <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
-            <SelectTrigger>
-              <SelectValue placeholder={selectedOwnerType === "store" ? "Selecione a fazenda" : "Selecione o proprietário"} />
-            </SelectTrigger>
-            <SelectContent>
-              {selectedOwnerType === "store"
-                ? availableStores.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))
-                : availableSuppliers.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))
-              }
-            </SelectContent>
-          </Select>
+          <Label>{selectedOwnerType === "store" ? "Fazenda *" : selectedOwnerType === "third_party_farm" ? "Fazenda Terceira *" : "Proprietário *"}</Label>
+          <Popover open={ownerPopoverOpen} onOpenChange={setOwnerPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                <span className="truncate">
+                  {selectedOwnerLabel || (selectedOwnerType === "store" ? "Selecione a fazenda" : selectedOwnerType === "third_party_farm" ? "Selecione a fazenda terceira" : "Selecione o proprietário")}
+                </span>
+                <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+              <div className="border-b p-2">
+                <Input
+                  placeholder={
+                    selectedOwnerType === "store"
+                      ? "Pesquisar fazenda..."
+                      : selectedOwnerType === "third_party_farm"
+                        ? "Pesquisar fazenda terceira..."
+                        : "Pesquisar por razão social ou nome fantasia..."
+                  }
+                  value={ownerSearchTerm}
+                  onChange={(event) => setOwnerSearchTerm(event.target.value)}
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {currentOptions.map((option) => (
+                  <button
+                    type="button"
+                    key={option.id}
+                    className={cn(
+                      "flex w-full flex-col items-start px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                      selectedOwnerId === option.id && "bg-accent",
+                    )}
+                    onClick={() => {
+                      setSelectedOwnerId(option.id);
+                      setOwnerPopoverOpen(false);
+                    }}
+                  >
+                    <span className="font-medium">{option.primaryLabel}</span>
+                    {option.secondaryLabel && (
+                      <span className="text-xs text-muted-foreground">Nome fantasia: {option.secondaryLabel}</span>
+                    )}
+                  </button>
+                ))}
+                {currentOptions.length === 0 && (
+                  <div className="px-3 py-4 text-sm text-muted-foreground">
+                    Nenhum registro encontrado.
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>
@@ -368,7 +583,15 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
           Proprietários
         </h3>
         {!isReadOnly && !showAddForm && !editingId && entityId && (
-          <Button size="sm" onClick={() => { setShowAddForm(true); setSelectedOwnerId(""); setPercentage(""); setSelectedOwnerType("supplier"); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setShowAddForm(true);
+              resetSelectionState();
+              setPercentage("");
+              setSelectedOwnerType("supplier");
+            }}
+          >
             <Plus className="h-4 w-4 mr-1" />
             Adicionar Proprietário
           </Button>
@@ -404,7 +627,16 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
                   {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                   Salvar
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { setShowAddForm(false); setSelectedOwnerId(""); setPercentage(""); setSelectedOwnerType("supplier"); }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetSelectionState();
+                    setPercentage("");
+                    setSelectedOwnerType("supplier");
+                  }}
+                >
                   Cancelar
                 </Button>
               </div>
@@ -428,6 +660,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
                 <TableRow>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Proprietário</TableHead>
+                  <TableHead>Nome Fantasia</TableHead>
                   <TableHead className="text-right">Participação (%)</TableHead>
                   {!isReadOnly && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
@@ -437,7 +670,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
                   <TableRow key={owner.id}>
                     {editingId === owner.id ? (
                       <>
-                        <TableCell colSpan={2}>
+                        <TableCell colSpan={3}>
                           {renderOwnerSelect()}
                         </TableCell>
                         <TableCell className="text-right">
@@ -456,7 +689,16 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
                             <Button size="icon" variant="ghost" onClick={handleSaveEdit} disabled={saving}>
                               <Check className="h-4 w-4 text-green-600" />
                             </Button>
-                            <Button size="icon" variant="ghost" onClick={() => { setEditingId(null); setSelectedOwnerId(""); setPercentage(""); setSelectedOwnerType("supplier"); }}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingId(null);
+                                resetSelectionState();
+                                setPercentage("");
+                                setSelectedOwnerType("supplier");
+                              }}
+                            >
                               <X className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
@@ -465,11 +707,21 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
                     ) : (
                       <>
                         <TableCell>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${owner.owner_type === "store" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                            {owner.owner_type === "store" ? "Fazenda" : "Proprietário"}
+                          <span
+                            className={cn(
+                              "text-xs px-2 py-0.5 rounded-full",
+                              owner.owner_type === "store"
+                                ? "bg-primary/10 text-primary"
+                                : owner.owner_type === "third_party_farm"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {getOwnerTypeLabel(owner.owner_type)}
                           </span>
                         </TableCell>
                         <TableCell className="font-medium">{owner.owner_name}</TableCell>
+                        <TableCell>{owner.owner_type === "supplier" ? owner.owner_trade_name || "-" : "-"}</TableCell>
                         <TableCell className="text-right">{owner.percentage.toFixed(2)}%</TableCell>
                         {!isReadOnly && (
                           <TableCell className="text-right">

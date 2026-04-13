@@ -268,7 +268,7 @@ const AnimaisCadastro = () => {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
-  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[]>([]);
+  const [saleOwners, setSaleOwners] = useState<{ owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null; third_party_farm_id: string | null }[]>([]);
 
   // Proprietários state
   interface AnimalSale {
@@ -733,23 +733,37 @@ const AnimaisCadastro = () => {
     try {
       const { data: owners } = await supabase
         .from("animal_owners")
-        .select("owner_id, owner_type, store_owner_id, percentage")
+        .select("owner_id, owner_type, store_owner_id, third_party_farm_id, percentage")
         .eq("animal_id", animal.id);
       
-      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null }[] = [];
+      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null; third_party_farm_id: string | null }[] = [];
       for (const o of owners || []) {
         const ownerType = (o as any).owner_type || "supplier";
         let ownerName = "N/A";
-        const effectiveId = ownerType === "store" ? (o as any).store_owner_id : o.owner_id;
+        const effectiveId = ownerType === "store"
+          ? (o as any).store_owner_id
+          : ownerType === "third_party_farm"
+            ? (o as any).third_party_farm_id
+            : o.owner_id;
         
         if (ownerType === "store" && (o as any).store_owner_id) {
           const { data: store } = await supabase.from("stores").select("name").eq("id", (o as any).store_owner_id).single();
-          ownerName = store?.name ? `🏠 ${store.name}` : "Fazenda não encontrada";
+          ownerName = store?.name || "Fazenda não encontrada";
+        } else if (ownerType === "third_party_farm" && (o as any).third_party_farm_id) {
+          const { data: farm } = await supabase.from("third_party_farms").select("name").eq("id", (o as any).third_party_farm_id).single();
+          ownerName = farm?.name || "Fazenda não encontrada";
         } else if (o.owner_id) {
           const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
           ownerName = supplier?.name || "N/A";
         }
-        ownersWithNames.push({ owner_id: effectiveId || "", owner_name: ownerName, percentage: Number(o.percentage), owner_type: ownerType, store_owner_id: (o as any).store_owner_id || null });
+        ownersWithNames.push({
+          owner_id: effectiveId || "",
+          owner_name: ownerName,
+          percentage: Number(o.percentage),
+          owner_type: ownerType,
+          store_owner_id: (o as any).store_owner_id || null,
+          third_party_farm_id: (o as any).third_party_farm_id || null,
+        });
       }
       setSaleOwners(ownersWithNames);
     } catch (error) {
@@ -802,6 +816,15 @@ const AnimaisCadastro = () => {
             .eq("animal_id", saleAnimal.id)
             .eq("store_owner_id", owner.store_owner_id)
             .eq("owner_type", "store")
+            .maybeSingle();
+          existingRecord = data;
+        } else if (owner.owner_type === "third_party_farm" && owner.third_party_farm_id) {
+          const { data } = await supabase
+            .from("animal_owners")
+            .select("id")
+            .eq("animal_id", saleAnimal.id)
+            .eq("third_party_farm_id", owner.third_party_farm_id)
+            .eq("owner_type", "third_party_farm")
             .maybeSingle();
           existingRecord = data;
         } else {

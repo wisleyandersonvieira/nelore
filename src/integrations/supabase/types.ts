@@ -1153,6 +1153,7 @@ export type Database = {
           owner_type: string
           percentage: number
           store_owner_id: string | null
+          third_party_farm_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1164,6 +1165,7 @@ export type Database = {
           owner_type?: string
           percentage: number
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1175,6 +1177,7 @@ export type Database = {
           owner_type?: string
           percentage?: number
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1197,6 +1200,13 @@ export type Database = {
             columns: ["store_owner_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animal_owners_third_party_farm_id_fkey"
+            columns: ["third_party_farm_id"]
+            isOneToOne: false
+            referencedRelation: "third_party_farms"
             referencedColumns: ["id"]
           },
         ]
@@ -1573,6 +1583,7 @@ export type Database = {
           owner_type: string
           percentage: number
           store_owner_id: string | null
+          third_party_farm_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1584,6 +1595,7 @@ export type Database = {
           owner_type?: string
           percentage: number
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1595,6 +1607,7 @@ export type Database = {
           owner_type?: string
           percentage?: number
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1617,6 +1630,13 @@ export type Database = {
             columns: ["store_owner_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_owners_third_party_farm_id_fkey"
+            columns: ["third_party_farm_id"]
+            isOneToOne: false
+            referencedRelation: "third_party_farms"
             referencedColumns: ["id"]
           },
         ]
@@ -3209,6 +3229,7 @@ export type Database = {
           owner_type: string
           percentage: number
           store_owner_id: string | null
+          third_party_farm_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3220,6 +3241,7 @@ export type Database = {
           owner_type?: string
           percentage: number
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3231,6 +3253,7 @@ export type Database = {
           owner_type?: string
           percentage?: number
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3253,6 +3276,13 @@ export type Database = {
             columns: ["store_owner_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embryo_transfer_owners_third_party_farm_id_fkey"
+            columns: ["third_party_farm_id"]
+            isOneToOne: false
+            referencedRelation: "third_party_farms"
             referencedColumns: ["id"]
           },
         ]
@@ -4130,6 +4160,7 @@ export type Database = {
           percentage: number
           pregnancy_id: string
           store_owner_id: string | null
+          third_party_farm_id: string | null
           updated_at: string
         }
         Insert: {
@@ -4141,6 +4172,7 @@ export type Database = {
           percentage: number
           pregnancy_id: string
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -4152,6 +4184,7 @@ export type Database = {
           percentage?: number
           pregnancy_id?: string
           store_owner_id?: string | null
+          third_party_farm_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4174,6 +4207,13 @@ export type Database = {
             columns: ["store_owner_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_owners_third_party_farm_id_fkey"
+            columns: ["third_party_farm_id"]
+            isOneToOne: false
+            referencedRelation: "third_party_farms"
             referencedColumns: ["id"]
           },
         ]

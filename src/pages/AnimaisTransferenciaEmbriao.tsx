@@ -531,7 +531,7 @@ const AnimaisTransferenciaEmbriao = () => {
         if (newPregnancy) {
           const { data: etOwners } = await supabase
             .from("embryo_transfer_owners")
-            .select("owner_id, store_owner_id, owner_type, percentage")
+            .select("owner_id, store_owner_id, third_party_farm_id, owner_type, percentage")
             .eq("embryo_transfer_id", recordToFinalize.id);
 
           if (etOwners && etOwners.length > 0) {
@@ -539,8 +539,9 @@ const AnimaisTransferenciaEmbriao = () => {
             for (const owner of etOwners) {
               await supabase.from("pregnancy_owners").insert({
                 pregnancy_id: newPregnancy.id,
-                owner_id: (owner as any).owner_type === "store" ? null : owner.owner_id,
+                owner_id: (owner as any).owner_type === "supplier" ? owner.owner_id : null,
                 store_owner_id: (owner as any).owner_type === "store" ? (owner as any).store_owner_id : null,
+                third_party_farm_id: (owner as any).owner_type === "third_party_farm" ? (owner as any).third_party_farm_id : null,
                 owner_type: (owner as any).owner_type || "supplier",
                 percentage: owner.percentage,
                 created_by: userData.user?.id,
