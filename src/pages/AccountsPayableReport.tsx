@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,9 +22,51 @@ import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import { fetchRecipientAllocationOptions } from "@/lib/financialAllocations";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
+import { createPdfReportLayout } from "@/lib/pdfReportLayout";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+
+interface SyntheticDailyTotal {
+  date: string;
+  total: number;
+}
+
+interface SyntheticPeriodBlock {
+  startDate: string;
+  endDate: string;
+  subtotal: number;
+  dailyTotals: SyntheticDailyTotal[];
+}
+
+type PdfDocWithAutoTable = jsPDF & {
+  lastAutoTable?: {
+    finalY?: number;
+  };
+};
+
+const formatCurrencyBRL = (value: number) =>
+  value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+const formatDateBR = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
+
+const parseDateAtMidday = (date: string) => new Date(`${date}T12:00:00`);
+
+const addDays = (date: Date, days: number) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const AccountsPayableReport = () => {
   const navigate = useNavigate();
@@ -52,6 +95,10 @@ const AccountsPayableReport = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [syntheticPdfModalOpen, setSyntheticPdfModalOpen] = useState(false);
+  const [syntheticIntervalDays, setSyntheticIntervalDays] = useState("15");
+  const [syntheticPdfLoading, setSyntheticPdfLoading] = useState(false);
 
   useEffect(() => {
     fetchSuppliers();
@@ -143,6 +190,7 @@ const AccountsPayableReport = () => {
 
   const handleSearch = async () => {
     setLoading(true);
+    setHasSearched(true);
     try {
       const toEndOfDayIso = (date: string) => `${date}T23:59:59.999`;
 
@@ -387,6 +435,7 @@ const AccountsPayableReport = () => {
     setAllocationType("none");
     setSelectedAllocationIds([]);
     setAllocationItems([]);
+    setHasSearched(false);
   };
 
   const handleSort = (column: string) => {
@@ -436,7 +485,7 @@ const AccountsPayableReport = () => {
   }, [accounts, sortColumn, sortDirection]);
 
   const getFilterInfo = () => {
-    let filterInfo = [];
+    const filterInfo: string[] = [];
     if (filters.due_start || filters.due_end) {
       const start = filters.due_start ? new Date(filters.due_start).toLocaleDateString("pt-BR") : "Início";
       const end = filters.due_end ? new Date(filters.due_end).toLocaleDateString("pt-BR") : "Hoje";
@@ -451,6 +500,372 @@ const AccountsPayableReport = () => {
       if (store) filterInfo.push(`Fazenda: ${store.name}`);
     }
     return filterInfo;
+  };
+
+  const getFilterItems = () => {
+    const filterItems: Array<{ label: string; value: string }> = [];
+
+    if (filters.due_start || filters.due_end) {
+      const start = filters.due_start ? formatDateBR(filters.due_start) : "Início";
+      const end = filters.due_end ? formatDateBR(filters.due_end) : "Fim";
+      filterItems.push({ label: "Vencimento", value: `${start} a ${end}` });
+    }
+
+    if (filters.competencia_start || filters.competencia_end) {
+      const start = filters.competencia_start ? formatDateBR(filters.competencia_start) : "Início";
+      const end = filters.competencia_end ? formatDateBR(filters.competencia_end) : "Fim";
+      filterItems.push({ label: "Competência", value: `${start} a ${end}` });
+    }
+
+    if (filters.created_start || filters.created_end) {
+      const start = filters.created_start ? formatDateBR(filters.created_start) : "Início";
+      const end = filters.created_end ? formatDateBR(filters.created_end) : "Fim";
+      filterItems.push({ label: "Cadastro", value: `${start} a ${end}` });
+    }
+
+    if (filters.supplier_id !== "all") {
+      const supplier = suppliers.find((item) => item.id === filters.supplier_id);
+      if (supplier?.name) {
+        filterItems.push({ label: "Fornecedor", value: supplier.name });
+      }
+    }
+
+    if (filters.store_id !== "all") {
+      const store = stores.find((item) => item.id === filters.store_id);
+      if (store?.name) {
+        filterItems.push({ label: "Fazenda", value: store.name });
+      }
+    }
+
+    if (filters.product_id !== "all") {
+      const product = products.find((item) => item.id === filters.product_id);
+      if (product?.name) {
+        filterItems.push({ label: "Produto", value: product.name });
+      }
+    }
+
+    if (allocationType !== "none" && selectedAllocationIds.length > 0) {
+      const allocationTypeLabel =
+        allocationType === "aspiration"
+          ? "Aspiração"
+          : allocationType === "pregnancy"
+            ? "Prenhez"
+            : allocationType === "recipient"
+              ? "Receptoras"
+              : "Animais";
+
+      const selectedNames = allocationItems
+        .filter((item) => selectedAllocationIds.includes(item.id))
+        .map((item) => item.name);
+
+      if (selectedNames.length > 0) {
+        const preview =
+          selectedNames.length <= 2
+            ? selectedNames.join(", ")
+            : `${selectedNames.slice(0, 2).join(", ")} +${selectedNames.length - 2}`;
+        filterItems.push({ label: allocationTypeLabel, value: preview });
+      }
+    }
+
+    return filterItems;
+  };
+
+  const buildSyntheticPeriodBlocks = (intervalDays: number): SyntheticPeriodBlock[] => {
+    const dailyTotalsMap = new Map<string, number>();
+
+    sortedAccounts.forEach((account) => {
+      const dueDate = account.due_date;
+      if (!dueDate || dueDate < filters.due_start || dueDate > filters.due_end) return;
+      dailyTotalsMap.set(dueDate, (dailyTotalsMap.get(dueDate) || 0) + Number(account.amount || 0));
+    });
+
+    const blocks: SyntheticPeriodBlock[] = [];
+    let cursor = parseDateAtMidday(filters.due_start);
+    const finalDate = parseDateAtMidday(filters.due_end);
+
+    while (cursor <= finalDate) {
+      const blockStartDate = new Date(cursor);
+      const tentativeEndDate = addDays(blockStartDate, intervalDays - 1);
+      const blockEndDate = tentativeEndDate > finalDate ? new Date(finalDate) : tentativeEndDate;
+
+      const startDateKey = toDateKey(blockStartDate);
+      const endDateKey = toDateKey(blockEndDate);
+
+      const dailyTotals = Array.from(dailyTotalsMap.entries())
+        .filter(([date]) => date >= startDateKey && date <= endDateKey)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([date, total]) => ({
+          date,
+          total,
+        }));
+
+      blocks.push({
+        startDate: startDateKey,
+        endDate: endDateKey,
+        subtotal: dailyTotals.reduce((sum, item) => sum + item.total, 0),
+        dailyTotals,
+      });
+
+      cursor = addDays(blockEndDate, 1);
+    }
+
+    return blocks;
+  };
+
+  const openSyntheticPdfModal = () => {
+    if (!filters.due_start || !filters.due_end) {
+      toast({
+        title: "Período obrigatório",
+        description: "Informe a data inicial e final de vencimento antes de gerar o PDF sintético.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (filters.due_end < filters.due_start) {
+      toast({
+        title: "Período inválido",
+        description: "A data final de vencimento deve ser maior ou igual à data inicial.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasSearched) {
+      toast({
+        title: "Pesquise antes de exportar",
+        description: "Faça a pesquisa com os filtros desejados antes de gerar o PDF sintético.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSyntheticIntervalDays((current) => current || "15");
+    setSyntheticPdfModalOpen(true);
+  };
+
+  const exportToPDFSintetico = async (intervalDays: number) => {
+    const doc = new jsPDF();
+    const pdf = doc as PdfDocWithAutoTable;
+    const appliedFilters = [
+      ...getFilterItems(),
+      { label: "Agrupamento", value: `${intervalDays} dia(s)` },
+    ];
+    const blocks = buildSyntheticPeriodBlocks(intervalDays);
+    const totalGeneral = blocks.reduce((sum, block) => sum + block.subtotal, 0);
+    const totalMovementDays = blocks.reduce((sum, block) => sum + block.dailyTotals.length, 0);
+
+    doc.setProperties({
+      title: "Relatório Sintético de Contas a Pagar",
+      subject: "Contas a Pagar agrupado por intervalo de dias",
+      author: "EliteBov",
+      creator: "EliteBov",
+    });
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório Sintético de Contas a Pagar",
+      emittedAt: new Date(),
+      totalRecords: totalMovementDays,
+      filters: appliedFilters,
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginLeft = layout.tableMargin.left;
+    const contentWidth = pageWidth - layout.tableMargin.left - layout.tableMargin.right;
+    const nextPageStartY = layout.tableMargin.top;
+    let currentY = layout.startY;
+
+    const ensureSpace = (requiredHeight: number) => {
+      if (currentY + requiredHeight <= pageHeight - layout.tableMargin.bottom) return;
+      doc.addPage();
+      layout.willDrawPage({ pageNumber: doc.getNumberOfPages() });
+      currentY = nextPageStartY;
+    };
+
+    const drawTotalBox = () => {
+      ensureSpace(20);
+      doc.setFillColor(17, 94, 89);
+      doc.setDrawColor(17, 94, 89);
+      doc.roundedRect(marginLeft, currentY, contentWidth, 14, 2.5, 2.5, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Total geral do período", marginLeft + 4, currentY + 5.5);
+
+      doc.setFontSize(14);
+      doc.text(formatCurrencyBRL(totalGeneral), marginLeft + contentWidth - 4, currentY + 9.5, {
+        align: "right",
+      });
+
+      currentY += 18;
+    };
+
+    if (blocks.every((block) => block.dailyTotals.length === 0)) {
+      ensureSpace(40);
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(marginLeft, currentY, contentWidth, 28, 3, 3, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Nenhuma movimentação encontrada no período selecionado.", marginLeft + 5, currentY + 10);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        `Período analisado: ${formatDateBR(filters.due_start)} a ${formatDateBR(filters.due_end)}.`,
+        marginLeft + 5,
+        currentY + 17,
+      );
+      doc.text(`Agrupamento informado: ${intervalDays} dia(s).`, marginLeft + 5, currentY + 22);
+
+      currentY += 34;
+      drawTotalBox();
+      layout.finalize();
+      doc.save("contas-a-pagar-sintetico.pdf");
+      return;
+    }
+
+    blocks.forEach((block, index) => {
+      ensureSpace(24);
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(marginLeft, currentY, contentWidth, 12, 2.5, 2.5, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Bloco ${index + 1}`, marginLeft + 4, currentY + 5.5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        `${formatDateBR(block.startDate)} a ${formatDateBR(block.endDate)}`,
+        marginLeft + 4,
+        currentY + 9,
+      );
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(17, 94, 89);
+      doc.text(formatCurrencyBRL(block.subtotal), marginLeft + contentWidth - 4, currentY + 7.2, {
+        align: "right",
+      });
+
+      currentY += 16;
+
+      const bodyRows =
+        block.dailyTotals.length > 0
+          ? block.dailyTotals.map((item) => [
+              formatDateBR(item.date),
+              formatCurrencyBRL(item.total),
+            ])
+          : [["Sem movimentações no intervalo", "-"]];
+
+      bodyRows.push([
+        {
+          content: "Subtotal do período",
+          styles: {
+            fontStyle: "bold",
+            halign: "right",
+            fillColor: [240, 248, 247],
+            textColor: [15, 23, 42],
+          },
+        },
+        {
+          content: formatCurrencyBRL(block.subtotal),
+          styles: {
+            fontStyle: "bold",
+            halign: "right",
+            fillColor: [240, 248, 247],
+            textColor: [17, 94, 89],
+          },
+        },
+      ]);
+
+      autoTable(doc, {
+        head: [["Data", "Valor total do dia"]],
+        body: bodyRows,
+        startY: currentY,
+        margin: layout.tableMargin,
+        theme: "grid",
+        showHead: "everyPage",
+        willDrawPage: layout.willDrawPage,
+        styles: {
+          fontSize: 9,
+          textColor: [15, 23, 42],
+          cellPadding: { top: 2.8, right: 3, bottom: 2.8, left: 3 },
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          overflow: "linebreak",
+          valign: "middle",
+        },
+        headStyles: {
+          fillColor: [17, 94, 89],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: "bold",
+        },
+        bodyStyles: {
+          minCellHeight: 8,
+        },
+        alternateRowStyles: {
+          fillColor: [250, 252, 252],
+        },
+        columnStyles: {
+          0: { cellWidth: 55 },
+          1: { cellWidth: 45, halign: "right" },
+        },
+      });
+
+      currentY = (pdf.lastAutoTable?.finalY || currentY) + 8;
+    });
+
+    drawTotalBox();
+    layout.finalize();
+    doc.save("contas-a-pagar-sintetico.pdf");
+  };
+
+  const handleGenerateSyntheticPdf = async () => {
+    if (!filters.due_start || !filters.due_end) {
+      toast({
+        title: "Período obrigatório",
+        description: "Informe a data inicial e final de vencimento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const parsedInterval = Number.parseInt(syntheticIntervalDays, 10);
+    if (!Number.isInteger(parsedInterval) || parsedInterval < 1) {
+      toast({
+        title: "Intervalo inválido",
+        description: "Informe um número inteiro maior que zero para o agrupamento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSyntheticPdfLoading(true);
+    try {
+      await exportToPDFSintetico(parsedInterval);
+      setSyntheticPdfModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao gerar PDF sintético:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o PDF sintético de Contas a Pagar.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyntheticPdfLoading(false);
+    }
   };
 
   const exportToPDFResumido = () => {
@@ -1536,7 +1951,7 @@ const AccountsPayableReport = () => {
         </Card>
 
         {/* Results */}
-        {accounts.length > 0 && (
+        {hasSearched && (
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -1552,7 +1967,8 @@ const AccountsPayableReport = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                       <DropdownMenuItem onClick={exportToPDFResumido}>Relatório Resumido</DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFDetalhado}>Relatório Detalhado</DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDFDetalhado}>PDF Analítico</DropdownMenuItem>
+                      <DropdownMenuItem onClick={openSyntheticPdfModal}>PDF Sintético</DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>Relatório por Subgrupo</DropdownMenuItem>
                       <DropdownMenuItem onClick={exportToPDFResumidoPorMes}>
                         Relatório Resumido por Mês
@@ -1593,45 +2009,106 @@ const AccountsPayableReport = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAccounts.map((account, index) => (
-                    <TableRow key={`${account.id}-${account.installment_id || index}`}>
-                      <TableCell>{account.description}</TableCell>
-                      <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
-                      <TableCell>{account.stores?.name || "N/A"}</TableCell>
-                      <TableCell>{new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
-                      <TableCell>
-                        {account.amount?.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }) || "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        {account.total_installments > 1
-                          ? `${account.installment_number}/${account.total_installments}`
-                          : "À vista"}
+                  {sortedAccounts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
+                        Nenhuma movimentação encontrada para os filtros informados.
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {/* Total Row */}
-                  <TableRow className="border-t-2 font-bold bg-muted/50">
-                    <TableCell colSpan={4} className="text-right">
-                      Total:
-                    </TableCell>
-                    <TableCell>
-                      {sortedAccounts
-                        .reduce((sum, account) => sum + (account.amount || 0), 0)
-                        .toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                    </TableCell>
-                    <TableCell>{sortedAccounts.length} parcela(s)</TableCell>
-                  </TableRow>
+                  ) : (
+                    <>
+                      {sortedAccounts.map((account, index) => (
+                        <TableRow key={`${account.id}-${account.installment_id || index}`}>
+                          <TableCell>{account.description}</TableCell>
+                          <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
+                          <TableCell>{account.stores?.name || "N/A"}</TableCell>
+                          <TableCell>{new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
+                          <TableCell>
+                            {account.amount?.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }) || "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            {account.total_installments > 1
+                              ? `${account.installment_number}/${account.total_installments}`
+                              : "À vista"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="border-t-2 font-bold bg-muted/50">
+                        <TableCell colSpan={4} className="text-right">
+                          Total:
+                        </TableCell>
+                        <TableCell>
+                          {sortedAccounts
+                            .reduce((sum, account) => sum + (account.amount || 0), 0)
+                            .toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                        </TableCell>
+                        <TableCell>{sortedAccounts.length} parcela(s)</TableCell>
+                      </TableRow>
+                    </>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={syntheticPdfModalOpen} onOpenChange={setSyntheticPdfModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>PDF Sintético</DialogTitle>
+              <DialogDescription>
+                Informe o intervalo em dias para agrupar os subtotais do PDF sintético.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border/70 bg-muted/40 p-4 text-sm">
+                <p className="font-medium text-foreground">Período selecionado</p>
+                <p className="mt-1 text-muted-foreground">
+                  {filters.due_start && filters.due_end
+                    ? `${formatDateBR(filters.due_start)} até ${formatDateBR(filters.due_end)}`
+                    : "Período de vencimento não informado."}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  O relatório exibirá apenas os dias com movimento, mantendo o cabeçalho completo de cada bloco.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="synthetic-interval-days">Intervalo de dias</Label>
+                <Input
+                  id="synthetic-interval-days"
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  value={syntheticIntervalDays}
+                  onChange={(event) => setSyntheticIntervalDays(event.target.value)}
+                  placeholder="15"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setSyntheticPdfModalOpen(false)}
+                disabled={syntheticPdfLoading}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={() => void handleGenerateSyntheticPdf()} disabled={syntheticPdfLoading}>
+                {syntheticPdfLoading ? "Gerando PDF..." : "Confirmar / Gerar PDF"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
