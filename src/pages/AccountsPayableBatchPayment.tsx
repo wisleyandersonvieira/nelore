@@ -4,6 +4,9 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CheckCircle2,
   Eye,
   Filter,
@@ -32,6 +35,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type AllocationFilterValue = "all" | FinancialAllocationType;
+type EligibleSortField = "documentNumber" | "supplierName" | "dueDate" | "amount" | "allocation";
+type SortDirection = "asc" | "desc";
 
 interface SupplierOption {
   id: string;
@@ -106,6 +111,8 @@ const formatDateTimeBR = (value: string | null | undefined) => {
 };
 
 const formatBatchCode = (batchNumber: number) => `LBP-${String(batchNumber).padStart(6, "0")}`;
+const normalizeSearchText = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const getPartnerName = (payable: any) =>
   payable?.suppliers?.name || payable?.employees?.name || "Não informado";
@@ -225,6 +232,7 @@ const AccountsPayableBatchPayment = () => {
   const [eligibleRows, setEligibleRows] = useState<EligibleInstallmentRow[]>([]);
   const [lots, setLots] = useState<BatchRow[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [hasSearchedEligible, setHasSearchedEligible] = useState(false);
   const [loadingEligible, setLoadingEligible] = useState(false);
   const [loadingLots, setLoadingLots] = useState(false);
   const [processingBatch, setProcessingBatch] = useState(false);
@@ -241,6 +249,47 @@ const AccountsPayableBatchPayment = () => {
   const [dueDateTo, setDueDateTo] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [allocationTypeFilter, setAllocationTypeFilter] = useState<AllocationFilterValue>("all");
+  const [allocationSearch, setAllocationSearch] = useState("");
+  const [sortField, setSortField] = useState<EligibleSortField>("dueDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const visibleRows = useMemo(() => {
+    const normalizedAllocationSearch = normalizeSearchText(allocationSearch.trim());
+    const filteredRows = eligibleRows.filter((row) => {
+      if (!normalizedAllocationSearch) return true;
+      return normalizeSearchText(row.allocationLabels.join(" ")).includes(normalizedAllocationSearch);
+    });
+
+    return [...filteredRows].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case "documentNumber":
+          comparison = a.documentNumber.localeCompare(b.documentNumber, "pt-BR", { sensitivity: "base" });
+          break;
+        case "supplierName":
+          comparison = a.supplierName.localeCompare(b.supplierName, "pt-BR", { sensitivity: "base" });
+          break;
+        case "dueDate":
+          comparison = a.dueDate.localeCompare(b.dueDate);
+          break;
+        case "amount":
+          comparison = a.amount - b.amount;
+          break;
+        case "allocation":
+          comparison = a.allocationLabels.join(" | ").localeCompare(b.allocationLabels.join(" | "), "pt-BR", {
+            sensitivity: "base",
+          });
+          break;
+      }
+
+      if (comparison === 0) {
+        comparison = a.id.localeCompare(b.id);
+      }
+
+      return sortDirection === "asc" ? comparison : comparison * -1;
+    });
+  }, [allocationSearch, eligibleRows, sortDirection, sortField]);
 
   const selectedRows = useMemo(
     () => eligibleRows.filter((row) => selectedIds.has(row.id)),
@@ -252,13 +301,13 @@ const AccountsPayableBatchPayment = () => {
     [selectedRows],
   );
 
-  const allVisibleSelected = eligibleRows.length > 0 && eligibleRows.every((row) => selectedIds.has(row.id));
-  const someVisibleSelected = eligibleRows.some((row) => selectedIds.has(row.id));
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((row) => selectedIds.has(row.id));
+  const someVisibleSelected = visibleRows.some((row) => selectedIds.has(row.id));
 
   useEffect(() => {
     if (permissionsLoading || !canView) return;
 
-    void Promise.all([fetchSuppliers(), fetchPaymentAccounts(), fetchEligibleInstallments(), fetchBatchLots()]);
+    void Promise.all([fetchSuppliers(), fetchPaymentAccounts(), fetchBatchLots()]);
   }, [permissionsLoading, canView]);
 
   const fetchSuppliers = async () => {
@@ -304,6 +353,7 @@ const AccountsPayableBatchPayment = () => {
 
   const fetchEligibleInstallments = async () => {
     setLoadingEligible(true);
+    setHasSearchedEligible(true);
     try {
       const payables = await fetchAllPaginated<any>(() => {
         let query = supabase
@@ -512,12 +562,17 @@ const AccountsPayableBatchPayment = () => {
   };
 
   const handleToggleAllVisible = (checked: boolean | "indeterminate") => {
-    if (!checked || checked === "indeterminate") {
-      setSelectedIds(new Set());
-      return;
-    }
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
 
-    setSelectedIds(new Set(eligibleRows.map((row) => row.id)));
+      if (!checked || checked === "indeterminate") {
+        visibleRows.forEach((row) => next.delete(row.id));
+        return next;
+      }
+
+      visibleRows.forEach((row) => next.add(row.id));
+      return next;
+    });
   };
 
   const handleToggleRow = (rowId: string, checked: boolean | "indeterminate") => {
@@ -537,6 +592,24 @@ const AccountsPayableBatchPayment = () => {
     setSelectedPaymentAccountId("");
     setSelectedPaymentDate(format(new Date(), "yyyy-MM-dd"));
     setPaymentDialogOpen(true);
+  };
+
+  const handleSort = (field: EligibleSortField) => {
+    if (sortField === field) {
+      setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection("asc");
+  };
+
+  const renderSortIcon = (field: EligibleSortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+    }
+
+    return sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
   const handleCreateBatch = async () => {
@@ -741,10 +814,10 @@ const AccountsPayableBatchPayment = () => {
                     {loadingEligible ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Pesquisando...
+                        Buscando...
                       </>
                     ) : (
-                      "Aplicar filtros"
+                      "Buscar parcelas"
                     )}
                   </Button>
                   <Button
@@ -754,8 +827,10 @@ const AccountsPayableBatchPayment = () => {
                       setDueDateTo("");
                       setSupplierFilter("all");
                       setAllocationTypeFilter("all");
+                      setAllocationSearch("");
+                      setHasSearchedEligible(false);
+                      setEligibleRows([]);
                       setSelectedIds(new Set());
-                      void fetchEligibleInstallments();
                     }}
                     disabled={loadingEligible}
                   >
@@ -769,7 +844,7 @@ const AccountsPayableBatchPayment = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription>Parcelas elegíveis</CardDescription>
-                  <CardTitle>{loadingEligible ? "..." : eligibleRows.length}</CardTitle>
+                  <CardTitle>{loadingEligible ? "..." : visibleRows.length}</CardTitle>
                 </CardHeader>
               </Card>
               <Card>
@@ -798,6 +873,19 @@ const AccountsPayableBatchPayment = () => {
                 </Button>
               </CardHeader>
               <CardContent>
+                <div className="mb-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="allocation-search">Buscar por nome do vínculo</Label>
+                    <Input
+                      id="allocation-search"
+                      placeholder="Digite parte do nome do animal, prenhez, aspiração, receptora..."
+                      value={allocationSearch}
+                      onChange={(event) => setAllocationSearch(event.target.value)}
+                      disabled={!hasSearchedEligible && eligibleRows.length === 0}
+                    />
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <div className="max-h-[620px] overflow-y-auto rounded-md border">
                     <Table>
@@ -810,11 +898,66 @@ const AccountsPayableBatchPayment = () => {
                               aria-label="Selecionar todas as parcelas filtradas"
                             />
                           </TableHead>
-                          <TableHead>Documento</TableHead>
-                          <TableHead>Fornecedor</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead>Vínculo</TableHead>
+                          <TableHead>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="-ml-3 h-8 px-3"
+                              onClick={() => handleSort("documentNumber")}
+                            >
+                              Documento
+                              {renderSortIcon("documentNumber")}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="-ml-3 h-8 px-3"
+                              onClick={() => handleSort("supplierName")}
+                            >
+                              Fornecedor
+                              {renderSortIcon("supplierName")}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="-ml-3 h-8 px-3"
+                              onClick={() => handleSort("dueDate")}
+                            >
+                              Vencimento
+                              {renderSortIcon("dueDate")}
+                            </Button>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="ml-auto h-8 px-3"
+                              onClick={() => handleSort("amount")}
+                            >
+                              Valor
+                              {renderSortIcon("amount")}
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="-ml-3 h-8 px-3"
+                              onClick={() => handleSort("allocation")}
+                            >
+                              Vínculo
+                              {renderSortIcon("allocation")}
+                            </Button>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -827,14 +970,20 @@ const AccountsPayableBatchPayment = () => {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ) : eligibleRows.length === 0 ? (
+                        ) : !hasSearchedEligible ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                              Informe os filtros desejados e clique em buscar para carregar as parcelas pendentes.
+                            </TableCell>
+                          </TableRow>
+                        ) : visibleRows.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                               Nenhuma parcela pendente encontrada com os filtros informados.
                             </TableCell>
                           </TableRow>
                         ) : (
-                          eligibleRows.map((row) => (
+                          visibleRows.map((row) => (
                             <TableRow key={row.id}>
                               <TableCell>
                                 <Checkbox
