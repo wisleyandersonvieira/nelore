@@ -270,8 +270,10 @@ const Receptoras = () => {
       ? { key: "matrix_id", value: context.matrixId }
       : { key: "store_id", value: context.storeId };
 
-    const batchesRes: any = await supabase.from("animal_batches").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
-    const categoriesRes: any = await supabase.from("animal_categories").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
+    // @ts-ignore – dynamic filter key causes deep instantiation
+    const batchesRes: any = await supabase.from("animal_batches").select("id, name").eq(commonFilter.key, commonFilter.value).order("name");
+    // @ts-ignore – dynamic filter key causes deep instantiation
+    const categoriesRes: any = await supabase.from("animal_categories").select("id, name").eq(commonFilter.key, commonFilter.value).order("name");
     const storesRes = await supabase.from("stores").select("id, name").in("id", context.storeIds).order("name");
     const thirdFarmsRes = await supabase.from("third_party_farms").select("id, name").eq("is_active", true).order("name");
 
@@ -298,8 +300,10 @@ const Receptoras = () => {
       ? { key: "matrix_id", value: context.matrixId }
       : { key: "store_id", value: context.storeId };
 
-    const breedsRes: any = await supabase.from("animal_breeds").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
-    const auctionsRes: any = await supabase.from("leiloes").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
+    // @ts-ignore – dynamic filter key causes deep instantiation
+    const breedsRes: any = await supabase.from("animal_breeds").select("id, name").eq(commonFilter.key, commonFilter.value).order("name");
+    // @ts-ignore – dynamic filter key causes deep instantiation
+    const auctionsRes: any = await supabase.from("leiloes").select("id, name").eq(commonFilter.key, commonFilter.value).order("name");
 
     setBreeds((breedsRes.data || []) as OptionItem[]);
     setAuctions((auctionsRes.data || []) as OptionItem[]);
