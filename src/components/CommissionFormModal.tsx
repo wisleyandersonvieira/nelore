@@ -611,7 +611,7 @@ export function CommissionFormModal({
     });
 
     return Array.from(nextMap.values()).sort((left, right) =>
-      buildCommissionItemLabel(left).localeCompare(buildCommissionItemLabel(right)),
+      (left.item_name || "").localeCompare(right.item_name || ""),
     );
   };
 
