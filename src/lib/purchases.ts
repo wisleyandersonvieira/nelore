@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import type { SaleInstallmentDraft, SaleType } from "@/lib/sales";
 import { SALE_TYPE_LABELS, SALE_TYPE_OPTIONS } from "@/lib/sales";
 
