@@ -270,7 +270,7 @@ const Receptoras = () => {
       ? { key: "matrix_id", value: context.matrixId }
       : { key: "store_id", value: context.storeId };
 
-    const [batchesRes, categoriesRes, storesRes, thirdFarmsRes] = await Promise.all([
+    const [batchesRes, categoriesRes, storesRes, thirdFarmsRes] = await (Promise.all([
       supabase
         .from("animal_batches")
         .select("id, name")
@@ -285,7 +285,7 @@ const Receptoras = () => {
         .order("name"),
       supabase.from("stores").select("id, name").in("id", context.storeIds).order("name"),
       supabase.from("third_party_farms").select("id, name").eq("is_active", true).order("name"),
-    ]);
+    ]) as any);
 
     const loadedBatches = (batchesRes.data || []) as OptionItem[];
     const loadedCategories = (categoriesRes.data || []) as OptionItem[];
