@@ -153,13 +153,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "accounts_payable_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "accounts_payable_commission_id_fkey"
             columns: ["commission_id"]
             isOneToOne: false
@@ -167,17 +160,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "accounts_payable_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accounts_payable_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "accounts_payable_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
           {
@@ -192,6 +185,13 @@ export type Database = {
             columns: ["purchase_linked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
           {
@@ -391,6 +391,144 @@ export type Database = {
           },
         ]
       }
+      accounts_payable_payment_batch_items: {
+        Row: {
+          account_payable_id: string
+          amount: number
+          batch_id: string
+          created_at: string
+          financial_transaction_id: string | null
+          id: string
+          installment_id: string
+          payment_record_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_payable_id: string
+          amount?: number
+          batch_id: string
+          created_at?: string
+          financial_transaction_id?: string | null
+          id?: string
+          installment_id: string
+          payment_record_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_payable_id?: string
+          amount?: number
+          batch_id?: string
+          created_at?: string
+          financial_transaction_id?: string | null
+          id?: string
+          installment_id?: string
+          payment_record_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_payment_batch_it_financial_transaction_id_fkey"
+            columns: ["financial_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_payment_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batch_items_payment_record_id_fkey"
+            columns: ["payment_record_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_payable_payment_batches: {
+        Row: {
+          batch_number: number
+          created_at: string
+          created_by: string
+          id: string
+          installments_count: number
+          payment_account_id: string
+          payment_account_name: string
+          payment_account_type: string
+          payment_date: string
+          reversed_at: string | null
+          reversed_by: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          batch_number?: number
+          created_at?: string
+          created_by: string
+          id?: string
+          installments_count?: number
+          payment_account_id: string
+          payment_account_name: string
+          payment_account_type: string
+          payment_date: string
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          installments_count?: number
+          payment_account_id?: string
+          payment_account_name?: string
+          payment_account_type?: string
+          payment_date?: string
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_payment_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_payment_batches_reversed_by_fkey"
+            columns: ["reversed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_payable_payments: {
         Row: {
           account_payable_id: string
@@ -470,144 +608,6 @@ export type Database = {
             columns: ["interest_product_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      accounts_payable_payment_batches: {
-        Row: {
-          batch_number: number
-          created_at: string
-          created_by: string
-          id: string
-          installments_count: number
-          payment_account_id: string
-          payment_account_name: string
-          payment_account_type: string
-          payment_date: string
-          reversed_at: string | null
-          reversed_by: string | null
-          status: string
-          total_amount: number
-          updated_at: string
-        }
-        Insert: {
-          batch_number?: number
-          created_at?: string
-          created_by: string
-          id?: string
-          installments_count?: number
-          payment_account_id: string
-          payment_account_name: string
-          payment_account_type: string
-          payment_date: string
-          reversed_at?: string | null
-          reversed_by?: string | null
-          status?: string
-          total_amount?: number
-          updated_at?: string
-        }
-        Update: {
-          batch_number?: number
-          created_at?: string
-          created_by?: string
-          id?: string
-          installments_count?: number
-          payment_account_id?: string
-          payment_account_name?: string
-          payment_account_type?: string
-          payment_date?: string
-          reversed_at?: string | null
-          reversed_by?: string | null
-          status?: string
-          total_amount?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "accounts_payable_payment_batches_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "accounts_payable_payment_batches_reversed_by_fkey"
-            columns: ["reversed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      accounts_payable_payment_batch_items: {
-        Row: {
-          account_payable_id: string
-          amount: number
-          batch_id: string
-          created_at: string
-          financial_transaction_id: string | null
-          id: string
-          installment_id: string
-          payment_record_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          account_payable_id: string
-          amount?: number
-          batch_id: string
-          created_at?: string
-          financial_transaction_id?: string | null
-          id?: string
-          installment_id: string
-          payment_record_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          account_payable_id?: string
-          amount?: number
-          batch_id?: string
-          created_at?: string
-          financial_transaction_id?: string | null
-          id?: string
-          installment_id?: string
-          payment_record_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "accounts_payable_payment_batch_items_account_payable_id_fkey"
-            columns: ["account_payable_id"]
-            isOneToOne: false
-            referencedRelation: "accounts_payable"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "accounts_payable_payment_batch_items_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "accounts_payable_payment_batches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "accounts_payable_payment_batch_items_financial_transaction_id_fkey"
-            columns: ["financial_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "financial_transactions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "accounts_payable_payment_batch_items_installment_id_fkey"
-            columns: ["installment_id"]
-            isOneToOne: false
-            referencedRelation: "accounts_payable_installments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "accounts_payable_payment_batch_items_payment_record_id_fkey"
-            columns: ["payment_record_id"]
-            isOneToOne: false
-            referencedRelation: "accounts_payable_payments"
             referencedColumns: ["id"]
           },
         ]
@@ -4592,6 +4592,99 @@ export type Database = {
           },
         ]
       }
+      profile_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          module: string
+          permission: Database["public"]["Enums"]["permission_type"]
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module: string
+          permission: Database["public"]["Enums"]["permission_type"]
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module?: string
+          permission?: Database["public"]["Enums"]["permission_type"]
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          matrix_id: string | null
+          name: string
+          profile_id: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          is_active?: boolean
+          matrix_id?: string | null
+          name: string
+          profile_id?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          matrix_id?: string | null
+          name?: string
+          profile_id?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "matrices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           animal_id: string | null
@@ -4739,92 +4832,143 @@ export type Database = {
           },
         ]
       }
-      profile_permissions: {
+      sales: {
         Row: {
+          animal_id: string | null
+          aspiration_id: string | null
+          client_id: string
+          code: number
+          competence_date: string
           created_at: string
+          created_by: string
+          description: string
+          document_number: string | null
+          document_type: string | null
+          first_due_date: string
           id: string
-          module: string
-          permission: Database["public"]["Enums"]["permission_type"]
-          profile_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          module: string
-          permission: Database["public"]["Enums"]["permission_type"]
-          profile_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          module?: string
-          permission?: Database["public"]["Enums"]["permission_type"]
-          profile_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profile_permissions_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          is_active: boolean
-          matrix_id: string | null
-          name: string
-          profile_id: string | null
-          role: Database["public"]["Enums"]["user_role"]
-          store_id: string | null
+          installment_count: number
+          issue_date: string
+          item_code: string | null
+          item_name: string
+          negotiation_method: string | null
+          notes: string | null
+          pregnancy_id: string | null
+          product_id: string
+          recipient_id: string | null
+          sale_date: string
+          sale_type: string
+          store_id: string
+          total_amount: number
           updated_at: string
         }
         Insert: {
+          animal_id?: string | null
+          aspiration_id?: string | null
+          client_id: string
+          code?: number
+          competence_date: string
           created_at?: string
-          email: string
-          id: string
-          is_active?: boolean
-          matrix_id?: string | null
-          name: string
-          profile_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          store_id?: string | null
+          created_by: string
+          description: string
+          document_number?: string | null
+          document_type?: string | null
+          first_due_date: string
+          id?: string
+          installment_count?: number
+          issue_date: string
+          item_code?: string | null
+          item_name: string
+          negotiation_method?: string | null
+          notes?: string | null
+          pregnancy_id?: string | null
+          product_id: string
+          recipient_id?: string | null
+          sale_date: string
+          sale_type: string
+          store_id: string
+          total_amount: number
           updated_at?: string
         }
         Update: {
+          animal_id?: string | null
+          aspiration_id?: string | null
+          client_id?: string
+          code?: number
+          competence_date?: string
           created_at?: string
-          email?: string
+          created_by?: string
+          description?: string
+          document_number?: string | null
+          document_type?: string | null
+          first_due_date?: string
           id?: string
-          is_active?: boolean
-          matrix_id?: string | null
-          name?: string
-          profile_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          store_id?: string | null
+          installment_count?: number
+          issue_date?: string
+          item_code?: string | null
+          item_name?: string
+          negotiation_method?: string | null
+          notes?: string | null
+          pregnancy_id?: string | null
+          product_id?: string
+          recipient_id?: string | null
+          sale_date?: string
+          sale_type?: string
+          store_id?: string
+          total_amount?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "profiles_matrix_id_fkey"
-            columns: ["matrix_id"]
+            foreignKeyName: "sales_animal_id_fkey"
+            columns: ["animal_id"]
             isOneToOne: false
-            referencedRelation: "matrices"
+            referencedRelation: "animals"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "profiles_profile_id_fkey"
-            columns: ["profile_id"]
+            foreignKeyName: "sales_aspiration_id_fkey"
+            columns: ["aspiration_id"]
             isOneToOne: false
-            referencedRelation: "user_profiles"
+            referencedRelation: "aspiration_management"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "profiles_store_id_fkey"
+            foreignKeyName: "sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
@@ -5116,150 +5260,6 @@ export type Database = {
             columns: ["matrix_id"]
             isOneToOne: false
             referencedRelation: "matrices"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales: {
-        Row: {
-          animal_id: string | null
-          aspiration_id: string | null
-          client_id: string
-          code: number
-          competence_date: string
-          created_at: string
-          created_by: string
-          description: string
-          document_number: string | null
-          document_type: string | null
-          first_due_date: string
-          id: string
-          installment_count: number
-          issue_date: string
-          item_code: string | null
-          item_name: string
-          negotiation_method: string | null
-          notes: string | null
-          pregnancy_id: string | null
-          product_id: string
-          recipient_id: string | null
-          sale_date: string
-          sale_type: string
-          store_id: string
-          total_amount: number
-          updated_at: string
-        }
-        Insert: {
-          animal_id?: string | null
-          aspiration_id?: string | null
-          client_id: string
-          code?: number
-          competence_date: string
-          created_at?: string
-          created_by: string
-          description: string
-          document_number?: string | null
-          document_type?: string | null
-          first_due_date: string
-          id?: string
-          installment_count?: number
-          issue_date: string
-          item_code?: string | null
-          item_name: string
-          negotiation_method?: string | null
-          notes?: string | null
-          pregnancy_id?: string | null
-          product_id: string
-          recipient_id?: string | null
-          sale_date: string
-          sale_type: string
-          store_id: string
-          total_amount: number
-          updated_at?: string
-        }
-        Update: {
-          animal_id?: string | null
-          aspiration_id?: string | null
-          client_id?: string
-          code?: number
-          competence_date?: string
-          created_at?: string
-          created_by?: string
-          description?: string
-          document_number?: string | null
-          document_type?: string | null
-          first_due_date?: string
-          id?: string
-          installment_count?: number
-          issue_date?: string
-          item_code?: string | null
-          item_name?: string
-          negotiation_method?: string | null
-          notes?: string | null
-          pregnancy_id?: string | null
-          product_id?: string
-          recipient_id?: string | null
-          sale_date?: string
-          sale_type?: string
-          store_id?: string
-          total_amount?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_animal_id_fkey"
-            columns: ["animal_id"]
-            isOneToOne: false
-            referencedRelation: "animals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_aspiration_id_fkey"
-            columns: ["aspiration_id"]
-            isOneToOne: false
-            referencedRelation: "aspiration_management"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_pregnancy_id_fkey"
-            columns: ["pregnancy_id"]
-            isOneToOne: false
-            referencedRelation: "pregnancy_management"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_recipient_id_fkey"
-            columns: ["recipient_id"]
-            isOneToOne: false
-            referencedRelation: "animals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -6162,30 +6162,6 @@ export type Database = {
           total_amount: number
         }[]
       }
-      create_purchase_with_payable: {
-        Args: {
-          p_competence_date: string
-          p_description?: string
-          p_document_number?: string
-          p_document_type?: string
-          p_first_due_date: string
-          p_installments?: Json
-          p_issue_date: string
-          p_item_id: string
-          p_negotiation_method?: string
-          p_notes?: string
-          p_product_id: string
-          p_purchase_date: string
-          p_purchase_type: string
-          p_supplier_id: string
-          p_total_amount: number
-        }
-        Returns: {
-          account_payable_id: string
-          purchase_code: number
-          purchase_id: string
-        }[]
-      }
       create_commission_with_payable: {
         Args: {
           p_auction_id: string
@@ -6211,73 +6187,28 @@ export type Database = {
           commission_id: string
         }[]
       }
-      update_commission_with_payable: {
+      create_purchase_with_payable: {
         Args: {
-          p_auction_id: string
-          p_commission_date: string
-          p_commission_id: string
-          p_commission_kind: string
           p_competence_date: string
-          p_default_percentage: number
           p_description?: string
           p_document_number?: string
           p_document_type?: string
           p_first_due_date: string
           p_installments?: Json
           p_issue_date: string
-          p_items?: Json
-          p_negotiation_method?: string
-          p_notes?: string
-          p_product_id: string
-          p_supplier_id: string
-        }
-        Returns: {
-          account_payable_id: string
-          commission_code: number
-          commission_id: string
-        }[]
-      }
-      delete_commission_with_payable: {
-        Args: {
-          p_commission_id: string
-        }
-        Returns: {
-          commission_code: number
-          commission_id: string
-          deleted_payables: number
-        }[]
-      }
-      delete_purchase_with_payable: {
-        Args: {
-          p_purchase_id: string
-        }
-        Returns: {
-          deleted_payables: number
-          purchase_code: number
-          purchase_id: string
-        }[]
-      }
-      migrate_accounts_payable_to_purchase: {
-        Args: {
-          p_account_payable_ids: string[]
-          p_competence_date?: string
-          p_description?: string
-          p_document_number?: string
-          p_document_type?: string
-          p_first_due_date?: string
-          p_issue_date?: string
           p_item_id: string
           p_negotiation_method?: string
           p_notes?: string
           p_product_id: string
           p_purchase_date: string
           p_purchase_type: string
+          p_supplier_id: string
+          p_total_amount: number
         }
         Returns: {
-          linked_accounts: number
+          account_payable_id: string
           purchase_code: number
           purchase_id: string
-          total_amount: number
         }[]
       }
       create_sale_with_receivable: {
@@ -6302,6 +6233,22 @@ export type Database = {
           account_receivable_id: string
           sale_code: number
           sale_id: string
+        }[]
+      }
+      delete_commission_with_payable: {
+        Args: { p_commission_id: string }
+        Returns: {
+          commission_code: number
+          commission_id: string
+          deleted_payables: number
+        }[]
+      }
+      delete_purchase_with_payable: {
+        Args: { p_purchase_id: string }
+        Returns: {
+          deleted_payables: number
+          purchase_code: number
+          purchase_id: string
         }[]
       }
       get_brand_by_id: {
@@ -6365,6 +6312,29 @@ export type Database = {
       is_master_user: { Args: never; Returns: boolean }
       is_matriz_profile_user: { Args: never; Returns: boolean }
       is_matriz_user: { Args: never; Returns: boolean }
+      migrate_accounts_payable_to_purchase: {
+        Args: {
+          p_account_payable_ids: string[]
+          p_competence_date?: string
+          p_description?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_first_due_date?: string
+          p_issue_date?: string
+          p_item_id: string
+          p_negotiation_method?: string
+          p_notes?: string
+          p_product_id: string
+          p_purchase_date: string
+          p_purchase_type: string
+        }
+        Returns: {
+          linked_accounts: number
+          purchase_code: number
+          purchase_id: string
+          total_amount: number
+        }[]
+      }
       reverse_accounts_payable_payment_batch: {
         Args: { p_batch_id: string }
         Returns: {
@@ -6376,6 +6346,32 @@ export type Database = {
       store_in_user_matrix: {
         Args: { target_store_id: string }
         Returns: boolean
+      }
+      update_commission_with_payable: {
+        Args: {
+          p_auction_id: string
+          p_commission_date: string
+          p_commission_id: string
+          p_commission_kind: string
+          p_competence_date: string
+          p_default_percentage: number
+          p_description?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_first_due_date: string
+          p_installments?: Json
+          p_issue_date: string
+          p_items?: Json
+          p_negotiation_method?: string
+          p_notes?: string
+          p_product_id: string
+          p_supplier_id: string
+        }
+        Returns: {
+          account_payable_id: string
+          commission_code: number
+          commission_id: string
+        }[]
       }
       user_can_access_task: { Args: { p_task_id: string }; Returns: boolean }
       user_can_access_task_v2: { Args: { p_task_id: string }; Returns: boolean }

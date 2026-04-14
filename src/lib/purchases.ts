@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import type { SaleInstallmentDraft, SaleType } from "@/lib/sales";
 import { SALE_TYPE_LABELS, SALE_TYPE_OPTIONS } from "@/lib/sales";
 
@@ -41,7 +42,7 @@ export const createPurchaseWithPayable = async (input: {
     p_description: input.description || null,
     p_notes: input.notes || null,
     p_negotiation_method: input.negotiationMethod || null,
-    p_installments: input.installments,
+    p_installments: input.installments as unknown as Json,
   });
 
   if (error) {

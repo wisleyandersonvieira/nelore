@@ -72,6 +72,7 @@ interface ReceivableAccountSummary {
 }
 
 interface PayableInstallmentSummary {
+  id: string;
   amount: number | string | null;
   due_date: string | null;
   payment_date: string | null;
@@ -79,6 +80,7 @@ interface PayableInstallmentSummary {
 }
 
 interface ReceivableInstallmentSummary {
+  id: string;
   amount: number | string | null;
   due_date: string | null;
   payment_date: string | null;
@@ -614,8 +616,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         const allItemIds = Array.from(itemToAccount.keys());
         if (allItemIds.length === 0) return new Map<string, string[]>();
 
-        const { data: allocations } = await supabase
-          .from(allocationTable)
+        const { data: allocations } = await (supabase
+          .from(allocationTable as any)
           .select(`
             ${itemColumn},
             animal_id,
@@ -628,7 +630,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             pregnancy_management:pregnancy_id(name, code),
             embryo_transfer_management:embryo_transfer_id(name, code)
           `)
-          .in(itemColumn, allItemIds);
+          .in(itemColumn, allItemIds)) as any;
 
         const recipientIds = Array.from(
           new Set((allocations || []).map((allocation: any) => allocation.recipient_id).filter(Boolean)),

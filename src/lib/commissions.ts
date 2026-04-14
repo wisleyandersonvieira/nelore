@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import type { SaleInstallmentDraft, SaleItemOption } from "@/lib/sales";
 import { buildSaleItemLabel } from "@/lib/sales";
 
@@ -105,7 +106,7 @@ export const createCommissionWithPayable = async (input: {
         commission_percentage: Number(item.commission_percentage || 0),
         commission_amount: roundMoney(item.commission_amount),
       })),
-    p_installments: input.installments,
+    p_installments: input.installments as unknown as Json,
   });
 
   if (error) throw error;
@@ -157,7 +158,7 @@ export const updateCommissionWithPayable = async (input: {
         commission_percentage: Number(item.commission_percentage || 0),
         commission_amount: roundMoney(item.commission_amount),
       })),
-    p_installments: input.installments,
+    p_installments: input.installments as unknown as Json,
   });
 
   if (error) throw error;

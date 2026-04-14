@@ -671,7 +671,7 @@ const AnimaisRebanho = () => {
   const fetchNameById = async (table: string, id: string | null | undefined) => {
     if (!id) return null;
     const { data } = await supabase.from(table as any).select("name").eq("id", id).maybeSingle();
-    return data?.name || null;
+    return (data as any)?.name || null;
   };
 
   const fetchFarmName = async (farmType: string | null, farmId: string | null) => {

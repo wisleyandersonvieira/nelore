@@ -611,7 +611,7 @@ export function CommissionFormModal({
     });
 
     return Array.from(nextMap.values()).sort((left, right) =>
-      buildCommissionItemLabel(left).localeCompare(buildCommissionItemLabel(right)),
+      (left.item_name || "").localeCompare(right.item_name || ""),
     );
   };
 
@@ -1270,7 +1270,7 @@ export function CommissionFormModal({
                             <TableCell>{COMMISSION_ITEM_TYPE_LABELS[item.item_type]}</TableCell>
                             <TableCell>
                               <div className="space-y-1">
-                                <p className="font-medium">{buildCommissionItemLabel(item)}</p>
+                                <p className="font-medium">{buildCommissionItemLabel({ code: item.item_code, name: item.item_name })}</p>
                                 {item.purchase_amount <= 0 && (
                                   <p className="text-xs text-amber-700">Sem valor de compra encontrado no módulo de compras.</p>
                                 )}

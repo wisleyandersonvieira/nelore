@@ -777,7 +777,7 @@ const AccountsPayableReport = () => {
             fillColor: [240, 248, 247],
             textColor: [15, 23, 42],
           },
-        },
+        } as any,
         {
           content: formatCurrencyBRL(block.subtotal),
           styles: {
@@ -786,7 +786,7 @@ const AccountsPayableReport = () => {
             fillColor: [240, 248, 247],
             textColor: [17, 94, 89],
           },
-        },
+        } as any,
       ]);
 
       autoTable(doc, {
