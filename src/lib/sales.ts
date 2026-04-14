@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export type SaleType = "animal" | "pregnancy" | "aspiration" | "recipient";
 

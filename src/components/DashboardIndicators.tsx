@@ -630,7 +630,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             pregnancy_management:pregnancy_id(name, code),
             embryo_transfer_management:embryo_transfer_id(name, code)
           `)
-          .in(itemColumn, allItemIds);
+          .in(itemColumn, allItemIds)) as any;
 
         const recipientIds = Array.from(
           new Set((allocations || []).map((allocation: any) => allocation.recipient_id).filter(Boolean)),
