@@ -41,7 +41,7 @@ export const createPurchaseWithPayable = async (input: {
     p_description: input.description || null,
     p_notes: input.notes || null,
     p_negotiation_method: input.negotiationMethod || null,
-    p_installments: input.installments,
+    p_installments: input.installments as unknown as Json,
   });
 
   if (error) {
