@@ -270,22 +270,10 @@ const Receptoras = () => {
       ? { key: "matrix_id", value: context.matrixId }
       : { key: "store_id", value: context.storeId };
 
-    const [batchesRes, categoriesRes, storesRes, thirdFarmsRes] = await (Promise.all([
-      supabase
-        .from("animal_batches")
-        .select("id, name")
-        .eq(commonFilter.key, commonFilter.value as any)
-        .eq("is_active" as any, true)
-        .order("name"),
-      supabase
-        .from("animal_categories")
-        .select("id, name")
-        .eq(commonFilter.key, commonFilter.value as any)
-        .eq("is_active" as any, true)
-        .order("name"),
-      supabase.from("stores").select("id, name").in("id", context.storeIds).order("name"),
-      supabase.from("third_party_farms").select("id, name").eq("is_active", true).order("name"),
-    ]) as any);
+    const batchesRes = await supabase.from("animal_batches").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
+    const categoriesRes = await supabase.from("animal_categories").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
+    const storesRes = await supabase.from("stores").select("id, name").in("id", context.storeIds).order("name");
+    const thirdFarmsRes = await supabase.from("third_party_farms").select("id, name").eq("is_active", true).order("name");
 
     const loadedBatches = (batchesRes.data || []) as OptionItem[];
     const loadedCategories = (categoriesRes.data || []) as OptionItem[];
@@ -310,20 +298,8 @@ const Receptoras = () => {
       ? { key: "matrix_id", value: context.matrixId }
       : { key: "store_id", value: context.storeId };
 
-    const [breedsRes, auctionsRes] = await Promise.all([
-      supabase
-        .from("animal_breeds")
-        .select("id, name")
-        .eq(commonFilter.key, commonFilter.value as any)
-        .eq("is_active" as any, true)
-        .order("name"),
-      supabase
-        .from("leiloes")
-        .select("id, name")
-        .eq(commonFilter.key, commonFilter.value as any)
-        .eq("is_active" as any, true)
-        .order("name"),
-    ]);
+    const breedsRes = await supabase.from("animal_breeds").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
+    const auctionsRes = await supabase.from("leiloes").select("id, name").eq(commonFilter.key as any, commonFilter.value).order("name");
 
     setBreeds((breedsRes.data || []) as OptionItem[]);
     setAuctions((auctionsRes.data || []) as OptionItem[]);
