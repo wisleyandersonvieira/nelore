@@ -1,4 +1,4 @@
-import { type ComponentType, useEffect, useMemo, useState } from "react";
+import { type ComponentType, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   Activity,
   ArrowUpDown,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
@@ -302,6 +303,15 @@ const getPaidProgress = (purchase: Pick<PurchaseRow, "paidAmount" | "totalAmount
 
 const PAGE_SIZE = 10;
 
+// Retorna a data no formato YYYY-MM-DD deslocada de `monthsBack` meses a partir de hoje.
+// Quando `firstDay` é true, retorna o primeiro dia do mês resultante.
+const getDateOffset = (monthsBack: number, firstDay = false): string => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - monthsBack);
+  if (firstDay) d.setDate(1);
+  return d.toISOString().slice(0, 10);
+};
+
 const PurchasesModule = () => {
   const { canView, canEdit, loading: permissionsLoading } = useFinanceiroPermissions();
   const [loading, setLoading] = useState(true);
@@ -317,8 +327,15 @@ const PurchasesModule = () => {
   const [sortDirection, setSortDirection] = useState<PurchaseSortDirection>("desc");
   const [sortField, setSortField] = useState<PurchaseSortField>("purchaseDate");
   const [typeFilter, setTypeFilter] = useState<"all" | PurchaseType>("all");
+  // Filtro de período: padrão = 1º dia de 2 meses atrás até hoje.
+  // Reduz drasticamente o volume de dados carregado no carregamento inicial.
+  const [periodStart, setPeriodStart] = useState<string>(() => getDateOffset(2, true));
+  const [periodEnd, setPeriodEnd] = useState<string>(() => getDateOffset(0));
 
-  const loadPurchases = async () => {
+  // Carrega compras filtrando por período no banco — evita trazer todo o histórico de uma vez.
+  // Os parâmetros `start` e `end` são datas no formato YYYY-MM-DD e são aplicados
+  // diretamente na coluna `purchase_date` via .gte()/.lte(), aproveitando o índice existente.
+  const loadPurchases = useCallback(async (start: string, end: string) => {
     setLoading(true);
     try {
       const { storeIds } = await fetchAccessibleStoreScope();
@@ -328,7 +345,13 @@ const PurchasesModule = () => {
       }
 
       const purchasesData = await fetchAllPaginated<PurchaseTableRow>(() => {
-        let query = supabase.from("purchases").select("*").order("purchase_date", { ascending: false });
+        let query = supabase
+          .from("purchases")
+          .select("*")
+          .order("purchase_date", { ascending: false })
+          // Filtro de período aplicado no banco — reduz volume de dados retornado
+          .gte("purchase_date", start)
+          .lte("purchase_date", end);
         if (storeIds && storeIds.length > 0) {
           query = query.in("store_id", storeIds);
         }
@@ -517,16 +540,19 @@ const PurchasesModule = () => {
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Recarrega sempre que as permissões ou o período filtrado mudarem.
+  // Ao trocar o período, o loading reaparece e a tela reflete o novo intervalo sem recarregar histórico desnecessário.
   useEffect(() => {
     if (permissionsLoading) return;
     if (!canView) {
       setLoading(false);
       return;
     }
-    void loadPurchases();
-  }, [permissionsLoading, canView]);
+    void loadPurchases(periodStart, periodEnd);
+  }, [permissionsLoading, canView, periodStart, periodEnd, loadPurchases]);
 
   useEffect(() => {
     setInstallmentsPage(1);
@@ -534,7 +560,7 @@ const PurchasesModule = () => {
 
   useEffect(() => {
     setListPage(1);
-  }, [searchTerm, typeFilter, sortDirection, sortField]);
+  }, [searchTerm, typeFilter, sortDirection, sortField, periodStart, periodEnd]);
 
   const loadPurchaseDetails = async (purchase: PurchaseRow) => {
     setDetailsLoading(true);
@@ -794,6 +820,13 @@ const PurchasesModule = () => {
     ? Math.max(Math.ceil(selectedPurchase.installments.length / 4), 1)
     : 1;
 
+  // Rótulo legível do período selecionado, usado nas descrições dos cards.
+  const periodLabel = useMemo(() => {
+    const fmt = (dateStr: string) =>
+      new Date(`${dateStr}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return `${fmt(periodStart)} a ${fmt(periodEnd)}`;
+  }, [periodStart, periodEnd]);
+
   const summaryCards = useMemo<SummaryCard[]>(() => {
     const totalBought = purchases.reduce((sum, purchase) => sum + purchase.totalAmount, 0);
     const totalPaid = purchases.reduce((sum, purchase) => sum + purchase.paidAmount, 0);
@@ -803,33 +836,33 @@ const PurchasesModule = () => {
       {
         title: "Valor comprado",
         value: formatCurrencyBRL(totalBought),
-        description: "Acumulado no módulo de compras",
+        description: `Acumulado no período: ${periodLabel}`,
         icon: ShoppingCart,
         accent: "from-indigo-500/18 to-indigo-500/5 text-indigo-700",
       },
       {
         title: "Pago",
         value: formatCurrencyBRL(totalPaid),
-        description: "Baixas financeiras já identificadas",
+        description: `Baixas identificadas no período: ${periodLabel}`,
         icon: HandCoins,
         accent: "from-emerald-500/18 to-emerald-500/5 text-emerald-700",
       },
       {
         title: "Pendente",
         value: formatCurrencyBRL(totalPending),
-        description: "Saldo aberto no Contas a Pagar",
+        description: `Saldo aberto no Contas a Pagar — ${periodLabel}`,
         icon: CircleDollarSign,
         accent: "from-amber-500/18 to-amber-500/5 text-amber-700",
       },
       {
         title: "Compras registradas",
         value: `${purchases.length}`,
-        description: "Aquisições rastreadas no módulo",
+        description: `Aquisições rastreadas no período: ${periodLabel}`,
         icon: Activity,
         accent: "from-slate-500/18 to-slate-500/5 text-slate-700",
       },
     ];
-  }, [purchases]);
+  }, [purchases, periodLabel]);
 
   const purchasesByType = useMemo(() => {
     return PURCHASE_TYPE_OPTIONS.map((type) => {
@@ -884,7 +917,7 @@ const PurchasesModule = () => {
 
       setDeleteDialogOpen(false);
       setSelectedPurchase(null);
-      await loadPurchases();
+      await loadPurchases(periodStart, periodEnd);
     } catch (error: unknown) {
       console.error("Erro ao excluir compra:", error);
       const message = error instanceof Error ? error.message : "Não foi possível excluir a compra.";
@@ -1030,42 +1063,114 @@ const PurchasesModule = () => {
 
       <Card className="border-border/70 bg-card/85 shadow-sm">
         <CardHeader className="pb-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <CardTitle className="text-base">Listagem de compras</CardTitle>
-              <CardDescription>
-                Consulte a compra, o fornecedor, o item adquirido e o reflexo financeiro gerado.
-              </CardDescription>
-            </div>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_200px]">
-              <div className="space-y-2">
-                <Label htmlFor="purchase-search">Pesquisar</Label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="purchase-search"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Código, fornecedor ou item"
-                    className="pl-9"
-                  />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <CardTitle className="text-base">Listagem de compras</CardTitle>
+                <CardDescription>
+                  Consulte a compra, o fornecedor, o item adquirido e o reflexo financeiro gerado.
+                </CardDescription>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_200px]">
+                <div className="space-y-2">
+                  <Label htmlFor="purchase-search">Pesquisar</Label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="purchase-search"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Código, fornecedor ou item"
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={typeFilter} onValueChange={(value: "all" | PurchaseType) => setTypeFilter(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
+                      {PURCHASE_TYPE_OPTIONS.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select value={typeFilter} onValueChange={(value: "all" | PurchaseType) => setTypeFilter(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os tipos</SelectItem>
-                    {PURCHASE_TYPE_OPTIONS.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* Filtro de período — restringe a busca no banco para carregar apenas o intervalo desejado */}
+            <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-end">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CalendarDays className="h-4 w-4 shrink-0 text-indigo-500" />
+                <span className="font-medium text-foreground">Período</span>
+              </div>
+              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="space-y-1.5">
+                  <Label htmlFor="period-start" className="text-xs">
+                    Data inicial
+                  </Label>
+                  <Input
+                    id="period-start"
+                    type="date"
+                    value={periodStart}
+                    max={periodEnd}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    className="h-9 w-full sm:w-40"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="period-end" className="text-xs">
+                    Data final
+                  </Label>
+                  <Input
+                    id="period-end"
+                    type="date"
+                    value={periodEnd}
+                    min={periodStart}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    className="h-9 w-full sm:w-40"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 text-xs"
+                  onClick={() => {
+                    setPeriodStart(getDateOffset(2, true));
+                    setPeriodEnd(getDateOffset(0));
+                  }}
+                >
+                  Últimos 2 meses
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 text-xs"
+                  onClick={() => {
+                    setPeriodStart(getDateOffset(6, true));
+                    setPeriodEnd(getDateOffset(0));
+                  }}
+                >
+                  Últimos 6 meses
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 text-xs"
+                  onClick={() => {
+                    const now = new Date();
+                    setPeriodStart(`${now.getFullYear()}-01-01`);
+                    setPeriodEnd(getDateOffset(0));
+                  }}
+                >
+                  Este ano
+                </Button>
               </div>
             </div>
           </div>
@@ -1199,7 +1304,7 @@ const PurchasesModule = () => {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSaved={async () => {
-          await loadPurchases();
+          await loadPurchases(periodStart, periodEnd);
         }}
       />
 
