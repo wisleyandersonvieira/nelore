@@ -274,14 +274,14 @@ const Receptoras = () => {
       supabase
         .from("animal_batches")
         .select("id, name")
-        .eq(commonFilter.key as any, commonFilter.value)
-        .eq("is_active", true)
+        .eq(commonFilter.key, commonFilter.value as any)
+        .eq("is_active" as any, true)
         .order("name"),
       supabase
         .from("animal_categories")
         .select("id, name")
-        .eq(commonFilter.key as any, commonFilter.value)
-        .eq("is_active", true)
+        .eq(commonFilter.key, commonFilter.value as any)
+        .eq("is_active" as any, true)
         .order("name"),
       supabase.from("stores").select("id, name").in("id", context.storeIds).order("name"),
       supabase.from("third_party_farms").select("id, name").eq("is_active", true).order("name"),
@@ -314,14 +314,14 @@ const Receptoras = () => {
       supabase
         .from("animal_breeds")
         .select("id, name")
-        .eq(commonFilter.key as any, commonFilter.value)
-        .eq("is_active", true)
+        .eq(commonFilter.key, commonFilter.value as any)
+        .eq("is_active" as any, true)
         .order("name"),
       supabase
         .from("leiloes")
         .select("id, name")
-        .eq(commonFilter.key as any, commonFilter.value)
-        .eq("is_active", true)
+        .eq(commonFilter.key, commonFilter.value as any)
+        .eq("is_active" as any, true)
         .order("name"),
     ]);
 
