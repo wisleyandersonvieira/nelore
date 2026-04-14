@@ -233,6 +233,7 @@ const AppSidebar = ({
         { id: "baixa-lote-contas-pagar", label: "Baixa em Lote CP", route: "/financeiro/accounts-payable/batch-payment" },
         { id: "contas-receber", label: "Contas a Receber", action: "openAccountsReceivable" },
         { id: "compras", label: "Compras", route: "/purchases" },
+        { id: "comissoes", label: "Comissões", route: "/financeiro/commissions" },
         { id: "migracao-compras", label: "Migração de Compras", route: "/purchases/migration" },
         { id: "vendas", label: "Vendas", route: "/sales" },
         { id: "transferencias", label: "Transferências", action: "openTransfers" },

@@ -64,6 +64,7 @@ export type Database = {
           account_id: string | null
           amount: number
           attachments: Json | null
+          commission_id: string | null
           created_at: string
           created_by: string
           data_competencia: string | null
@@ -91,6 +92,7 @@ export type Database = {
           account_id?: string | null
           amount: number
           attachments?: Json | null
+          commission_id?: string | null
           created_at?: string
           created_by: string
           data_competencia?: string | null
@@ -118,6 +120,7 @@ export type Database = {
           account_id?: string | null
           amount?: number
           attachments?: Json | null
+          commission_id?: string | null
           created_at?: string
           created_by?: string
           data_competencia?: string | null
@@ -154,6 +157,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_commission_id_fkey"
+            columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "commissions"
             referencedColumns: ["id"]
           },
           {
@@ -2578,6 +2588,200 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "account_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commission_items: {
+        Row: {
+          animal_id: string | null
+          aspiration_id: string | null
+          commission_amount: number
+          commission_id: string
+          commission_percentage: number
+          created_at: string
+          display_order: number
+          id: string
+          item_code: string | null
+          item_name: string
+          item_type: string
+          pregnancy_id: string | null
+          purchase_amount: number
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          animal_id?: string | null
+          aspiration_id?: string | null
+          commission_amount: number
+          commission_id: string
+          commission_percentage?: number
+          created_at?: string
+          display_order?: number
+          id?: string
+          item_code?: string | null
+          item_name: string
+          item_type: string
+          pregnancy_id?: string | null
+          purchase_amount?: number
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          animal_id?: string | null
+          aspiration_id?: string | null
+          commission_amount?: number
+          commission_id?: string
+          commission_percentage?: number
+          created_at?: string
+          display_order?: number
+          id?: string
+          item_code?: string | null
+          item_name?: string
+          item_type?: string
+          pregnancy_id?: string | null
+          purchase_amount?: number
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_items_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_items_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_items_commission_id_fkey"
+            columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "commissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_items_pregnancy_id_fkey"
+            columns: ["pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commissions: {
+        Row: {
+          auction_id: string
+          code: number
+          commission_date: string
+          commission_kind: string
+          competence_date: string
+          created_at: string
+          created_by: string
+          default_percentage: number
+          description: string
+          document_number: string | null
+          document_type: string | null
+          first_due_date: string
+          id: string
+          installment_count: number
+          issue_date: string
+          negotiation_method: string | null
+          notes: string | null
+          product_id: string
+          store_id: string
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          auction_id: string
+          code?: number
+          commission_date: string
+          commission_kind: string
+          competence_date: string
+          created_at?: string
+          created_by: string
+          default_percentage: number
+          description: string
+          document_number?: string | null
+          document_type?: string | null
+          first_due_date: string
+          id?: string
+          installment_count?: number
+          issue_date: string
+          negotiation_method?: string | null
+          notes?: string | null
+          product_id: string
+          store_id: string
+          supplier_id: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          auction_id?: string
+          code?: number
+          commission_date?: string
+          commission_kind?: string
+          competence_date?: string
+          created_at?: string
+          created_by?: string
+          default_percentage?: number
+          description?: string
+          document_number?: string | null
+          document_type?: string | null
+          first_due_date?: string
+          id?: string
+          installment_count?: number
+          issue_date?: string
+          negotiation_method?: string | null
+          notes?: string | null
+          product_id?: string
+          store_id?: string
+          supplier_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -5980,6 +6184,67 @@ export type Database = {
           account_payable_id: string
           purchase_code: number
           purchase_id: string
+        }[]
+      }
+      create_commission_with_payable: {
+        Args: {
+          p_auction_id: string
+          p_commission_date: string
+          p_commission_kind: string
+          p_competence_date: string
+          p_default_percentage: number
+          p_description?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_first_due_date: string
+          p_installments?: Json
+          p_issue_date: string
+          p_items?: Json
+          p_negotiation_method?: string
+          p_notes?: string
+          p_product_id: string
+          p_supplier_id: string
+        }
+        Returns: {
+          account_payable_id: string
+          commission_code: number
+          commission_id: string
+        }[]
+      }
+      update_commission_with_payable: {
+        Args: {
+          p_auction_id: string
+          p_commission_date: string
+          p_commission_id: string
+          p_commission_kind: string
+          p_competence_date: string
+          p_default_percentage: number
+          p_description?: string
+          p_document_number?: string
+          p_document_type?: string
+          p_first_due_date: string
+          p_installments?: Json
+          p_issue_date: string
+          p_items?: Json
+          p_negotiation_method?: string
+          p_notes?: string
+          p_product_id: string
+          p_supplier_id: string
+        }
+        Returns: {
+          account_payable_id: string
+          commission_code: number
+          commission_id: string
+        }[]
+      }
+      delete_commission_with_payable: {
+        Args: {
+          p_commission_id: string
+        }
+        Returns: {
+          commission_code: number
+          commission_id: string
+          deleted_payables: number
         }[]
       }
       delete_purchase_with_payable: {

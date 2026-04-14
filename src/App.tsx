@@ -62,6 +62,7 @@ import SalesModule from "./pages/SalesModule";
 import PurchasesModule from "./pages/PurchasesModule";
 import PurchaseMigrationModule from "./pages/PurchaseMigrationModule";
 import AccountsPayableBatchPayment from "./pages/AccountsPayableBatchPayment";
+import CommissionsModule from "./pages/CommissionsModule";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,7 @@ function App() {
               <Route element={<AppShellLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/purchases" element={<PurchasesModule />} />
+                <Route path="/financeiro/commissions" element={<CommissionsModule />} />
                 <Route path="/purchases/migration" element={<PurchaseMigrationModule />} />
                 <Route path="/sales" element={<SalesModule />} />
                 <Route path="/cash-control/:storeId" element={<CashControl />} />
