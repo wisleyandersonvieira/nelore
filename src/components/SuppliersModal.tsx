@@ -38,9 +38,18 @@ interface SuppliersModalProps {
   onOpenChange: (open: boolean) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  closeOnSave?: boolean;
+  onSupplierSaved?: (supplier: Supplier) => void;
 }
 
-export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete = true }: SuppliersModalProps) => {
+export const SuppliersModal = ({
+  open,
+  onOpenChange,
+  canEdit = true,
+  canDelete = true,
+  closeOnSave = false,
+  onSupplierSaved,
+}: SuppliersModalProps) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -164,6 +173,8 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
     setSaving(true);
     try {
+      let savedSupplier: Supplier | null = null;
+
       if (editingSupplier) {
         const updateData = {
           name: formData.name,
@@ -179,12 +190,15 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
           is_creditor: formData.is_creditor,
           is_owner: formData.is_owner,
         };
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("suppliers")
           .update(updateData)
-          .eq("id", editingSupplier.id);
+          .eq("id", editingSupplier.id)
+          .select("*")
+          .single();
 
         if (error) throw error;
+        savedSupplier = data;
         toast({
           title: "Sucesso",
           description: "Fornecedor atualizado com sucesso!",
@@ -217,14 +231,17 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
         console.log("Inserting supplier:", insertData);
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("suppliers")
-          .insert([insertData]);
+          .insert([insertData])
+          .select("*")
+          .single();
 
         if (error) {
           console.error("Supabase insert error:", error);
           throw error;
         }
+        savedSupplier = data;
         toast({
           title: "Sucesso",
           description: "Fornecedor cadastrado com sucesso!",
@@ -233,7 +250,16 @@ export const SuppliersModal = ({ open, onOpenChange, canEdit = true, canDelete =
 
       resetForm();
       await fetchSuppliers();
-      setActiveTab("list");
+
+      if (savedSupplier) {
+        onSupplierSaved?.(savedSupplier);
+      }
+
+      if (closeOnSave) {
+        onOpenChange(false);
+      } else {
+        setActiveTab("list");
+      }
     } catch (error: any) {
       console.error("Error saving supplier:", error);
       toast({

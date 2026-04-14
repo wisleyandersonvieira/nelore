@@ -17,12 +17,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Loader2, PlusCircle, WalletCards, Trash2 } from "lucide-react";
+import { Search, Loader2, Plus, PlusCircle, WalletCards, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { SuppliersModal } from "@/components/SuppliersModal";
 import { fetchAccessibleStoreScope, formatCurrencyBRL, generateSaleInstallments, SaleInstallmentDraft, sumInstallments } from "@/lib/sales";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
+import { useCadastrosPermissions } from "@/hooks/useCadastrosPermissions";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 import {
   buildCommissionItemLabel,
@@ -144,6 +146,7 @@ export function CommissionFormModal({
   commissionId,
 }: CommissionFormModalProps) {
   const { toast } = useToast();
+  const { canEdit: canEditCadastros, canDelete: canDeleteCadastros } = useCadastrosPermissions();
   const readOnly = mode === "view";
   const [loading, setLoading] = useState(false);
   const [loadingReferenceData, setLoadingReferenceData] = useState(false);
@@ -156,6 +159,7 @@ export function CommissionFormModal({
   const [storesMap, setStoresMap] = useState<Record<string, StoreOption>>({});
 
   const [auctionPopoverOpen, setAuctionPopoverOpen] = useState(false);
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [supplierPopoverOpen, setSupplierPopoverOpen] = useState(false);
   const [extraItemPopoverOpen, setExtraItemPopoverOpen] = useState(false);
 
@@ -213,11 +217,30 @@ export function CommissionFormModal({
     setExtraItemSearchTerm("");
   };
 
-  const fetchLatestPurchaseAmounts = async (selectedItems: Array<{ item_type: CommissionItemType; item_id: string }>) => {
+  const loadSuppliers = async () => {
+    const { data, error } = await supabase
+      .from("suppliers")
+      .select("id, name, cnpj_cpf")
+      .eq("is_active", true)
+      .eq("is_supplier", true)
+      .order("name");
+
+    if (error) {
+      throw error;
+    }
+
+    setSuppliers((data || []) as SupplierOption[]);
+  };
+
+  const fetchAccumulatedPurchaseAmounts = async (selectedItems: Array<{ item_type: CommissionItemType; item_id: string }>) => {
     const amounts = new Map<string, number>();
-    const animalIds = selectedItems.filter((item) => item.item_type === "animal").map((item) => item.item_id);
-    const pregnancyIds = selectedItems.filter((item) => item.item_type === "pregnancy").map((item) => item.item_id);
-    const aspirationIds = selectedItems.filter((item) => item.item_type === "aspiration").map((item) => item.item_id);
+    const animalIds = Array.from(new Set(selectedItems.filter((item) => item.item_type === "animal").map((item) => item.item_id)));
+    const pregnancyIds = Array.from(new Set(selectedItems.filter((item) => item.item_type === "pregnancy").map((item) => item.item_id)));
+    const aspirationIds = Array.from(new Set(selectedItems.filter((item) => item.item_type === "aspiration").map((item) => item.item_id)));
+
+    if (animalIds.length === 0 && pregnancyIds.length === 0 && aspirationIds.length === 0) {
+      return amounts;
+    }
 
     const fillMap = (
       rows: Array<{ total_amount: number; animal_id?: string | null; pregnancy_id?: string | null; aspiration_id?: string | null }>,
@@ -229,9 +252,7 @@ export function CommissionFormModal({
 
         if (!targetId) return;
         const key = buildLocalItemId(type, targetId);
-        if (!amounts.has(key)) {
-          amounts.set(key, Number(row.total_amount || 0));
-        }
+        amounts.set(key, roundMoney((amounts.get(key) || 0) + Number(row.total_amount || 0)));
       });
     };
 
@@ -308,10 +329,11 @@ export function CommissionFormModal({
         storeIds: storeIds || undefined,
       });
 
-      const [storesRes, auctionsRes, suppliersRes, productsRes, documentTypesRes, animalsRes, pregnanciesRes, aspirationsRes] = await Promise.all([
+      const suppliersPromise = loadSuppliers();
+
+      const [storesRes, auctionsRes, productsRes, documentTypesRes, animalsRes, pregnanciesRes, aspirationsRes] = await Promise.all([
         storesQuery,
         auctionsQuery,
-        supabase.from("suppliers").select("id, name, cnpj_cpf").eq("is_active", true).eq("is_supplier", true).order("name"),
         supabase.from("products").select("id, name, code").eq("is_active", true).eq("function_type", "debit").order("name"),
         supabase.from("document_types").select("id, name, code").eq("is_active", true).order("code"),
         animalsQuery,
@@ -321,12 +343,13 @@ export function CommissionFormModal({
 
       if (storesRes.error) throw storesRes.error;
       if (auctionsRes.error) throw auctionsRes.error;
-      if (suppliersRes.error) throw suppliersRes.error;
       if (productsRes.error) throw productsRes.error;
       if (documentTypesRes.error) throw documentTypesRes.error;
       if (animalsRes.error) throw animalsRes.error;
       if (pregnanciesRes.error) throw pregnanciesRes.error;
       if (aspirationsRes.error) throw aspirationsRes.error;
+
+      await suppliersPromise;
 
       const nextStoresMap = ((storesRes.data || []) as StoreOption[]).reduce<Record<string, StoreOption>>((acc, store) => {
         acc[store.id] = store;
@@ -335,7 +358,6 @@ export function CommissionFormModal({
 
       setStoresMap(nextStoresMap);
       setAuctions((auctionsRes.data || []) as AuctionOption[]);
-      setSuppliers((suppliersRes.data || []) as SupplierOption[]);
       setDebitProducts((productsRes.data || []) as ProductOption[]);
       setDocumentTypes((documentTypesRes.data || []) as DocumentTypeOption[]);
 
@@ -682,7 +704,7 @@ export function CommissionFormModal({
         })),
       ];
 
-      const purchaseAmounts = await fetchLatestPurchaseAmounts(rawItems);
+      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts(rawItems);
       const percentage = parseFloat(defaultPercentage) || 0;
       const nextEntries = rawItems.map((item) => ({
         ...item,
@@ -731,7 +753,7 @@ export function CommissionFormModal({
 
     try {
       const key = buildLocalItemId(extraItemType, selectedExtraItem.id);
-      const purchaseAmounts = await fetchLatestPurchaseAmounts([{ item_type: extraItemType, item_id: selectedExtraItem.id }]);
+      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts([{ item_type: extraItemType, item_id: selectedExtraItem.id }]);
       const percentage = parseFloat(defaultPercentage) || 0;
 
       setItems((current) =>
@@ -974,7 +996,8 @@ export function CommissionFormModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -1046,46 +1069,72 @@ export function CommissionFormModal({
 
                   <div className="space-y-2">
                     <Label>Fornecedor</Label>
-                    <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between" disabled={readOnly || loadingReferenceData}>
-                          <span className="truncate">
-                            {selectedSupplier ? selectedSupplier.name : "Selecionar fornecedor"}
-                          </span>
-                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <div className="flex items-stretch gap-2">
+                      <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="flex-1 justify-between"
+                            disabled={readOnly || loadingReferenceData}
+                          >
+                            <span className="truncate">
+                              {selectedSupplier ? selectedSupplier.name : "Selecionar fornecedor"}
+                            </span>
+                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                          <div className="border-b p-2">
+                            <Input
+                              placeholder="Pesquisar fornecedor..."
+                              value={supplierSearchTerm}
+                              onChange={(event) => setSupplierSearchTerm(event.target.value)}
+                            />
+                          </div>
+                          <div className="max-h-64 overflow-y-auto">
+                            {filteredSuppliers.map((supplier) => (
+                              <button
+                                type="button"
+                                key={supplier.id}
+                                className={cn(
+                                  "flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                                  supplierId === supplier.id && "bg-accent font-medium",
+                                )}
+                                onClick={() => {
+                                  setSupplierId(supplier.id);
+                                  setSupplierPopoverOpen(false);
+                                }}
+                              >
+                                <span>{supplier.name}</span>
+                                {supplier.cnpj_cpf && (
+                                  <span className="text-xs text-muted-foreground">{supplier.cnpj_cpf}</span>
+                                )}
+                              </button>
+                            ))}
+                            {filteredSuppliers.length === 0 && (
+                              <div className="px-3 py-4 text-sm text-muted-foreground">
+                                Nenhum fornecedor encontrado.
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {!readOnly && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          disabled={!canEditCadastros}
+                          onClick={() => setSupplierModalOpen(true)}
+                          aria-label="Cadastrar fornecedor"
+                          title="Cadastrar fornecedor"
+                        >
+                          <Plus className="h-4 w-4" />
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                        <div className="border-b p-2">
-                          <Input
-                            placeholder="Pesquisar fornecedor..."
-                            value={supplierSearchTerm}
-                            onChange={(event) => setSupplierSearchTerm(event.target.value)}
-                          />
-                        </div>
-                        <div className="max-h-64 overflow-y-auto">
-                          {filteredSuppliers.map((supplier) => (
-                            <button
-                              type="button"
-                              key={supplier.id}
-                              className={cn(
-                                "flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
-                                supplierId === supplier.id && "bg-accent font-medium",
-                              )}
-                              onClick={() => {
-                                setSupplierId(supplier.id);
-                                setSupplierPopoverOpen(false);
-                              }}
-                            >
-                              <span>{supplier.name}</span>
-                              {supplier.cnpj_cpf && (
-                                <span className="text-xs text-muted-foreground">{supplier.cnpj_cpf}</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1530,6 +1579,29 @@ export function CommissionFormModal({
           )}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      <SuppliersModal
+        open={supplierModalOpen}
+        onOpenChange={setSupplierModalOpen}
+        canEdit={canEditCadastros}
+        canDelete={canDeleteCadastros}
+        closeOnSave
+        onSupplierSaved={(supplier) => {
+          setSuppliers((current) => {
+            const next = current.filter((item) => item.id !== supplier.id);
+            next.push({
+              id: supplier.id,
+              name: supplier.name,
+              cnpj_cpf: supplier.cnpj_cpf,
+            });
+
+            return next.sort((left, right) => left.name.localeCompare(right.name));
+          });
+          setSupplierId(supplier.id);
+          setSupplierSearchTerm("");
+          setSupplierPopoverOpen(false);
+        }}
+      />
+    </>
   );
 }

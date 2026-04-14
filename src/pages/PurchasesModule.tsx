@@ -327,8 +327,10 @@ const PurchasesModule = () => {
   const [sortDirection, setSortDirection] = useState<PurchaseSortDirection>("desc");
   const [sortField, setSortField] = useState<PurchaseSortField>("purchaseDate");
   const [typeFilter, setTypeFilter] = useState<"all" | PurchaseType>("all");
-  // Filtro de período: padrão = 1º dia de 2 meses atrás até hoje.
-  // Reduz drasticamente o volume de dados carregado no carregamento inicial.
+  // Estado "rascunho" — atualizado enquanto o usuário edita os inputs, sem disparar queries.
+  const [draftStart, setDraftStart] = useState<string>(() => getDateOffset(2, true));
+  const [draftEnd, setDraftEnd] = useState<string>(() => getDateOffset(0));
+  // Estado "aplicado" — copiado do rascunho ao clicar em "Filtrar". É este que dispara o loadPurchases.
   const [periodStart, setPeriodStart] = useState<string>(() => getDateOffset(2, true));
   const [periodEnd, setPeriodEnd] = useState<string>(() => getDateOffset(0));
 
@@ -1104,13 +1106,13 @@ const PurchasesModule = () => {
               </div>
             </div>
 
-            {/* Filtro de período — restringe a busca no banco para carregar apenas o intervalo desejado */}
+            {/* Filtro de período — edita o rascunho livremente; a busca só ocorre ao clicar em "Filtrar" */}
             <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-end">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CalendarDays className="h-4 w-4 shrink-0 text-indigo-500" />
                 <span className="font-medium text-foreground">Período</span>
               </div>
-              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-1 flex-wrap gap-3 sm:items-end">
                 <div className="space-y-1.5">
                   <Label htmlFor="period-start" className="text-xs">
                     Data inicial
@@ -1118,9 +1120,9 @@ const PurchasesModule = () => {
                   <Input
                     id="period-start"
                     type="date"
-                    value={periodStart}
-                    max={periodEnd}
-                    onChange={(e) => setPeriodStart(e.target.value)}
+                    value={draftStart}
+                    max={draftEnd}
+                    onChange={(e) => setDraftStart(e.target.value)}
                     className="h-9 w-full sm:w-40"
                   />
                 </div>
@@ -1131,19 +1133,20 @@ const PurchasesModule = () => {
                   <Input
                     id="period-end"
                     type="date"
-                    value={periodEnd}
-                    min={periodStart}
-                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    value={draftEnd}
+                    min={draftStart}
+                    onChange={(e) => setDraftEnd(e.target.value)}
                     className="h-9 w-full sm:w-40"
                   />
                 </div>
+                {/* Atalhos: pré-preenchem o rascunho mas NÃO disparam a busca */}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 shrink-0 text-xs"
+                  className="h-9 shrink-0 self-end text-xs"
                   onClick={() => {
-                    setPeriodStart(getDateOffset(2, true));
-                    setPeriodEnd(getDateOffset(0));
+                    setDraftStart(getDateOffset(2, true));
+                    setDraftEnd(getDateOffset(0));
                   }}
                 >
                   Últimos 2 meses
@@ -1151,10 +1154,10 @@ const PurchasesModule = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 shrink-0 text-xs"
+                  className="h-9 shrink-0 self-end text-xs"
                   onClick={() => {
-                    setPeriodStart(getDateOffset(6, true));
-                    setPeriodEnd(getDateOffset(0));
+                    setDraftStart(getDateOffset(6, true));
+                    setDraftEnd(getDateOffset(0));
                   }}
                 >
                   Últimos 6 meses
@@ -1162,14 +1165,27 @@ const PurchasesModule = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 shrink-0 text-xs"
+                  className="h-9 shrink-0 self-end text-xs"
                   onClick={() => {
                     const now = new Date();
-                    setPeriodStart(`${now.getFullYear()}-01-01`);
-                    setPeriodEnd(getDateOffset(0));
+                    setDraftStart(`${now.getFullYear()}-01-01`);
+                    setDraftEnd(getDateOffset(0));
                   }}
                 >
                   Este ano
+                </Button>
+                {/* Único botão que confirma e dispara a query no banco */}
+                <Button
+                  size="sm"
+                  className="h-9 shrink-0 self-end bg-indigo-600 text-white hover:bg-indigo-700"
+                  disabled={loading || !draftStart || !draftEnd}
+                  onClick={() => {
+                    setPeriodStart(draftStart);
+                    setPeriodEnd(draftEnd);
+                  }}
+                >
+                  {loading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Filtrar
                 </Button>
               </div>
             </div>
