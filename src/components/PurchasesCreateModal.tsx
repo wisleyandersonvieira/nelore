@@ -38,12 +38,15 @@ import {
   PURCHASE_TYPE_LABELS,
   PURCHASE_TYPE_OPTIONS,
   PurchaseType,
+  updatePurchaseWithPayable,
 } from "@/lib/purchases";
 
 interface PurchasesCreateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void> | void;
+  mode: "create" | "edit";
+  purchaseId?: string | null;
 }
 
 interface SupplierOption {
@@ -70,6 +73,34 @@ interface StoreOption {
   code: string;
 }
 
+interface PurchaseRow {
+  id: string;
+  supplier_id: string;
+  product_id: string;
+  purchase_type: PurchaseType;
+  animal_id: string | null;
+  pregnancy_id: string | null;
+  aspiration_id: string | null;
+  recipient_id: string | null;
+  purchase_date: string;
+  issue_date: string;
+  competence_date: string;
+  first_due_date: string;
+  document_type: string | null;
+  document_number: string | null;
+  negotiation_method: string | null;
+  description: string;
+  notes: string | null;
+  total_amount: number;
+  installment_count: number;
+}
+
+interface PayableRow {
+  id: string;
+  due_date: string;
+  total_amount: number | null;
+}
+
 const EMPTY_ITEMS: Record<PurchaseType, SaleItemOption[]> = {
   animal: [],
   pregnancy: [],
@@ -79,9 +110,16 @@ const EMPTY_ITEMS: Record<PurchaseType, SaleItemOption[]> = {
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-export function PurchasesCreateModal({ open, onOpenChange, onSaved }: PurchasesCreateModalProps) {
+export function PurchasesCreateModal({
+  open,
+  onOpenChange,
+  onSaved,
+  mode,
+  purchaseId,
+}: PurchasesCreateModalProps) {
   const { toast } = useToast();
   const { canEdit: canEditCadastros, canDelete: canDeleteCadastros } = useCadastrosPermissions();
+  const isEditMode = mode === "edit";
   const [loading, setLoading] = useState(false);
   const [loadingReferenceData, setLoadingReferenceData] = useState(false);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
@@ -294,15 +332,111 @@ export function PurchasesCreateModal({ open, onOpenChange, onSaved }: PurchasesC
     }
   };
 
+  const loadPurchase = async (targetPurchaseId: string) => {
+    const { data: purchaseRes, error: purchaseError } = await supabase
+      .from("purchases")
+      .select("*")
+      .eq("id", targetPurchaseId)
+      .single();
+
+    if (purchaseError) throw purchaseError;
+
+    const purchase = purchaseRes as unknown as PurchaseRow;
+    const itemId =
+      purchase.purchase_type === "animal"
+        ? purchase.animal_id
+        : purchase.purchase_type === "pregnancy"
+          ? purchase.pregnancy_id
+          : purchase.purchase_type === "aspiration"
+            ? purchase.aspiration_id
+            : purchase.recipient_id;
+
+    if (!itemId) {
+      throw new Error("Não foi possível identificar o item vinculado à compra.");
+    }
+
+    const { data: payablesRes, error: payablesError } = await supabase
+      .from("accounts_payable")
+      .select("id, due_date, total_amount")
+      .eq("purchase_id", targetPurchaseId)
+      .or("purchase_link_origin.eq.manual,purchase_link_origin.is.null");
+
+    if (payablesError) throw payablesError;
+
+    const payables = (payablesRes || []) as PayableRow[];
+
+    if (payables.length !== 1) {
+      throw new Error("A compra precisa ter exatamente um título manual vinculado para permitir edição.");
+    }
+
+    const { data: installmentsRes, error: installmentsError } = await supabase
+      .from("accounts_payable_installments")
+      .select("installment_number, due_date, amount, payment_date")
+      .eq("account_payable_id", payables[0].id)
+      .order("installment_number", { ascending: true });
+
+    if (installmentsError) throw installmentsError;
+
+    setSupplierId(purchase.supplier_id);
+    setPurchaseType(purchase.purchase_type);
+    setItemId(itemId);
+    setProductId(purchase.product_id);
+    setPurchaseDate(purchase.purchase_date);
+    setIssueDate(purchase.issue_date);
+    setCompetenceDate(purchase.competence_date);
+    setFirstDueDate(purchase.first_due_date);
+    setDocumentType(purchase.document_type || "");
+    setDocumentNumber(purchase.document_number || "");
+    setNegotiationMethod(purchase.negotiation_method || "");
+    setDescription(purchase.description || "");
+    setNotes(purchase.notes || "");
+    setTotalAmount(Number(purchase.total_amount || 0));
+    setInstallmentCount(Number(purchase.installment_count || 1));
+    setInstallments(
+      ((installmentsRes || []) as Array<{
+        installment_number: number;
+        due_date: string;
+        amount: number;
+        payment_date?: string | null;
+      }>).map((installment) => ({
+        installment_number: installment.installment_number,
+        due_date: installment.due_date,
+        amount: Number(installment.amount || 0),
+        payment_date: installment.payment_date || null,
+      })),
+    );
+  };
+
   useEffect(() => {
     if (!open) {
       resetForm();
       return;
     }
 
-    resetForm();
-    void loadReferenceData();
-  }, [open]);
+    const initialize = async () => {
+      resetForm();
+      await loadReferenceData();
+
+      if (isEditMode && purchaseId) {
+        setLoading(true);
+        try {
+          await loadPurchase(purchaseId);
+        } catch (error) {
+          console.error("Erro ao carregar compra:", error);
+          toast({
+            title: "Erro",
+            description: "Não foi possível carregar os dados da compra para edição.",
+            variant: "destructive",
+          });
+          onOpenChange(false);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    void initialize();
+  }, [open, isEditMode, purchaseId]);
 
   useEffect(() => {
     if (!open && !supplierModalOpen) {
@@ -433,7 +567,7 @@ export function PurchasesCreateModal({ open, onOpenChange, onSaved }: PurchasesC
 
     setLoading(true);
     try {
-      const result = await createPurchaseWithPayable({
+      const payload = {
         supplierId,
         purchaseType,
         itemId,
@@ -449,13 +583,21 @@ export function PurchasesCreateModal({ open, onOpenChange, onSaved }: PurchasesC
         notes: notes || undefined,
         negotiationMethod: negotiationMethod || undefined,
         installments: effectiveInstallments,
-      });
+      };
+
+      const result =
+        isEditMode && purchaseId
+          ? await updatePurchaseWithPayable({
+              purchaseId,
+              ...payload,
+            })
+          : await createPurchaseWithPayable(payload);
 
       toast({
-        title: "Compra registrada",
+        title: isEditMode ? "Compra atualizada" : "Compra registrada",
         description: result?.purchase_code
-          ? `Compra #${result.purchase_code} criada com títulos vinculados ao Contas a Pagar.`
-          : "Compra criada com títulos vinculados ao Contas a Pagar.",
+          ? `Compra #${result.purchase_code} salva com títulos vinculados ao Contas a Pagar.`
+          : "Compra salva com títulos vinculados ao Contas a Pagar.",
       });
 
       await onSaved();
@@ -479,10 +621,12 @@ export function PurchasesCreateModal({ open, onOpenChange, onSaved }: PurchasesC
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <WalletCards className="h-5 w-5 text-indigo-600" />
-              Registrar Compra
+              {isEditMode ? "Editar Compra" : "Registrar Compra"}
             </DialogTitle>
             <DialogDescription>
-              O cadastro da compra gera automaticamente os compromissos financeiros no Contas a Pagar.
+              {isEditMode
+                ? "A edição atualiza a compra e recompõe os compromissos vinculados no Contas a Pagar."
+                : "O cadastro da compra gera automaticamente os compromissos financeiros no Contas a Pagar."}
             </DialogDescription>
           </DialogHeader>
 
@@ -894,7 +1038,7 @@ export function PurchasesCreateModal({ open, onOpenChange, onSaved }: PurchasesC
             </Button>
             <Button onClick={handleSave} disabled={loading || loadingReferenceData}>
               {(loading || loadingReferenceData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salvar compra
+              {isEditMode ? "Salvar alterações" : "Salvar compra"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -46,6 +46,7 @@ import {
   HandCoins,
   Loader2,
   PackagePlus,
+  Pencil,
   Plus,
   Search,
   ShoppingCart,
@@ -64,6 +65,7 @@ interface PurchaseInstallmentRow extends SaleInstallmentDraft {
   displayInstallmentNumber: number;
   payableDescription: string | null;
   payableId: string;
+  status?: string | null;
 }
 
 interface LinkedPayableRow {
@@ -316,7 +318,9 @@ const PurchasesModule = () => {
   const { canView, canEdit, loading: permissionsLoading } = useFinanceiroPermissions();
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
+  const [purchaseFormMode, setPurchaseFormMode] = useState<"create" | "edit">("create");
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -411,10 +415,11 @@ const PurchasesModule = () => {
               due_date: string;
               amount: number;
               payment_date: string | null;
+              status: string | null;
             }>(() =>
               supabase
                 .from("accounts_payable_installments")
-                .select("account_payable_id, installment_number, due_date, amount, payment_date")
+                .select("account_payable_id, installment_number, due_date, amount, payment_date, status")
                 .in("account_payable_id", payableIds)
                 .order("installment_number", { ascending: true }),
             )
@@ -432,6 +437,7 @@ const PurchasesModule = () => {
           payment_date: installment.payment_date,
           payableDescription: payable?.description || null,
           payableId: installment.account_payable_id,
+          status: installment.status,
         });
         installmentsMap.set(installment.account_payable_id, current);
       });
@@ -588,10 +594,11 @@ const PurchasesModule = () => {
               due_date: string;
               amount: number;
               payment_date: string | null;
+              status: string | null;
             }>(() =>
               supabase
                 .from("accounts_payable_installments")
-                .select("account_payable_id, installment_number, due_date, amount, payment_date")
+                .select("account_payable_id, installment_number, due_date, amount, payment_date, status")
                 .in("account_payable_id", payableIds)
                 .order("installment_number", { ascending: true }),
             )
@@ -624,6 +631,7 @@ const PurchasesModule = () => {
           payment_date: installment.payment_date,
           payableDescription: payable?.description || null,
           payableId: installment.account_payable_id,
+          status: installment.status,
         });
         installmentsMap.set(installment.account_payable_id, current);
       });
@@ -776,11 +784,68 @@ const PurchasesModule = () => {
       (payable) => payable.status === "pending" && !payable.paymentDate,
     );
     const installmentsArePending = selectedPurchase.installments.every(
-      (installment) => !installment.payment_date,
+      (installment) =>
+        installment.status !== "pagamento_suspenso" &&
+        installment.status !== "paid" &&
+        !installment.payment_date,
     );
 
     return selectedPurchase.status === "pending" && payablesArePending && installmentsArePending;
   }, [canEdit, deleting, detailsLoading, selectedPurchase]);
+
+  const canEditSelectedPurchase = useMemo(() => {
+    if (!selectedPurchase || !canEdit || detailsLoading) return false;
+
+    if (selectedPurchase.originType !== "manual") return false;
+    if (selectedPurchase.linkedPayables.length !== 1) return false;
+
+    const payablesAreEditable = selectedPurchase.linkedPayables.every(
+      (payable) =>
+        payable.status !== "pagamento_suspenso" &&
+        payable.status !== "paid" &&
+        !payable.paymentDate,
+    );
+    const installmentsAreEditable = selectedPurchase.installments.every(
+      (installment) =>
+        installment.status !== "pagamento_suspenso" &&
+        installment.status !== "paid" &&
+        !installment.payment_date,
+    );
+
+    return payablesAreEditable && installmentsAreEditable;
+  }, [canEdit, detailsLoading, selectedPurchase]);
+
+  const editPurchaseBlockedReason = useMemo(() => {
+    if (!selectedPurchase || !canEdit) return null;
+    if (detailsLoading) return "Aguarde o carregamento completo dos detalhes para validar a edição.";
+    if (selectedPurchase.originType !== "manual") {
+      return "Compras migradas do financeiro não podem ser editadas por este fluxo.";
+    }
+    if (selectedPurchase.linkedPayables.length !== 1) {
+      return "A compra precisa ter exatamente um título manual vinculado para permitir edição.";
+    }
+    if (
+      selectedPurchase.linkedPayables.some(
+        (payable) =>
+          payable.status === "pagamento_suspenso" ||
+          payable.status === "paid" ||
+          Boolean(payable.paymentDate),
+      )
+    ) {
+      return "A compra possui título com pagamento realizado ou suspenso.";
+    }
+    if (
+      selectedPurchase.installments.some(
+        (installment) =>
+          installment.status === "pagamento_suspenso" ||
+          installment.status === "paid" ||
+          Boolean(installment.payment_date),
+      )
+    ) {
+      return "A compra possui parcela paga ou suspensa e não pode ser editada.";
+    }
+    return null;
+  }, [canEdit, detailsLoading, selectedPurchase]);
 
   const deletePurchaseBlockedReason = useMemo(() => {
     if (!selectedPurchase || !canEdit) return null;
@@ -797,6 +862,14 @@ const PurchasesModule = () => {
     }
     if (selectedPurchase.installments.some((installment) => installment.payment_date)) {
       return "A compra possui parcela paga e não pode ser excluída.";
+    }
+    if (
+      selectedPurchase.installments.some(
+        (installment) =>
+          installment.status === "pagamento_suspenso" || installment.status === "paid",
+      )
+    ) {
+      return "A compra possui parcela suspensa ou já liquidada e não pode ser excluída.";
     }
     return null;
   }, [canEdit, detailsLoading, selectedPurchase]);
@@ -968,7 +1041,11 @@ const PurchasesModule = () => {
 
         {canEdit && (
           <Button
-            onClick={() => setCreateOpen(true)}
+            onClick={() => {
+              setPurchaseFormMode("create");
+              setEditingPurchaseId(null);
+              setPurchaseFormOpen(true);
+            }}
             className="h-11 rounded-2xl bg-indigo-600 px-5 text-white hover:bg-indigo-700"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -1317,11 +1394,13 @@ const PurchasesModule = () => {
       </Card>
 
       <PurchasesCreateModal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+        open={purchaseFormOpen}
+        onOpenChange={setPurchaseFormOpen}
         onSaved={async () => {
           await loadPurchases(periodStart, periodEnd);
         }}
+        mode={purchaseFormMode}
+        purchaseId={editingPurchaseId}
       />
 
       <Dialog
@@ -1346,6 +1425,27 @@ const PurchasesModule = () => {
 
                 {canEdit && (
                   <div className="flex flex-col gap-2 sm:items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (!selectedPurchase) return;
+                        setDeleteDialogOpen(false);
+                        setPurchaseFormMode("edit");
+                        setEditingPurchaseId(selectedPurchase.id);
+                        setPurchaseFormOpen(true);
+                        setSelectedPurchase(null);
+                      }}
+                      disabled={!canEditSelectedPurchase}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Editar compra
+                    </Button>
+                    {editPurchaseBlockedReason && (
+                      <p className="max-w-xs text-xs text-muted-foreground sm:text-right">
+                        {editPurchaseBlockedReason}
+                      </p>
+                    )}
                     <Button
                       type="button"
                       variant="destructive"

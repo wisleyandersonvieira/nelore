@@ -52,6 +52,50 @@ export const createPurchaseWithPayable = async (input: {
   return data?.[0] || null;
 };
 
+export const updatePurchaseWithPayable = async (input: {
+  purchaseId: string;
+  supplierId: string;
+  purchaseType: PurchaseType;
+  itemId: string;
+  productId: string;
+  purchaseDate: string;
+  issueDate: string;
+  competenceDate: string;
+  firstDueDate: string;
+  totalAmount: number;
+  documentType?: string;
+  documentNumber?: string;
+  description?: string;
+  notes?: string;
+  negotiationMethod?: string;
+  installments: PurchaseInstallmentDraft[];
+}) => {
+  const { data, error } = await supabase.rpc("update_purchase_with_payable", {
+    p_purchase_id: input.purchaseId,
+    p_supplier_id: input.supplierId,
+    p_purchase_type: input.purchaseType,
+    p_item_id: input.itemId,
+    p_product_id: input.productId,
+    p_purchase_date: input.purchaseDate,
+    p_issue_date: input.issueDate,
+    p_competence_date: input.competenceDate,
+    p_first_due_date: input.firstDueDate,
+    p_total_amount: input.totalAmount,
+    p_document_type: input.documentType || null,
+    p_document_number: input.documentNumber || null,
+    p_description: input.description || null,
+    p_notes: input.notes || null,
+    p_negotiation_method: input.negotiationMethod || null,
+    p_installments: input.installments as unknown as Json,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.[0] || null;
+};
+
 export const migrateAccountsPayableToPurchase = async (input: {
   accountPayableIds: string[];
   purchaseType: PurchaseType;
