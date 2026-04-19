@@ -101,9 +101,11 @@ const sumAllocationTotals = async (
 export const fetchAspirationRateioSummary = async ({
   aspirationId,
   embryoTransferId,
+  reallocateEmptyBatchSiblings = false,
 }: {
   aspirationId: string;
   embryoTransferId?: string | null;
+  reallocateEmptyBatchSiblings?: boolean;
 }): Promise<AspirationRateioSummary> => {
   const { data: aspirationData } = await supabase
     .from("aspiration_management")
@@ -140,7 +142,7 @@ export const fetchAspirationRateioSummary = async ({
 
     const batchUtilizationId = (embryoTransfer as any)?.batch_utilization_id as string | null;
     if (batchUtilizationId) {
-      const [{ data: utilization }, { count }] = await Promise.all([
+      const [{ data: utilization }, { count: totalCount }, { count: activeCount }] = await Promise.all([
         supabase
           .from("aspiration_batch_utilizations" as any)
           .select("quantity_used")
@@ -150,10 +152,18 @@ export const fetchAspirationRateioSummary = async ({
           .from("embryo_transfer_management")
           .select("id", { count: "exact", head: true })
           .eq("batch_utilization_id", batchUtilizationId),
+        supabase
+          .from("embryo_transfer_management")
+          .select("id", { count: "exact", head: true })
+          .eq("batch_utilization_id", batchUtilizationId)
+          .neq("status", "finalized_empty"),
       ]);
 
       const quantityUsed = Number((utilization as any)?.quantity_used || 0);
-      const divisor = Math.max(Number(count || 0), 1);
+      const divisor = Math.max(
+        Number(reallocateEmptyBatchSiblings ? activeCount || totalCount || 0 : totalCount || 0),
+        1,
+      );
       const factor = quantityUsed > 0 ? quantityUsed / batchQuantity : 0;
 
       return {

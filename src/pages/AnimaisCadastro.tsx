@@ -657,6 +657,7 @@ const AnimaisCadastro = () => {
             const aspirationRateio = await fetchAspirationRateioSummary({
               aspirationId,
               embryoTransferId,
+              reallocateEmptyBatchSiblings: true,
             });
 
             if (aspirationRateio.expenseTotal > 0) {
