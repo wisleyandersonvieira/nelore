@@ -35,6 +35,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getRecipientCategoryIds } from "@/lib/animalCategoryRules";
+import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -700,84 +701,13 @@ const AnimaisTransferenciaEmbriao = () => {
       // Skip rateio for finalized_empty records (they are excluded from cost sharing)
       const currentRecord = records.find(r => r.id === teId);
       if (aspirationId && currentRecord?.status !== "finalized_empty") {
-        // Get embryo_count from aspiration
-        const { data: aspirationData } = await supabase
-          .from("aspiration_management")
-          .select("embryo_count")
-          .eq("id", aspirationId)
-          .single();
-        const totalEmbryoCount = aspirationData?.embryo_count || 1;
-
-        // Count siblings finalized as empty to subtract from divisor
-        const { data: emptySiblings } = await supabase
-          .from("embryo_transfer_management")
-          .select("id")
-          .eq("aspiration_id", aspirationId)
-          .eq("status", "finalized_empty");
-        const emptyCount = emptySiblings?.length || 0;
-        const embryoCount = Math.max(totalEmbryoCount - emptyCount, 1);
-
-        // Fetch aspiration expense allocations
-        const { data: aspExpAllocations } = await supabase
-          .from("accounts_payable_item_allocations")
-          .select(`
-            id, allocation_type, account_payable_item_id,
-            accounts_payable_items!inner (
-              total_price, account_payable_id,
-              accounts_payable!inner (
-                id, status, supplier_id
-              )
-            )
-          `)
-          .eq("aspiration_id", aspirationId);
-
-        // Fetch aspiration revenue allocations
-        const { data: aspRevAllocations } = await supabase
-          .from("accounts_receivable_item_allocations")
-          .select(`
-            id, allocation_type, account_receivable_item_id,
-            accounts_receivable_items!inner (
-              total_price, account_receivable_id,
-              accounts_receivable!inner (
-                id, status, creditor_id
-              )
-            )
-          `)
-          .eq("aspiration_id", aspirationId);
-
-        // Sum total expenses from aspiration
-        let aspTotalExpense = 0;
-        let aspPaidExpense = 0;
-        if (aspExpAllocations && aspExpAllocations.length > 0) {
-          aspExpAllocations.forEach((a: any) => {
-            aspTotalExpense += a.accounts_payable_items?.total_price || 0;
-          });
-          // Get paid amounts for aspiration expenses
-          const aspApIds = [...new Set(aspExpAllocations.map((a: any) => a.accounts_payable_items?.accounts_payable?.id).filter(Boolean))];
-          if (aspApIds.length > 0) {
-            const today = format(new Date(), "yyyy-MM-dd");
-            const { data: aspPayments } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", aspApIds).lte("payment_date", today);
-            (aspPayments || []).forEach((p: any) => { aspPaidExpense += p.amount_paid || 0; });
-          }
-        }
-
-        // Sum total revenues from aspiration
-        let aspTotalRevenue = 0;
-        let aspPaidRevenue = 0;
-        if (aspRevAllocations && aspRevAllocations.length > 0) {
-          aspRevAllocations.forEach((a: any) => {
-            aspTotalRevenue += a.accounts_receivable_items?.total_price || 0;
-          });
-          const aspArIds = [...new Set(aspRevAllocations.map((a: any) => a.accounts_receivable_items?.accounts_receivable?.id).filter(Boolean))];
-          if (aspArIds.length > 0) {
-            const today = format(new Date(), "yyyy-MM-dd");
-            const { data: aspRecPayments } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", aspArIds).lte("payment_date", today);
-            (aspRecPayments || []).forEach((p: any) => { aspPaidRevenue += p.amount_paid || 0; });
-          }
-        }
+        const aspirationRateio = await fetchAspirationRateioSummary({
+          aspirationId,
+          embryoTransferId: teId,
+        });
 
         // Add rateio rows (divided by embryo count)
-        if (aspTotalExpense > 0) {
+        if (aspirationRateio.expenseTotal > 0) {
           allRecords.push({
             id: `rateio-expense-${aspirationId}`,
             document_number: null,
@@ -787,16 +717,16 @@ const AnimaisTransferenciaEmbriao = () => {
             supplier_name: "Rateio de Aspiração",
             creditor_name: null,
             allocation_type: "aspiration_rateio",
-            item_total_price: aspTotalExpense / embryoCount,
+            item_total_price: aspirationRateio.expenseTotal / aspirationRateio.divisor,
             account_payable_id: "",
             account_receivable_id: "",
-            paid_amount: aspPaidExpense / embryoCount,
+            paid_amount: aspirationRateio.expensePaid / aspirationRateio.divisor,
             record_type: 'expense',
             is_rateio: true,
           });
         }
 
-        if (aspTotalRevenue > 0) {
+        if (aspirationRateio.revenueTotal > 0) {
           allRecords.push({
             id: `rateio-revenue-${aspirationId}`,
             document_number: null,
@@ -806,10 +736,10 @@ const AnimaisTransferenciaEmbriao = () => {
             supplier_name: null,
             creditor_name: "Rateio de Aspiração",
             allocation_type: "aspiration_rateio",
-            item_total_price: aspTotalRevenue / embryoCount,
+            item_total_price: aspirationRateio.revenueTotal / aspirationRateio.divisor,
             account_payable_id: "",
             account_receivable_id: "",
-            paid_amount: aspPaidRevenue / embryoCount,
+            paid_amount: aspirationRateio.revenuePaid / aspirationRateio.divisor,
             record_type: 'revenue',
             is_rateio: true,
           });

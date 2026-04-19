@@ -55,6 +55,7 @@ import { format, parse, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
+import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
 
 interface Animal {
   id: string;
@@ -653,16 +654,17 @@ const AnimaisCadastro = () => {
           const aspirationId = teData?.aspiration_id;
 
           if (aspirationId) {
-            // Get embryo count and subtract empty siblings for dynamic divisor
-            const { data: aspirationData } = await supabase.from("aspiration_management").select("embryo_count").eq("id", aspirationId).single();
-            const totalEmbryoCount = aspirationData?.embryo_count || 1;
-            const { data: emptySiblings } = await supabase.from("embryo_transfer_management").select("id").eq("aspiration_id", aspirationId).eq("status", "finalized_empty");
-            const emptyCount = emptySiblings?.length || 0;
-            const embryoCount = Math.max(totalEmbryoCount - emptyCount, 1);
+            const aspirationRateio = await fetchAspirationRateioSummary({
+              aspirationId,
+              embryoTransferId,
+            });
 
-            const { data: aspExpAlloc } = await supabase.from("accounts_payable_item_allocations").select(`id, allocation_type, accounts_payable_items!inner ( total_price, account_payable_id, accounts_payable!inner ( id, status ) )`).eq("aspiration_id", aspirationId);
-            const { data: aspRevAlloc } = await supabase.from("accounts_receivable_item_allocations").select(`id, allocation_type, accounts_receivable_items!inner ( total_price, account_receivable_id, accounts_receivable!inner ( id, status ) )`).eq("aspiration_id", aspirationId);
-            await addRateioSummary(aspExpAlloc || [], aspRevAlloc || [], "Rateio de Aspiração", "aspiration_rateio", aspirationId, embryoCount);
+            if (aspirationRateio.expenseTotal > 0) {
+              allRecords.push({ id: `rateio-aspiration_rateio-exp-${aspirationId}`, description: "", document_number: null, amount: 0, due_date: "", payment_date: null, status: "", supplier_name: "Rateio de Aspiração", creditor_name: null, store_name: null, allocation_type: "aspiration_rateio", item_quantity: 0, item_unit_price: 0, item_total_price: aspirationRateio.expenseTotal / aspirationRateio.divisor, account_payable_id: "", account_receivable_id: "", paid_amount: aspirationRateio.expensePaid / aspirationRateio.divisor, record_type: 'expense', is_rateio: true, rateio_label: "Rateio de Aspiração" });
+            }
+            if (aspirationRateio.revenueTotal > 0) {
+              allRecords.push({ id: `rateio-aspiration_rateio-rev-${aspirationId}`, description: "", document_number: null, amount: 0, due_date: "", payment_date: null, status: "", supplier_name: null, creditor_name: "Rateio de Aspiração", store_name: null, allocation_type: "aspiration_rateio", item_quantity: 0, item_unit_price: 0, item_total_price: aspirationRateio.revenueTotal / aspirationRateio.divisor, account_payable_id: "", account_receivable_id: "", paid_amount: aspirationRateio.revenuePaid / aspirationRateio.divisor, record_type: 'revenue', is_rateio: true, rateio_label: "Rateio de Aspiração" });
+            }
           }
         }
       }

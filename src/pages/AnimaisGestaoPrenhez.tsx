@@ -54,6 +54,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 import { createPdfReportLayout, getSoftStatusRowFillColor } from "@/lib/pdfReportLayout";
+import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -409,88 +410,16 @@ const AnimaisGestaoPrenhez = () => {
 
       // 3. Fetch Aspiration rateio (if aspirationId exists)
       if (aspirationId) {
-        const { data: aspirationData } = await supabase.from("aspiration_management").select("embryo_count").eq("id", aspirationId).single();
-        const totalEmbryoCount = aspirationData?.embryo_count || 1;
+        const aspirationRateio = await fetchAspirationRateioSummary({
+          aspirationId,
+          embryoTransferId,
+        });
 
-        // Count siblings finalized as empty to subtract from divisor
-        const { data: emptySiblings } = await supabase
-          .from("embryo_transfer_management")
-          .select("id")
-          .eq("aspiration_id", aspirationId)
-          .eq("status", "finalized_empty");
-        const emptyCount = emptySiblings?.length || 0;
-        const embryoCount = Math.max(totalEmbryoCount - emptyCount, 1);
-
-        const { data: aspExpAllocations } = await supabase
-          .from("accounts_payable_item_allocations")
-          .select(`id, allocation_type, accounts_payable_items!inner ( total_price, account_payable_id, accounts_payable!inner ( id, status ) )`)
-          .eq("aspiration_id", aspirationId);
-
-        const { data: aspRevAllocations } = await supabase
-          .from("accounts_receivable_item_allocations")
-          .select(`id, allocation_type, accounts_receivable_items!inner ( total_price, account_receivable_id, accounts_receivable!inner ( id, status ) )`)
-          .eq("aspiration_id", aspirationId);
-
-        let aspTotalExpense = 0; let aspPaidExpense = 0;
-        if (aspExpAllocations && aspExpAllocations.length > 0) {
-          const aspApMap = new Map<string, { totalItemPrice: number; status: string }>();
-          aspExpAllocations.forEach((a: any) => {
-            const itemPrice = a.accounts_payable_items?.total_price || 0;
-            aspTotalExpense += itemPrice;
-            const apId = a.accounts_payable_items?.accounts_payable?.id;
-            const apStatus = a.accounts_payable_items?.accounts_payable?.status || "";
-            if (apId) {
-              const existing = aspApMap.get(apId);
-              if (existing) { existing.totalItemPrice += itemPrice; }
-              else { aspApMap.set(apId, { totalItemPrice: itemPrice, status: apStatus }); }
-            }
-          });
-          const aspApIds = Array.from(aspApMap.keys());
-          if (aspApIds.length > 0) {
-            const today = format(new Date(), "yyyy-MM-dd");
-            const { data: aspPay } = await supabase.from("accounts_payable_payments").select("account_payable_id, amount_paid").in("account_payable_id", aspApIds).lte("payment_date", today);
-            const aspPayMap = new Map<string, number>();
-            (aspPay || []).forEach((p: any) => { aspPayMap.set(p.account_payable_id, (aspPayMap.get(p.account_payable_id) || 0) + (p.amount_paid || 0)); });
-            aspApMap.forEach((info, apId) => {
-              const paymentSum = aspPayMap.get(apId) || 0;
-              if (paymentSum > 0) { aspPaidExpense += paymentSum; }
-              else if (info.status === "paid") { aspPaidExpense += info.totalItemPrice; }
-            });
-          }
+        if (aspirationRateio.expenseTotal > 0) {
+          allRecords.push({ id: `rateio-asp-expense-${aspirationId}`, document_number: null, due_date: "", payment_date: null, status: "", supplier_name: "Rateio de Aspiração", creditor_name: null, allocation_type: "aspiration_rateio", item_total_price: aspirationRateio.expenseTotal / aspirationRateio.divisor, account_payable_id: "", account_receivable_id: "", paid_amount: aspirationRateio.expensePaid / aspirationRateio.divisor, record_type: 'expense', is_rateio: true, rateio_label: "Rateio de Aspiração" });
         }
-        let aspTotalRevenue = 0; let aspPaidRevenue = 0;
-        if (aspRevAllocations && aspRevAllocations.length > 0) {
-          const aspArMap = new Map<string, { totalItemPrice: number; status: string }>();
-          aspRevAllocations.forEach((a: any) => {
-            const itemPrice = a.accounts_receivable_items?.total_price || 0;
-            aspTotalRevenue += itemPrice;
-            const arId = a.accounts_receivable_items?.accounts_receivable?.id;
-            const arStatus = a.accounts_receivable_items?.accounts_receivable?.status || "";
-            if (arId) {
-              const existing = aspArMap.get(arId);
-              if (existing) { existing.totalItemPrice += itemPrice; }
-              else { aspArMap.set(arId, { totalItemPrice: itemPrice, status: arStatus }); }
-            }
-          });
-          const aspArIds = Array.from(aspArMap.keys());
-          if (aspArIds.length > 0) {
-            const today = format(new Date(), "yyyy-MM-dd");
-            const { data: aspRecPay } = await supabase.from("accounts_receivable_payments").select("account_receivable_id, amount_paid").in("account_receivable_id", aspArIds).lte("payment_date", today);
-            const aspRecPayMap = new Map<string, number>();
-            (aspRecPay || []).forEach((p: any) => { aspRecPayMap.set(p.account_receivable_id, (aspRecPayMap.get(p.account_receivable_id) || 0) + (p.amount_paid || 0)); });
-            aspArMap.forEach((info, arId) => {
-              const paymentSum = aspRecPayMap.get(arId) || 0;
-              if (paymentSum > 0) { aspPaidRevenue += paymentSum; }
-              else if (info.status === "paid") { aspPaidRevenue += info.totalItemPrice; }
-            });
-          }
-        }
-
-        if (aspTotalExpense > 0) {
-          allRecords.push({ id: `rateio-asp-expense-${aspirationId}`, document_number: null, due_date: "", payment_date: null, status: "", supplier_name: "Rateio de Aspiração", creditor_name: null, allocation_type: "aspiration_rateio", item_total_price: aspTotalExpense / embryoCount, account_payable_id: "", account_receivable_id: "", paid_amount: aspPaidExpense / embryoCount, record_type: 'expense', is_rateio: true, rateio_label: "Rateio de Aspiração" });
-        }
-        if (aspTotalRevenue > 0) {
-          allRecords.push({ id: `rateio-asp-revenue-${aspirationId}`, document_number: null, due_date: "", payment_date: null, status: "", supplier_name: null, creditor_name: "Rateio de Aspiração", allocation_type: "aspiration_rateio", item_total_price: aspTotalRevenue / embryoCount, account_payable_id: "", account_receivable_id: "", paid_amount: aspPaidRevenue / embryoCount, record_type: 'revenue', is_rateio: true, rateio_label: "Rateio de Aspiração" });
+        if (aspirationRateio.revenueTotal > 0) {
+          allRecords.push({ id: `rateio-asp-revenue-${aspirationId}`, document_number: null, due_date: "", payment_date: null, status: "", supplier_name: null, creditor_name: "Rateio de Aspiração", allocation_type: "aspiration_rateio", item_total_price: aspirationRateio.revenueTotal / aspirationRateio.divisor, account_payable_id: "", account_receivable_id: "", paid_amount: aspirationRateio.revenuePaid / aspirationRateio.divisor, record_type: 'revenue', is_rateio: true, rateio_label: "Rateio de Aspiração" });
         }
       }
 
