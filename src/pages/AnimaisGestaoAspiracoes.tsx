@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,11 +64,28 @@ interface AspirationRecord {
   embryo_details: EmbryoDetail[] | null;
   transfer_date: string | null;
   financial_released: boolean;
+  is_batch_purchase: boolean;
+  batch_quantity: number;
 }
 
 interface EmbryoDetail {
   sire_id: string;
   recipient_id: string;
+}
+
+interface AspirationBatchUtilization {
+  id: string;
+  aspiration_id: string;
+  aspiration_date: string;
+  laboratory_id: string | null;
+  quantity_used: number;
+  embryo_count: number;
+  embryo_details: EmbryoDetail[] | null;
+  veterinarian_id: string | null;
+  transfer_date: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Breed { id: string; name: string; }
@@ -78,6 +97,11 @@ interface Veterinarian { id: string; name: string; }
 interface AnimalOption { id: string; name: string; ear_tag: number | null; registration: string | null; category_id: string | null; }
 
 const ITEMS_PER_PAGE = 15;
+const formatQuantity = (value: number) =>
+  Number(value || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: Number.isInteger(Number(value || 0)) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 
 const AnimaisGestaoAspiracoes = () => {
   const navigate = useNavigate();
@@ -117,6 +141,10 @@ const AnimaisGestaoAspiracoes = () => {
   const [firstFinalizeData, setFirstFinalizeData] = useState({
     aspiration_date: null as Date | null,
     laboratory_id: "",
+    quantity_used: "1",
+    embryo_count: "",
+    veterinarian_id: "",
+    transfer_date: null as Date | null,
   });
 
   // Second finalize modal (in_progress → finalized)
@@ -135,6 +163,11 @@ const AnimaisGestaoAspiracoes = () => {
   const [recipientResults, setRecipientResults] = useState<AnimalOption[]>([]);
   const [recipientSearchLoading, setRecipientSearchLoading] = useState(false);
   const [recipientNamesCache, setRecipientNamesCache] = useState<Record<string, string>>({});
+  const [usageDeleteOpen, setUsageDeleteOpen] = useState(false);
+  const [usageToDelete, setUsageToDelete] = useState<AspirationBatchUtilization | null>(null);
+  const [batchUsages, setBatchUsages] = useState<AspirationBatchUtilization[]>([]);
+  const [usageTotals, setUsageTotals] = useState<Record<string, number>>({});
+  const [editingBatchUsage, setEditingBatchUsage] = useState<AspirationBatchUtilization | null>(null);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -147,6 +180,8 @@ const AnimaisGestaoAspiracoes = () => {
     auction_lot: "",
     dam_id: "",
     farm: "",
+    is_batch_purchase: false,
+    batch_quantity: "",
   });
 
   // Dropdown options
@@ -204,10 +239,46 @@ const AnimaisGestaoAspiracoes = () => {
   const [aspirationSales, setAspirationSales] = useState<AspirationSale[]>([]);
   const [loadingSales, setLoadingSales] = useState(false);
 
+  const getBatchUsedTotal = (recordId: string) => usageTotals[recordId] || 0;
+  const getBatchAvailableQuantity = (record: Pick<AspirationRecord, "id" | "batch_quantity">) =>
+    Math.max(Number(record.batch_quantity || 0) - getBatchUsedTotal(record.id), 0);
+
+  const hydrateRecipientNames = async (details: EmbryoDetail[]) => {
+    const recipientIds = details.map((detail) => detail.recipient_id).filter(Boolean);
+    const missingIds = recipientIds.filter((recipientId) => !recipientNamesCache[recipientId]);
+
+    if (missingIds.length === 0) {
+      return;
+    }
+
+    const { data: animals } = await supabase
+      .from("animals")
+      .select("id, name, ear_tag")
+      .in("id", missingIds);
+
+    if (!animals || animals.length === 0) {
+      return;
+    }
+
+    setRecipientNamesCache((current) => {
+      const next = { ...current };
+      animals.forEach((animal) => {
+        next[animal.id] = `${animal.name}${animal.ear_tag ? ` - Brinco: ${animal.ear_tag}` : ""}`;
+      });
+      return next;
+    });
+  };
+
   useEffect(() => {
     fetchRecords();
     fetchDropdownData();
   }, []);
+
+  useEffect(() => {
+    if (!formData.is_batch_purchase && activeTab === "estoque") {
+      setActiveTab("dados");
+    }
+  }, [activeTab, formData.is_batch_purchase]);
 
   // Search recipients for embryo rows
   useEffect(() => {
@@ -277,7 +348,36 @@ const AnimaisGestaoAspiracoes = () => {
         .in("store_id", storeIds)
         .order("code", { ascending: false });
       if (error) throw error;
-      setRecords((data as unknown as AspirationRecord[]) || []);
+
+      const nextRecords = ((data as unknown as AspirationRecord[]) || []).map((record) => ({
+        ...record,
+        is_batch_purchase: Boolean((record as any).is_batch_purchase),
+        batch_quantity: Number((record as any).batch_quantity || 0),
+      }));
+
+      setRecords(nextRecords);
+
+      const batchRecordIds = nextRecords.filter((record) => record.is_batch_purchase).map((record) => record.id);
+      if (batchRecordIds.length > 0) {
+        const { data: usageData, error: usageError } = await supabase
+          .from("aspiration_batch_utilizations" as any)
+          .select("aspiration_id, quantity_used")
+          .in("aspiration_id", batchRecordIds);
+        if (usageError) throw usageError;
+
+        const nextTotals = (usageData || []).reduce<Record<string, number>>((acc, row: any) => {
+          acc[row.aspiration_id] = (acc[row.aspiration_id] || 0) + Number(row.quantity_used || 0);
+          return acc;
+        }, {});
+        setUsageTotals(nextTotals);
+      } else {
+        setUsageTotals({});
+      }
+
+      if (selectedRecord) {
+        const refreshedSelected = nextRecords.find((record) => record.id === selectedRecord.id) || null;
+        setSelectedRecord(refreshedSelected);
+      }
     } catch (error) {
       console.error("Error fetching aspiration records:", error);
       toast({ title: "Erro", description: "Erro ao carregar registros de aspiração.", variant: "destructive" });
@@ -424,6 +524,19 @@ const AnimaisGestaoAspiracoes = () => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredRecords.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredRecords, currentPage]);
+
+  const currentBatchUsageTotal = useMemo(
+    () => batchUsages.reduce((sum, usage) => sum + Number(usage.quantity_used || 0), 0),
+    [batchUsages],
+  );
+
+  const currentBatchAvailable = useMemo(() => {
+    if (!selectedRecord?.is_batch_purchase) {
+      return 0;
+    }
+
+    return Math.max(Number(selectedRecord.batch_quantity || 0) - currentBatchUsageTotal, 0);
+  }, [currentBatchUsageTotal, selectedRecord]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -583,16 +696,169 @@ const AnimaisGestaoAspiracoes = () => {
     return data && data.length > 0 ? data[0].code + 1 : 1;
   };
 
+  const fetchBatchUtilizations = async (recordId: string) => {
+    const { data, error } = await supabase
+      .from("aspiration_batch_utilizations" as any)
+      .select("*")
+      .eq("aspiration_id", recordId)
+      .order("aspiration_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const nextUsages = ((data || []) as AspirationBatchUtilization[]).map((usage) => ({
+      ...usage,
+      quantity_used: Number(usage.quantity_used || 0),
+      embryo_count: Number(usage.embryo_count || 0),
+      embryo_details: (usage.embryo_details as EmbryoDetail[] | null) || [],
+    }));
+
+    setBatchUsages(nextUsages);
+
+    const allDetails = nextUsages.flatMap((usage) => usage.embryo_details || []);
+    if (allDetails.length > 0) {
+      await hydrateRecipientNames(allDetails);
+    }
+  };
+
+  const buildEmbryoRowsFromDetails = async (details: EmbryoDetail[]) => {
+    const recipientIds = details.map((detail) => detail.recipient_id).filter(Boolean);
+    const recipientMap = new Map<string, string>();
+
+    if (recipientIds.length > 0) {
+      const { data: recipients } = await supabase
+        .from("animals")
+        .select("id, name, ear_tag")
+        .in("id", recipientIds);
+
+      (recipients || []).forEach((recipient) => {
+        recipientMap.set(recipient.id, `${recipient.name}${recipient.ear_tag ? ` - Brinco: ${recipient.ear_tag}` : ""}`);
+      });
+    }
+
+    return details.map((detail) => ({
+      sire_id: detail.sire_id,
+      recipient_id: detail.recipient_id,
+      recipientName: recipientMap.get(detail.recipient_id) || recipientNamesCache[detail.recipient_id] || "",
+    }));
+  };
+
+  const getBatchEditableBalance = (record: AspirationRecord, usage?: AspirationBatchUtilization | null) =>
+    getBatchAvailableQuantity(record) + Number(usage?.quantity_used || 0);
+
+  const openBatchUsageModal = async (record: AspirationRecord, usage?: AspirationBatchUtilization | null) => {
+    setFirstFinalizeRecord(record);
+    setEditingBatchUsage(usage || null);
+    const details = usage?.embryo_details || [];
+    const rows = details.length > 0 ? await buildEmbryoRowsFromDetails(details) : [];
+
+    setFirstFinalizeData({
+      aspiration_date: usage?.aspiration_date ? new Date(`${usage.aspiration_date}T12:00:00`) : null,
+      laboratory_id: usage?.laboratory_id || "",
+      quantity_used: usage ? String(Number(usage.quantity_used || 0)) : "1",
+      embryo_count: usage ? String(Number(usage.embryo_count || 0)) : "",
+      veterinarian_id: usage?.veterinarian_id || "",
+      transfer_date: usage?.transfer_date ? new Date(`${usage.transfer_date}T12:00:00`) : null,
+    });
+    setEmbryoCount(Number(usage?.embryo_count || 0));
+    setEmbryoRows(rows);
+    setFirstFinalizeOpen(true);
+  };
+
+  const copyAspirationOwnersToEmbryoTransfer = async (aspirationId: string, embryoTransferId: string) => {
+    const { data: aspirationOwners } = await supabase
+      .from("aspiration_owners")
+      .select("owner_id, store_owner_id, third_party_farm_id, owner_type, percentage")
+      .eq("aspiration_id", aspirationId);
+
+    if (!aspirationOwners || aspirationOwners.length === 0) {
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    for (const owner of aspirationOwners) {
+      await supabase.from("embryo_transfer_owners").insert({
+        embryo_transfer_id: embryoTransferId,
+        owner_id: (owner as any).owner_type === "supplier" ? owner.owner_id : null,
+        store_owner_id: (owner as any).owner_type === "store" ? (owner as any).store_owner_id : null,
+        third_party_farm_id: (owner as any).owner_type === "third_party_farm" ? (owner as any).third_party_farm_id : null,
+        owner_type: (owner as any).owner_type || "supplier",
+        percentage: owner.percentage,
+        created_by: user?.id,
+      } as any);
+    }
+  };
+
+  const createEmbryoTransfersForUsage = async (
+    record: AspirationRecord,
+    batchUtilizationId: string | null,
+    details: EmbryoDetail[],
+    transferDate: Date | null,
+    veterinarianId: string,
+    laboratoryId: string,
+  ) => {
+    for (let i = 0; i < details.length; i++) {
+      const row = details[i];
+      const sireName = sires.find((sire) => sire.id === row.sire_id)?.name || "";
+      const transferName = `${record.name} X ${sireName}`;
+
+      const { data: lastCode } = await supabase
+        .from("embryo_transfer_management")
+        .select("code")
+        .eq("store_id", record.store_id)
+        .order("code", { ascending: false })
+        .limit(1);
+      const nextCode = lastCode && lastCode.length > 0 ? lastCode[0].code + 1 : 1;
+
+      const { data: insertedTransfer, error: insertError } = await supabase
+        .from("embryo_transfer_management")
+        .insert({
+          code: nextCode,
+          name: transferName,
+          breed_id: record.breed_id,
+          category_id: record.category_id,
+          auction_id: record.auction_id,
+          auction_lot: record.auction_lot,
+          dam_id: record.dam_id,
+          sire_id: row.sire_id,
+          recipient_id: row.recipient_id,
+          farm_id: record.farm_id,
+          farm_type: record.farm_type,
+          store_id: record.store_id,
+          aspiration_date: record.aspiration_date || null,
+          transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
+          veterinarian_id: veterinarianId || null,
+          laboratory_id: laboratoryId || null,
+          aspiration_id: record.id,
+          batch_utilization_id: batchUtilizationId,
+        } as any)
+        .select("id")
+        .single();
+
+      if (insertError) throw insertError;
+
+      if (insertedTransfer?.id) {
+        await copyAspirationOwnersToEmbryoTransfer(record.id, insertedTransfer.id);
+      }
+    }
+  };
+
   const handleOpenModal = async (mode: "view" | "edit" | "create", record?: AspirationRecord) => {
     setModalMode(mode);
     setActiveTab("dados");
     setFinancialRecords([]);
+    setBatchUsages([]);
+    setEditingBatchUsage(null);
 
     if (mode === "create") {
       const nextCode = await getNextCode();
       setFormData({
         code: nextCode, name: "", expected_aspiration_month: null,
         breed_id: "", category_id: "", auction_id: "", auction_lot: "", dam_id: "", farm: "",
+        is_batch_purchase: false, batch_quantity: "",
       });
       setSelectedRecord(null);
     } else if (record) {
@@ -605,26 +871,18 @@ const AnimaisGestaoAspiracoes = () => {
         breed_id: record.breed_id || "", category_id: record.category_id || "",
         auction_id: record.auction_id || "", auction_lot: record.auction_lot || "",
         dam_id: record.dam_id || "", farm: farmValue,
+        is_batch_purchase: record.is_batch_purchase,
+        batch_quantity: record.is_batch_purchase ? String(Number(record.batch_quantity || 0)) : "",
       });
 
       if (mode === "view" && record.status === "finalized" && record.embryo_details) {
         const details = record.embryo_details as EmbryoDetail[];
-        const recipientIds = details.map(d => d.recipient_id).filter(Boolean);
-        if (recipientIds.length > 0) {
-          const { data: animals } = await supabase
-            .from("animals")
-            .select("id, name, ear_tag")
-            .in("id", recipientIds);
-          if (animals) {
-            const cache: Record<string, string> = {};
-            animals.forEach(a => {
-              cache[a.id] = `${a.name}${a.ear_tag ? ` - Brinco: ${a.ear_tag}` : ""}`;
-            });
-            setRecipientNamesCache(cache);
-          }
-        }
+        await hydrateRecipientNames(details);
       }
-      fetchAspirationFinancial(record.id);
+      await Promise.all([
+        fetchAspirationFinancial(record.id),
+        record.is_batch_purchase ? fetchBatchUtilizations(record.id) : Promise.resolve(),
+      ]);
     }
     setModalOpen(true);
   };
@@ -633,6 +891,11 @@ const AnimaisGestaoAspiracoes = () => {
     if (saving) return;
     if (!formData.name.trim()) {
       toast({ title: "Erro", description: "O nome é obrigatório.", variant: "destructive" });
+      return;
+    }
+    const batchQuantity = Number(formData.batch_quantity || 0);
+    if (formData.is_batch_purchase && (Number.isNaN(batchQuantity) || batchQuantity <= 0)) {
+      toast({ title: "Erro", description: "Informe uma quantidade válida para compra em lote.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -674,6 +937,8 @@ const AnimaisGestaoAspiracoes = () => {
         farm_id: farmId,
         farm_type: farmType,
         store_id: currentStoreId,
+        is_batch_purchase: formData.is_batch_purchase,
+        batch_quantity: formData.is_batch_purchase ? batchQuantity : 0,
       };
 
       if (modalMode === "create") {
@@ -712,8 +977,14 @@ const AnimaisGestaoAspiracoes = () => {
         .eq("aspiration_id", recordToDelete.id)
         .limit(1);
 
-      if ((payableAllocations && payableAllocations.length > 0) || (receivableAllocations && receivableAllocations.length > 0)) {
-        toast({ title: "Exclusão não permitida", description: "Este registro possui contas a pagar ou contas a receber vinculadas.", variant: "destructive" });
+      const { data: batchUtilizations } = await supabase
+        .from("aspiration_batch_utilizations" as any)
+        .select("id")
+        .eq("aspiration_id", recordToDelete.id)
+        .limit(1);
+
+      if ((payableAllocations && payableAllocations.length > 0) || (receivableAllocations && receivableAllocations.length > 0) || (batchUtilizations && batchUtilizations.length > 0)) {
+        toast({ title: "Exclusão não permitida", description: "Este registro possui vínculos financeiros ou movimentações de estoque cadastradas.", variant: "destructive" });
         setDeleteDialogOpen(false);
         setRecordToDelete(null);
         return;
@@ -936,7 +1207,140 @@ const AnimaisGestaoAspiracoes = () => {
     }
   };
 
+  const handleFirstFinalizeEmbryoCountChange = (count: number) => {
+    setEmbryoCount(count);
+    const newRows = Array.from({ length: count }, (_, index) => {
+      return embryoRows[index] || { sire_id: "", recipient_id: "", recipientName: "" };
+    });
+    setEmbryoRows(newRows);
+  };
+
+  const handleSaveBatchUsage = async () => {
+    if (saving || !firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
+      toast({ title: "Erro", description: "Data da aspiração e laboratório são obrigatórios.", variant: "destructive" });
+      return;
+    }
+
+    const quantityUsed = Number(firstFinalizeData.quantity_used || 0);
+    const embryoCountValue = Number(firstFinalizeData.embryo_count || 0);
+    const editableBalance = getBatchEditableBalance(firstFinalizeRecord, editingBatchUsage);
+
+    if (Number.isNaN(quantityUsed) || quantityUsed <= 0) {
+      toast({ title: "Erro", description: "Quantidade deve ser maior que zero.", variant: "destructive" });
+      return;
+    }
+
+    if (quantityUsed > editableBalance) {
+      toast({ title: "Saldo insuficiente", description: "Quantidade utilizada não pode ser maior que o saldo disponível.", variant: "destructive" });
+      return;
+    }
+
+    if (Number.isNaN(embryoCountValue) || embryoCountValue <= 0) {
+      toast({ title: "Erro", description: "Quantidade de embriões é obrigatória.", variant: "destructive" });
+      return;
+    }
+
+    for (let i = 0; i < embryoRows.length; i++) {
+      if (!embryoRows[i].sire_id || !embryoRows[i].recipient_id) {
+        toast({ title: "Erro", description: `Preencha reprodutor e receptora na linha ${i + 1}.`, variant: "destructive" });
+        return;
+      }
+    }
+
+    setSaving(true);
+    let savedUsageId = editingBatchUsage?.id || null;
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const embryoDetails = embryoRows.map((row) => ({ sire_id: row.sire_id, recipient_id: row.recipient_id }));
+      const payload = {
+        aspiration_id: firstFinalizeRecord.id,
+        aspiration_date: format(firstFinalizeData.aspiration_date, "yyyy-MM-dd"),
+        laboratory_id: firstFinalizeData.laboratory_id,
+        quantity_used: quantityUsed,
+        embryo_count: embryoCountValue,
+        embryo_details: embryoDetails as any,
+        veterinarian_id: firstFinalizeData.veterinarian_id || null,
+        transfer_date: firstFinalizeData.transfer_date ? format(firstFinalizeData.transfer_date, "yyyy-MM-dd") : null,
+        description: `Consumo do lote - ${format(firstFinalizeData.aspiration_date, "dd/MM/yyyy")}`,
+        created_by: editingBatchUsage ? undefined : user?.id,
+      };
+
+      if (editingBatchUsage) {
+        const { error: updateUsageError } = await supabase
+          .from("aspiration_batch_utilizations" as any)
+          .update(payload as any)
+          .eq("id", editingBatchUsage.id);
+        if (updateUsageError) throw updateUsageError;
+
+        const { error: deleteTransfersError } = await supabase
+          .from("embryo_transfer_management")
+          .delete()
+          .eq("batch_utilization_id", editingBatchUsage.id);
+        if (deleteTransfersError) throw deleteTransfersError;
+      } else {
+        const { data: insertedUsage, error: insertUsageError } = await supabase
+          .from("aspiration_batch_utilizations" as any)
+          .insert(payload as any)
+          .select("id")
+          .single();
+        if (insertUsageError) throw insertUsageError;
+        savedUsageId = insertedUsage?.id || null;
+      }
+
+      if (!savedUsageId) {
+        throw new Error("Não foi possível identificar a movimentação de estoque.");
+      }
+
+      const refreshedRecord = {
+        ...firstFinalizeRecord,
+        aspiration_date: format(firstFinalizeData.aspiration_date, "yyyy-MM-dd"),
+      };
+
+      await createEmbryoTransfersForUsage(
+        refreshedRecord,
+        savedUsageId,
+        embryoDetails,
+        firstFinalizeData.transfer_date,
+        firstFinalizeData.veterinarian_id,
+        firstFinalizeData.laboratory_id,
+      );
+
+      toast({
+        title: "Sucesso",
+        description: editingBatchUsage
+          ? "Movimentação do lote atualizada com sucesso."
+          : "Consumo do lote registrado com sucesso.",
+      });
+      setFirstFinalizeOpen(false);
+      setFirstFinalizeRecord(null);
+      setEditingBatchUsage(null);
+      setEmbryoCount(0);
+      setEmbryoRows([]);
+      if (selectedRecord?.id === refreshedRecord.id) {
+        await fetchBatchUtilizations(refreshedRecord.id);
+      }
+      await fetchRecords();
+    } catch (error) {
+      console.error("Error saving aspiration batch usage:", error);
+      if (!editingBatchUsage && savedUsageId) {
+        await supabase.from("aspiration_batch_utilizations" as any).delete().eq("id", savedUsageId);
+      }
+      toast({ title: "Erro", description: "Erro ao registrar consumo do lote.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleFirstFinalize = async () => {
+    if (firstFinalizeRecord?.is_batch_purchase) {
+      await handleSaveBatchUsage();
+      return;
+    }
+
     if (saving) return;
     if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
       toast({ title: "Erro", description: "Data da aspiração e laboratório são obrigatórios.", variant: "destructive" });
@@ -956,7 +1360,7 @@ const AnimaisGestaoAspiracoes = () => {
       toast({ title: "Sucesso", description: "Aspiração iniciada com sucesso." });
       setFirstFinalizeOpen(false);
       setFirstFinalizeRecord(null);
-      fetchRecords();
+      await fetchRecords();
     } catch (error) {
       console.error("Error first finalize:", error);
       toast({ title: "Erro", description: "Erro ao iniciar aspiração.", variant: "destructive" });
@@ -1072,10 +1476,23 @@ const AnimaisGestaoAspiracoes = () => {
     }
   };
 
-  const handleFinalizeClick = (record: AspirationRecord) => {
+  const handleFinalizeClick = async (record: AspirationRecord) => {
+    if (record.is_batch_purchase) {
+      await openBatchUsageModal(record);
+      return;
+    }
+
     if (record.status === "pending") {
+      setEditingBatchUsage(null);
       setFirstFinalizeRecord(record);
-      setFirstFinalizeData({ aspiration_date: null, laboratory_id: "" });
+      setFirstFinalizeData({
+        aspiration_date: null,
+        laboratory_id: "",
+        quantity_used: "1",
+        embryo_count: "",
+        veterinarian_id: "",
+        transfer_date: null,
+      });
       setFirstFinalizeOpen(true);
     } else if (record.status === "in_progress") {
       setSecondFinalizeRecord(record);
@@ -1093,6 +1510,27 @@ const AnimaisGestaoAspiracoes = () => {
       return embryoRows[i] || { sire_id: "", recipient_id: "", recipientName: "" };
     });
     setEmbryoRows(newRows);
+  };
+
+  const handleDeleteBatchUsage = async () => {
+    if (!usageToDelete || !selectedRecord) return;
+
+    try {
+      const { error } = await supabase
+        .from("aspiration_batch_utilizations" as any)
+        .delete()
+        .eq("id", usageToDelete.id);
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Movimentação do lote excluída com sucesso." });
+      setUsageDeleteOpen(false);
+      setUsageToDelete(null);
+      setEditingBatchUsage(null);
+      await Promise.all([fetchBatchUtilizations(selectedRecord.id), fetchRecords()]);
+    } catch (error) {
+      console.error("Error deleting aspiration batch usage:", error);
+      toast({ title: "Erro", description: "Erro ao excluir movimentação do lote.", variant: "destructive" });
+    }
   };
 
   const fetchAspirationFinancial = async (aspirationId: string) => {
@@ -1802,8 +2240,13 @@ const AnimaisGestaoAspiracoes = () => {
                                 </Button>
                               </>
                             )}
-                            {record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Finalizar" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+                            {record.is_batch_purchase && record.status === "in_progress" && (
+                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {!record.is_batch_purchase && record.status === "in_progress" && (
+                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
@@ -1893,13 +2336,29 @@ const AnimaisGestaoAspiracoes = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } }}>
-            <TabsList className={cn("grid w-full", modalMode === "view" && selectedRecord?.status === "finalized" ? "grid-cols-5" : "grid-cols-4")}>
+            <TabsList
+              className={cn(
+                "grid w-full",
+                formData.is_batch_purchase
+                  ? modalMode === "view" && selectedRecord?.status === "finalized"
+                    ? "grid-cols-6"
+                    : "grid-cols-5"
+                  : modalMode === "view" && selectedRecord?.status === "finalized"
+                  ? "grid-cols-5"
+                  : "grid-cols-4",
+              )}
+            >
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               {modalMode === "view" && selectedRecord?.status === "finalized" && (
                 <TabsTrigger value="resultado">Resultado</TabsTrigger>
               )}
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
+              {formData.is_batch_purchase && (
+                <TabsTrigger value="estoque" disabled={modalMode === "create"}>
+                  Estoque
+                </TabsTrigger>
+              )}
               <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
             </TabsList>
 
@@ -1978,6 +2437,43 @@ const AnimaisGestaoAspiracoes = () => {
                   <Label>Lote Leilão</Label>
                   <Input value={formData.auction_lot} onChange={(e) => setFormData({ ...formData, auction_lot: e.target.value })} disabled={modalMode === "view"} />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-start gap-3 rounded-lg border p-4">
+                  <Checkbox
+                    id="aspiration-batch-purchase"
+                    checked={formData.is_batch_purchase}
+                    onCheckedChange={(checked) =>
+                      setFormData((current) => ({
+                        ...current,
+                        is_batch_purchase: Boolean(checked),
+                        batch_quantity: checked ? current.batch_quantity || "1" : "",
+                      }))
+                    }
+                    disabled={modalMode === "view"}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="aspiration-batch-purchase">Compra em lote</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Ativa o controle de estoque por pacote de aspiração, sem alterar o fluxo dos cadastros normais.
+                    </p>
+                  </div>
+                </div>
+
+                {formData.is_batch_purchase && (
+                  <div>
+                    <Label>Quantidade *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={formData.batch_quantity}
+                      onChange={(e) => setFormData({ ...formData, batch_quantity: e.target.value })}
+                      disabled={modalMode === "view"}
+                    />
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -2267,6 +2763,128 @@ const AnimaisGestaoAspiracoes = () => {
                 );
               })()}
             </TabsContent>
+            {formData.is_batch_purchase && (
+              <TabsContent value="estoque" className="space-y-5 mt-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="border-border/70">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Quantidade do lote</CardDescription>
+                      <CardTitle className="text-2xl">
+                        {selectedRecord ? formatQuantity(selectedRecord.batch_quantity || 0) : "-"}
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="border-border/70">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Quantidade utilizada</CardDescription>
+                      <CardTitle className="text-2xl">{formatQuantity(currentBatchUsageTotal)}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="border-border/70">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Saldo disponível</CardDescription>
+                      <CardTitle className="text-2xl">{formatQuantity(currentBatchAvailable)}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Badge
+                        className={cn(
+                          "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+                          currentBatchAvailable <= 0
+                            ? "border-rose-200 bg-rose-50 text-rose-700"
+                            : currentBatchAvailable <= 1
+                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700",
+                        )}
+                      >
+                        {currentBatchAvailable <= 0 ? "Estoque zerado" : currentBatchAvailable <= 1 ? "Baixo estoque" : "Disponível"}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {currentBatchAvailable <= 0 && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                    Estoque zerado. Não é possível registrar nova utilização.
+                  </div>
+                )}
+
+                <Card className="border-border/70">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Histórico de utilizações do lote</CardTitle>
+                    <CardDescription>
+                      Cada início de aspiração em lote consome saldo automaticamente e registra os dados produtivos daquela utilização.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto rounded-xl border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Data Aspiração</TableHead>
+                            <TableHead>Laboratório</TableHead>
+                            <TableHead className="text-right">Qtd.</TableHead>
+                            <TableHead className="text-right">Embriões</TableHead>
+                            <TableHead>Veterinário</TableHead>
+                            <TableHead>Data Transferência</TableHead>
+                            {modalMode !== "view" && <TableHead className="text-right">Ações</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {batchUsages.length === 0 ? (
+                            <TableRow>
+                              <TableCell
+                                colSpan={modalMode === "view" ? 6 : 7}
+                                className="h-24 text-center text-muted-foreground"
+                              >
+                                Nenhuma utilização do lote registrada.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            batchUsages.map((usage) => (
+                              <TableRow key={usage.id}>
+                                <TableCell>{format(new Date(`${usage.aspiration_date}T12:00:00`), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                                <TableCell>{usage.laboratory_id ? laboratories.find((laboratory) => laboratory.id === usage.laboratory_id)?.name || "-" : "-"}</TableCell>
+                                <TableCell className="text-right">{formatQuantity(usage.quantity_used)}</TableCell>
+                                <TableCell className="text-right">{formatQuantity(usage.embryo_count)}</TableCell>
+                                <TableCell>{usage.veterinarian_id ? veterinarians.find((veterinarian) => veterinarian.id === usage.veterinarian_id)?.name || "-" : "-"}</TableCell>
+                                <TableCell>
+                                  {usage.transfer_date
+                                    ? format(new Date(`${usage.transfer_date}T12:00:00`), "dd/MM/yyyy", { locale: ptBR })
+                                    : "-"}
+                                </TableCell>
+                                {modalMode !== "view" && (
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => void openBatchUsageModal(selectedRecord!, usage)}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => {
+                                          setUsageToDelete(usage);
+                                          setUsageDeleteOpen(true);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
             <TabsContent value="proprietarios" className="mt-4 space-y-4">
               <OwnersTab
                 entityId={selectedRecord?.id || null}
@@ -2354,40 +2972,218 @@ const AnimaisGestaoAspiracoes = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={usageDeleteOpen} onOpenChange={setUsageDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir movimentação do lote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação remove a utilização do estoque e os pós-transferência gerados por ela. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDeleteBatchUsage()}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* First Finalize Modal: pending → in_progress */}
-      <Dialog open={firstFinalizeOpen} onOpenChange={setFirstFinalizeOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={firstFinalizeOpen}
+        onOpenChange={(open) => {
+          setFirstFinalizeOpen(open);
+          if (!open) {
+            setFirstFinalizeRecord(null);
+            setEditingBatchUsage(null);
+            setFirstFinalizeData({
+              aspiration_date: null,
+              laboratory_id: "",
+              quantity_used: "1",
+              embryo_count: "",
+              veterinarian_id: "",
+              transfer_date: null,
+            });
+            if (firstFinalizeRecord?.is_batch_purchase) {
+              setEmbryoCount(0);
+              setEmbryoRows([]);
+            }
+          }
+        }}
+      >
+        <DialogContent className={cn(firstFinalizeRecord?.is_batch_purchase ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-md")}>
           <DialogHeader>
-            <DialogTitle>Iniciar Aspiração</DialogTitle>
+            <DialogTitle>
+              {firstFinalizeRecord?.is_batch_purchase
+                ? editingBatchUsage
+                  ? "Editar Utilização do Lote"
+                  : "Iniciar Aspiração em Lote"
+                : "Iniciar Aspiração"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <Label>Data da Aspiração *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !firstFinalizeData.aspiration_date && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {firstFinalizeData.aspiration_date ? format(firstFinalizeData.aspiration_date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={firstFinalizeData.aspiration_date || undefined} onSelect={(d) => setFirstFinalizeData({ ...firstFinalizeData, aspiration_date: d || null })} locale={ptBR} />
-                </PopoverContent>
-              </Popover>
+            <div className={cn("grid gap-4", firstFinalizeRecord?.is_batch_purchase ? "md:grid-cols-2" : "grid-cols-1")}>
+              <div>
+                <Label>Data da Aspiração *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !firstFinalizeData.aspiration_date && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {firstFinalizeData.aspiration_date ? format(firstFinalizeData.aspiration_date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={firstFinalizeData.aspiration_date || undefined} onSelect={(d) => setFirstFinalizeData({ ...firstFinalizeData, aspiration_date: d || null })} locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Laboratório *</Label>
+                <Select value={firstFinalizeData.laboratory_id} onValueChange={(v) => setFirstFinalizeData({ ...firstFinalizeData, laboratory_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
+                  <SelectContent>
+                    {laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {firstFinalizeRecord?.is_batch_purchase && (
+                <>
+                  <div>
+                    <Label>Quantidade *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={firstFinalizeData.quantity_used}
+                      onChange={(e) => setFirstFinalizeData({ ...firstFinalizeData, quantity_used: e.target.value })}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Saldo disponível para esta movimentação: {formatQuantity(getBatchEditableBalance(firstFinalizeRecord, editingBatchUsage))}
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Quantidade de Embriões *</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={firstFinalizeData.embryo_count}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFirstFinalizeData({ ...firstFinalizeData, embryo_count: value });
+                        handleFirstFinalizeEmbryoCountChange(parseInt(value, 10) || 0);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>Veterinário</Label>
+                    <Select value={firstFinalizeData.veterinarian_id} onValueChange={(v) => setFirstFinalizeData({ ...firstFinalizeData, veterinarian_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione o veterinário..." /></SelectTrigger>
+                      <SelectContent>
+                        {veterinarians.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Data da Transferência</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !firstFinalizeData.transfer_date && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {firstFinalizeData.transfer_date ? format(firstFinalizeData.transfer_date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data..."}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={firstFinalizeData.transfer_date || undefined} onSelect={(d) => setFirstFinalizeData({ ...firstFinalizeData, transfer_date: d || null })} initialFocus className="pointer-events-auto" locale={ptBR} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </>
+              )}
             </div>
-            <div>
-              <Label>Laboratório *</Label>
-              <Select value={firstFinalizeData.laboratory_id} onValueChange={(v) => setFirstFinalizeData({ ...firstFinalizeData, laboratory_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
-                <SelectContent>
-                  {laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+
+            {firstFinalizeRecord?.is_batch_purchase && embryoCount > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Reprodutor (Pai)</TableHead>
+                      <TableHead>Receptora</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {embryoRows.map((row, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.sire_id}
+                            onValueChange={(v) => {
+                              const updated = [...embryoRows];
+                              updated[index] = { ...updated[index], sire_id: v };
+                              setEmbryoRows(updated);
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                              {sires.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              value={row.recipientName}
+                              placeholder="Selecione uma receptora..."
+                              readOnly
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                setActiveEmbryoRowIndex(index);
+                                setRecipientSearchTerm("");
+                                setRecipientResults([]);
+                                setRecipientSearchOpen(true);
+                              }}
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFirstFinalizeOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button onClick={handleFirstFinalize} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFirstFinalizeOpen(false);
+                setEditingBatchUsage(null);
+                if (firstFinalizeRecord?.is_batch_purchase) {
+                  setEmbryoCount(0);
+                  setEmbryoRows([]);
+                }
+              }}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleFirstFinalize} disabled={saving}>
+              {saving
+                ? "Salvando..."
+                : firstFinalizeRecord?.is_batch_purchase
+                ? editingBatchUsage
+                  ? "Salvar utilização"
+                  : "Consumir do lote"
+                : "Salvar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
