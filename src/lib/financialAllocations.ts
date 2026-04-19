@@ -8,7 +8,8 @@ export type FinancialAllocationType =
   | "pregnancy"
   | "embryo_transfer"
   | "aspiration"
-  | "recipient";
+  | "recipient"
+  | "semen";
 
 export const FINANCIAL_ALLOCATION_OPTIONS: Array<{
   value: FinancialAllocationType;
@@ -21,12 +22,21 @@ export const FINANCIAL_ALLOCATION_OPTIONS: Array<{
   { value: "recipient", label: "Receptora" },
 ];
 
+export const PAYABLE_FINANCIAL_ALLOCATION_OPTIONS: Array<{
+  value: FinancialAllocationType;
+  label: string;
+}> = [
+  ...FINANCIAL_ALLOCATION_OPTIONS,
+  { value: "semen", label: "Sêmen" },
+];
+
 const FINANCIAL_ALLOCATION_LABELS: Record<FinancialAllocationType, string> = {
   animal: "Animal",
   pregnancy: "Prenhez",
   embryo_transfer: "Pós Transf. Emb.",
   aspiration: "Aspiração",
   recipient: "Receptora",
+  semen: "Sêmen",
 };
 
 export interface RecipientAllocationOption {
@@ -35,6 +45,12 @@ export interface RecipientAllocationOption {
   code: number;
   ear_tag: number | null;
   registration: string | null;
+}
+
+export interface SemenAllocationOption {
+  id: string;
+  name: string;
+  code: number;
 }
 
 export const getFinancialAllocationLabel = (type: string | null | undefined): string => {
@@ -50,6 +66,7 @@ export const getFinancialAllocationTargetId = (
         embryo_transfer_id: string | null;
         aspiration_id: string | null;
         recipient_id: string | null;
+        semen_id: string | null;
       }>
     | null
     | undefined,
@@ -61,6 +78,7 @@ export const getFinancialAllocationTargetId = (
     allocation.embryo_transfer_id ||
     allocation.aspiration_id ||
     allocation.recipient_id ||
+    allocation.semen_id ||
     undefined
   );
 };
@@ -79,4 +97,15 @@ export const fetchRecipientAllocationOptions = async (): Promise<RecipientAlloca
   if (error) throw error;
 
   return (data || []) as RecipientAllocationOption[];
+};
+
+export const fetchSemenAllocationOptions = async (): Promise<SemenAllocationOption[]> => {
+  const { data, error } = await supabase
+    .from("semen" as any)
+    .select("id, name, code")
+    .order("code", { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []) as SemenAllocationOption[];
 };

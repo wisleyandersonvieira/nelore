@@ -24,8 +24,9 @@ import { ProductSearchModal } from "./ProductSearchModal";
 import { SuppliersModal } from "./SuppliersModal";
 import { validateAccountsPayablePeriod } from "@/utils/periodValidation";
 import {
-  FINANCIAL_ALLOCATION_OPTIONS,
+  PAYABLE_FINANCIAL_ALLOCATION_OPTIONS,
   fetchRecipientAllocationOptions,
+  fetchSemenAllocationOptions,
   FinancialAllocationType,
   getFinancialAllocationLabel,
   getFinancialAllocationTargetId,
@@ -306,6 +307,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
   const [allocationEmbryoTransfers, setAllocationEmbryoTransfers] = useState<Array<{id: string; name: string}>>([]);
   const [allocationAspirations, setAllocationAspirations] = useState<Array<{id: string; name: string; code: number}>>([]);
   const [allocationRecipients, setAllocationRecipients] = useState<Array<{id: string; name: string; code: number; ear_tag: number | null; registration: string | null}>>([]);
+  const [allocationSemen, setAllocationSemen] = useState<Array<{id: string; name: string; code: number}>>([]);
   const [allocationSearchTerm, setAllocationSearchTerm] = useState("");
 
   // File upload fields
@@ -405,6 +407,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       const [
         animalsResponse,
         recipientData,
+        semenData,
       ] = await Promise.all([
         (recipientCategoryIds.length > 0
           ? supabase
@@ -419,9 +422,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
               .eq("is_active", true)
               .order("name")),
         fetchRecipientAllocationOptions(),
+        fetchSemenAllocationOptions(),
       ]);
       setAllocationAnimals(animalsResponse.data || []);
       setAllocationRecipients(recipientData || []);
+      setAllocationSemen(semenData || []);
 
       // Fetch in_progress pregnancies + financial_released pregnancies
       const { data: pregnancyInProgress } = await supabase
@@ -801,6 +806,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           : filterAllocationType === "aspiration" ? "aspiration_id"
           : filterAllocationType === "pregnancy" ? "pregnancy_id"
           : filterAllocationType === "recipient" ? "recipient_id"
+          : filterAllocationType === "semen" ? "semen_id"
           : null;
         
         if (allocationColumn) {
@@ -2069,6 +2075,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         if (item.allocation_type === 'embryo_transfer') alloc.embryo_transfer_id = item.allocation_id;
         if (item.allocation_type === 'aspiration') alloc.aspiration_id = item.allocation_id;
         if (item.allocation_type === 'recipient') alloc.recipient_id = item.allocation_id;
+        if (item.allocation_type === 'semen') alloc.semen_id = item.allocation_id;
         return alloc;
       })
       .filter(Boolean);
@@ -2089,6 +2096,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
       case 'embryo_transfer': return allocationEmbryoTransfers.find(e => e.id === id)?.name || '';
       case 'aspiration': return allocationAspirations.find(a => a.id === id)?.name || '';
       case 'recipient': return allocationRecipients.find(r => r.id === id)?.name || '';
+      case 'semen': return allocationSemen.find(s => s.id === id)?.name || '';
       default: return '';
     }
   };
@@ -4306,6 +4314,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                           <SelectItem value="pregnancy">Prenhez</SelectItem>
                           <SelectItem value="aspiration">Aspiração</SelectItem>
                           <SelectItem value="recipient">Receptoras</SelectItem>
+                          <SelectItem value="semen">Sêmen</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -4320,6 +4329,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             ? "Prenhez"
                             : filterAllocationType === "recipient"
                             ? "Receptoras"
+                            : filterAllocationType === "semen"
+                            ? "Sêmen"
                             : "Aspirações"}
                         </Label>
                         <Popover>
@@ -4345,6 +4356,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 ? allocationPregnancies.map(p => ({ id: p.id, name: p.name }))
                                 : filterAllocationType === "recipient"
                                 ? allocationRecipients.map(r => ({ id: r.id, name: `${r.code} - ${r.name}` }))
+                                : filterAllocationType === "semen"
+                                ? allocationSemen.map(s => ({ id: s.id, name: `${s.code} - ${s.name}` }))
                                 : allocationAspirations.map(a => ({ id: a.id, name: `${a.code} - ${a.name}` }));
                               
                               const filtered = items.filter(item => 
@@ -5245,7 +5258,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       <div className="space-y-3 border rounded-md p-3 bg-muted/30">
                         <Label className="text-sm font-medium">Alocar custo para (opcional)</Label>
                         <div className="flex flex-wrap gap-4">
-                          {FINANCIAL_ALLOCATION_OPTIONS.map(opt => (
+                          {PAYABLE_FINANCIAL_ALLOCATION_OPTIONS.map(opt => (
                             <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                               <input
                                 type="radio"
@@ -5437,6 +5450,35 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                 return r.name.toLowerCase().includes(term) || String(r.code).includes(term) || (r.ear_tag && String(r.ear_tag).includes(term)) || (r.registration && r.registration.toLowerCase().includes(term));
                               }).length === 0 && (
                                 <p className="text-xs text-muted-foreground text-center py-2">Nenhuma receptora encontrada.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {allocationType === 'semen' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Selecionar Sêmen</Label>
+                            <Input
+                              placeholder="Buscar por código ou nome..."
+                              value={allocationSearchTerm}
+                              onChange={(e) => setAllocationSearchTerm(e.target.value)}
+                              disabled={isViewOnly}
+                              className="mb-1"
+                            />
+                            <div className="border rounded-md max-h-[160px] overflow-y-auto bg-background">
+                              {allocationSemen
+                                .filter(s => !allocationSearchTerm || s.name.toLowerCase().includes(allocationSearchTerm.toLowerCase()) || String(s.code).includes(allocationSearchTerm))
+                                .map(s => (
+                                  <div
+                                    key={s.id}
+                                    className={cn("px-3 py-1.5 text-sm cursor-pointer hover:bg-accent", allocationId === s.id && "bg-primary/10 font-medium")}
+                                    onClick={() => { if (!isViewOnly) setAllocationId(s.id); }}
+                                  >
+                                    {s.code} - {s.name}
+                                  </div>
+                                ))}
+                              {allocationSemen.filter(s => !allocationSearchTerm || s.name.toLowerCase().includes(allocationSearchTerm.toLowerCase()) || String(s.code).includes(allocationSearchTerm)).length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-2">Nenhum sêmen encontrado.</p>
                               )}
                             </div>
                           </div>

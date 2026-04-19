@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart, Settings, Baby, Droplets, GitBranch } from "lucide-react";
+import { ArrowLeft, ClipboardList, Scale, Syringe, Layers, Heart, Settings, Baby, Droplets, GitBranch, FlaskConical } from "lucide-react";
 
 const Animais = () => {
   const navigate = useNavigate();
@@ -46,6 +46,14 @@ const Animais = () => {
       icon: Droplets,
       color: "bg-cyan-500",
       route: "/animais/aspiracoes",
+    },
+    {
+      id: "semen",
+      title: "Sêmen",
+      description: "Estoque, genealogia e financeiro de sêmen",
+      icon: FlaskConical,
+      color: "bg-sky-600",
+      route: "/animais/semen",
     },
     {
       id: "transferencia-embriao",

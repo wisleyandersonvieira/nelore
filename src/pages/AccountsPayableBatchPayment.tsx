@@ -164,10 +164,12 @@ async function fetchAccountAllocationMetadata(accountIds: string[]) {
         pregnancy_id,
         embryo_transfer_id,
         recipient_id,
+        semen_id,
         animals:animal_id(name, code),
         aspiration_management:aspiration_id(name, code),
         pregnancy_management:pregnancy_id(name, code),
-        embryo_transfer_management:embryo_transfer_id(name, code)
+        embryo_transfer_management:embryo_transfer_id(name, code),
+        semen_ref:semen_id(name, code)
       `)
       .in("account_payable_item_id", itemIds)
       .order("id", { ascending: true }),
@@ -206,6 +208,8 @@ async function fetchAccountAllocationMetadata(accountIds: string[]) {
       label = `Aspiração: ${(allocation.aspiration_management as any).code} - ${(allocation.aspiration_management as any).name}`;
     } else if (allocation.recipient_id && recipientMap.has(allocation.recipient_id)) {
       label = `Receptora: ${recipientMap.get(allocation.recipient_id)}`;
+    } else if (allocation.semen_id && allocation.semen_ref) {
+      label = `Sêmen: ${(allocation.semen_ref as any).code} - ${(allocation.semen_ref as any).name}`;
     }
 
     if (label && !currentLabels.includes(label)) {
@@ -805,6 +809,7 @@ const AccountsPayableBatchPayment = () => {
                       <SelectItem value="embryo_transfer">Pós Transf. Emb.</SelectItem>
                       <SelectItem value="aspiration">Aspiração</SelectItem>
                       <SelectItem value="recipient">Receptora</SelectItem>
+                      <SelectItem value="semen">Sêmen</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

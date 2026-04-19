@@ -109,6 +109,7 @@ interface PurchaseRow {
   storeName: string;
   originType: PurchaseOriginType;
   recipientId: string | null;
+  semenId: string | null;
   linkedPayables: LinkedPayableRow[];
   paidAmount: number;
   pendingAmount: number;
@@ -151,6 +152,7 @@ interface PurchaseTableRow {
   origin_type: PurchaseOriginType;
   pregnancy_id: string | null;
   recipient_id: string | null;
+  semen_id: string | null;
   store_id: string;
 }
 
@@ -213,7 +215,9 @@ const getPurchaseEntityKey = (purchase: PurchaseRow) => {
         ? purchase.pregnancyId
         : purchase.purchaseType === "aspiration"
           ? purchase.aspirationId
-          : purchase.recipientId;
+          : purchase.purchaseType === "recipient"
+            ? purchase.recipientId
+            : purchase.semenId;
 
   if (entityId) {
     return `${purchase.purchaseType}:${entityId}`;
@@ -531,6 +535,7 @@ const PurchasesModule = () => {
           firstDueDate: purchase.first_due_date,
           originType: purchase.origin_type,
           recipientId: purchase.recipient_id,
+          semenId: purchase.semen_id,
           storeId: purchase.store_id,
           storeName: storeMap.get(purchase.store_id) || "Fazenda não encontrada",
           linkedPayables,

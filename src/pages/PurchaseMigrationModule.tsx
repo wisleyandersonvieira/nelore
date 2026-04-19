@@ -143,6 +143,7 @@ interface PayableAllocationLookupRow {
   aspiration_id: string | null;
   pregnancy_id: string | null;
   recipient_id: string | null;
+  semen_id: string | null;
 }
 
 const EMPTY_ITEMS: Record<PurchaseType, SaleItemOption[]> = {
@@ -150,6 +151,7 @@ const EMPTY_ITEMS: Record<PurchaseType, SaleItemOption[]> = {
   pregnancy: [],
   aspiration: [],
   recipient: [],
+  semen: [],
 };
 
 const todayISO = () => new Date().toISOString().split("T")[0];
@@ -162,7 +164,11 @@ const formatDateBR = (value?: string | null) => {
 const normalizeText = (value?: string | null) => (value || "").trim().toLowerCase();
 
 const isSupportedPurchaseType = (value?: string | null): value is PurchaseType =>
-  value === "animal" || value === "pregnancy" || value === "aspiration" || value === "recipient";
+  value === "animal" ||
+  value === "pregnancy" ||
+  value === "aspiration" ||
+  value === "recipient" ||
+  value === "semen";
 
 const PurchaseMigrationModule = () => {
   const navigate = useNavigate();
@@ -235,15 +241,17 @@ const PurchaseMigrationModule = () => {
       let animalsQuery = supabase.from("animals").select("id, name, code, store_id, category_id");
       let pregnanciesQuery = supabase.from("pregnancy_management").select("id, name, code, store_id");
       let aspirationsQuery = supabase.from("aspiration_management").select("id, name, code, store_id");
+      let semenQuery = supabase.from("semen" as any).select("id, name, code, store_id");
 
       if (storeIds && storeIds.length > 0) {
         storesQuery = storesQuery.in("id", storeIds);
         animalsQuery = animalsQuery.in("store_id", storeIds);
         pregnanciesQuery = pregnanciesQuery.in("store_id", storeIds);
         aspirationsQuery = aspirationsQuery.in("store_id", storeIds);
+        semenQuery = semenQuery.in("store_id", storeIds);
       }
 
-      const [productsRes, documentTypesRes, storesRes, animalsRes, pregnanciesRes, aspirationsRes] =
+      const [productsRes, documentTypesRes, storesRes, animalsRes, pregnanciesRes, aspirationsRes, semenRes] =
         await Promise.all([
           productsPromise,
           documentTypesPromise,
@@ -251,6 +259,7 @@ const PurchaseMigrationModule = () => {
           animalsQuery.order("name"),
           pregnanciesQuery.order("name"),
           aspirationsQuery.order("name"),
+          semenQuery.order("name"),
         ]);
 
       if (productsRes.error) throw productsRes.error;
@@ -259,6 +268,7 @@ const PurchaseMigrationModule = () => {
       if (animalsRes.error) throw animalsRes.error;
       if (pregnanciesRes.error) throw pregnanciesRes.error;
       if (aspirationsRes.error) throw aspirationsRes.error;
+      if (semenRes.error) throw semenRes.error;
 
       const storesMap = ((storesRes.data || []) as StoreOption[]).reduce<Record<string, StoreOption>>(
         (acc, store) => {
@@ -326,6 +336,19 @@ const PurchaseMigrationModule = () => {
         store_name: storesMap[record.store_id]?.name || null,
       }));
 
+      const semenOptions = ((semenRes.data || []) as Array<{
+        id: string;
+        name: string;
+        code: number;
+        store_id: string;
+      }>).map((record) => ({
+        id: record.id,
+        code: String(record.code),
+        name: record.name,
+        store_id: record.store_id,
+        store_name: storesMap[record.store_id]?.name || null,
+      }));
+
       setProducts((productsRes.data || []) as ProductOption[]);
       setDocumentTypes((documentTypesRes.data || []) as DocumentTypeOption[]);
       setPurchaseItems({
@@ -333,6 +356,7 @@ const PurchaseMigrationModule = () => {
         pregnancy: pregnancyOptions,
         aspiration: aspirationOptions,
         recipient: recipientOptions,
+        semen: semenOptions,
       });
     } catch (error) {
       console.error("Erro ao carregar dados da migração:", error);
@@ -436,7 +460,7 @@ const PurchaseMigrationModule = () => {
           ? await supabase
               .from("accounts_payable_item_allocations")
               .select(
-                "account_payable_item_id, allocation_type, animal_id, aspiration_id, pregnancy_id, recipient_id",
+                "account_payable_item_id, allocation_type, animal_id, aspiration_id, pregnancy_id, recipient_id, semen_id",
               )
               .in("account_payable_item_id", payableItemIds)
           : { data: [], error: null };

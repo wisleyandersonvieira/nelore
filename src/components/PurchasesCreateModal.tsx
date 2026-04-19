@@ -82,6 +82,7 @@ interface PurchaseRow {
   pregnancy_id: string | null;
   aspiration_id: string | null;
   recipient_id: string | null;
+  semen_id: string | null;
   purchase_date: string;
   issue_date: string;
   competence_date: string;
@@ -106,6 +107,7 @@ const EMPTY_ITEMS: Record<PurchaseType, SaleItemOption[]> = {
   pregnancy: [],
   aspiration: [],
   recipient: [],
+  semen: [],
 };
 
 const todayISO = () => new Date().toISOString().split("T")[0];
@@ -243,22 +245,26 @@ export function PurchasesCreateModal({
       let animalsQuery = supabase.from("animals").select("id, name, code, store_id, category_id");
       let pregnanciesQuery = supabase.from("pregnancy_management").select("id, name, code, store_id");
       let aspirationsQuery = supabase.from("aspiration_management").select("id, name, code, store_id");
+      let semenQuery = supabase.from("semen" as any).select("id, name, code, store_id");
 
       if (storeIds && storeIds.length > 0) {
         animalsQuery = animalsQuery.in("store_id", storeIds);
         pregnanciesQuery = pregnanciesQuery.in("store_id", storeIds);
         aspirationsQuery = aspirationsQuery.in("store_id", storeIds);
+        semenQuery = semenQuery.in("store_id", storeIds);
       }
 
-      const [animalsRes, pregnanciesRes, aspirationsRes] = await Promise.all([
+      const [animalsRes, pregnanciesRes, aspirationsRes, semenRes] = await Promise.all([
         animalsQuery.order("name"),
         pregnanciesQuery.order("name"),
         aspirationsQuery.order("name"),
+        semenQuery.order("name"),
       ]);
 
       if (animalsRes.error) throw animalsRes.error;
       if (pregnanciesRes.error) throw pregnanciesRes.error;
       if (aspirationsRes.error) throw aspirationsRes.error;
+      if (semenRes.error) throw semenRes.error;
 
       const animals = (animalsRes.data || []) as Array<{
         id: string;
@@ -314,11 +320,25 @@ export function PurchasesCreateModal({
         store_name: nextStoresMap[record.store_id]?.name || null,
       }));
 
+      const semenOptions = ((semenRes.data || []) as Array<{
+        id: string;
+        name: string;
+        code: number;
+        store_id: string;
+      }>).map((record) => ({
+        id: record.id,
+        code: String(record.code),
+        name: record.name,
+        store_id: record.store_id,
+        store_name: nextStoresMap[record.store_id]?.name || null,
+      }));
+
       setPurchaseItems({
         animal: animalOptions,
         pregnancy: pregnancyOptions,
         aspiration: aspirationOptions,
         recipient: recipientOptions,
+        semen: semenOptions,
       });
     } catch (error) {
       console.error("Erro ao carregar dados de compras:", error);
@@ -349,7 +369,9 @@ export function PurchasesCreateModal({
           ? purchase.pregnancy_id
           : purchase.purchase_type === "aspiration"
             ? purchase.aspiration_id
-            : purchase.recipient_id;
+            : purchase.purchase_type === "recipient"
+              ? purchase.recipient_id
+              : purchase.semen_id;
 
     if (!itemId) {
       throw new Error("Não foi possível identificar o item vinculado à compra.");

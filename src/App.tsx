@@ -48,6 +48,7 @@ import AnimaisLaboratorios from "./pages/AnimaisLaboratorios";
 import AnimaisVeterinarios from "./pages/AnimaisVeterinarios";
 import AnimaisGestaoPrenhez from "./pages/AnimaisGestaoPrenhez";
 import AnimaisGestaoAspiracoes from "./pages/AnimaisGestaoAspiracoes";
+import AnimaisSemen from "./pages/AnimaisSemen";
 import AnimaisTransferenciaEmbriao from "./pages/AnimaisTransferenciaEmbriao";
 import Tasks from "./pages/Tasks";
 import IncomeExpenseReport from "./pages/IncomeExpenseReport";
@@ -130,6 +131,7 @@ function App() {
                 <Route path="/animais/matrizes" element={<AnimaisMatrizes />} />
                 <Route path="/animais/prenhez" element={<AnimaisGestaoPrenhez />} />
                 <Route path="/animais/aspiracoes" element={<AnimaisGestaoAspiracoes />} />
+                <Route path="/animais/semen" element={<AnimaisSemen />} />
                 <Route path="/animais/transferencia-embriao" element={<AnimaisTransferenciaEmbriao />} />
                 <Route path="/animais/cadastros-gerais" element={<AnimaisCadastrosGerais />} />
                 <Route path="/animais/cadastros-gerais/racas" element={<AnimaisRacas />} />

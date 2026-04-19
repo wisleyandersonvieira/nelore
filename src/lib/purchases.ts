@@ -1,14 +1,26 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import type { SaleInstallmentDraft, SaleType } from "@/lib/sales";
-import { SALE_TYPE_LABELS, SALE_TYPE_OPTIONS } from "@/lib/sales";
+import type { SaleInstallmentDraft } from "@/lib/sales";
 
-export type PurchaseType = SaleType;
+export type PurchaseType = "animal" | "pregnancy" | "aspiration" | "recipient" | "semen";
 export type PurchaseInstallmentDraft = SaleInstallmentDraft;
 export type PurchaseOriginType = "manual" | "migrated_from_accounts_payable";
 
-export const PURCHASE_TYPE_OPTIONS = SALE_TYPE_OPTIONS;
-export const PURCHASE_TYPE_LABELS = SALE_TYPE_LABELS;
+export const PURCHASE_TYPE_OPTIONS: Array<{ value: PurchaseType; label: string }> = [
+  { value: "animal", label: "Animal" },
+  { value: "pregnancy", label: "Prenhez" },
+  { value: "aspiration", label: "Aspiração" },
+  { value: "recipient", label: "Receptora" },
+  { value: "semen", label: "Sêmen" },
+];
+
+export const PURCHASE_TYPE_LABELS: Record<PurchaseType, string> = {
+  animal: "Animal",
+  pregnancy: "Prenhez",
+  aspiration: "Aspiração",
+  recipient: "Receptora",
+  semen: "Sêmen",
+};
 
 export const createPurchaseWithPayable = async (input: {
   supplierId: string;
