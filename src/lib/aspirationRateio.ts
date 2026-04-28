@@ -103,11 +103,26 @@ const sumAllocationTotals = async (
   return { total, paid };
 };
 
-const fetchSemenConsumptionSummary = async (aspirationId: string): Promise<SemenConsumptionSummary> => {
-  const { data: utilizations } = await supabase
+const fetchSemenConsumptionSummary = async ({
+  aspirationId,
+  batchUtilizationId,
+}: {
+  aspirationId?: string | null;
+  batchUtilizationId?: string | null;
+}): Promise<SemenConsumptionSummary> => {
+  let utilizationQuery = supabase
     .from("semen_utilizations" as any)
-    .select("semen_id, quantity_used")
-    .eq("aspiration_id", aspirationId);
+    .select("semen_id, quantity_used");
+
+  if (batchUtilizationId) {
+    utilizationQuery = utilizationQuery.eq("batch_utilization_id", batchUtilizationId);
+  } else if (aspirationId) {
+    utilizationQuery = utilizationQuery.eq("aspiration_id", aspirationId);
+  } else {
+    return { total: 0, paid: 0 };
+  }
+
+  const { data: utilizations } = await utilizationQuery;
 
   const groupedUtilization = (utilizations || []).reduce<Record<string, number>>((acc, row: any) => {
     const semenId = row.semen_id as string | null;
@@ -251,7 +266,7 @@ export const fetchAspirationRateioSummary = async ({
     .eq("id", aspirationId)
     .single();
 
-  const [expenseSummary, revenueSummary, semenExpenseSummary] = await Promise.all([
+  const [expenseSummary, revenueSummary] = await Promise.all([
     sumAllocationTotals(
       "accounts_payable_item_allocations",
       "accounts_payable_payments",
@@ -266,7 +281,6 @@ export const fetchAspirationRateioSummary = async ({
       "accounts_receivable",
       aspirationId,
     ),
-    fetchSemenConsumptionSummary(aspirationId),
   ]);
 
   const isBatchPurchase = Boolean((aspirationData as any)?.is_batch_purchase);
@@ -281,7 +295,7 @@ export const fetchAspirationRateioSummary = async ({
 
     const batchUtilizationId = (embryoTransfer as any)?.batch_utilization_id as string | null;
     if (batchUtilizationId) {
-      const [{ data: utilization }, { count: totalCount }, { count: activeCount }] = await Promise.all([
+      const [{ data: utilization }, { count: totalCount }, { count: activeCount }, semenExpenseSummary] = await Promise.all([
         supabase
           .from("aspiration_batch_utilizations" as any)
           .select("quantity_used")
@@ -296,6 +310,7 @@ export const fetchAspirationRateioSummary = async ({
           .select("id", { count: "exact", head: true })
           .eq("batch_utilization_id", batchUtilizationId)
           .neq("status", "finalized_empty"),
+        fetchSemenConsumptionSummary({ batchUtilizationId }),
       ]);
 
       const quantityUsed = Number((utilization as any)?.quantity_used || 0);
@@ -307,13 +322,15 @@ export const fetchAspirationRateioSummary = async ({
 
       return {
         divisor,
-        expenseTotal: (expenseSummary.total + semenExpenseSummary.total) * factor,
-        expensePaid: (expenseSummary.paid + semenExpenseSummary.paid) * factor,
+        expenseTotal: (expenseSummary.total * factor) + semenExpenseSummary.total,
+        expensePaid: (expenseSummary.paid * factor) + semenExpenseSummary.paid,
         revenueTotal: revenueSummary.total * factor,
         revenuePaid: revenueSummary.paid * factor,
       };
     }
   }
+
+  const semenExpenseSummary = await fetchSemenConsumptionSummary({ aspirationId });
 
   const totalEmbryoCount = Math.max(Number((aspirationData as any)?.embryo_count || 0), 1);
   const { count: emptyCount } = await supabase
