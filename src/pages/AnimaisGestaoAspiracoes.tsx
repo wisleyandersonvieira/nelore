@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -47,6 +48,7 @@ interface AspirationRecord {
   id: string;
   code: number;
   name: string;
+  observations: string | null;
   expected_aspiration_month: string | null;
   breed_id: string | null;
   category_id: string | null;
@@ -58,6 +60,7 @@ interface AspirationRecord {
   status: string;
   store_id: string;
   aspiration_date: string | null;
+  oocyte_count: number | null;
   laboratory_id: string | null;
   veterinarian_id: string | null;
   embryo_count: number | null;
@@ -71,6 +74,14 @@ interface AspirationRecord {
 interface EmbryoDetail {
   sire_id: string;
   recipient_id: string;
+  semen_id?: string | null;
+}
+
+interface EmbryoRow {
+  sire_id: string;
+  recipient_id: string;
+  recipientName: string;
+  semen_id: string;
 }
 
 interface AspirationBatchUtilization {
@@ -95,8 +106,19 @@ interface BreedingAnimal { id: string; name: string; sex: string; sire_id: strin
 interface Laboratory { id: string; name: string; }
 interface Veterinarian { id: string; name: string; }
 interface AnimalOption { id: string; name: string; ear_tag: number | null; registration: string | null; category_id: string | null; }
+interface SemenOption { id: string; name: string; quantity_initial: number; available_quantity: number; }
+interface AspirationSemenConsumption {
+  id: string;
+  semen_id: string;
+  aspiration_id: string | null;
+  utilization_date: string;
+  description: string | null;
+  quantity_used: number;
+}
 
 const ITEMS_PER_PAGE = 15;
+const formatDateBR = (value?: string | null) =>
+  value ? format(new Date(`${value}T12:00:00`), "dd/MM/yyyy", { locale: ptBR }) : "-";
 const formatQuantity = (value: number) =>
   Number(value || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: Number.isInteger(Number(value || 0)) ? 0 : 2,
@@ -141,6 +163,7 @@ const AnimaisGestaoAspiracoes = () => {
   const [firstFinalizeData, setFirstFinalizeData] = useState({
     aspiration_date: null as Date | null,
     laboratory_id: "",
+    oocyte_count: "",
     quantity_used: "1",
     embryo_count: "",
     veterinarian_id: "",
@@ -151,9 +174,15 @@ const AnimaisGestaoAspiracoes = () => {
   const [secondFinalizeOpen, setSecondFinalizeOpen] = useState(false);
   const [secondFinalizeRecord, setSecondFinalizeRecord] = useState<AspirationRecord | null>(null);
   const [embryoCount, setEmbryoCount] = useState(0);
-  const [embryoRows, setEmbryoRows] = useState<{ sire_id: string; recipient_id: string; recipientName: string }[]>([]);
+  const [embryoRows, setEmbryoRows] = useState<EmbryoRow[]>([]);
   const [finalizeVeterinarianId, setFinalizeVeterinarianId] = useState("");
   const [finalizeTransferDate, setFinalizeTransferDate] = useState<Date | null>(null);
+  const [defaultSireId, setDefaultSireId] = useState("");
+  const [defaultSemenId, setDefaultSemenId] = useState("");
+  const [semenConsumptions, setSemenConsumptions] = useState<Array<{ semen_id: string; quantity_used: string }>>([]);
+  const [semenDialogOpen, setSemenDialogOpen] = useState(false);
+  const [semenForm, setSemenForm] = useState({ semen_id: "", quantity_used: "" });
+  const [savedSemenConsumptions, setSavedSemenConsumptions] = useState<AspirationSemenConsumption[]>([]);
 
   // Recipient search modal
   const [activeEmbryoRowIndex, setActiveEmbryoRowIndex] = useState<number | null>(null);
@@ -163,6 +192,18 @@ const AnimaisGestaoAspiracoes = () => {
   const [recipientResults, setRecipientResults] = useState<AnimalOption[]>([]);
   const [recipientSearchLoading, setRecipientSearchLoading] = useState(false);
   const [recipientNamesCache, setRecipientNamesCache] = useState<Record<string, string>>({});
+  const [recipientCreateOpen, setRecipientCreateOpen] = useState(false);
+  const [recipientCreateSaving, setRecipientCreateSaving] = useState(false);
+  const [recipientQuickForm, setRecipientQuickForm] = useState({
+    code: 0,
+    name: "",
+    registration: "",
+    ear_tag: "",
+    breed_id: "",
+    category_id: "",
+    farm: "",
+    observations: "",
+  });
   const [usageDeleteOpen, setUsageDeleteOpen] = useState(false);
   const [usageToDelete, setUsageToDelete] = useState<AspirationBatchUtilization | null>(null);
   const [batchUsages, setBatchUsages] = useState<AspirationBatchUtilization[]>([]);
@@ -173,6 +214,7 @@ const AnimaisGestaoAspiracoes = () => {
   const [formData, setFormData] = useState({
     code: 0,
     name: "",
+    observations: "",
     expected_aspiration_month: null as Date | null,
     breed_id: "",
     category_id: "",
@@ -191,6 +233,7 @@ const AnimaisGestaoAspiracoes = () => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
+  const [semenOptions, setSemenOptions] = useState<SemenOption[]>([]);
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
@@ -242,6 +285,31 @@ const AnimaisGestaoAspiracoes = () => {
   const getBatchUsedTotal = (recordId: string) => usageTotals[recordId] || 0;
   const getBatchAvailableQuantity = (record: Pick<AspirationRecord, "id" | "batch_quantity">) =>
     Math.max(Number(record.batch_quantity || 0) - getBatchUsedTotal(record.id), 0);
+  const hasSemenColumn = semenConsumptions.length > 0;
+  const singleSelectedSemenId = semenConsumptions.length === 1 ? semenConsumptions[0].semen_id : "";
+  const semenNameById = useMemo(
+    () => new Map(semenOptions.map((option) => [option.id, option.name])),
+    [semenOptions],
+  );
+
+  const getDefaultEmbryoRow = (): EmbryoRow => ({
+    sire_id: "",
+    recipient_id: "",
+    recipientName: "",
+    semen_id: singleSelectedSemenId,
+  });
+
+  const getNextRecipientCode = async () => {
+    const { data, error } = await supabase
+      .from("animals")
+      .select("code")
+      .order("code", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data?.code || 0) + 1;
+  };
 
   const hydrateRecipientNames = async (details: EmbryoDetail[]) => {
     const recipientIds = details.map((detail) => detail.recipient_id).filter(Boolean);
@@ -418,7 +486,18 @@ const AnimaisGestaoAspiracoes = () => {
         ? supabase.from("veterinarians").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
         : supabase.from("veterinarians").select("id, name").eq("store_id", storeId!).eq("is_active", true);
 
-      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, labsRes, vetsRes] = await Promise.all([
+      const semenStoreIds = matrixId
+        ? ((await supabase.from("stores").select("id").eq("matrix_id", matrixId)).data || []).map((store) => store.id)
+        : storeId
+          ? [storeId]
+          : [];
+
+      let semenQuery = supabase.from("semen" as any).select("id, name, quantity_initial, store_id");
+      if (semenStoreIds.length > 0) {
+        semenQuery = semenQuery.in("store_id", semenStoreIds);
+      }
+
+      const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, labsRes, vetsRes, semenRes] = await Promise.all([
         breedsQuery,
         categoriesQuery,
         auctionsQuery,
@@ -427,6 +506,7 @@ const AnimaisGestaoAspiracoes = () => {
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
         labsQuery,
         vetsQuery,
+        semenQuery.order("name"),
       ]);
 
       setBreeds(breedsRes.data || []);
@@ -439,6 +519,37 @@ const AnimaisGestaoAspiracoes = () => {
       setThirdPartyFarms(thirdPartyFarmsRes.data || []);
       setLaboratories(labsRes.data || []);
       setVeterinarians(vetsRes.data || []);
+
+      const loadedSemen = (semenRes.data || []) as Array<{ id: string; name: string; quantity_initial: number | string | null; store_id: string }>;
+      if (loadedSemen.length === 0) {
+        setSemenOptions([]);
+        return;
+      }
+
+      const { data: semenUsageRes, error: semenUsageError } = await supabase
+        .from("semen_utilizations" as any)
+        .select("semen_id, quantity_used")
+        .in("semen_id", loadedSemen.map((item) => item.id));
+
+      if (semenUsageError) throw semenUsageError;
+
+      const usageBySemen = (semenUsageRes || []).reduce<Record<string, number>>((acc, row: any) => {
+        acc[row.semen_id] = (acc[row.semen_id] || 0) + Number(row.quantity_used || 0);
+        return acc;
+      }, {});
+
+      setSemenOptions(
+        loadedSemen.map((item) => {
+          const quantityInitial = Number(item.quantity_initial || 0);
+          const availableQuantity = Math.max(quantityInitial - (usageBySemen[item.id] || 0), 0);
+          return {
+            id: item.id,
+            name: item.name,
+            quantity_initial: quantityInitial,
+            available_quantity: availableQuantity,
+          };
+        }),
+      );
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
     }
@@ -740,7 +851,25 @@ const AnimaisGestaoAspiracoes = () => {
       sire_id: detail.sire_id,
       recipient_id: detail.recipient_id,
       recipientName: recipientMap.get(detail.recipient_id) || recipientNamesCache[detail.recipient_id] || "",
+      semen_id: detail.semen_id || "",
     }));
+  };
+
+  const fetchAspirationSemenConsumptions = async (aspirationId: string) => {
+    const { data, error } = await supabase
+      .from("semen_utilizations" as any)
+      .select("id, semen_id, aspiration_id, utilization_date, description, quantity_used")
+      .eq("aspiration_id", aspirationId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    setSavedSemenConsumptions(
+      ((data || []) as AspirationSemenConsumption[]).map((item) => ({
+        ...item,
+        quantity_used: Number(item.quantity_used || 0),
+      })),
+    );
   };
 
   const getBatchEditableBalance = (record: AspirationRecord, usage?: AspirationBatchUtilization | null) =>
@@ -755,6 +884,7 @@ const AnimaisGestaoAspiracoes = () => {
     setFirstFinalizeData({
       aspiration_date: usage?.aspiration_date ? new Date(`${usage.aspiration_date}T12:00:00`) : null,
       laboratory_id: usage?.laboratory_id || "",
+      oocyte_count: "",
       quantity_used: usage ? String(Number(usage.quantity_used || 0)) : "1",
       embryo_count: usage ? String(Number(usage.embryo_count || 0)) : "",
       veterinarian_id: usage?.veterinarian_id || "",
@@ -856,17 +986,18 @@ const AnimaisGestaoAspiracoes = () => {
     if (mode === "create") {
       const nextCode = await getNextCode();
       setFormData({
-        code: nextCode, name: "", expected_aspiration_month: null,
+        code: nextCode, name: "", observations: "", expected_aspiration_month: null,
         breed_id: "", category_id: "", auction_id: "", auction_lot: "", dam_id: "", farm: "",
         is_batch_purchase: false, batch_quantity: "",
       });
       setSelectedRecord(null);
+      setSavedSemenConsumptions([]);
     } else if (record) {
       setSelectedRecord(record);
       let farmValue = "";
       if (record.farm_id && record.farm_type) farmValue = `${record.farm_type}-${record.farm_id}`;
       setFormData({
-        code: record.code, name: record.name,
+        code: record.code, name: record.name, observations: record.observations || "",
         expected_aspiration_month: record.expected_aspiration_month ? new Date(record.expected_aspiration_month) : null,
         breed_id: record.breed_id || "", category_id: record.category_id || "",
         auction_id: record.auction_id || "", auction_lot: record.auction_lot || "",
@@ -882,6 +1013,7 @@ const AnimaisGestaoAspiracoes = () => {
       await Promise.all([
         fetchAspirationFinancial(record.id),
         record.is_batch_purchase ? fetchBatchUtilizations(record.id) : Promise.resolve(),
+        fetchAspirationSemenConsumptions(record.id),
       ]);
     }
     setModalOpen(true);
@@ -928,6 +1060,7 @@ const AnimaisGestaoAspiracoes = () => {
       const recordData = {
         code: formData.code,
         name: formData.name.trim(),
+        observations: formData.observations.trim() || null,
         expected_aspiration_month: formData.expected_aspiration_month ? format(formData.expected_aspiration_month, "yyyy-MM-dd") : null,
         breed_id: formData.breed_id || null,
         category_id: formData.category_id || null,
@@ -942,11 +1075,11 @@ const AnimaisGestaoAspiracoes = () => {
       };
 
       if (modalMode === "create") {
-        const { error } = await supabase.from("aspiration_management").insert(recordData);
+        const { error } = await supabase.from("aspiration_management").insert(recordData as any);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Registro criado com sucesso." });
       } else {
-        const { error } = await supabase.from("aspiration_management").update(recordData).eq("id", selectedRecord!.id);
+        const { error } = await supabase.from("aspiration_management").update(recordData as any).eq("id", selectedRecord!.id);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Registro atualizado com sucesso." });
       }
@@ -1210,9 +1343,190 @@ const AnimaisGestaoAspiracoes = () => {
   const handleFirstFinalizeEmbryoCountChange = (count: number) => {
     setEmbryoCount(count);
     const newRows = Array.from({ length: count }, (_, index) => {
-      return embryoRows[index] || { sire_id: "", recipient_id: "", recipientName: "" };
+      return embryoRows[index] || getDefaultEmbryoRow();
     });
     setEmbryoRows(newRows);
+  };
+
+  const handleReplicateDefaultSire = () => {
+    if (!defaultSireId || embryoRows.length === 0) return;
+    setEmbryoRows((current) => current.map((row) => ({ ...row, sire_id: defaultSireId })));
+  };
+
+  const handleReplicateDefaultSemen = () => {
+    if (!defaultSemenId || embryoRows.length === 0) return;
+    setEmbryoRows((current) => current.map((row) => ({ ...row, semen_id: defaultSemenId })));
+  };
+
+  const handleSaveSemenConsumption = () => {
+    const selectedOption = semenOptions.find((option) => option.id === semenForm.semen_id);
+    const quantityValue = Number(semenForm.quantity_used || 0);
+
+    if (!selectedOption) {
+      toast({ title: "Erro", description: "Selecione um sêmen.", variant: "destructive" });
+      return;
+    }
+
+    if (Number.isNaN(quantityValue) || quantityValue <= 0) {
+      toast({ title: "Erro", description: "Informe uma quantidade válida.", variant: "destructive" });
+      return;
+    }
+
+    if (quantityValue > selectedOption.available_quantity) {
+      toast({ title: "Saldo insuficiente", description: "A quantidade informada é maior que o saldo disponível do sêmen.", variant: "destructive" });
+      return;
+    }
+
+    if (semenConsumptions.some((item) => item.semen_id === semenForm.semen_id)) {
+      toast({ title: "Erro", description: "Esse sêmen já foi adicionado ao consumo desta aspiração.", variant: "destructive" });
+      return;
+    }
+
+    const nextConsumptions = [...semenConsumptions, { semen_id: semenForm.semen_id, quantity_used: semenForm.quantity_used }];
+    setSemenConsumptions(nextConsumptions);
+    setSemenDialogOpen(false);
+    setSemenForm({ semen_id: "", quantity_used: "" });
+
+    if (nextConsumptions.length === 1) {
+      setDefaultSemenId(nextConsumptions[0].semen_id);
+      setEmbryoRows((current) => current.map((row) => ({ ...row, semen_id: nextConsumptions[0].semen_id })));
+    }
+  };
+
+  const handleRemoveSemenConsumption = (semenId: string) => {
+    const remaining = semenConsumptions.filter((item) => item.semen_id !== semenId);
+    setSemenConsumptions(remaining);
+    setEmbryoRows((current) =>
+      current.map((row) => ({
+        ...row,
+        semen_id: row.semen_id === semenId ? (remaining.length === 1 ? remaining[0].semen_id : "") : row.semen_id,
+      })),
+    );
+    if (defaultSemenId === semenId) {
+      setDefaultSemenId(remaining.length === 1 ? remaining[0].semen_id : "");
+    }
+  };
+
+  const openQuickRecipientCreate = async () => {
+    try {
+      const nextCode = await getNextRecipientCode();
+      setRecipientQuickForm({
+        code: nextCode,
+        name: "",
+        registration: "",
+        ear_tag: "",
+        breed_id: "",
+        category_id: recipientCategoryIds[0] || "",
+        farm: "",
+        observations: "",
+      });
+      setRecipientCreateOpen(true);
+    } catch (error) {
+      console.error("Error preparing recipient create modal:", error);
+      toast({ title: "Erro", description: "Não foi possível preparar o cadastro da receptora.", variant: "destructive" });
+    }
+  };
+
+  const handleQuickRecipientSave = async () => {
+    if (!recipientQuickForm.name.trim()) {
+      toast({ title: "Erro", description: "O nome da receptora é obrigatório.", variant: "destructive" });
+      return;
+    }
+
+    if (!recipientQuickForm.category_id) {
+      toast({ title: "Erro", description: "Selecione a categoria da receptora.", variant: "destructive" });
+      return;
+    }
+
+    if (!storeId) {
+      toast({ title: "Erro", description: "Nenhuma fazenda vinculada ao usuário.", variant: "destructive" });
+      return;
+    }
+
+    setRecipientCreateSaving(true);
+    try {
+      const [farmTypePart, farmIdPart] = recipientQuickForm.farm ? recipientQuickForm.farm.split("-") : ["", ""];
+      const payload = {
+        code: recipientQuickForm.code,
+        name: recipientQuickForm.name.trim(),
+        registration: recipientQuickForm.registration.trim() || null,
+        ear_tag: recipientQuickForm.ear_tag ? parseInt(recipientQuickForm.ear_tag, 10) : null,
+        sex: "femea",
+        breed_id: recipientQuickForm.breed_id || null,
+        category_id: recipientQuickForm.category_id || null,
+        observations: recipientQuickForm.observations.trim() || null,
+        store_id: storeId,
+        is_active: true,
+        batch_id: null,
+        auction_id: null,
+        auction_lot: null,
+        farm_entry_date: null,
+        birth_date: null,
+        photos: [] as string[],
+        cover_photo: null,
+        first_weighing_date: null,
+        first_weight: null,
+        recipient_id: null,
+        sire_id: null,
+        dam_id: null,
+        aspiration_date: null,
+        transfer_date: null,
+        veterinarian_id: null,
+        laboratory_id: null,
+        ultrasound_date: null,
+        pregnancy_id: null,
+        farm_id: farmIdPart || null,
+        farm_type: farmTypePart === "third_party" ? "third_party" : farmTypePart === "own" ? "own" : null,
+      };
+
+      const { data, error } = await supabase
+        .from("animals")
+        .insert(payload as any)
+        .select("id, name, ear_tag, registration, category_id")
+        .single();
+
+      if (error) throw error;
+
+      const createdRecipient = data as AnimalOption;
+      const createdRecipientName = `${createdRecipient.name}${createdRecipient.ear_tag ? ` - Brinco: ${createdRecipient.ear_tag}` : ""}`;
+
+      setRecipientNamesCache((current) => ({
+        ...current,
+        [createdRecipient.id]: createdRecipientName,
+      }));
+
+      if (activeEmbryoRowIndex !== null) {
+        setEmbryoRows((current) => {
+          const updated = [...current];
+          updated[activeEmbryoRowIndex] = {
+            ...updated[activeEmbryoRowIndex],
+            recipient_id: createdRecipient.id,
+            recipientName: createdRecipientName,
+          };
+          return updated;
+        });
+      }
+
+      setRecipientResults((current) => [createdRecipient, ...current.filter((item) => item.id !== createdRecipient.id)]);
+      setRecipientCreateOpen(false);
+      setRecipientSearchOpen(false);
+      setRecipientQuickForm({
+        code: 0,
+        name: "",
+        registration: "",
+        ear_tag: "",
+        breed_id: "",
+        category_id: "",
+        farm: "",
+        observations: "",
+      });
+      toast({ title: "Sucesso", description: "Receptora cadastrada e vinculada à linha selecionada." });
+    } catch (error) {
+      console.error("Error creating recipient:", error);
+      toast({ title: "Erro", description: "Erro ao cadastrar receptora.", variant: "destructive" });
+    } finally {
+      setRecipientCreateSaving(false);
+    }
   };
 
   const handleSaveBatchUsage = async () => {
@@ -1255,7 +1569,11 @@ const AnimaisGestaoAspiracoes = () => {
         data: { user },
       } = await supabase.auth.getUser();
 
-      const embryoDetails = embryoRows.map((row) => ({ sire_id: row.sire_id, recipient_id: row.recipient_id }));
+      const embryoDetails = embryoRows.map((row) => ({
+        sire_id: row.sire_id,
+        recipient_id: row.recipient_id,
+        semen_id: row.semen_id || null,
+      }));
       const payload = {
         aspiration_id: firstFinalizeRecord.id,
         aspiration_date: format(firstFinalizeData.aspiration_date, "yyyy-MM-dd"),
@@ -1342,8 +1660,13 @@ const AnimaisGestaoAspiracoes = () => {
     }
 
     if (saving) return;
-    if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date || !firstFinalizeData.laboratory_id) {
-      toast({ title: "Erro", description: "Data da aspiração e laboratório são obrigatórios.", variant: "destructive" });
+    const oocyteCount = Number(firstFinalizeData.oocyte_count || 0);
+    if (!firstFinalizeRecord || !firstFinalizeData.aspiration_date) {
+      toast({ title: "Erro", description: "Data da aspiração é obrigatória.", variant: "destructive" });
+      return;
+    }
+    if (Number.isNaN(oocyteCount) || oocyteCount <= 0) {
+      toast({ title: "Erro", description: "Quantidade de oócitos é obrigatória.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -1353,8 +1676,9 @@ const AnimaisGestaoAspiracoes = () => {
         .update({
           status: "in_progress",
           aspiration_date: format(firstFinalizeData.aspiration_date, "yyyy-MM-dd"),
-          laboratory_id: firstFinalizeData.laboratory_id,
-        })
+          oocyte_count: oocyteCount,
+          laboratory_id: null,
+        } as any)
         .eq("id", firstFinalizeRecord.id);
       if (error) throw error;
       toast({ title: "Sucesso", description: "Aspiração iniciada com sucesso." });
@@ -1381,10 +1705,50 @@ const AnimaisGestaoAspiracoes = () => {
         toast({ title: "Erro", description: `Preencha reprodutor e receptora na linha ${i + 1}.`, variant: "destructive" });
         return;
       }
+      if (hasSemenColumn && !embryoRows[i].semen_id) {
+        toast({ title: "Erro", description: `Selecione o sêmen na linha ${i + 1}.`, variant: "destructive" });
+        return;
+      }
+    }
+    if (hasSemenColumn) {
+      const unusedSemen = semenConsumptions.find((consumption) => !embryoRows.some((row) => row.semen_id === consumption.semen_id));
+      if (unusedSemen) {
+        toast({ title: "Erro", description: `Associe o sêmen "${semenNameById.get(unusedSemen.semen_id) || "selecionado"}" a pelo menos uma linha.`, variant: "destructive" });
+        return;
+      }
     }
     setSaving(true);
+    const insertedSemenUsageIds: string[] = [];
     try {
-      const embryoDetails = embryoRows.map(r => ({ sire_id: r.sire_id, recipient_id: r.recipient_id }));
+      const embryoDetails = embryoRows.map((row) => ({
+        sire_id: row.sire_id,
+        recipient_id: row.recipient_id,
+        semen_id: row.semen_id || null,
+      }));
+
+      for (const consumption of semenConsumptions) {
+        const quantityUsed = Number(consumption.quantity_used || 0);
+        if (Number.isNaN(quantityUsed) || quantityUsed <= 0) {
+          throw new Error("Quantidade de sêmen inválida.");
+        }
+
+        const { data: insertedUsage, error: semenUsageError } = await supabase
+          .from("semen_utilizations" as any)
+          .insert({
+            semen_id: consumption.semen_id,
+            aspiration_id: secondFinalizeRecord.id,
+            utilization_date: secondFinalizeRecord.aspiration_date || format(new Date(), "yyyy-MM-dd"),
+            description: `Consumo de sêmen na aspiração ${secondFinalizeRecord.code} - ${secondFinalizeRecord.name}`,
+            quantity_used: quantityUsed,
+          })
+          .select("id")
+          .single();
+
+        if (semenUsageError) throw semenUsageError;
+        if (insertedUsage?.id) {
+          insertedSemenUsageIds.push(insertedUsage.id);
+        }
+      }
 
       const { error: updateError } = await supabase
         .from("aspiration_management")
@@ -1398,78 +1762,32 @@ const AnimaisGestaoAspiracoes = () => {
         .eq("id", secondFinalizeRecord.id);
       if (updateError) throw updateError;
 
-      for (let i = 0; i < embryoRows.length; i++) {
-        const row = embryoRows[i];
-        const sireName = sires.find(s => s.id === row.sire_id)?.name || "";
-        const transferName = `${secondFinalizeRecord.name} X ${sireName}`;
-
-        const { data: lastCode } = await supabase
-          .from("embryo_transfer_management")
-          .select("code")
-          .eq("store_id", secondFinalizeRecord.store_id)
-          .order("code", { ascending: false })
-          .limit(1);
-        const nextCode = lastCode && lastCode.length > 0 ? lastCode[0].code + 1 : 1;
-
-        const { error: insertError } = await supabase.from("embryo_transfer_management").insert({
-          code: nextCode,
-          name: transferName,
-          breed_id: secondFinalizeRecord.breed_id,
-          category_id: secondFinalizeRecord.category_id,
-          auction_id: secondFinalizeRecord.auction_id,
-          auction_lot: secondFinalizeRecord.auction_lot,
-          dam_id: secondFinalizeRecord.dam_id,
-          sire_id: row.sire_id,
-          recipient_id: row.recipient_id,
-          farm_id: secondFinalizeRecord.farm_id,
-          farm_type: secondFinalizeRecord.farm_type,
-          store_id: secondFinalizeRecord.store_id,
-          aspiration_date: secondFinalizeRecord.aspiration_date || null,
-          transfer_date: finalizeTransferDate ? format(finalizeTransferDate, "yyyy-MM-dd") : null,
-          veterinarian_id: finalizeVeterinarianId || null,
-          laboratory_id: secondFinalizeRecord.laboratory_id || null,
-          aspiration_id: secondFinalizeRecord.id,
-        } as any);
-        if (insertError) throw insertError;
-
-        // Copy aspiration owners to this embryo transfer
-        const { data: aspirationOwners } = await supabase
-          .from("aspiration_owners")
-          .select("owner_id, store_owner_id, third_party_farm_id, owner_type, percentage")
-          .eq("aspiration_id", secondFinalizeRecord.id);
-
-        if (aspirationOwners && aspirationOwners.length > 0) {
-          // Get the newly created embryo transfer ID
-          const { data: newET } = await supabase
-            .from("embryo_transfer_management")
-            .select("id")
-            .eq("store_id", secondFinalizeRecord.store_id)
-            .eq("code", nextCode)
-            .single();
-
-          if (newET) {
-            const { data: userData } = await supabase.auth.getUser();
-            for (const owner of aspirationOwners) {
-              await supabase.from("embryo_transfer_owners").insert({
-                embryo_transfer_id: newET.id,
-                owner_id: (owner as any).owner_type === "supplier" ? owner.owner_id : null,
-                store_owner_id: (owner as any).owner_type === "store" ? (owner as any).store_owner_id : null,
-                third_party_farm_id: (owner as any).owner_type === "third_party_farm" ? (owner as any).third_party_farm_id : null,
-                owner_type: (owner as any).owner_type || "supplier",
-                percentage: owner.percentage,
-                created_by: userData.user?.id,
-              } as any);
-            }
-          }
-        }
-      }
+      await createEmbryoTransfersForUsage(
+        secondFinalizeRecord,
+        null,
+        embryoDetails,
+        finalizeTransferDate,
+        finalizeVeterinarianId,
+        secondFinalizeRecord.laboratory_id || "",
+      );
 
       toast({ title: "Sucesso", description: "Aspiração finalizada e registros de pós transferência criados com sucesso." });
       setSecondFinalizeOpen(false);
       setSecondFinalizeRecord(null);
-      fetchRecords();
+      setEmbryoCount(0);
+      setEmbryoRows([]);
+      setFinalizeVeterinarianId("");
+      setFinalizeTransferDate(null);
+      setDefaultSireId("");
+      setDefaultSemenId("");
+      setSemenConsumptions([]);
+      setSemenForm({ semen_id: "", quantity_used: "" });
+      await Promise.allSettled([fetchDropdownData(), fetchRecords()]);
     } catch (error) {
       console.error("Error second finalize:", error);
+      if (insertedSemenUsageIds.length > 0) {
+        await supabase.from("semen_utilizations" as any).delete().in("id", insertedSemenUsageIds);
+      }
       toast({ title: "Erro", description: "Erro ao finalizar aspiração.", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -1488,6 +1806,7 @@ const AnimaisGestaoAspiracoes = () => {
       setFirstFinalizeData({
         aspiration_date: null,
         laboratory_id: "",
+        oocyte_count: "",
         quantity_used: "1",
         embryo_count: "",
         veterinarian_id: "",
@@ -1500,6 +1819,10 @@ const AnimaisGestaoAspiracoes = () => {
       setEmbryoRows([]);
       setFinalizeVeterinarianId("");
       setFinalizeTransferDate(null);
+      setDefaultSireId("");
+      setDefaultSemenId("");
+      setSemenConsumptions([]);
+      setSemenForm({ semen_id: "", quantity_used: "" });
       setSecondFinalizeOpen(true);
     }
   };
@@ -1507,7 +1830,7 @@ const AnimaisGestaoAspiracoes = () => {
   const handleEmbryoCountChange = (count: number) => {
     setEmbryoCount(count);
     const newRows = Array.from({ length: count }, (_, i) => {
-      return embryoRows[i] || { sire_id: "", recipient_id: "", recipientName: "" };
+      return embryoRows[i] || getDefaultEmbryoRow();
     });
     setEmbryoRows(newRows);
   };
@@ -2363,7 +2686,7 @@ const AnimaisGestaoAspiracoes = () => {
             </TabsList>
 
             <TabsContent value="dados" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <Label>Código</Label>
                   <Input value={formData.code} disabled />
@@ -2385,6 +2708,10 @@ const AnimaisGestaoAspiracoes = () => {
                       <Calendar mode="single" selected={formData.expected_aspiration_month || undefined} onSelect={(date) => setFormData({ ...formData, expected_aspiration_month: date || null })} locale={ptBR} />
                     </PopoverContent>
                   </Popover>
+                </div>
+                <div>
+                  <Label>Quantidade de Oócitos</Label>
+                  <Input value={selectedRecord?.oocyte_count ?? ""} disabled placeholder="Preenchido ao iniciar a aspiração" />
                 </div>
               </div>
 
@@ -2474,6 +2801,17 @@ const AnimaisGestaoAspiracoes = () => {
                     />
                   </div>
                 )}
+              </div>
+
+              <div>
+                <Label>Observação</Label>
+                <Textarea
+                  value={formData.observations}
+                  onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                  disabled={modalMode === "view"}
+                  rows={4}
+                  placeholder="Digite uma observação para este cadastro..."
+                />
               </div>
             </TabsContent>
 
@@ -2568,7 +2906,26 @@ const AnimaisGestaoAspiracoes = () => {
                     <Label className="text-muted-foreground text-xs">Quantidade de Embriões</Label>
                     <p className="font-medium">{selectedRecord.embryo_count || "-"}</p>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Quantidade de Oócitos</Label>
+                    <p className="font-medium">{selectedRecord.oocyte_count || "-"}</p>
+                  </div>
                 </div>
+
+                {savedSemenConsumptions.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-lg border-b pb-2">Consumo de Sêmen</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {savedSemenConsumptions.map((consumption) => (
+                        <div key={consumption.id} className="rounded-lg border p-3">
+                          <p className="font-medium">{semenNameById.get(consumption.semen_id) || "Sêmen não encontrado"}</p>
+                          <p className="text-sm text-muted-foreground">Quantidade: {formatQuantity(consumption.quantity_used)}</p>
+                          <p className="text-sm text-muted-foreground">Data: {formatDateBR(consumption.utilization_date)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {selectedRecord.embryo_details && (selectedRecord.embryo_details as EmbryoDetail[]).length > 0 && (
                   <div className="space-y-3">
@@ -2579,6 +2936,9 @@ const AnimaisGestaoAspiracoes = () => {
                           <TableRow>
                             <TableHead className="w-12">#</TableHead>
                             <TableHead>Reprodutor (Pai)</TableHead>
+                            {(selectedRecord.embryo_details as EmbryoDetail[]).some((embryo) => Boolean(embryo.semen_id)) && (
+                              <TableHead>Sêmen</TableHead>
+                            )}
                             <TableHead>Receptora</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -2589,6 +2949,9 @@ const AnimaisGestaoAspiracoes = () => {
                               <TableRow key={idx}>
                                 <TableCell>{idx + 1}</TableCell>
                                 <TableCell>{sireName}</TableCell>
+                                {(selectedRecord.embryo_details as EmbryoDetail[]).some((detail) => Boolean(detail.semen_id)) && (
+                                  <TableCell>{embryo.semen_id ? semenNameById.get(embryo.semen_id) || "-" : "-"}</TableCell>
+                                )}
                                 <TableCell>{recipientNamesCache[embryo.recipient_id] || "-"}</TableCell>
                               </TableRow>
                             );
@@ -2998,6 +3361,7 @@ const AnimaisGestaoAspiracoes = () => {
             setFirstFinalizeData({
               aspiration_date: null,
               laboratory_id: "",
+              oocyte_count: "",
               quantity_used: "1",
               embryo_count: "",
               veterinarian_id: "",
@@ -3036,15 +3400,27 @@ const AnimaisGestaoAspiracoes = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              <div>
-                <Label>Laboratório *</Label>
-                <Select value={firstFinalizeData.laboratory_id} onValueChange={(v) => setFirstFinalizeData({ ...firstFinalizeData, laboratory_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
-                  <SelectContent>
-                    {laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {firstFinalizeRecord?.is_batch_purchase ? (
+                <div>
+                  <Label>Laboratório *</Label>
+                  <Select value={firstFinalizeData.laboratory_id} onValueChange={(v) => setFirstFinalizeData({ ...firstFinalizeData, laboratory_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o laboratório..." /></SelectTrigger>
+                    <SelectContent>
+                      {laboratories.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label>Quantidade de Oócitos *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={firstFinalizeData.oocyte_count}
+                    onChange={(e) => setFirstFinalizeData({ ...firstFinalizeData, oocyte_count: e.target.value })}
+                  />
+                </div>
+              )}
 
               {firstFinalizeRecord?.is_batch_purchase && (
                 <>
@@ -3151,6 +3527,17 @@ const AnimaisGestaoAspiracoes = () => {
                             >
                               <Search className="h-4 w-4" />
                             </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                setActiveEmbryoRowIndex(index);
+                                void openQuickRecipientCreate();
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -3189,7 +3576,23 @@ const AnimaisGestaoAspiracoes = () => {
       </Dialog>
 
       {/* Second Finalize Modal: in_progress → finalized */}
-      <Dialog open={secondFinalizeOpen} onOpenChange={setSecondFinalizeOpen}>
+      <Dialog
+        open={secondFinalizeOpen}
+        onOpenChange={(open) => {
+          setSecondFinalizeOpen(open);
+          if (!open) {
+            setSecondFinalizeRecord(null);
+            setEmbryoCount(0);
+            setEmbryoRows([]);
+            setFinalizeVeterinarianId("");
+            setFinalizeTransferDate(null);
+            setDefaultSireId("");
+            setDefaultSemenId("");
+            setSemenConsumptions([]);
+            setSemenForm({ semen_id: "", quantity_used: "" });
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Finalizar Aspiração</DialogTitle>
@@ -3230,6 +3633,53 @@ const AnimaisGestaoAspiracoes = () => {
               </div>
             </div>
 
+            <div className="rounded-lg border p-4 space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1">
+                  <div>
+                    <Label>Reprodutor padrão</Label>
+                    <Select value={defaultSireId} onValueChange={setDefaultSireId}>
+                      <SelectTrigger><SelectValue placeholder="Selecione para replicar..." /></SelectTrigger>
+                      <SelectContent>
+                        {sires.map((sire) => <SelectItem key={sire.id} value={sire.id}>{sire.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button type="button" variant="outline" className="w-full" onClick={handleReplicateDefaultSire} disabled={!defaultSireId || embryoRows.length === 0}>
+                      Replicar reprodutor para todas as linhas
+                    </Button>
+                  </div>
+                </div>
+                <Button type="button" variant="outline" onClick={() => setSemenDialogOpen(true)}>
+                  Consumir Sêmen
+                </Button>
+              </div>
+
+              {semenConsumptions.length > 0 && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Consumos de Sêmen Selecionados</Label>
+                    <div className="space-y-2">
+                      {semenConsumptions.map((consumption) => {
+                        const semenOption = semenOptions.find((option) => option.id === consumption.semen_id);
+                        return (
+                          <div key={consumption.semen_id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="font-medium">{semenOption?.name || "Sêmen não encontrado"}</p>
+                              <p className="text-xs text-muted-foreground">Quantidade consumida: {consumption.quantity_used}</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSemenConsumption(consumption.semen_id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
             {embryoCount > 0 && (
               <div className="border rounded-lg overflow-hidden">
                 <Table>
@@ -3237,6 +3687,30 @@ const AnimaisGestaoAspiracoes = () => {
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>Reprodutor (Pai)</TableHead>
+                      {hasSemenColumn && (
+                        <TableHead className="min-w-[220px]">
+                          <div className="space-y-2">
+                            <span>Sêmen</span>
+                            <div className="flex gap-2">
+                              <Select value={defaultSemenId} onValueChange={setDefaultSemenId}>
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Replicar..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {semenConsumptions.map((consumption) => (
+                                    <SelectItem key={consumption.semen_id} value={consumption.semen_id}>
+                                      {semenNameById.get(consumption.semen_id) || "Sêmen"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button type="button" variant="outline" size="sm" onClick={handleReplicateDefaultSemen} disabled={!defaultSemenId}>
+                                Replicar
+                              </Button>
+                            </div>
+                          </div>
+                        </TableHead>
+                      )}
                       <TableHead>Receptora</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3259,6 +3733,27 @@ const AnimaisGestaoAspiracoes = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        {hasSemenColumn && (
+                          <TableCell>
+                            <Select
+                              value={row.semen_id}
+                              onValueChange={(v) => {
+                                const updated = [...embryoRows];
+                                updated[index] = { ...updated[index], semen_id: v };
+                                setEmbryoRows(updated);
+                              }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                              <SelectContent>
+                                {semenConsumptions.map((consumption) => (
+                                  <SelectItem key={consumption.semen_id} value={consumption.semen_id}>
+                                    {semenNameById.get(consumption.semen_id) || "Sêmen"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex gap-2 items-center">
                             <Input
@@ -3280,6 +3775,17 @@ const AnimaisGestaoAspiracoes = () => {
                             >
                               <Search className="h-4 w-4" />
                             </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                setActiveEmbryoRowIndex(index);
+                                void openQuickRecipientCreate();
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -3288,6 +3794,7 @@ const AnimaisGestaoAspiracoes = () => {
                 </Table>
               </div>
             )}
+          </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSecondFinalizeOpen(false)} disabled={saving}>Cancelar</Button>
@@ -3303,12 +3810,18 @@ const AnimaisGestaoAspiracoes = () => {
             <DialogTitle>Buscar Receptora</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Input
-              placeholder="Pesquisar por nome, registro ou brinco..."
-              value={recipientSearchTerm}
-              onChange={(e) => setRecipientSearchTerm(e.target.value)}
-              autoFocus
-            />
+            <div className="flex gap-2">
+              <Input
+                placeholder="Pesquisar por nome, registro ou brinco..."
+                value={recipientSearchTerm}
+                onChange={(e) => setRecipientSearchTerm(e.target.value)}
+                autoFocus
+              />
+              <Button type="button" variant="outline" onClick={() => void openQuickRecipientCreate()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova
+              </Button>
+            </div>
             <div className="max-h-64 overflow-y-auto border rounded-lg">
               {recipientSearchLoading ? (
                 <div className="text-center py-4 text-muted-foreground">Buscando...</div>
@@ -3354,6 +3867,136 @@ const AnimaisGestaoAspiracoes = () => {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={recipientCreateOpen}
+        onOpenChange={(open) => {
+          setRecipientCreateOpen(open);
+          if (!open) {
+            setRecipientQuickForm({
+              code: 0,
+              name: "",
+              registration: "",
+              ear_tag: "",
+              breed_id: "",
+              category_id: recipientCategoryIds[0] || "",
+              farm: "",
+              observations: "",
+            });
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nova Receptora</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div>
+              <Label>Código</Label>
+              <Input value={recipientQuickForm.code} disabled />
+            </div>
+            <div>
+              <Label>Nome *</Label>
+              <Input value={recipientQuickForm.name} onChange={(e) => setRecipientQuickForm((current) => ({ ...current, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Registro</Label>
+              <Input value={recipientQuickForm.registration} onChange={(e) => setRecipientQuickForm((current) => ({ ...current, registration: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Brinco</Label>
+              <Input value={recipientQuickForm.ear_tag} onChange={(e) => setRecipientQuickForm((current) => ({ ...current, ear_tag: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Raça</Label>
+              <Select value={recipientQuickForm.breed_id} onValueChange={(value) => setRecipientQuickForm((current) => ({ ...current, breed_id: value }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {breeds.map((breed) => <SelectItem key={breed.id} value={breed.id}>{breed.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Categoria *</Label>
+              <Select value={recipientQuickForm.category_id} onValueChange={(value) => setRecipientQuickForm((current) => ({ ...current, category_id: value }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {categories
+                    .filter((category) => recipientCategoryIds.includes(category.id))
+                    .map((category) => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Fazenda</Label>
+              <Select value={recipientQuickForm.farm} onValueChange={(value) => setRecipientQuickForm((current) => ({ ...current, farm: value }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {ownFarms.map((farm) => <SelectItem key={`quick-own-${farm.id}`} value={`own-${farm.id}`}>{farm.name}</SelectItem>)}
+                  {thirdPartyFarms.map((farm) => <SelectItem key={`quick-third-${farm.id}`} value={`third_party-${farm.id}`}>{farm.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Observação</Label>
+              <Textarea value={recipientQuickForm.observations} onChange={(e) => setRecipientQuickForm((current) => ({ ...current, observations: e.target.value }))} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRecipientCreateOpen(false)} disabled={recipientCreateSaving}>Cancelar</Button>
+            <Button type="button" onClick={() => void handleQuickRecipientSave()} disabled={recipientCreateSaving}>
+              {recipientCreateSaving ? "Salvando..." : "Salvar receptora"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={semenDialogOpen}
+        onOpenChange={(open) => {
+          setSemenDialogOpen(open);
+          if (!open) {
+            setSemenForm({ semen_id: "", quantity_used: "" });
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Consumir Sêmen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Sêmen</Label>
+              <Select value={semenForm.semen_id} onValueChange={(value) => setSemenForm((current) => ({ ...current, semen_id: value }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione o sêmen..." /></SelectTrigger>
+                <SelectContent>
+                  {semenOptions
+                    .filter((option) => option.available_quantity > 0 && !semenConsumptions.some((item) => item.semen_id === option.id))
+                    .map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name} ({formatQuantity(option.available_quantity)} disponível)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Quantidade *</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={semenForm.quantity_used}
+                onChange={(e) => setSemenForm((current) => ({ ...current, quantity_used: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSemenDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" onClick={handleSaveSemenConsumption}>Salvar consumo</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
