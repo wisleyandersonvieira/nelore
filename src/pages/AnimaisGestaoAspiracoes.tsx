@@ -311,6 +311,22 @@ const AnimaisGestaoAspiracoes = () => {
     return (data?.code || 0) + 1;
   };
 
+  const parseFarmSelection = (farmValue: string) => {
+    if (!farmValue) {
+      return { farmId: null as string | null, farmType: null as string | null };
+    }
+
+    const dashIndex = farmValue.indexOf("-");
+    if (dashIndex <= 0) {
+      return { farmId: null as string | null, farmType: null as string | null };
+    }
+
+    return {
+      farmType: farmValue.substring(0, dashIndex),
+      farmId: farmValue.substring(dashIndex + 1),
+    };
+  };
+
   const hydrateRecipientNames = async (details: EmbryoDetail[]) => {
     const recipientIds = details.map((detail) => detail.recipient_id).filter(Boolean);
     const missingIds = recipientIds.filter((recipientId) => !recipientNamesCache[recipientId]);
@@ -1053,8 +1069,9 @@ const AnimaisGestaoAspiracoes = () => {
       let farmId: string | null = null;
       let farmType: string | null = null;
       if (formData.farm) {
-        const dashIndex = formData.farm.indexOf("-");
-        if (dashIndex > 0) { farmType = formData.farm.substring(0, dashIndex); farmId = formData.farm.substring(dashIndex + 1); }
+        const parsedFarm = parseFarmSelection(formData.farm);
+        farmType = parsedFarm.farmType;
+        farmId = parsedFarm.farmId;
       }
 
       const recordData = {
@@ -1445,12 +1462,14 @@ const AnimaisGestaoAspiracoes = () => {
 
     setRecipientCreateSaving(true);
     try {
-      const [farmTypePart, farmIdPart] = recipientQuickForm.farm ? recipientQuickForm.farm.split("-") : ["", ""];
+      const parsedFarm = parseFarmSelection(recipientQuickForm.farm);
       const payload = {
         code: recipientQuickForm.code,
         name: recipientQuickForm.name.trim(),
         registration: recipientQuickForm.registration.trim() || null,
-        ear_tag: recipientQuickForm.ear_tag ? parseInt(recipientQuickForm.ear_tag, 10) : null,
+        ear_tag: recipientQuickForm.ear_tag && !Number.isNaN(parseInt(recipientQuickForm.ear_tag, 10))
+          ? parseInt(recipientQuickForm.ear_tag, 10)
+          : null,
         sex: "femea",
         breed_id: recipientQuickForm.breed_id || null,
         category_id: recipientQuickForm.category_id || null,
@@ -1475,8 +1494,8 @@ const AnimaisGestaoAspiracoes = () => {
         laboratory_id: null,
         ultrasound_date: null,
         pregnancy_id: null,
-        farm_id: farmIdPart || null,
-        farm_type: farmTypePart === "third_party" ? "third_party" : farmTypePart === "own" ? "own" : null,
+        farm_id: parsedFarm.farmId,
+        farm_type: parsedFarm.farmType === "third_party" ? "third_party" : parsedFarm.farmType === "own" ? "own" : null,
       };
 
       const { data, error } = await supabase
@@ -1521,9 +1540,10 @@ const AnimaisGestaoAspiracoes = () => {
         observations: "",
       });
       toast({ title: "Sucesso", description: "Receptora cadastrada e vinculada à linha selecionada." });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error creating recipient:", error);
-      toast({ title: "Erro", description: "Erro ao cadastrar receptora.", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "Erro ao cadastrar receptora.";
+      toast({ title: "Erro", description: message, variant: "destructive" });
     } finally {
       setRecipientCreateSaving(false);
     }
