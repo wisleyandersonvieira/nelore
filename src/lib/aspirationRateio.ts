@@ -9,6 +9,11 @@ export interface AspirationRateioSummary {
   revenuePaid: number;
 }
 
+interface SemenConsumptionSummary {
+  total: number;
+  paid: number;
+}
+
 const sumAllocationTotals = async (
   table: "accounts_payable_item_allocations" | "accounts_receivable_item_allocations",
   paymentTable: "accounts_payable_payments" | "accounts_receivable_payments",
@@ -98,6 +103,139 @@ const sumAllocationTotals = async (
   return { total, paid };
 };
 
+const fetchSemenConsumptionSummary = async (aspirationId: string): Promise<SemenConsumptionSummary> => {
+  const { data: utilizations } = await supabase
+    .from("semen_utilizations" as any)
+    .select("semen_id, quantity_used")
+    .eq("aspiration_id", aspirationId);
+
+  const groupedUtilization = (utilizations || []).reduce<Record<string, number>>((acc, row: any) => {
+    const semenId = row.semen_id as string | null;
+    if (!semenId) {
+      return acc;
+    }
+
+    acc[semenId] = (acc[semenId] || 0) + Number(row.quantity_used || 0);
+    return acc;
+  }, {});
+
+  const semenIds = Object.keys(groupedUtilization);
+  if (semenIds.length === 0) {
+    return { total: 0, paid: 0 };
+  }
+
+  const [semenRes, allocationRes] = await Promise.all([
+    supabase
+      .from("semen" as any)
+      .select("id, quantity_initial")
+      .in("id", semenIds),
+    supabase
+      .from("accounts_payable_item_allocations")
+      .select(`
+        id,
+        account_payable_item_id,
+        semen_id,
+        accounts_payable_items!inner (
+          total_price,
+          account_payable_id,
+          accounts_payable!inner (
+            id,
+            status
+          )
+        )
+      `)
+      .in("semen_id", semenIds),
+  ]);
+
+  const semenMap = new Map<string, number>(
+    ((semenRes.data || []) as Array<{ id: string; quantity_initial: number | string | null }>).map((item) => [
+      item.id,
+      Number(item.quantity_initial || 0),
+    ]),
+  );
+
+  const groupedAllocations = new Map<string, { total: number; payableIds: Set<string>; paidFallback: number }>();
+  ((allocationRes.data || []) as any[]).forEach((allocation) => {
+    const semenId = allocation.semen_id as string | null;
+    if (!semenId) {
+      return;
+    }
+
+    const item = allocation.accounts_payable_items;
+    const payable = item?.accounts_payable;
+    const payableId = payable?.id as string | undefined;
+    const current = groupedAllocations.get(semenId) || { total: 0, payableIds: new Set<string>(), paidFallback: 0 };
+    const itemPrice = Number(item?.total_price || 0);
+
+    current.total += itemPrice;
+    if (payableId) {
+      current.payableIds.add(payableId);
+    }
+    if (payable?.status === "paid") {
+      current.paidFallback += itemPrice;
+    }
+
+    groupedAllocations.set(semenId, current);
+  });
+
+  const payableIds = Array.from(
+    new Set(
+      Array.from(groupedAllocations.values()).flatMap((entry) => Array.from(entry.payableIds)),
+    ),
+  );
+
+  const paidAmountsMap = new Map<string, number>();
+  if (payableIds.length > 0) {
+    const today = format(new Date(), "yyyy-MM-dd");
+    const { data: payments } = await supabase
+      .from("accounts_payable_payments")
+      .select("account_payable_id, amount_paid")
+      .in("account_payable_id", payableIds)
+      .lte("payment_date", today);
+
+    (payments || []).forEach((payment: any) => {
+      paidAmountsMap.set(
+        payment.account_payable_id,
+        (paidAmountsMap.get(payment.account_payable_id) || 0) + Number(payment.amount_paid || 0),
+      );
+    });
+  }
+
+  let total = 0;
+  let paid = 0;
+
+  semenIds.forEach((semenId) => {
+    const quantityInitial = semenMap.get(semenId) || 0;
+    const quantityUsed = Number(groupedUtilization[semenId] || 0);
+
+    if (quantityInitial <= 0 || quantityUsed <= 0) {
+      return;
+    }
+
+    const allocationInfo = groupedAllocations.get(semenId);
+    if (!allocationInfo || allocationInfo.total <= 0) {
+      return;
+    }
+
+    const factor = quantityUsed / quantityInitial;
+    const totalCost = allocationInfo.total * factor;
+
+    let totalPaidForSemen = 0;
+    if (allocationInfo.payableIds.size > 0) {
+      allocationInfo.payableIds.forEach((payableId) => {
+        totalPaidForSemen += paidAmountsMap.get(payableId) || 0;
+      });
+    } else {
+      totalPaidForSemen = allocationInfo.paidFallback;
+    }
+
+    total += totalCost;
+    paid += Math.min(totalPaidForSemen, allocationInfo.total) * factor;
+  });
+
+  return { total, paid };
+};
+
 export const fetchAspirationRateioSummary = async ({
   aspirationId,
   embryoTransferId,
@@ -113,7 +251,7 @@ export const fetchAspirationRateioSummary = async ({
     .eq("id", aspirationId)
     .single();
 
-  const [expenseSummary, revenueSummary] = await Promise.all([
+  const [expenseSummary, revenueSummary, semenExpenseSummary] = await Promise.all([
     sumAllocationTotals(
       "accounts_payable_item_allocations",
       "accounts_payable_payments",
@@ -128,6 +266,7 @@ export const fetchAspirationRateioSummary = async ({
       "accounts_receivable",
       aspirationId,
     ),
+    fetchSemenConsumptionSummary(aspirationId),
   ]);
 
   const isBatchPurchase = Boolean((aspirationData as any)?.is_batch_purchase);
@@ -168,8 +307,8 @@ export const fetchAspirationRateioSummary = async ({
 
       return {
         divisor,
-        expenseTotal: expenseSummary.total * factor,
-        expensePaid: expenseSummary.paid * factor,
+        expenseTotal: (expenseSummary.total + semenExpenseSummary.total) * factor,
+        expensePaid: (expenseSummary.paid + semenExpenseSummary.paid) * factor,
         revenueTotal: revenueSummary.total * factor,
         revenuePaid: revenueSummary.paid * factor,
       };
@@ -187,8 +326,8 @@ export const fetchAspirationRateioSummary = async ({
 
   return {
     divisor,
-    expenseTotal: expenseSummary.total,
-    expensePaid: expenseSummary.paid,
+    expenseTotal: expenseSummary.total + semenExpenseSummary.total,
+    expensePaid: expenseSummary.paid + semenExpenseSummary.paid,
     revenueTotal: revenueSummary.total,
     revenuePaid: revenueSummary.paid,
   };
