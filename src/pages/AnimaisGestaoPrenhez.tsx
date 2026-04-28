@@ -101,6 +101,12 @@ interface Auction {
   name: string;
 }
 
+interface AspirationOption {
+  id: string;
+  name: string;
+  code: number;
+}
+
 interface BreedingAnimal {
   id: string;
   name: string;
@@ -223,6 +229,7 @@ const AnimaisGestaoPrenhez = () => {
   const [breeds, setBreeds] = useState<Breed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [aspirations, setAspirations] = useState<AspirationOption[]>([]);
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
@@ -241,9 +248,11 @@ const AnimaisGestaoPrenhez = () => {
   const [filterBirthMonthEnd, setFilterBirthMonthEnd] = useState<Date | null>(null);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterAuction, setFilterAuction] = useState("");
+  const [filterAspiration, setFilterAspiration] = useState("");
   const [filterDam, setFilterDam] = useState("");
   const [filterSire, setFilterSire] = useState("");
   const [filterRecipient, setFilterRecipient] = useState("");
+  const [embryoTransferAspirationMap, setEmbryoTransferAspirationMap] = useState<Record<string, string | null>>({});
   const RECORDS_PER_PAGE = 15;
 
   // Financial functions
@@ -585,6 +594,7 @@ const AnimaisGestaoPrenhez = () => {
       if (filterFarm && filterFarm !== "all" && !(r.farm_id && r.farm_type && `${r.farm_type}-${r.farm_id}` === filterFarm)) return false;
       if (filterStatus && filterStatus !== "all" && r.status !== filterStatus) return false;
       if (filterAuction && filterAuction !== "all" && r.auction_id !== filterAuction) return false;
+      if (filterAspiration && filterAspiration !== "all" && embryoTransferAspirationMap[r.embryo_transfer_id || ""] !== filterAspiration) return false;
       if (filterDam && filterDam !== "all" && r.dam_id !== filterDam) return false;
       if (filterSire && filterSire !== "all" && r.sire_id !== filterSire) return false;
       if (filterRecipient && filterRecipient !== "all" && r.recipient_id !== filterRecipient) return false;
@@ -596,7 +606,7 @@ const AnimaisGestaoPrenhez = () => {
       }
       return true;
     });
-  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterBirthMonthStart, filterBirthMonthEnd, filterStatus, filterAuction, filterDam, filterSire, filterRecipient]);
+  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterBirthMonthStart, filterBirthMonthEnd, filterStatus, filterAuction, filterAspiration, filterDam, filterSire, filterRecipient, embryoTransferAspirationMap]);
 
   const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * RECORDS_PER_PAGE, currentPage * RECORDS_PER_PAGE);
@@ -614,6 +624,7 @@ const AnimaisGestaoPrenhez = () => {
     setFilterBirthMonthEnd(null);
     setFilterStatus("");
     setFilterAuction("");
+    setFilterAspiration("");
     setFilterDam("");
     setFilterSire("");
     setFilterRecipient("");
@@ -634,6 +645,18 @@ const AnimaisGestaoPrenhez = () => {
   const getAuctionName = (auctionId: string | null) => {
     if (!auctionId) return "-";
     return auctions.find((a) => a.id === auctionId)?.name || "-";
+  };
+
+  const getAspirationName = (aspirationId: string | null) => {
+    if (!aspirationId) return "-";
+    const aspiration = aspirations.find((item) => item.id === aspirationId);
+    return aspiration ? `${aspiration.code} - ${aspiration.name}` : "-";
+  };
+
+  const getSexLabel = (sex: string | null) => {
+    if (sex === "macho") return "Macho";
+    if (sex === "femea") return "Fêmea";
+    return "-";
   };
 
   const getStatusLabel = (status: string) => {
@@ -666,14 +689,15 @@ const AnimaisGestaoPrenhez = () => {
     const data = filteredRecords.map((r) => ({
       "Código": r.code,
       "Nome": r.name,
+      "Sexo": getSexLabel(r.sex),
       "Raça": getBreedName(r.breed_id),
       "Fazenda": getFarmName(r.farm_id, r.farm_type),
+      "Receptora": getRecipientName(r.recipient_id),
       "Mês Prev. Nascimento": r.expected_birth_month ? format(new Date(r.expected_birth_month), "MM/yyyy") : "-",
       "Status": getStatusLabel(r.status),
       "Leilão": getAuctionName(r.auction_id),
       "Nome da Mãe": getDamName(r.dam_id),
       "Nome do Pai": getSireName(r.sire_id),
-      "Receptora": getRecipientName(r.recipient_id),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -706,6 +730,7 @@ const AnimaisGestaoPrenhez = () => {
         filterFarm && filterFarm !== "all" ? { label: "Fazenda", value: resolveFarmFilterName() } : null,
         filterStatus && filterStatus !== "all" ? { label: "Status", value: getStatusLabel(filterStatus) } : null,
         filterAuction && filterAuction !== "all" ? { label: "Leilão", value: getAuctionName(filterAuction) } : null,
+        filterAspiration && filterAspiration !== "all" ? { label: "Aspiração", value: getAspirationName(filterAspiration) } : null,
         filterDam && filterDam !== "all" ? { label: "Mãe", value: getDamName(filterDam) } : null,
         filterSire && filterSire !== "all" ? { label: "Pai", value: getSireName(filterSire) } : null,
         filterRecipient && filterRecipient !== "all" ? { label: "Receptora", value: getRecipientName(filterRecipient) } : null,
@@ -723,27 +748,29 @@ const AnimaisGestaoPrenhez = () => {
       const headers = [[
         "Código",
         "Nome",
+        "Sexo",
         "Raça",
         "Fazenda",
+        "Receptora",
         "Prev. Nasc.",
         "Status",
         "Leilão",
         "Mãe",
         "Pai",
-        "Receptora",
       ]];
 
       const data = filteredRecords.map((r) => [
         String(r.code),
         r.name || "-",
+        getSexLabel(r.sex),
         getBreedName(r.breed_id),
         getFarmName(r.farm_id, r.farm_type),
+        getRecipientName(r.recipient_id),
         r.expected_birth_month ? format(new Date(`${r.expected_birth_month}T12:00:00`), "MM/yyyy") : "-",
         getStatusLabel(r.status),
         getAuctionName(r.auction_id),
         getDamName(r.dam_id),
         getSireName(r.sire_id),
-        getRecipientName(r.recipient_id),
       ]);
 
       autoTable(doc, {
@@ -778,15 +805,16 @@ const AnimaisGestaoPrenhez = () => {
         },
         columnStyles: {
           0: { cellWidth: 15, halign: "center" },
-          1: { cellWidth: 33 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 32 },
-          4: { cellWidth: 20, halign: "center" },
-          5: { cellWidth: 28, halign: "center" },
-          6: { cellWidth: 34 },
-          7: { cellWidth: 30 },
-          8: { cellWidth: 30 },
-          9: { cellWidth: 31 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 18, halign: "center" },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 18, halign: "center" },
+          7: { cellWidth: 28, halign: "center" },
+          8: { cellWidth: 28 },
+          9: { cellWidth: 26 },
+          10: { cellWidth: 26 },
         },
         didParseCell: (hookData) => {
           if (hookData.section === "body") {
@@ -795,7 +823,7 @@ const AnimaisGestaoPrenhez = () => {
             hookData.cell.styles.fillColor = fillColor;
             hookData.cell.styles.textColor = [15, 23, 42];
 
-            if ([6, 7, 8, 9].includes(hookData.column.index)) {
+            if ([8, 9, 10].includes(hookData.column.index)) {
               hookData.cell.styles.fontSize = 7.6;
             }
           }
@@ -849,7 +877,35 @@ const AnimaisGestaoPrenhez = () => {
         .order("code", { ascending: false });
 
       if (error) throw error;
-      setRecords(data || []);
+      const pregnancyRecords = data || [];
+      setRecords(pregnancyRecords);
+
+      const embryoTransferIds = Array.from(
+        new Set(
+          pregnancyRecords
+            .map((record) => record.embryo_transfer_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      if (embryoTransferIds.length === 0) {
+        setEmbryoTransferAspirationMap({});
+        return;
+      }
+
+      const { data: embryoTransfers, error: embryoTransfersError } = await supabase
+        .from("embryo_transfer_management")
+        .select("id, aspiration_id")
+        .in("id", embryoTransferIds);
+
+      if (embryoTransfersError) throw embryoTransfersError;
+
+      const aspirationMap = (embryoTransfers || []).reduce<Record<string, string | null>>((accumulator, embryoTransfer) => {
+        accumulator[embryoTransfer.id] = embryoTransfer.aspiration_id;
+        return accumulator;
+      }, {});
+
+      setEmbryoTransferAspirationMap(aspirationMap);
     } catch (error) {
       console.error("Error fetching pregnancy records:", error);
       toast({
@@ -911,6 +967,9 @@ const AnimaisGestaoPrenhez = () => {
       const animalsQuery = storeId
         ? supabase.from("animals").select("id, code, name, ear_tag, category_id").eq("store_id", storeId).eq("is_active", true)
         : null;
+      const aspirationsQuery = storeId
+        ? supabase.from("aspiration_management").select("id, name, code").eq("store_id", storeId).order("code", { ascending: false })
+        : null;
 
       const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, vetRes, labRes] = await Promise.all([
         breedsQuery,
@@ -924,10 +983,12 @@ const AnimaisGestaoPrenhez = () => {
       ]);
 
       const animalsRes = animalsQuery ? await animalsQuery : { data: [] };
+      const aspirationsRes = aspirationsQuery ? await aspirationsQuery : { data: [] };
 
       setBreeds(breedsRes.data || []);
       setCategories(categoriesRes.data || []);
       setAuctions(auctionsRes.data || []);
+      setAspirations(aspirationsRes.data || []);
       setSires((breedingAnimalsRes.data || []).filter(a => a.sex === "macho").sort((a, b) => a.name.localeCompare(b.name)));
       setDams((breedingAnimalsRes.data || []).filter(a => a.sex === "femea").sort((a, b) => a.name.localeCompare(b.name)));
       setOwnFarms(storesRes.data || []);
@@ -1713,6 +1774,20 @@ const AnimaisGestaoPrenhez = () => {
                 </Select>
               </div>
               <div>
+                <Label className="text-xs font-medium text-muted-foreground">Aspiração</Label>
+                <Select value={filterAspiration} onValueChange={setFilterAspiration}>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {aspirations.map((aspiration) => (
+                      <SelectItem key={aspiration.id} value={aspiration.id}>
+                        {aspiration.code} - {aspiration.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label className="text-xs font-medium text-muted-foreground">Receptora</Label>
                 <Select value={filterRecipient} onValueChange={setFilterRecipient}>
                   <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
@@ -1743,8 +1818,10 @@ const AnimaisGestaoPrenhez = () => {
                   <TableRow>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nome</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Sexo</TableHead>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Raça</TableHead>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Fazenda</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Receptora</TableHead>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Mês Prev. Nascimento</TableHead>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Status</TableHead>
                     <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
@@ -1753,7 +1830,7 @@ const AnimaisGestaoPrenhez = () => {
                 <TableBody>
                   {paginatedRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         Nenhum registro encontrado.
                       </TableCell>
                     </TableRow>
@@ -1762,8 +1839,10 @@ const AnimaisGestaoPrenhez = () => {
                       <TableRow key={record.id} className="border-border/60 hover:bg-muted/25">
                         <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{record.code}</TableCell>
                         <TableCell className="px-4 py-3 font-medium text-foreground">{record.name}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getSexLabel(record.sex)}</TableCell>
                         <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getBreedName(record.breed_id)}</TableCell>
                         <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getFarmName(record.farm_id, record.farm_type)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getRecipientName(record.recipient_id)}</TableCell>
                         <TableCell className="px-4 py-3 text-sm text-foreground">
                           {record.expected_birth_month
                             ? format(new Date(record.expected_birth_month), "MM/yyyy", { locale: ptBR })
