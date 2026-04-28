@@ -66,6 +66,7 @@ interface EmbryoTransferRecord {
 interface Breed { id: string; name: string; }
 interface Category { id: string; name: string; }
 interface Auction { id: string; name: string; }
+interface AspirationOption { id: string; name: string; code: number; }
 interface BreedingAnimal { id: string; name: string; sex: string; sire_id: string | null; dam_id: string | null; }
 interface AnimalOption { id: string; name: string; ear_tag: number | null; registration: string | null; category_id: string | null; }
 interface Laboratory { id: string; name: string; }
@@ -121,6 +122,7 @@ const AnimaisTransferenciaEmbriao = () => {
   const [filterFarm, setFilterFarm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterAuction, setFilterAuction] = useState("");
+  const [filterAspiration, setFilterAspiration] = useState("");
   const [filterDam, setFilterDam] = useState("");
   const [filterSire, setFilterSire] = useState("");
   const [filterRecipient, setFilterRecipient] = useState("");
@@ -164,6 +166,7 @@ const AnimaisTransferenciaEmbriao = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const recipientCategoryIds = useMemo(() => getRecipientCategoryIds(categories), [categories]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [aspirations, setAspirations] = useState<AspirationOption[]>([]);
   const [dams, setDams] = useState<BreedingAnimal[]>([]);
   const [sires, setSires] = useState<BreedingAnimal[]>([]);
   const [ownFarms, setOwnFarms] = useState<{ id: string; name: string }[]>([]);
@@ -302,6 +305,9 @@ const AnimaisTransferenciaEmbriao = () => {
       const labQuery = matrixId
         ? supabase.from("laboratories").select("id, name").eq("matrix_id", matrixId).eq("is_active", true)
         : supabase.from("laboratories").select("id, name").eq("store_id", storeId!).eq("is_active", true);
+      const aspirationsQuery = storeId
+        ? supabase.from("aspiration_management").select("id, name, code").eq("store_id", storeId).order("code", { ascending: false })
+        : null;
 
       const [breedsRes, categoriesRes, auctionsRes, breedingAnimalsRes, storesRes, thirdPartyFarmsRes, vetRes, labRes] = await Promise.all([
         breedsQuery,
@@ -313,10 +319,12 @@ const AnimaisTransferenciaEmbriao = () => {
         vetQuery,
         labQuery,
       ]);
+      const aspirationsRes = aspirationsQuery ? await aspirationsQuery : { data: [] };
 
       setBreeds(breedsRes.data || []);
       setCategories(categoriesRes.data || []);
       setAuctions(auctionsRes.data || []);
+      setAspirations(aspirationsRes.data || []);
       const animals = breedingAnimalsRes.data || [];
       setDams(animals.filter(a => a.sex === "femea"));
       setSires(animals.filter(a => a.sex === "macho"));
@@ -918,6 +926,7 @@ const AnimaisTransferenciaEmbriao = () => {
       })()) return false;
       if (filterStatus && r.status !== filterStatus) return false;
       if (filterAuction && r.auction_id !== filterAuction) return false;
+      if (filterAspiration && filterAspiration !== "all" && r.aspiration_id !== filterAspiration) return false;
       if (filterDam && r.dam_id !== filterDam) return false;
       if (filterSire && r.sire_id !== filterSire) return false;
       if (filterRecipient && !getRecipientName(r.recipient_id).toLowerCase().includes(filterRecipient.toLowerCase())) return false;
@@ -934,7 +943,7 @@ const AnimaisTransferenciaEmbriao = () => {
 
       return true;
     });
-  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterStatus, filterAuction, filterDam, filterSire, filterRecipient, filterTransferDateStart, filterTransferDateEnd, recipientNames]);
+  }, [records, hasFiltered, filterName, filterBreed, filterFarm, filterStatus, filterAuction, filterAspiration, filterDam, filterSire, filterRecipient, filterTransferDateStart, filterTransferDateEnd, recipientNames]);
 
   const totalPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -950,6 +959,7 @@ const AnimaisTransferenciaEmbriao = () => {
     setFilterFarm("");
     setFilterStatus("");
     setFilterAuction("");
+    setFilterAspiration("");
     setFilterDam("");
     setFilterSire("");
     setFilterRecipient("");
@@ -1101,6 +1111,20 @@ const AnimaisTransferenciaEmbriao = () => {
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium text-muted-foreground">Aspiração</Label>
+                <Select value={filterAspiration} onValueChange={setFilterAspiration}>
+                  <SelectTrigger className="mt-1 h-10 rounded-lg"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {aspirations.map(aspiration => (
+                      <SelectItem key={aspiration.id} value={aspiration.id}>
+                        {aspiration.code} - {aspiration.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
