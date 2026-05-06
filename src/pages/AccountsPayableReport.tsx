@@ -1237,6 +1237,171 @@ const AccountsPayableReport = () => {
     doc.save("contas-a-pagar-resumido-por-dia.pdf");
   };
 
+  const exportToPDFPorDiaVinculo = async () => {
+    const allocMap = await fetchAllocationsForAccounts(sortedAccounts);
+
+    const doc = new jsPDF("landscape");
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE CONTAS A PAGAR", 148, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Contas ainda não pagas - Dia / Animal", 148, 28, { align: "center" });
+
+    const filterInfo = getFilterInfo();
+    if (filterInfo.length > 0) {
+      doc.setFontSize(10);
+      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+    }
+
+    // Group by day, then by vínculo
+    const accountsByDay: {
+      [key: string]: {
+        dayLabel: string;
+        sortKey: string;
+        byVinculo: { [vinc: string]: any[] };
+      };
+    } = {};
+
+    sortedAccounts.forEach((account) => {
+      const key = account.due_date;
+      const dueDate = new Date(account.due_date + "T00:00:00");
+      const dayLabel = dueDate.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      if (!accountsByDay[key]) {
+        accountsByDay[key] = {
+          dayLabel: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
+          sortKey: key,
+          byVinculo: {},
+        };
+      }
+
+      const vinculos = allocMap.get(account.id) || [];
+      const vincKey = vinculos.length > 0 ? vinculos.join(" | ") : "Sem vínculo";
+
+      if (!accountsByDay[key].byVinculo[vincKey]) {
+        accountsByDay[key].byVinculo[vincKey] = [];
+      }
+      accountsByDay[key].byVinculo[vincKey].push(account);
+    });
+
+    const sortedDays = Object.values(accountsByDay).sort((a, b) =>
+      a.sortKey.localeCompare(b.sortKey),
+    );
+
+    const tableData: any[] = [];
+    let grandTotal = 0;
+    let totalInstallments = 0;
+
+    sortedDays.forEach((dayGroup) => {
+      // Day header
+      tableData.push([
+        {
+          content: dayGroup.dayLabel,
+          colSpan: 7,
+          styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255, fontSize: 10 },
+        },
+      ]);
+
+      let dayTotal = 0;
+      let dayCount = 0;
+
+      const sortedVinculos = Object.keys(dayGroup.byVinculo).sort((a, b) => a.localeCompare(b));
+
+      sortedVinculos.forEach((vincKey) => {
+        // Vínculo subheader (no subtotal)
+        tableData.push([
+          {
+            content: vincKey,
+            colSpan: 7,
+            styles: { fontStyle: "bold", fillColor: [230, 240, 250], fontSize: 9 },
+          },
+        ]);
+
+        dayGroup.byVinculo[vincKey].forEach((account) => {
+          tableData.push([
+            account.description,
+            account.employees?.name || account.suppliers?.name || "N/A",
+            account.stores?.name || "N/A",
+            new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
+            account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+            account.total_installments > 1
+              ? `${account.installment_number}/${account.total_installments}`
+              : "À vista",
+            vincKey === "Sem vínculo" ? "-" : vincKey,
+          ]);
+          dayTotal += account.amount || 0;
+          dayCount += 1;
+        });
+      });
+
+      // Day subtotal
+      tableData.push([
+        {
+          content: "Subtotal do dia",
+          colSpan: 4,
+          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+        },
+        {
+          content: dayTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
+        {
+          content: `${dayCount} parcela(s)`,
+          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+        },
+        { content: "", styles: { fillColor: [240, 240, 240] } },
+      ]);
+
+      grandTotal += dayTotal;
+      totalInstallments += dayCount;
+    });
+
+    tableData.push([
+      {
+        content: "TOTAL GERAL",
+        colSpan: 4,
+        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      {
+        content: `${totalInstallments} parcela(s)`,
+        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
+      },
+      { content: "", styles: { fillColor: [41, 128, 185] } },
+    ]);
+
+    autoTable(doc, {
+      head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas", "Vínculo"]],
+      body: tableData,
+      startY: filterInfo.length > 0 ? 45 : 35,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
+      margin: { left: 10, right: 10 },
+      columnStyles: { 6: { cellWidth: 60 } },
+    });
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    doc.save("contas-a-pagar-dia-animal.pdf");
+  };
+
   const exportToPDFDetalhado = () => {
     const doc = new jsPDF();
 
