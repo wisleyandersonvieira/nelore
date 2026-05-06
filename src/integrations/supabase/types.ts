@@ -265,6 +265,7 @@ export type Database = {
           id: string
           pregnancy_id: string | null
           recipient_id: string | null
+          semen_id: string | null
           updated_at: string
         }
         Insert: {
@@ -277,6 +278,7 @@ export type Database = {
           id?: string
           pregnancy_id?: string | null
           recipient_id?: string | null
+          semen_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -289,6 +291,7 @@ export type Database = {
           id?: string
           pregnancy_id?: string | null
           recipient_id?: string | null
+          semen_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -332,6 +335,13 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_item_allocations_semen_id_fkey"
+            columns: ["semen_id"]
+            isOneToOne: false
+            referencedRelation: "semen"
             referencedColumns: ["id"]
           },
         ]
@@ -1458,11 +1468,92 @@ export type Database = {
           },
         ]
       }
+      aspiration_batch_utilizations: {
+        Row: {
+          aspiration_date: string
+          aspiration_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          embryo_count: number
+          embryo_details: Json | null
+          id: string
+          laboratory_id: string | null
+          oocyte_count: number | null
+          quantity_used: number
+          transfer_date: string | null
+          updated_at: string
+          veterinarian_id: string | null
+        }
+        Insert: {
+          aspiration_date: string
+          aspiration_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          embryo_count?: number
+          embryo_details?: Json | null
+          id?: string
+          laboratory_id?: string | null
+          oocyte_count?: number | null
+          quantity_used: number
+          transfer_date?: string | null
+          updated_at?: string
+          veterinarian_id?: string | null
+        }
+        Update: {
+          aspiration_date?: string
+          aspiration_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          embryo_count?: number
+          embryo_details?: Json | null
+          id?: string
+          laboratory_id?: string | null
+          oocyte_count?: number | null
+          quantity_used?: number
+          transfer_date?: string | null
+          updated_at?: string
+          veterinarian_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aspiration_batch_utilizations_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_batch_utilizations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_batch_utilizations_laboratory_id_fkey"
+            columns: ["laboratory_id"]
+            isOneToOne: false
+            referencedRelation: "laboratories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_batch_utilizations_veterinarian_id_fkey"
+            columns: ["veterinarian_id"]
+            isOneToOne: false
+            referencedRelation: "veterinarians"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aspiration_management: {
         Row: {
           aspiration_date: string | null
           auction_id: string | null
           auction_lot: string | null
+          batch_quantity: number
           breed_id: string | null
           category_id: string | null
           code: number
@@ -1475,8 +1566,11 @@ export type Database = {
           farm_type: string | null
           financial_released: boolean
           id: string
+          is_batch_purchase: boolean
           laboratory_id: string | null
           name: string
+          observations: string | null
+          oocyte_count: number | null
           status: string
           store_id: string
           transfer_date: string | null
@@ -1487,6 +1581,7 @@ export type Database = {
           aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
+          batch_quantity?: number
           breed_id?: string | null
           category_id?: string | null
           code: number
@@ -1499,8 +1594,11 @@ export type Database = {
           farm_type?: string | null
           financial_released?: boolean
           id?: string
+          is_batch_purchase?: boolean
           laboratory_id?: string | null
           name: string
+          observations?: string | null
+          oocyte_count?: number | null
           status?: string
           store_id: string
           transfer_date?: string | null
@@ -1511,6 +1609,7 @@ export type Database = {
           aspiration_date?: string | null
           auction_id?: string | null
           auction_lot?: string | null
+          batch_quantity?: number
           breed_id?: string | null
           category_id?: string | null
           code?: number
@@ -1523,8 +1622,11 @@ export type Database = {
           farm_type?: string | null
           financial_released?: boolean
           id?: string
+          is_batch_purchase?: boolean
           laboratory_id?: string | null
           name?: string
+          observations?: string | null
+          oocyte_count?: number | null
           status?: string
           store_id?: string
           transfer_date?: string | null
@@ -3280,6 +3382,7 @@ export type Database = {
           aspiration_id: string | null
           auction_id: string | null
           auction_lot: string | null
+          batch_utilization_id: string | null
           breed_id: string | null
           category_id: string | null
           code: number
@@ -3305,6 +3408,7 @@ export type Database = {
           aspiration_id?: string | null
           auction_id?: string | null
           auction_lot?: string | null
+          batch_utilization_id?: string | null
           breed_id?: string | null
           category_id?: string | null
           code: number
@@ -3330,6 +3434,7 @@ export type Database = {
           aspiration_id?: string | null
           auction_id?: string | null
           auction_lot?: string | null
+          batch_utilization_id?: string | null
           breed_id?: string | null
           category_id?: string | null
           code?: number
@@ -3363,6 +3468,13 @@ export type Database = {
             columns: ["auction_id"]
             isOneToOne: false
             referencedRelation: "leiloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embryo_transfer_management_batch_utilization_id_fkey"
+            columns: ["batch_utilization_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_batch_utilizations"
             referencedColumns: ["id"]
           },
           {
@@ -4710,6 +4822,7 @@ export type Database = {
           purchase_date: string
           purchase_type: string
           recipient_id: string | null
+          semen_id: string | null
           store_id: string
           supplier_id: string
           total_amount: number
@@ -4739,6 +4852,7 @@ export type Database = {
           purchase_date: string
           purchase_type: string
           recipient_id?: string | null
+          semen_id?: string | null
           store_id: string
           supplier_id: string
           total_amount: number
@@ -4768,6 +4882,7 @@ export type Database = {
           purchase_date?: string
           purchase_type?: string
           recipient_id?: string | null
+          semen_id?: string | null
           store_id?: string
           supplier_id?: string
           total_amount?: number
@@ -4814,6 +4929,13 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_semen_id_fkey"
+            columns: ["semen_id"]
+            isOneToOne: false
+            referencedRelation: "semen"
             referencedColumns: ["id"]
           },
           {
@@ -4972,6 +5094,145 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semen: {
+        Row: {
+          auction_id: string | null
+          auction_lot: string | null
+          breed_id: string | null
+          code: number
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          quantity_initial: number
+          sire_id: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          auction_id?: string | null
+          auction_lot?: string | null
+          breed_id?: string | null
+          code?: number
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          quantity_initial?: number
+          sire_id?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          auction_id?: string | null
+          auction_lot?: string | null
+          breed_id?: string | null
+          code?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          quantity_initial?: number
+          sire_id?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semen_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semen_breed_id_fkey"
+            columns: ["breed_id"]
+            isOneToOne: false
+            referencedRelation: "animal_breeds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semen_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semen_sire_id_fkey"
+            columns: ["sire_id"]
+            isOneToOne: false
+            referencedRelation: "breeding_animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semen_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semen_utilizations: {
+        Row: {
+          aspiration_id: string | null
+          batch_utilization_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          quantity_used: number
+          semen_id: string
+          updated_at: string
+          utilization_date: string
+        }
+        Insert: {
+          aspiration_id?: string | null
+          batch_utilization_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          quantity_used: number
+          semen_id: string
+          updated_at?: string
+          utilization_date: string
+        }
+        Update: {
+          aspiration_id?: string | null
+          batch_utilization_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          quantity_used?: number
+          semen_id?: string
+          updated_at?: string
+          utilization_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semen_utilizations_aspiration_id_fkey"
+            columns: ["aspiration_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semen_utilizations_batch_utilization_id_fkey"
+            columns: ["batch_utilization_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_batch_utilizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semen_utilizations_semen_id_fkey"
+            columns: ["semen_id"]
+            isOneToOne: false
+            referencedRelation: "semen"
             referencedColumns: ["id"]
           },
         ]
@@ -6312,6 +6573,38 @@ export type Database = {
       is_master_user: { Args: never; Returns: boolean }
       is_matriz_profile_user: { Args: never; Returns: boolean }
       is_matriz_user: { Args: never; Returns: boolean }
+      list_leiloes_overview: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_matrix_id?: string
+          p_name?: string
+          p_page?: number
+          p_page_size?: number
+          p_sort_direction?: string
+          p_sort_field?: string
+          p_store_ids?: string[]
+        }
+        Returns: {
+          animal_count: number
+          aspiration_count: number
+          attachments: Json
+          city: string
+          code: number
+          created_at: string
+          date: string
+          id: string
+          is_active: boolean
+          linked_records_count: number
+          matrix_id: string
+          name: string
+          observations: string
+          pregnancy_count: number
+          store_id: string
+          total_count: number
+          updated_at: string
+        }[]
+      }
       migrate_accounts_payable_to_purchase: {
         Args: {
           p_account_payable_ids: string[]
@@ -6334,6 +6627,10 @@ export type Database = {
           purchase_id: string
           total_amount: number
         }[]
+      }
+      refresh_aspiration_batch_summary: {
+        Args: { p_aspiration_id: string }
+        Returns: undefined
       }
       reverse_accounts_payable_payment_batch: {
         Args: { p_batch_id: string }
