@@ -553,6 +553,8 @@ const PaidAccountsReport = () => {
     });
     setAvailableAccounts([]);
     setAccounts([]);
+    setAllocationType("none");
+    setSelectedAllocationIds([]);
   };
 
   const getFilterInfo = () => {
