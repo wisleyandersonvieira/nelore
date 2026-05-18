@@ -4542,7 +4542,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <TableCell className="py-2">{account.description}</TableCell>
                                   <TableCell className="py-2">{account.suppliers?.name || account.employees?.name || '-'}</TableCell>
                                   <TableCell className="py-2">{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</TableCell>
-                                  <TableCell className="py-2">R$ {Number(account.amount).toFixed(2)}</TableCell>
+                                  <TableCell className="py-2">{Number(account.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                                   <TableCell className="py-2">
                                     <span className={`px-2 py-1 rounded text-xs ${
                                       account.status === 'paid' 
@@ -4561,7 +4561,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                       const installments = (account as any).accounts_payable_installments || [];
                                       if (!installments.length) return '-';
                                       const first = [...installments].sort((a: any, b: any) => (a.installment_number || 0) - (b.installment_number || 0))[0];
-                                      return `R$ ${Number(first?.amount || 0).toFixed(2)}`;
+                                      return Number(first?.amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                                     })()}
                                   </TableCell>
                                   <TableCell className="py-2">
