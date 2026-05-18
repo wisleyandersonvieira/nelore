@@ -9,10 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Download, Filter, FileDown, ChevronDown, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
+import { fetchRecipientAllocationOptions, fetchSemenAllocationOptions } from "@/lib/financialAllocations";
+import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -65,6 +69,41 @@ const PaidAccountsReport = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [allocationType, setAllocationType] = useState<string>("none");
+  const [allocationItems, setAllocationItems] = useState<Array<{ id: string; name: string; code?: number }>>([]);
+  const [selectedAllocationIds, setSelectedAllocationIds] = useState<string[]>([]);
+  const [allocationPopoverOpen, setAllocationPopoverOpen] = useState(false);
+  const [allocationSearch, setAllocationSearch] = useState("");
+
+  useEffect(() => {
+    setSelectedAllocationIds([]);
+    setAllocationItems([]);
+    setAllocationSearch("");
+    if (allocationType === "none") return;
+    const load = async () => {
+      if (allocationType === "aspiration") {
+        const { data } = await supabase.from("aspiration_management").select("id, name, code").order("code", { ascending: false });
+        setAllocationItems((data || []).map((d: any) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "pregnancy") {
+        const { data } = await supabase.from("pregnancy_management").select("id, name, code").order("code", { ascending: false });
+        setAllocationItems((data || []).map((d: any) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "animal") {
+        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const { data } = await (recipientCategoryIds.length > 0
+          ? supabase.from("animals").select("id, name, code").not("category_id", "in", `("${recipientCategoryIds.join('","')}")`).order("code", { ascending: false })
+          : supabase.from("animals").select("id, name, code").order("code", { ascending: false }));
+        setAllocationItems((data || []).map((d: any) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "recipient") {
+        const data = await fetchRecipientAllocationOptions();
+        setAllocationItems(data.map((d) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "semen") {
+        const data = await fetchSemenAllocationOptions();
+        setAllocationItems(data.map((d) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      }
+    };
+    load();
+  }, [allocationType]);
 
   useEffect(() => {
     fetchSuppliers();
@@ -258,12 +297,44 @@ const PaidAccountsReport = () => {
         accountIdsByPaymentAccount = uniqueIds;
       }
 
+      let accountIdsByAllocation: string[] | null = null;
+      if (allocationType !== "none" && selectedAllocationIds.length > 0) {
+        let allocationQuery = supabase
+          .from("accounts_payable_item_allocations")
+          .select("account_payable_item_id");
+        if (allocationType === "aspiration") allocationQuery = allocationQuery.in("aspiration_id", selectedAllocationIds);
+        else if (allocationType === "pregnancy") allocationQuery = allocationQuery.in("pregnancy_id", selectedAllocationIds);
+        else if (allocationType === "animal") allocationQuery = allocationQuery.in("animal_id", selectedAllocationIds);
+        else if (allocationType === "recipient") allocationQuery = allocationQuery.in("recipient_id", selectedAllocationIds);
+        else if (allocationType === "semen") allocationQuery = allocationQuery.in("semen_id", selectedAllocationIds);
+
+        const { data: allocations } = await allocationQuery;
+        const itemIds = allocations?.map((a: any) => a.account_payable_item_id) || [];
+        if (itemIds.length === 0) {
+          setAccounts([]);
+          toast({ title: "Pesquisa realizada", description: "0 conta(s) encontrada(s)" });
+          return;
+        }
+        const { data: items } = await supabase
+          .from("accounts_payable_items")
+          .select("account_payable_id")
+          .in("id", itemIds);
+        const uniqueIds = Array.from(new Set((items || []).map((i: any) => i.account_payable_id)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          toast({ title: "Pesquisa realizada", description: "0 conta(s) encontrada(s)" });
+          return;
+        }
+        accountIdsByAllocation = uniqueIds;
+      }
+
       let accountIdsToFilter: string[] | null = null;
-      if (accountIdsByProduct && accountIdsByPaymentAccount) {
-        const accountSet = new Set(accountIdsByPaymentAccount);
-        accountIdsToFilter = accountIdsByProduct.filter((id) => accountSet.has(id));
-      } else {
-        accountIdsToFilter = accountIdsByProduct || accountIdsByPaymentAccount;
+      const idSources = [accountIdsByProduct, accountIdsByPaymentAccount, accountIdsByAllocation].filter((x): x is string[] => x !== null);
+      if (idSources.length > 0) {
+        accountIdsToFilter = idSources.reduce((acc, cur) => {
+          const set = new Set(cur);
+          return acc.filter((id) => set.has(id));
+        });
       }
 
       if (accountIdsToFilter && accountIdsToFilter.length === 0) {
@@ -482,6 +553,8 @@ const PaidAccountsReport = () => {
     });
     setAvailableAccounts([]);
     setAccounts([]);
+    setAllocationType("none");
+    setSelectedAllocationIds([]);
   };
 
   const getFilterInfo = () => {
@@ -1287,6 +1360,91 @@ const PaidAccountsReport = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Tipo de Vínculo</Label>
+                <Select value={allocationType} onValueChange={(v) => setAllocationType(v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    <SelectItem value="aspiration">Aspiração</SelectItem>
+                    <SelectItem value="pregnancy">Prenhez</SelectItem>
+                    <SelectItem value="animal">Animais</SelectItem>
+                    <SelectItem value="recipient">Receptoras</SelectItem>
+                    <SelectItem value="semen">Sêmen</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {allocationType !== "none" && allocationItems.length > 0 && (
+                <div>
+                  <Label>
+                    {allocationType === "aspiration" ? "Aspirações"
+                      : allocationType === "pregnancy" ? "Prenhez"
+                      : allocationType === "recipient" ? "Receptoras"
+                      : allocationType === "semen" ? "Sêmen"
+                      : "Animais"}
+                  </Label>
+                  <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between font-normal">
+                        {selectedAllocationIds.length === 0
+                          ? "Selecionar..."
+                          : selectedAllocationIds.length === allocationItems.length
+                          ? "Todos selecionados"
+                          : `${selectedAllocationIds.length} selecionado(s)`}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[320px] p-0" align="start">
+                      <div className="p-2 border-b">
+                        <Input
+                          placeholder="Buscar pelo nome..."
+                          value={allocationSearch}
+                          onChange={(e) => setAllocationSearch(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="p-2 border-b">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="paid-select-all"
+                            checked={selectedAllocationIds.length === allocationItems.length && allocationItems.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) setSelectedAllocationIds(allocationItems.map((i) => i.id));
+                              else setSelectedAllocationIds([]);
+                            }}
+                          />
+                          <label htmlFor="paid-select-all" className="text-sm font-medium cursor-pointer">
+                            Selecionar todos
+                          </label>
+                        </div>
+                      </div>
+                      <ScrollArea className="h-[250px]">
+                        <div className="p-2 space-y-1">
+                          {allocationItems
+                            .filter((item) => item.name.toLowerCase().includes(allocationSearch.toLowerCase()))
+                            .map((item) => (
+                              <div key={item.id} className="flex items-center space-x-2 py-1">
+                                <Checkbox
+                                  id={`paid-alloc-${item.id}`}
+                                  checked={selectedAllocationIds.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setSelectedAllocationIds((prev) => [...prev, item.id]);
+                                    else setSelectedAllocationIds((prev) => prev.filter((id) => id !== item.id));
+                                  }}
+                                />
+                                <label htmlFor={`paid-alloc-${item.id}`} className="text-sm cursor-pointer">
+                                  {item.name}
+                                </label>
+                              </div>
+                            ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-2">
