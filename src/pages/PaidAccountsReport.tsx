@@ -70,6 +70,41 @@ const PaidAccountsReport = () => {
   const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [allocationType, setAllocationType] = useState<string>("none");
+  const [allocationItems, setAllocationItems] = useState<Array<{ id: string; name: string; code?: number }>>([]);
+  const [selectedAllocationIds, setSelectedAllocationIds] = useState<string[]>([]);
+  const [allocationPopoverOpen, setAllocationPopoverOpen] = useState(false);
+  const [allocationSearch, setAllocationSearch] = useState("");
+
+  useEffect(() => {
+    setSelectedAllocationIds([]);
+    setAllocationItems([]);
+    setAllocationSearch("");
+    if (allocationType === "none") return;
+    const load = async () => {
+      if (allocationType === "aspiration") {
+        const { data } = await supabase.from("aspiration_management").select("id, name, code").order("code", { ascending: false });
+        setAllocationItems((data || []).map((d: any) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "pregnancy") {
+        const { data } = await supabase.from("pregnancy_management").select("id, name, code").order("code", { ascending: false });
+        setAllocationItems((data || []).map((d: any) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "animal") {
+        const recipientCategoryIds = await fetchRecipientCategoryIds();
+        const { data } = await (recipientCategoryIds.length > 0
+          ? supabase.from("animals").select("id, name, code").not("category_id", "in", `("${recipientCategoryIds.join('","')}")`).order("code", { ascending: false })
+          : supabase.from("animals").select("id, name, code").order("code", { ascending: false }));
+        setAllocationItems((data || []).map((d: any) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "recipient") {
+        const data = await fetchRecipientAllocationOptions();
+        setAllocationItems(data.map((d) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      } else if (allocationType === "semen") {
+        const data = await fetchSemenAllocationOptions();
+        setAllocationItems(data.map((d) => ({ id: d.id, name: `${d.code} - ${d.name}`, code: d.code })));
+      }
+    };
+    load();
+  }, [allocationType]);
+
   useEffect(() => {
     fetchSuppliers();
     fetchStores();
