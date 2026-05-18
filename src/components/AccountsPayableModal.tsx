@@ -512,7 +512,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `)
         .in("status", ["pending", "partial"])
         .order("created_at", { ascending: false });
