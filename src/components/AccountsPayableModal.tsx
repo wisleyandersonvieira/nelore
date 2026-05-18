@@ -869,7 +869,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `);
 
       // Apply the combined ID filter if we have one
