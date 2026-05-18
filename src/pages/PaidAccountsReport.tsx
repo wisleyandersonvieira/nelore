@@ -1360,6 +1360,91 @@ const PaidAccountsReport = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Tipo de Vínculo</Label>
+                <Select value={allocationType} onValueChange={(v) => setAllocationType(v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    <SelectItem value="aspiration">Aspiração</SelectItem>
+                    <SelectItem value="pregnancy">Prenhez</SelectItem>
+                    <SelectItem value="animal">Animais</SelectItem>
+                    <SelectItem value="recipient">Receptoras</SelectItem>
+                    <SelectItem value="semen">Sêmen</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {allocationType !== "none" && allocationItems.length > 0 && (
+                <div>
+                  <Label>
+                    {allocationType === "aspiration" ? "Aspirações"
+                      : allocationType === "pregnancy" ? "Prenhez"
+                      : allocationType === "recipient" ? "Receptoras"
+                      : allocationType === "semen" ? "Sêmen"
+                      : "Animais"}
+                  </Label>
+                  <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between font-normal">
+                        {selectedAllocationIds.length === 0
+                          ? "Selecionar..."
+                          : selectedAllocationIds.length === allocationItems.length
+                          ? "Todos selecionados"
+                          : `${selectedAllocationIds.length} selecionado(s)`}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[320px] p-0" align="start">
+                      <div className="p-2 border-b">
+                        <Input
+                          placeholder="Buscar pelo nome..."
+                          value={allocationSearch}
+                          onChange={(e) => setAllocationSearch(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="p-2 border-b">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="paid-select-all"
+                            checked={selectedAllocationIds.length === allocationItems.length && allocationItems.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) setSelectedAllocationIds(allocationItems.map((i) => i.id));
+                              else setSelectedAllocationIds([]);
+                            }}
+                          />
+                          <label htmlFor="paid-select-all" className="text-sm font-medium cursor-pointer">
+                            Selecionar todos
+                          </label>
+                        </div>
+                      </div>
+                      <ScrollArea className="h-[250px]">
+                        <div className="p-2 space-y-1">
+                          {allocationItems
+                            .filter((item) => item.name.toLowerCase().includes(allocationSearch.toLowerCase()))
+                            .map((item) => (
+                              <div key={item.id} className="flex items-center space-x-2 py-1">
+                                <Checkbox
+                                  id={`paid-alloc-${item.id}`}
+                                  checked={selectedAllocationIds.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setSelectedAllocationIds((prev) => [...prev, item.id]);
+                                    else setSelectedAllocationIds((prev) => prev.filter((id) => id !== item.id));
+                                  }}
+                                />
+                                <label htmlFor={`paid-alloc-${item.id}`} className="text-sm cursor-pointer">
+                                  {item.name}
+                                </label>
+                              </div>
+                            ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-2">
