@@ -480,7 +480,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `)
         .order("created_at", { ascending: false })
         .limit(5);
