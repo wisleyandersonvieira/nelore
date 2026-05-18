@@ -4561,7 +4561,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                       const installments = (account as any).accounts_payable_installments || [];
                                       if (!installments.length) return '-';
                                       const first = [...installments].sort((a: any, b: any) => (a.installment_number || 0) - (b.installment_number || 0))[0];
-                                      return `R$ ${Number(first?.amount || 0).toFixed(2)}`;
+                                      return Number(first?.amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                                     })()}
                                   </TableCell>
                                   <TableCell className="py-2">
