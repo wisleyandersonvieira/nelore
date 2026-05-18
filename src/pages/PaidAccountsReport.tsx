@@ -297,12 +297,44 @@ const PaidAccountsReport = () => {
         accountIdsByPaymentAccount = uniqueIds;
       }
 
+      let accountIdsByAllocation: string[] | null = null;
+      if (allocationType !== "none" && selectedAllocationIds.length > 0) {
+        let allocationQuery = supabase
+          .from("accounts_payable_item_allocations")
+          .select("account_payable_item_id");
+        if (allocationType === "aspiration") allocationQuery = allocationQuery.in("aspiration_id", selectedAllocationIds);
+        else if (allocationType === "pregnancy") allocationQuery = allocationQuery.in("pregnancy_id", selectedAllocationIds);
+        else if (allocationType === "animal") allocationQuery = allocationQuery.in("animal_id", selectedAllocationIds);
+        else if (allocationType === "recipient") allocationQuery = allocationQuery.in("recipient_id", selectedAllocationIds);
+        else if (allocationType === "semen") allocationQuery = allocationQuery.in("semen_id", selectedAllocationIds);
+
+        const { data: allocations } = await allocationQuery;
+        const itemIds = allocations?.map((a: any) => a.account_payable_item_id) || [];
+        if (itemIds.length === 0) {
+          setAccounts([]);
+          toast({ title: "Pesquisa realizada", description: "0 conta(s) encontrada(s)" });
+          return;
+        }
+        const { data: items } = await supabase
+          .from("accounts_payable_items")
+          .select("account_payable_id")
+          .in("id", itemIds);
+        const uniqueIds = Array.from(new Set((items || []).map((i: any) => i.account_payable_id)));
+        if (uniqueIds.length === 0) {
+          setAccounts([]);
+          toast({ title: "Pesquisa realizada", description: "0 conta(s) encontrada(s)" });
+          return;
+        }
+        accountIdsByAllocation = uniqueIds;
+      }
+
       let accountIdsToFilter: string[] | null = null;
-      if (accountIdsByProduct && accountIdsByPaymentAccount) {
-        const accountSet = new Set(accountIdsByPaymentAccount);
-        accountIdsToFilter = accountIdsByProduct.filter((id) => accountSet.has(id));
-      } else {
-        accountIdsToFilter = accountIdsByProduct || accountIdsByPaymentAccount;
+      const idSources = [accountIdsByProduct, accountIdsByPaymentAccount, accountIdsByAllocation].filter((x): x is string[] => x !== null);
+      if (idSources.length > 0) {
+        accountIdsToFilter = idSources.reduce((acc, cur) => {
+          const set = new Set(cur);
+          return acc.filter((id) => set.has(id));
+        });
       }
 
       if (accountIdsToFilter && accountIdsToFilter.length === 0) {
