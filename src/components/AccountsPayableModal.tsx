@@ -480,7 +480,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `)
         .order("created_at", { ascending: false })
         .limit(5);
@@ -511,7 +512,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `)
         .in("status", ["pending", "partial"])
         .order("created_at", { ascending: false });
@@ -540,7 +542,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `)
         .in("status", ["pending", "partial"]);
 
@@ -866,7 +869,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
           *,
           suppliers(name),
           employees(name),
-          stores(name)
+          stores(name),
+          accounts_payable_installments(installment_number, amount)
         `);
 
       // Apply the combined ID filter if we have one
@@ -4526,14 +4530,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   </div>
                                 </TableHead>
                                 <TableHead className="py-2">Status</TableHead>
-                                <TableHead 
-                                  className="py-2 cursor-pointer hover:bg-muted/50 select-none"
-                                  onClick={() => handleSort('payment_date')}
-                                >
-                                  <div className="flex items-center">
-                                    Data Pagamento
-                                    {getSortIcon('payment_date')}
-                                  </div>
+                                <TableHead className="py-2">
+                                  Valor Parcela
                                 </TableHead>
                                 <TableHead className="py-2">Ações</TableHead>
                               </TableRow>
@@ -4559,10 +4557,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     </span>
                                   </TableCell>
                                   <TableCell className="py-2">
-                                    {account.payment_date 
-                                      ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')
-                                      : '-'
-                                    }
+                                    {(() => {
+                                      const installments = (account as any).accounts_payable_installments || [];
+                                      if (!installments.length) return '-';
+                                      const first = [...installments].sort((a: any, b: any) => (a.installment_number || 0) - (b.installment_number || 0))[0];
+                                      return `R$ ${Number(first?.amount || 0).toFixed(2)}`;
+                                    })()}
                                   </TableCell>
                                   <TableCell className="py-2">
                                     <div className="flex gap-1">
