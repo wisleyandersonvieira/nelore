@@ -4542,7 +4542,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   <TableCell className="py-2">{account.description}</TableCell>
                                   <TableCell className="py-2">{account.suppliers?.name || account.employees?.name || '-'}</TableCell>
                                   <TableCell className="py-2">{account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</TableCell>
-                                  <TableCell className="py-2">R$ {Number(account.amount).toFixed(2)}</TableCell>
+                                  <TableCell className="py-2">{Number(account.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                                   <TableCell className="py-2">
                                     <span className={`px-2 py-1 rounded text-xs ${
                                       account.status === 'paid' 
