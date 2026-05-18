@@ -4530,14 +4530,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   </div>
                                 </TableHead>
                                 <TableHead className="py-2">Status</TableHead>
-                                <TableHead 
-                                  className="py-2 cursor-pointer hover:bg-muted/50 select-none"
-                                  onClick={() => handleSort('payment_date')}
-                                >
-                                  <div className="flex items-center">
-                                    Data Pagamento
-                                    {getSortIcon('payment_date')}
-                                  </div>
+                                <TableHead className="py-2">
+                                  Valor Parcela
                                 </TableHead>
                                 <TableHead className="py-2">Ações</TableHead>
                               </TableRow>
