@@ -4557,10 +4557,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                     </span>
                                   </TableCell>
                                   <TableCell className="py-2">
-                                    {account.payment_date 
-                                      ? new Date(account.payment_date + 'T00:00:00').toLocaleDateString('pt-BR')
-                                      : '-'
-                                    }
+                                    {(() => {
+                                      const installments = (account as any).accounts_payable_installments || [];
+                                      if (!installments.length) return '-';
+                                      const first = [...installments].sort((a: any, b: any) => (a.installment_number || 0) - (b.installment_number || 0))[0];
+                                      return `R$ ${Number(first?.amount || 0).toFixed(2)}`;
+                                    })()}
                                   </TableCell>
                                   <TableCell className="py-2">
                                     <div className="flex gap-1">
