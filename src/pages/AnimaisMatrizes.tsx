@@ -29,6 +29,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import elitebovLogo from "@/assets/elitebov-logo.png";
 
 interface BreedingAnimal {
   id: string;
@@ -61,6 +62,7 @@ interface ActivePregnancySummary {
   id: string;
   code: number | null;
   name: string;
+  recipient_id: string | null;
   sex: string | null;
   sire_id: string | null;
   dam_id: string | null;
@@ -74,6 +76,7 @@ interface ActiveEmbryoTransferSummary {
   id: string;
   code: number | null;
   name: string;
+  recipient_id: string | null;
   sire_id: string | null;
   dam_id: string | null;
   status: string;
@@ -87,6 +90,7 @@ interface ActiveAspirationSummary {
   code: number | null;
   name: string;
   dam_id: string | null;
+  embryo_count: number | null;
   status: string;
   aspiration_date: string | null;
   expected_aspiration_month: string | null;
@@ -102,17 +106,49 @@ interface LinkedRecordSummary {
   type: LinkedRecordType;
   label: string;
   displayName: string;
+  code: string;
+  name: string;
+  earTag: string | null;
+  registration: string | null;
+  sex: string | null;
   sireId: string | null;
   damId: string | null;
+  recipientId: string | null;
+  embryoCount: number | null;
   status: string;
   date: string | null;
+  transferDate: string | null;
+  ultrasoundDate: string | null;
+  expectedBirthDate: string | null;
+  expectedDiagnosisDate: string | null;
+  aspirationDate: string | null;
 }
 
 interface DetailedLinkedRecord extends LinkedRecordSummary {
   sireName: string;
   damName: string;
+  recipientName: string;
   totalPurchaseAmount: number | null;
   firstInstallmentAmount: number | null;
+}
+
+interface RelationshipSummary {
+  totalAnimais: number;
+  totalPrenhezes: number;
+  totalPosTransferencias: number;
+  totalAspiracoes: number;
+  totalGeral: number;
+}
+
+interface RelationshipReportData {
+  animalSelecionado: BreedingAnimalWithCounts;
+  tipoRelatorio: RelationshipType;
+  resumo: RelationshipSummary;
+  records: DetailedLinkedRecord[];
+  animais: DetailedLinkedRecord[];
+  prenhezes: DetailedLinkedRecord[];
+  posTransferencias: DetailedLinkedRecord[];
+  aspiracoes: DetailedLinkedRecord[];
 }
 
 interface RelationshipModalState {
@@ -161,6 +197,23 @@ const formatDateDisplay = (value: string | null | undefined) => {
   }
   return value;
 };
+
+const formatDateTimeDisplay = (value: Date) =>
+  value.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const sanitizeFileName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
 
 const getLinkedRecordStatusLabel = (type: LinkedRecordType, status: string) => {
   if (type === "animal") return "Ativo";
@@ -302,17 +355,17 @@ const AnimaisMatrizes = () => {
           .eq("is_active", true),
         supabase
           .from("pregnancy_management")
-          .select("id, code, name, sex, sire_id, dam_id, status, transfer_date, ultrasound_date, expected_birth_month")
+          .select("id, code, name, recipient_id, sex, sire_id, dam_id, status, transfer_date, ultrasound_date, expected_birth_month")
           .eq("store_id", storeId)
           .in("status", ACTIVE_PREGNANCY_STATUSES),
         supabase
           .from("embryo_transfer_management")
-          .select("id, code, name, sire_id, dam_id, status, transfer_date, ultrasound_date, expected_aspiration_month")
+          .select("id, code, name, recipient_id, sire_id, dam_id, status, transfer_date, ultrasound_date, expected_aspiration_month")
           .eq("store_id", storeId)
           .in("status", ACTIVE_EMBRYO_TRANSFER_STATUSES),
         supabase
           .from("aspiration_management")
-          .select("id, code, name, dam_id, status, aspiration_date, expected_aspiration_month, transfer_date")
+          .select("id, code, name, dam_id, embryo_count, status, aspiration_date, expected_aspiration_month, transfer_date")
           .eq("store_id", storeId)
           .in("status", ACTIVE_ASPIRATION_STATUSES),
       ]);
@@ -472,144 +525,31 @@ const AnimaisMatrizes = () => {
   };
 
   const generateOffspringReport = async (animal: BreedingAnimalWithCounts) => {
-    try {
-      const offspringData = activeAnimals
-        .filter((offspring) => (animal.sex === "macho" ? offspring.sire_id === animal.id : offspring.dam_id === animal.id))
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-
-      if (offspringData.length === 0) {
-        toast.info("Não há animais filhos ativos para este registro.");
-        return;
-      }
-
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      // Title
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Relatório de Animais Filhos", pageWidth / 2, 20, { align: "center" });
-
-      // Parent info
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${animal.sex === "macho" ? "Reprodutor" : "Matriz"}: ${animal.name}`, 14, 35);
-      if (animal.registration) {
-        doc.text(`Registro: ${animal.registration}`, 14, 42);
-      }
-      doc.text(`Total de Filhos Ativos: ${offspringData.length}`, 14, animal.registration ? 49 : 42);
-
-      // Table with offspring
-      const tableData = offspringData.map((offspring) => [
-        offspring.code?.toString() || "-",
-        offspring.name,
-        offspring.ear_tag?.toString() || "-",
-        offspring.sex === "macho" ? "Macho" : "Fêmea",
-      ]);
-
-      autoTable(doc, {
-        startY: animal.registration ? 55 : 48,
-        head: [["Código", "Nome", "Brinco", "Sexo"]],
-        body: tableData,
-        theme: "striped",
-        headStyles: { fillColor: [236, 72, 153] },
-      });
-
-      // Footer with date
-      const today = new Date().toLocaleDateString("pt-BR");
-      doc.setFontSize(10);
-      doc.text(`Gerado em: ${today}`, 14, doc.internal.pageSize.getHeight() - 10);
-
-      doc.save(`relatorio_filhos_${animal.name.replace(/\s+/g, "_")}.pdf`);
-      toast.success("Relatório gerado com sucesso!");
-    } catch (error: any) {
-      toast.error("Erro ao gerar relatório: " + error.message);
-    }
+    await generateRelationshipReport(animal, "children");
   };
 
   const generateGrandchildrenReport = async (animal: BreedingAnimalWithCounts) => {
-    try {
-      // Get offspring breeding animals (filhos que são reprodutores/matrizes)
-      const offspringBreedingIds = allBreedingAnimals
-        .filter((ba) => ba.sire_id === animal.id || ba.dam_id === animal.id)
-        .map((ba) => ba.id);
-
-      if (offspringBreedingIds.length === 0) {
-        toast.info("Não há animais netos ativos para este registro.");
-        return;
-      }
-
-      const offspringBreedingSet = new Set(offspringBreedingIds);
-      const uniqueGrandchildren = activeAnimals
-        .filter(
-          (grandchild) =>
-            (grandchild.sire_id && offspringBreedingSet.has(grandchild.sire_id)) ||
-            (grandchild.dam_id && offspringBreedingSet.has(grandchild.dam_id)),
-        )
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-
-      if (uniqueGrandchildren.length === 0) {
-        toast.info("Não há animais netos ativos para este registro.");
-        return;
-      }
-
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      // Title
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Relatório de Animais Netos", pageWidth / 2, 20, { align: "center" });
-
-      // Parent info
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${animal.sex === "macho" ? "Reprodutor" : "Matriz"}: ${animal.name}`, 14, 35);
-      if (animal.registration) {
-        doc.text(`Registro: ${animal.registration}`, 14, 42);
-      }
-      doc.text(`Total de Netos Ativos: ${uniqueGrandchildren.length}`, 14, animal.registration ? 49 : 42);
-
-      // Get parent names for the table
-      const breedingAnimalNameById = new Map(allBreedingAnimals.map((breedingAnimal) => [breedingAnimal.id, breedingAnimal.name]));
-
-      // Table with grandchildren
-      const tableData = uniqueGrandchildren.map((gc) => [
-        gc.code?.toString() || "-",
-        gc.name,
-        gc.ear_tag?.toString() || "-",
-        gc.sex === "macho" ? "Macho" : "Fêmea",
-        gc.sire_id ? breedingAnimalNameById.get(gc.sire_id) || "-" : "-",
-        gc.dam_id ? breedingAnimalNameById.get(gc.dam_id) || "-" : "-",
-      ]);
-
-      autoTable(doc, {
-        startY: animal.registration ? 55 : 48,
-        head: [["Código", "Nome", "Brinco", "Sexo", "Pai", "Mãe"]],
-        body: tableData,
-        theme: "striped",
-        headStyles: { fillColor: [236, 72, 153] },
-      });
-
-      // Footer with date
-      const today = new Date().toLocaleDateString("pt-BR");
-      doc.setFontSize(10);
-      doc.text(`Gerado em: ${today}`, 14, doc.internal.pageSize.getHeight() - 10);
-
-      doc.save(`relatorio_netos_${animal.name.replace(/\s+/g, "_")}.pdf`);
-      toast.success("Relatório gerado com sucesso!");
-    } catch (error: any) {
-      toast.error("Erro ao gerar relatório: " + error.message);
-    }
+    await generateRelationshipReport(animal, "grandchildren");
   };
 
   const getSexLabel = (sex: string) => {
     return sex === "macho" ? "Macho" : "Fêmea";
   };
 
+  const getOptionalSexLabel = (sex: string | null) => {
+    if (sex === "macho") return "Macho";
+    if (sex === "femea") return "Fêmea";
+    return "Não informado";
+  };
+
   const breedingAnimalNameById = useMemo(
     () => new Map(allBreedingAnimals.map((animal) => [animal.id, animal.name])),
     [allBreedingAnimals],
+  );
+
+  const activeAnimalById = useMemo(
+    () => new Map(activeAnimals.map((animal) => [animal.id, animal])),
+    [activeAnimals],
   );
 
   const breedingChildrenByParentId = useMemo(() => {
@@ -652,10 +592,22 @@ const AnimaisMatrizes = () => {
         type: "animal",
         label: recordTypeLabels.animal,
         displayName: `${animal.code ?? "-"} - ${animal.name}`,
+        code: animal.code?.toString() || "Não informado",
+        name: animal.name,
+        earTag: animal.ear_tag?.toString() || null,
+        registration: animal.registration || null,
+        sex: animal.sex,
         sireId: animal.sire_id,
         damId: animal.dam_id,
+        recipientId: null,
+        embryoCount: null,
         status: "active",
         date: animal.birth_date,
+        transferDate: null,
+        ultrasoundDate: null,
+        expectedBirthDate: null,
+        expectedDiagnosisDate: null,
+        aspirationDate: null,
       };
 
       registerRecord(animal.sire_id, record);
@@ -669,10 +621,22 @@ const AnimaisMatrizes = () => {
         type: "pregnancy",
         label: recordTypeLabels.pregnancy,
         displayName: `${pregnancy.code ?? "-"} - ${pregnancy.name}`,
+        code: pregnancy.code?.toString() || "Não informado",
+        name: pregnancy.name,
+        earTag: null,
+        registration: null,
+        sex: pregnancy.sex,
         sireId: pregnancy.sire_id,
         damId: pregnancy.dam_id,
+        recipientId: pregnancy.recipient_id,
+        embryoCount: null,
         status: pregnancy.status,
         date: pregnancy.ultrasound_date || pregnancy.transfer_date || pregnancy.expected_birth_month,
+        transferDate: pregnancy.transfer_date,
+        ultrasoundDate: pregnancy.ultrasound_date,
+        expectedBirthDate: pregnancy.expected_birth_month,
+        expectedDiagnosisDate: null,
+        aspirationDate: null,
       };
 
       registerRecord(pregnancy.sire_id, record);
@@ -686,10 +650,22 @@ const AnimaisMatrizes = () => {
         type: "embryo_transfer",
         label: recordTypeLabels.embryo_transfer,
         displayName: `${transfer.code ?? "-"} - ${transfer.name}`,
+        code: transfer.code?.toString() || "Não informado",
+        name: transfer.name,
+        earTag: null,
+        registration: null,
+        sex: null,
         sireId: transfer.sire_id,
         damId: transfer.dam_id,
+        recipientId: transfer.recipient_id,
+        embryoCount: null,
         status: transfer.status,
         date: transfer.transfer_date || transfer.ultrasound_date || transfer.expected_aspiration_month,
+        transferDate: transfer.transfer_date,
+        ultrasoundDate: null,
+        expectedBirthDate: null,
+        expectedDiagnosisDate: transfer.ultrasound_date || transfer.expected_aspiration_month,
+        aspirationDate: null,
       };
 
       registerRecord(transfer.sire_id, record);
@@ -703,10 +679,22 @@ const AnimaisMatrizes = () => {
         type: "aspiration",
         label: recordTypeLabels.aspiration,
         displayName: `${aspiration.code ?? "-"} - ${aspiration.name}`,
+        code: aspiration.code?.toString() || "Não informado",
+        name: aspiration.name,
+        earTag: null,
+        registration: null,
+        sex: null,
         sireId: null,
         damId: aspiration.dam_id,
+        recipientId: null,
+        embryoCount: aspiration.embryo_count,
         status: aspiration.status,
         date: aspiration.aspiration_date || aspiration.expected_aspiration_month || aspiration.transfer_date,
+        transferDate: aspiration.transfer_date,
+        ultrasoundDate: null,
+        expectedBirthDate: null,
+        expectedDiagnosisDate: aspiration.expected_aspiration_month,
+        aspirationDate: aspiration.aspiration_date,
       };
 
       registerRecord(aspiration.dam_id, record);
@@ -950,10 +938,320 @@ const AnimaisMatrizes = () => {
     return purchaseSummaries;
   };
 
-  const handleOpenRelationshipModal = async (animal: BreedingAnimalWithCounts, type: RelationshipType) => {
-    const baseRecords = getRelatedRecords(animal.id, type);
-    if (baseRecords.length === 0) return;
+  const buildDetailedRelationshipRecords = async (records: LinkedRecordSummary[]) => {
+    const financialDetails = await fetchFinancialDetailsForRecords(records);
 
+    return records.map((record) => {
+      const financial = financialDetails.get(record.key);
+      const recipientAnimal = record.recipientId ? activeAnimalById.get(record.recipientId) : null;
+      return {
+        ...record,
+        recipientName: recipientAnimal
+          ? `${recipientAnimal.code ?? "-"} - ${recipientAnimal.name}`
+          : "Não informado",
+        sireName: record.sireId ? breedingAnimalNameById.get(record.sireId) || "Não informado" : "Não informado",
+        damName: record.damId ? breedingAnimalNameById.get(record.damId) || "Não informado" : "Não informado",
+        totalPurchaseAmount: typeof financial?.totalPurchaseAmount === "number" ? financial.totalPurchaseAmount : null,
+        firstInstallmentAmount:
+          typeof financial?.firstInstallmentAmount === "number" && financial.firstInstallmentAmount > 0
+            ? financial.firstInstallmentAmount
+            : null,
+      } as DetailedLinkedRecord;
+    });
+  };
+
+  const getRelatorioVinculosAnimal = async (
+    animal: BreedingAnimalWithCounts,
+    tipoRelatorio: RelationshipType,
+  ): Promise<RelationshipReportData> => {
+    const baseRecords = getRelatedRecords(animal.id, tipoRelatorio);
+    const detailedRecords = await buildDetailedRelationshipRecords(baseRecords);
+
+    const animais = detailedRecords.filter((record) => record.type === "animal");
+    const prenhezes = detailedRecords.filter((record) => record.type === "pregnancy");
+    const posTransferencias = detailedRecords.filter((record) => record.type === "embryo_transfer");
+    const aspiracoes = detailedRecords.filter((record) => record.type === "aspiration");
+
+    return {
+      animalSelecionado: animal,
+      tipoRelatorio,
+      resumo: {
+        totalAnimais: animais.length,
+        totalPrenhezes: prenhezes.length,
+        totalPosTransferencias: posTransferencias.length,
+        totalAspiracoes: aspiracoes.length,
+        totalGeral: detailedRecords.length,
+      },
+      records: detailedRecords,
+      animais,
+      prenhezes,
+      posTransferencias,
+      aspiracoes,
+    };
+  };
+
+  const loadLogoForPdf = async () => {
+    return await new Promise<HTMLImageElement | null>((resolve) => {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => resolve(image);
+      image.onerror = () => resolve(null);
+      image.src = elitebovLogo;
+    });
+  };
+
+  const generateRelationshipReport = async (animal: BreedingAnimalWithCounts, tipoRelatorio: RelationshipType) => {
+    try {
+      const reportData = await getRelatorioVinculosAnimal(animal, tipoRelatorio);
+      const generatedAt = new Date();
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 12;
+      const headerTop = 12;
+      const title = tipoRelatorio === "children" ? "Relatório de Filhos Ativos" : "Relatório de Netos Ativos";
+      const safeAnimalName = sanitizeFileName(animal.name || "animal");
+      const fileName = `${tipoRelatorio === "children" ? "relatorio_filhos" : "relatorio_netos"}_${safeAnimalName}.pdf`;
+      const logo = await loadLogoForPdf();
+
+      const addFooter = (pageNumber: number) => {
+        doc.setDrawColor(224, 229, 236);
+        doc.line(marginX, pageHeight - 10, pageWidth - marginX, pageHeight - 10);
+        doc.setFontSize(8.5);
+        doc.setTextColor(92, 102, 116);
+        doc.text("EliteBov", marginX, pageHeight - 5.5);
+        doc.text(`Gerado em ${formatDateTimeDisplay(generatedAt)}`, pageWidth / 2, pageHeight - 5.5, { align: "center" });
+        doc.text(`Página ${pageNumber}`, pageWidth - marginX, pageHeight - 5.5, { align: "right" });
+      };
+
+      const drawHeader = () => {
+        doc.setFillColor(24, 36, 56);
+        doc.roundedRect(marginX, headerTop, pageWidth - marginX * 2, 28, 4, 4, "F");
+
+        if (logo) {
+          doc.addImage(logo, "PNG", marginX + 5, headerTop + 4, 20, 20);
+        }
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(title, logo ? marginX + 30 : marginX + 6, headerTop + 10);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Matriz/Genitor: ${reportData.animalSelecionado.name}`, logo ? marginX + 30 : marginX + 6, headerTop + 17);
+        doc.text(`Emitido em ${formatDateTimeDisplay(generatedAt)}`, logo ? marginX + 30 : marginX + 6, headerTop + 23);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text(`Total geral: ${reportData.resumo.totalGeral}`, pageWidth - marginX - 6, headerTop + 12, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.text(animal.registration ? `Registro: ${animal.registration}` : "Registro: Não informado", pageWidth - marginX - 6, headerTop + 19, {
+          align: "right",
+        });
+      };
+
+      const summaryCards = [
+        { label: "Animais ativos", value: reportData.resumo.totalAnimais, fill: [232, 242, 255] as [number, number, number] },
+        { label: "Prenhezes", value: reportData.resumo.totalPrenhezes, fill: [255, 248, 220] as [number, number, number] },
+        { label: "Pós-transferências", value: reportData.resumo.totalPosTransferencias, fill: [235, 248, 238] as [number, number, number] },
+        { label: "Aspirações", value: reportData.resumo.totalAspiracoes, fill: [237, 245, 255] as [number, number, number] },
+        { label: "Total geral", value: reportData.resumo.totalGeral, fill: [242, 236, 251] as [number, number, number] },
+      ];
+
+      drawHeader();
+
+      const cardGap = 4;
+      const cardWidth = (pageWidth - marginX * 2 - cardGap * 4) / 5;
+      const cardTop = headerTop + 34;
+
+      summaryCards.forEach((card, index) => {
+        const x = marginX + index * (cardWidth + cardGap);
+        doc.setFillColor(card.fill[0], card.fill[1], card.fill[2]);
+        doc.setDrawColor(223, 228, 235);
+        doc.roundedRect(x, cardTop, cardWidth, 18, 3, 3, "FD");
+        doc.setTextColor(90, 101, 117);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(card.label, x + 3, cardTop + 6);
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(15);
+        doc.text(String(card.value), x + 3, cardTop + 13);
+      });
+
+      let currentY = cardTop + 24;
+
+      if (reportData.resumo.totalGeral === 0) {
+        doc.setTextColor(78, 88, 104);
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(11);
+        doc.text("Nenhum vínculo ativo encontrado para este animal.", marginX, currentY + 10);
+        for (let page = 1; page <= doc.getNumberOfPages(); page += 1) {
+          doc.setPage(page);
+          addFooter(page);
+        }
+        doc.save(fileName);
+        toast.success("Relatório gerado com sucesso!");
+        return;
+      }
+
+      const sectionConfigs: Array<{
+        title: string;
+        subtitle: string;
+        rows: DetailedLinkedRecord[];
+        head: string[][];
+        body: (record: DetailedLinkedRecord) => string[];
+      }> = [
+        {
+          title: "Bloco 1 — Animais ativos",
+          subtitle: `${reportData.animais.length} registro(s)`,
+          rows: reportData.animais,
+          head: [["Código", "Nome", "Brinco", "Sexo", "Pai", "Mãe", "Valor de compra", "1ª parcela", "Status"]],
+          body: (record) => [
+            record.code,
+            record.name || "Não informado",
+            record.earTag || "Não informado",
+            getOptionalSexLabel(record.sex),
+            record.sireName,
+            record.damName,
+            formatCurrencyBR(record.totalPurchaseAmount),
+            formatCurrencyBR(record.firstInstallmentAmount),
+            getLinkedRecordStatusLabel(record.type, record.status),
+          ],
+        },
+        {
+          title: "Bloco 2 — Prenhezes em andamento",
+          subtitle: `${reportData.prenhezes.length} registro(s)`,
+          rows: reportData.prenhezes,
+          head: [["Código/ID", "Identificação", "Pai", "Mãe", "Receptora", "Confirmação", "Previsão de parto", "Valor de compra", "1ª parcela", "Status"]],
+          body: (record) => [
+            record.code,
+            record.name || "Não informado",
+            record.sireName,
+            record.damName,
+            record.recipientName,
+            formatDateDisplay(record.ultrasoundDate),
+            formatDateDisplay(record.expectedBirthDate),
+            formatCurrencyBR(record.totalPurchaseAmount),
+            formatCurrencyBR(record.firstInstallmentAmount),
+            getLinkedRecordStatusLabel(record.type, record.status),
+          ],
+        },
+        {
+          title: "Bloco 3 — Pós-transferências de embrião em andamento",
+          subtitle: `${reportData.posTransferencias.length} registro(s)`,
+          rows: reportData.posTransferencias,
+          head: [["Código/ID", "Identificação", "Pai", "Mãe", "Receptora", "Data transf.", "Prev. diagnóstico", "Valor de compra", "1ª parcela", "Status"]],
+          body: (record) => [
+            record.code,
+            record.name || "Não informado",
+            record.sireName,
+            record.damName,
+            record.recipientName,
+            formatDateDisplay(record.transferDate),
+            formatDateDisplay(record.expectedDiagnosisDate),
+            formatCurrencyBR(record.totalPurchaseAmount),
+            formatCurrencyBR(record.firstInstallmentAmount),
+            getLinkedRecordStatusLabel(record.type, record.status),
+          ],
+        },
+        {
+          title: "Bloco 4 — Aspirações em andamento",
+          subtitle: `${reportData.aspiracoes.length} registro(s)`,
+          rows: reportData.aspiracoes,
+          head: [["Código/ID", "Identificação", "Doadora/Mãe", "Reprodutor/Pai", "Data aspiração", "Embriões", "Valor de compra", "1ª parcela", "Status"]],
+          body: (record) => [
+            record.code,
+            record.name || "Não informado",
+            record.damName,
+            record.sireName,
+            formatDateDisplay(record.aspirationDate),
+            record.embryoCount !== null && record.embryoCount !== undefined ? String(record.embryoCount) : "Não informado",
+            formatCurrencyBR(record.totalPurchaseAmount),
+            formatCurrencyBR(record.firstInstallmentAmount),
+            getLinkedRecordStatusLabel(record.type, record.status),
+          ],
+        },
+      ];
+
+      sectionConfigs.forEach((section, index) => {
+        const minimumHeight = section.rows.length === 0 ? 18 : 30;
+        if (currentY + minimumHeight > pageHeight - 18) {
+          addFooter(doc.getNumberOfPages());
+          doc.addPage();
+          currentY = 16;
+        }
+
+        doc.setFillColor(246, 248, 251);
+        doc.setDrawColor(225, 229, 235);
+        doc.roundedRect(marginX, currentY, pageWidth - marginX * 2, 10, 2, 2, "FD");
+        doc.setTextColor(31, 41, 55);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11.5);
+        doc.text(section.title, marginX + 3, currentY + 6.3);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(95, 105, 120);
+        doc.text(section.subtitle, pageWidth - marginX - 3, currentY + 6.3, { align: "right" });
+        currentY += 13;
+
+        if (section.rows.length === 0) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(10);
+          doc.setTextColor(100, 110, 124);
+          doc.text("Nenhum registro encontrado.", marginX + 2, currentY + 4);
+          currentY += 10;
+          return;
+        }
+
+        autoTable(doc, {
+          startY: currentY,
+          head: section.head,
+          body: section.rows.map(section.body),
+          margin: { left: marginX, right: marginX },
+          theme: "grid",
+          styles: {
+            fontSize: 8,
+            cellPadding: 2,
+            textColor: [33, 37, 41],
+            lineColor: [227, 232, 238],
+            lineWidth: 0.1,
+            valign: "middle",
+          },
+          headStyles: {
+            fillColor: [32, 44, 67],
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+          },
+          alternateRowStyles: {
+            fillColor: [249, 250, 251],
+          },
+          bodyStyles: {
+            minCellHeight: 6,
+          },
+        });
+
+        currentY = (doc as any).lastAutoTable.finalY + 8;
+
+        if (index < sectionConfigs.length - 1 && currentY > pageHeight - 26) {
+          addFooter(doc.getNumberOfPages());
+          doc.addPage();
+          currentY = 16;
+        }
+      });
+
+      for (let page = 1; page <= doc.getNumberOfPages(); page += 1) {
+        doc.setPage(page);
+        addFooter(page);
+      }
+      doc.save(fileName);
+      toast.success("Relatório gerado com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao gerar relatório: " + error.message);
+    }
+  };
+
+  const handleOpenRelationshipModal = async (animal: BreedingAnimalWithCounts, type: RelationshipType) => {
     const requestId = relationshipRequestRef.current + 1;
     relationshipRequestRef.current = requestId;
 
@@ -966,28 +1264,15 @@ const AnimaisMatrizes = () => {
     });
 
     try {
-      const financialDetails = await fetchFinancialDetailsForRecords(baseRecords);
+      const reportData = await getRelatorioVinculosAnimal(animal, type);
 
       if (relationshipRequestRef.current !== requestId) return;
-
-      const detailedRecords = baseRecords.map((record) => {
-        const financial = financialDetails.get(record.key);
-        return {
-          ...record,
-          sireName: record.sireId ? breedingAnimalNameById.get(record.sireId) || "Não informado" : "Não informado",
-          damName: record.damId ? breedingAnimalNameById.get(record.damId) || "Não informado" : "Não informado",
-          totalPurchaseAmount: typeof financial?.totalPurchaseAmount === "number" ? financial.totalPurchaseAmount : null,
-          firstInstallmentAmount: typeof financial?.firstInstallmentAmount === "number" && financial.firstInstallmentAmount > 0
-            ? financial.firstInstallmentAmount
-            : null,
-        } as DetailedLinkedRecord;
-      });
 
       setRelationshipModal({
         open: true,
         type,
         animal,
-        records: detailedRecords,
+        records: reportData.records,
         loading: false,
       });
     } catch (error: any) {
@@ -997,13 +1282,7 @@ const AnimaisMatrizes = () => {
         open: true,
         type,
         animal,
-        records: baseRecords.map((record) => ({
-          ...record,
-          sireName: record.sireId ? breedingAnimalNameById.get(record.sireId) || "Não informado" : "Não informado",
-          damName: record.damId ? breedingAnimalNameById.get(record.damId) || "Não informado" : "Não informado",
-          totalPurchaseAmount: null,
-          firstInstallmentAmount: null,
-        })),
+        records: [],
         loading: false,
       });
     }
