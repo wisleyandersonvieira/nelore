@@ -37,6 +37,7 @@ import {
   YAxis,
 } from "recharts";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const PIE_COLORS = ["hsl(206 42% 43%)", "hsl(164 30% 42%)", "hsl(37 62% 58%)", "hsl(11 58% 63%)"];
@@ -351,9 +352,9 @@ const buildReceivableEntries = (accounts: ReceivableFinancialAccountSummary[]) =
   });
 
 const SectionHeader = ({ title, description }: { title: string; description: string }) => (
-  <div className="space-y-1 border-b border-border/75 pb-4">
-    <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-foreground/62">{title}</h2>
-    <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+  <div className="space-y-1 border-b border-border/75 pb-3 sm:pb-4">
+    <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground/62 sm:text-sm sm:tracking-[0.22em]">{title}</h2>
+    <p className="max-w-3xl text-xs text-muted-foreground sm:text-sm">{description}</p>
   </div>
 );
 
@@ -368,14 +369,14 @@ const SummaryCard = ({ title, value, description, icon: Icon, accent, route, loa
     >
       <div className={`absolute inset-x-5 top-0 h-px bg-gradient-to-r ${accentClasses.line}`} />
       <div className={`absolute -right-10 top-4 h-24 w-24 rounded-full blur-3xl ${accentClasses.glow}`} />
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-            <p className="text-3xl font-semibold tracking-tight text-foreground">{loading ? "—" : value}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px] sm:tracking-[0.18em]">{title}</p>
+            <p className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{loading ? "—" : value}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>
           </div>
-          <div className={`rounded-2xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ${accentClasses.iconWrap}`}>
+          <div className={`rounded-2xl border p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:p-3 ${accentClasses.iconWrap}`}>
             <Icon className={`h-4 w-4 ${accentClasses.icon}`} />
           </div>
         </div>
@@ -390,15 +391,15 @@ const AttentionCard = ({ title, count, description, amount, onClick, tone }: Att
   return (
     <Card className={`relative overflow-hidden ${toneClasses.card}`}>
       <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-amber-500/80 via-orange-300/45 to-transparent" />
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex h-full flex-col gap-4">
           <div className="space-y-2">
             <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${toneClasses.badge}`}>
               Atenção
             </span>
             <p className="pt-1 text-sm font-semibold text-foreground">{title}</p>
-            <p className={`text-3xl font-semibold ${toneClasses.count}`}>{count}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+            <p className={`text-2xl font-semibold sm:text-3xl ${toneClasses.count}`}>{count}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>
             {typeof amount === "number" && (
               <p className="text-xs font-medium text-muted-foreground">Valor envolvido: {formatCurrencyBR(amount)}</p>
             )}
@@ -423,14 +424,14 @@ const FinanceMetricCard = ({ title, value, description, icon: Icon, tone }: Fina
   return (
     <Card className={`relative overflow-hidden ${toneClasses.card}`}>
       <div className={`absolute inset-x-5 top-0 h-px bg-gradient-to-r ${toneClasses.line}`} />
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-            <p className={`text-2xl font-semibold tracking-tight ${toneClasses.value}`}>{formatCurrencyBR(value)}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px] sm:tracking-[0.18em]">{title}</p>
+            <p className={`text-xl font-semibold tracking-tight sm:text-2xl ${toneClasses.value}`}>{formatCurrencyBR(value)}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>
           </div>
-          <div className={`rounded-2xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ${toneClasses.iconWrap}`}>
+          <div className={`rounded-2xl border p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:p-3 ${toneClasses.iconWrap}`}>
             <Icon className={`h-4 w-4 ${toneClasses.icon}`} />
           </div>
         </div>
@@ -452,15 +453,15 @@ const QuickActionCard = ({ title, description, route, icon: Icon, onClick }: Qui
         }
         if (route) navigate(route);
       }}
-      className="group relative overflow-hidden rounded-[1.2rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,242,237,0.82))] p-5 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-border hover:shadow-lg"
+      className="group relative overflow-hidden rounded-[1.2rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,242,237,0.82))] p-4 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-border hover:shadow-lg sm:p-5"
     >
       <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-slate-400/75 via-slate-200/40 to-transparent" />
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-500/10 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+        <div className="rounded-2xl border border-slate-200/80 bg-slate-500/10 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:p-3">
           <Icon className="h-4 w-4 text-slate-700" />
         </div>
       </div>
@@ -470,6 +471,7 @@ const QuickActionCard = ({ title, description, route, icon: Icon, onClick }: Qui
 
 const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [attentionModal, setAttentionModal] = useState<AttentionModalType>(null);
 
   const { data: userScope = { matrixId: null, storeId: null, storeIds: [] } } = useQuery({
@@ -1171,25 +1173,25 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
   ];
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
+    <div className="dashboard-page">
+      <section className="space-y-3 sm:space-y-4">
         <SectionHeader
           title="Resumo Geral"
           description="Leitura rápida da operação para começar o dia com visão clara do negócio."
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
           {summaryCards.map((card) => (
             <SummaryCard key={card.title} {...card} loading={executiveSummaryLoading} />
           ))}
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3 sm:space-y-4">
         <SectionHeader
           title="Atenção Imediata"
           description="Itens que exigem acompanhamento agora, com acesso direto para a listagem correspondente."
         />
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-3">
           <AttentionCard
             title="Prenhezes próximas do parto"
             count={attentionLoading ? 0 : attentionData?.pregnancies.length || 0}
@@ -1234,22 +1236,22 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3 sm:space-y-4">
         <SectionHeader
           title="Bloco Financeiro"
           description="Visão executiva do mês para leitura rápida de compromisso, entrada e resultado."
         />
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-12">
           <Card className="relative overflow-hidden border border-white/8 bg-[linear-gradient(160deg,rgba(22,30,43,1),rgba(31,42,61,1)_58%,rgba(48,64,89,1))] text-white shadow-[0_28px_50px_-30px_rgba(15,23,42,0.9)] xl:col-span-4">
             <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-amber-300/90 via-white/50 to-transparent" />
             <div className="absolute -right-10 top-10 h-32 w-32 rounded-full bg-amber-300/10 blur-3xl" />
-            <CardContent className="flex h-full flex-col justify-between p-6">
+            <CardContent className="flex h-full flex-col justify-between p-5 sm:p-6">
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/46">Resultado do mês</p>
-                <p className="text-4xl font-semibold tracking-tight">
+                <p className="text-3xl font-semibold tracking-tight sm:text-4xl">
                   {financialLoading ? "—" : formatCurrencyBR(financialSnapshot?.resultMonth || 0)}
                 </p>
-                <p className="text-sm leading-relaxed text-white/62">
+                <p className="text-xs leading-relaxed text-white/62 sm:text-sm">
                   {financialLoading
                     ? "Apurando desempenho financeiro..."
                     : (financialSnapshot?.resultMonth || 0) >= 0
@@ -1257,7 +1259,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                       : "Custos do mês acima da receita realizada."}
                 </p>
               </div>
-              <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <div className="mt-5 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                 <span className="text-xs text-white/52">Visão consolidada do mês atual</span>
                 {(financialSnapshot?.resultMonth || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-emerald-300" />
@@ -1268,7 +1270,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-8">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:col-span-8">
             <FinanceMetricCard
               title="Total a pagar no mês"
               value={financialSnapshot?.totalPayableMonth || 0}
@@ -1301,18 +1303,18 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3 sm:space-y-4">
         <SectionHeader
           title="Análises"
           description="Leituras visuais de apoio, posicionadas em segundo plano para complementar a operação."
         />
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-12">
           <Card className="overflow-hidden xl:col-span-7">
             <CardHeader>
               <CardTitle className="text-lg font-semibold text-foreground">Custo x Receita nos últimos 6 meses</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-64 sm:h-80">
                 {financialLoading ? (
                   <div className="flex h-full items-center justify-center text-muted-foreground">Carregando...</div>
                 ) : (
@@ -1350,7 +1352,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
               <CardTitle className="text-lg font-semibold text-foreground">Animais por tipo de fazenda</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-64 sm:h-80">
                 {analyticsLoading ? (
                   <div className="flex h-full items-center justify-center text-muted-foreground">Carregando...</div>
                 ) : analyticsData?.farmTypeData.every((item) => item.value === 0) ? (
@@ -1366,7 +1368,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                         outerRadius={100}
                         paddingAngle={4}
                         dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
+                        label={isMobile ? false : ({ name, value }) => `${name}: ${value}`}
                         stroke="rgba(255,255,255,0.85)"
                         strokeWidth={3}
                       >
@@ -1391,7 +1393,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
               <CardTitle className="text-lg font-semibold text-foreground">Nascimentos por mês</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-64 sm:h-80">
                 {analyticsLoading ? (
                   <div className="flex h-full items-center justify-center text-muted-foreground">Carregando...</div>
                 ) : (
@@ -1423,7 +1425,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
               <CardTitle className="text-lg font-semibold text-foreground">Distribuição por categoria</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-64 sm:h-80">
                 {analyticsLoading ? (
                   <div className="flex h-full items-center justify-center text-muted-foreground">Carregando...</div>
                 ) : !analyticsData?.categoryDistribution.some((item) => item.quantidade > 0) ? (
@@ -1442,7 +1444,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                       <YAxis
                         type="category"
                         dataKey="name"
-                        width={110}
+                        width={isMobile ? 84 : 110}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
@@ -1461,12 +1463,12 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3 sm:space-y-4">
         <SectionHeader
           title="Acessos Rápidos"
           description="Entradas diretas para as ações mais usadas no dia a dia."
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {quickActions.map((action) => (
             <QuickActionCard key={action.title} {...action} />
           ))}
@@ -1474,7 +1476,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       </section>
 
       <Dialog open={attentionModal !== null} onOpenChange={(open) => !open && setAttentionModal(null)}>
-        <DialogContent className="max-w-5xl border-border/70 bg-background/95">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl border-border/70 bg-background/95">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-foreground">
               {attentionModal === "pregnancies" && "Prenhezes próximas do parto"}
@@ -1484,8 +1486,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           </DialogHeader>
 
           {attentionModal === "pregnancies" && (
-            <div className="max-h-[70vh] overflow-auto rounded-[1.15rem] border border-border/70 bg-card/80">
-              <Table>
+            <div className="table-responsive max-h-[70vh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
+              <Table className="min-w-[620px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
@@ -1515,8 +1517,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           )}
 
           {(attentionModal === "payables" || attentionModal === "receivables") && (
-            <div className="max-h-[70vh] overflow-auto rounded-[1.15rem] border border-border/70 bg-card/80">
-              <Table>
+            <div className="table-responsive max-h-[70vh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

@@ -182,3 +182,38 @@ All colors MUST be HSL.
     letter-spacing: -0.03em;
   }
 }
+
+@layer components {
+  .main-content {
+    @apply min-w-0 px-6 py-8 md:px-8 md:py-8 lg:px-10 lg:py-10;
+  }
+
+  .page-content {
+    @apply mx-auto w-full max-w-6xl min-w-0;
+  }
+
+  .dashboard-page {
+    @apply min-w-0 space-y-6 sm:space-y-8;
+  }
+
+  .table-responsive {
+    @apply w-full overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-responsive table {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  @layer components {
+    .main-content {
+      @apply px-4 py-4;
+    }
+
+    .page-content {
+      max-width: 100%;
+    }
+  }
+}

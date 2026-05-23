@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { 
   Calculator, 
   DollarSign, 
@@ -34,6 +34,8 @@ import { useRelatoriosPermissions } from "@/hooks/useRelatoriosPermissions";
 import { useDREPermissions } from "@/hooks/useDREPermissions";
 import { useFuncionariosPermissions } from "@/hooks/useFuncionariosPermissions";
 import { toast } from "sonner";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 
 interface SubMenuItem {
@@ -83,6 +85,8 @@ interface AppSidebarProps {
   onOpenPartners: () => void;
   onOpenPartnerTransactions: () => void;
   onOpenServiceOrders: () => void;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
 const AppSidebar = ({
@@ -108,8 +112,12 @@ const AppSidebar = ({
   onOpenPartners,
   onOpenPartnerTransactions,
   onOpenServiceOrders,
+  mobileOpen = false,
+  onMobileOpenChange,
 }: AppSidebarProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [stores, setStores] = useState<StoreData[]>([]);
@@ -198,6 +206,20 @@ const AppSidebar = ({
     
     fetchStores();
   }, []);
+
+  useEffect(() => {
+    setActiveModule(null);
+    setIsPanelOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsPanelOpen(false);
+      return;
+    }
+
+    onMobileOpenChange?.(false);
+  }, [isMobile, onMobileOpenChange]);
 
   const getEstoqueSubMenus = (): SubMenuItem[] => {
     return stores.map(store => ({
@@ -347,6 +369,20 @@ const AppSidebar = ({
   // Show all menu items - permission check happens on click/access
   const filteredMenuItems = menuItems;
 
+  const isRouteActive = (route?: string) => {
+    if (!route) return false;
+    return location.pathname === route || location.pathname.startsWith(`${route}/`);
+  };
+
+  const closeDesktopPanel = () => {
+    setActiveModule(null);
+    setIsPanelOpen(false);
+  };
+
+  const closeMobileDrawer = () => {
+    onMobileOpenChange?.(false);
+  };
+
   const handleMenuClick = (item: MenuItem) => {
     // Block access to Cadastros if user doesn't have permission
     if (item.id === "cadastros" && !loadingCadastros && !canAccessCadastros) {
@@ -386,15 +422,14 @@ const AppSidebar = ({
 
     if (item.route) {
       navigate(item.route);
-      setActiveModule(null);
-      setIsPanelOpen(false);
+      closeDesktopPanel();
+      closeMobileDrawer();
     } else if (item.subMenus || item.dynamicSubMenus) {
       if (activeModule === item.id) {
-        setActiveModule(null);
-        setIsPanelOpen(false);
+        closeDesktopPanel();
       } else {
         setActiveModule(item.id);
-        setIsPanelOpen(true);
+        setIsPanelOpen(!isMobile);
       }
     }
   };
@@ -484,8 +519,8 @@ const AppSidebar = ({
           break;
       }
     }
-    setActiveModule(null);
-    setIsPanelOpen(false);
+    closeDesktopPanel();
+    closeMobileDrawer();
   };
 
   const getSubMenusForItem = (item: MenuItem): SubMenuItem[] => {
@@ -502,83 +537,193 @@ const AppSidebar = ({
 
   const activeItem = menuItems.find(item => item.id === activeModule);
 
+  const renderItemIcon = (item: MenuItem) => {
+    const IconComponent = item.icon;
+
+    if (item.customIcon) {
+      return <span className="text-white">{item.customIcon}</span>;
+    }
+
+    if (IconComponent) {
+      return <IconComponent className="h-5 w-5 text-white" />;
+    }
+
+    return null;
+  };
+
   return (
     <>
-      {/* Barra lateral fixa com ícones */}
-      <aside className="fixed left-0 top-0 z-50 flex h-full w-16 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(20,28,43,0.98),rgba(28,38,57,0.98))] shadow-[14px_0_35px_-28px_rgba(15,23,42,0.8)]">
-        {/* Logo - Link para Dashboard */}
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="group flex h-16 cursor-pointer items-center justify-center border-b border-white/10 transition-colors hover:bg-white/[0.04]"
-        >
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all group-hover:border-white/20 group-hover:bg-white/[0.08]">
-            <Home className="h-5 w-5 text-white/90" />
-          </div>
-        </button>
+      {!isMobile && (
+        <aside className="fixed left-0 top-0 z-50 flex h-full w-16 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(20,28,43,0.98),rgba(28,38,57,0.98))] shadow-[14px_0_35px_-28px_rgba(15,23,42,0.8)]">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="group flex h-16 cursor-pointer items-center justify-center border-b border-white/10 transition-colors hover:bg-white/[0.04]"
+          >
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all group-hover:border-white/20 group-hover:bg-white/[0.08]">
+              <Home className="h-5 w-5 text-white/90" />
+            </div>
+          </button>
 
-        {/* Menu Items */}
-        <nav className="flex-1 py-3">
-          {filteredMenuItems.map((item) => {
-            const IconComponent = item.icon;
-            const isActive = activeModule === item.id;
-            
-            return (
-              <Tooltip key={item.id} delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleMenuClick(item)}
-                    className={cn(
-                      "flex h-14 w-full items-center justify-center transition-all duration-200",
-                      "hover:bg-white/[0.04]",
-                      isActive && "bg-white/[0.06]"
-                    )}
-                  >
-                    <span
+          <nav className="flex-1 py-3">
+            {filteredMenuItems.map((item) => {
+              const isActive = activeModule === item.id || isRouteActive(item.route);
+              
+              return (
+                <Tooltip key={item.id} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleMenuClick(item)}
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-2xl border border-transparent transition-all duration-200",
-                        isActive
-                          ? "border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] shadow-[0_16px_30px_-18px_rgba(245,158,11,0.85)]"
-                          : "bg-white/[0.04] text-white hover:border-white/10 hover:bg-white/[0.08]"
+                        "flex h-14 w-full items-center justify-center transition-all duration-200",
+                        "hover:bg-white/[0.04]",
+                        isActive && "bg-white/[0.06]"
                       )}
                     >
-                      {item.customIcon ? (
-                        <span className="text-white">
-                          {item.customIcon}
-                        </span>
-                      ) : IconComponent ? (
-                        <IconComponent className="h-5 w-5 text-white" />
-                      ) : null}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent 
-                  side="right" 
-                  className="border-white/10 bg-[rgba(20,28,43,0.95)] px-3 py-2 text-white shadow-xl"
-                  sideOffset={5}
-                >
-                  {item.title}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </nav>
-      </aside>
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-2xl border border-transparent transition-all duration-200",
+                          isActive
+                            ? "border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.08))] shadow-[0_16px_30px_-18px_rgba(245,158,11,0.85)]"
+                            : "bg-white/[0.04] text-white hover:border-white/10 hover:bg-white/[0.08]"
+                        )}
+                      >
+                        {renderItemIcon(item)}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="right" 
+                    className="border-white/10 bg-[rgba(20,28,43,0.95)] px-3 py-2 text-white shadow-xl"
+                    sideOffset={5}
+                  >
+                    {item.title}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </nav>
+        </aside>
+      )}
 
-      {/* Painel de submenu */}
-      {isPanelOpen && activeItem && (activeItem.subMenus || activeItem.dynamicSubMenus) && (
+      {isMobile && (
+        <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+          <SheetContent
+            side="left"
+            className="w-[88vw] max-w-[320px] border-white/10 bg-[linear-gradient(180deg,rgba(20,28,43,0.99),rgba(28,38,57,0.99))] p-0 text-white [&>button]:hidden"
+          >
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/55">ELITEBOV</p>
+                  <h2 className="text-sm font-semibold text-white">Menu principal</h2>
+                  <p className="text-xs text-white/55">Acesse os módulos do sistema</p>
+                </div>
+                <button
+                  onClick={closeMobileDrawer}
+                  className="rounded-full border border-white/10 bg-white/[0.06] p-2 text-white/80 transition-colors hover:bg-white/[0.12]"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Fechar menu</span>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 py-3">
+                <button
+                  onClick={() => {
+                    navigate("/dashboard");
+                    closeDesktopPanel();
+                    closeMobileDrawer();
+                  }}
+                  className={cn(
+                    "mb-2 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all",
+                    isRouteActive("/dashboard")
+                      ? "border-white/15 bg-white/[0.09]"
+                      : "border-transparent bg-white/[0.03] hover:bg-white/[0.06]",
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+                      <Home className="h-5 w-5 text-white" />
+                    </span>
+                    <span className="text-sm font-medium text-white">Dashboard</span>
+                  </div>
+                </button>
+
+                <nav className="space-y-2">
+                  {filteredMenuItems.map((item) => {
+                    const hasSubMenus = Boolean(item.subMenus || item.dynamicSubMenus);
+                    const isExpanded = activeModule === item.id;
+                    const isActive = isExpanded || isRouteActive(item.route);
+
+                    return (
+                      <div key={item.id} className="rounded-[1.15rem]">
+                        <button
+                          onClick={() => handleMenuClick(item)}
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all",
+                            isActive
+                              ? "border-white/15 bg-white/[0.09]"
+                              : "border-transparent bg-white/[0.03] hover:bg-white/[0.06]",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+                              {renderItemIcon(item)}
+                            </span>
+                            <span className="text-sm font-medium text-white">{item.title}</span>
+                          </div>
+                          {hasSubMenus ? (
+                            <ChevronRight className={cn("h-4 w-4 text-white/70 transition-transform", isExpanded && "rotate-90")} />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-white/40" />
+                          )}
+                        </button>
+
+                        {hasSubMenus && isExpanded && (
+                          <div className="mt-2 space-y-1 rounded-2xl border border-white/10 bg-black/10 p-2">
+                            {item.dynamicSubMenus && loadingStores ? (
+                              <div className="flex items-center justify-center py-5">
+                                <Loader2 className="h-5 w-5 animate-spin text-white/70" />
+                              </div>
+                            ) : (
+                              getSubMenusForItem(item).map((subMenu) => (
+                                <button
+                                  key={subMenu.id}
+                                  onClick={() => handleSubMenuClick(subMenu)}
+                                  className={cn(
+                                    "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
+                                    isRouteActive(subMenu.route)
+                                      ? "bg-white/[0.1] text-white"
+                                      : "text-white/78 hover:bg-white/[0.06] hover:text-white",
+                                  )}
+                                >
+                                  <span className="pr-3">{subMenu.label}</span>
+                                  <ChevronRight className="h-4 w-4 shrink-0 text-white/45" />
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </nav>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {!isMobile && isPanelOpen && activeItem && (activeItem.subMenus || activeItem.dynamicSubMenus) && (
         <>
-          {/* Overlay para fechar ao clicar fora */}
           <div 
             className="fixed inset-0 z-40 bg-[rgba(15,23,42,0.18)] backdrop-blur-[2px]"
             onClick={() => {
-              setActiveModule(null);
-              setIsPanelOpen(false);
+              closeDesktopPanel();
             }}
           />
           
-          {/* Painel de submenus */}
           <div className="fixed left-16 top-0 z-50 h-full w-72 animate-slide-in-right border-r border-border/70 bg-background/92 shadow-[22px_0_48px_-26px_rgba(15,23,42,0.36)] backdrop-blur-xl">
-            {/* Header do painel */}
             <div className="flex h-16 items-center justify-between border-b border-border/70 bg-card/80 px-5">
               <div className="space-y-1">
                 <h2 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/48">{activeItem.title}</h2>
@@ -586,8 +731,7 @@ const AppSidebar = ({
               </div>
               <button
                 onClick={() => {
-                  setActiveModule(null);
-                  setIsPanelOpen(false);
+                  closeDesktopPanel();
                 }}
                 className="rounded-full border border-border/70 bg-background/80 p-2 transition-colors hover:bg-accent/75"
               >
@@ -595,7 +739,6 @@ const AppSidebar = ({
               </button>
             </div>
 
-            {/* Lista de submenus */}
             <nav className="space-y-1 p-3">
               {activeItem.dynamicSubMenus && loadingStores ? (
                 <div className="flex items-center justify-center py-8">

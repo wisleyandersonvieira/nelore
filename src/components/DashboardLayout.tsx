@@ -1,9 +1,9 @@
 import { ReactNode, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Bell } from "lucide-react";
+import { LogOut, Bell, Menu } from "lucide-react";
 import elitebovLogo from "@/assets/elitebov-logo.png";
 import {
   DropdownMenu,
@@ -37,6 +37,8 @@ import { PartnersModal } from "@/components/PartnersModal";
 import { PartnerTransactionsModal } from "@/components/PartnerTransactionsModal";
 import { ServiceOrdersModal } from "@/components/ServiceOrdersModal";
 import { useCadastrosPermissions } from "@/hooks/useCadastrosPermissions";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 interface PendingTask {
   id: string;
@@ -48,6 +50,42 @@ interface DashboardLayoutProps {
   user?: User | null;
   pendingTasks?: PendingTask[];
 }
+
+const resolvePageMeta = (pathname: string) => {
+  const routeMeta = [
+    { match: (path: string) => path === "/dashboard", title: "Dashboard executivo" },
+    { match: (path: string) => path.startsWith("/animais/matrizes"), title: "Matrizes & Genitores" },
+    { match: (path: string) => path.startsWith("/animais/rebanho"), title: "Rebanho" },
+    { match: (path: string) => path.startsWith("/animais/cadastro"), title: "Cadastro de Animais" },
+    { match: (path: string) => path.startsWith("/animais"), title: "Gestão de Animais" },
+    { match: (path: string) => path.startsWith("/tasks"), title: "Tarefas" },
+    { match: (path: string) => path.startsWith("/purchases"), title: "Compras" },
+    { match: (path: string) => path.startsWith("/sales"), title: "Vendas" },
+    { match: (path: string) => path.startsWith("/bank-reconciliation"), title: "Conciliação Bancária" },
+    { match: (path: string) => path.startsWith("/reports"), title: "Relatórios" },
+    { match: (path: string) => path.startsWith("/financeiro"), title: "Financeiro" },
+    { match: (path: string) => path.startsWith("/my-account"), title: "Minha Conta" },
+    { match: (path: string) => path.startsWith("/ai-assistant"), title: "IA Assistente" },
+    { match: (path: string) => path.startsWith("/users"), title: "Configurações" },
+  ];
+
+  const matchedRoute = routeMeta.find((item) => item.match(pathname));
+  if (matchedRoute) {
+    return matchedRoute;
+  }
+
+  const lastSegment = pathname.split("/").filter(Boolean).pop();
+  if (!lastSegment) {
+    return { title: "ELITEBOV" };
+  }
+
+  return {
+    title: lastSegment
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+  };
+};
 
 const fetchLayoutPendingTasks = async (userId: string): Promise<PendingTask[]> => {
   try {
@@ -76,9 +114,12 @@ const fetchLayoutPendingTasks = async (userId: string): Promise<PendingTask[]> =
 
 const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
   const { canEdit: cadastrosCanEdit, canDelete: cadastrosCanDelete, loading: cadastrosLoading } = useCadastrosPermissions();
   const [resolvedUser, setResolvedUser] = useState<User | null>(user ?? null);
   const [resolvedPendingTasks, setResolvedPendingTasks] = useState<PendingTask[]>(pendingTasks ?? []);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Financeiro modals
   const [accountsPayableOpen, setAccountsPayableOpen] = useState(false);
@@ -186,9 +227,14 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
     };
   }, []);
 
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  const pageMeta = resolvePageMeta(location.pathname);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Sidebar */}
       <AppSidebar
         onOpenFinanceiro={() => {}}
         onOpenCaixa={handleOpenCaixa}
@@ -212,30 +258,63 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
         onOpenPartners={() => setPartnersModalOpen(true)}
         onOpenPartnerTransactions={() => setPartnerTransactionsOpen(true)}
         onOpenServiceOrders={() => setServiceOrdersOpen(true)}
+        mobileOpen={mobileSidebarOpen}
+        onMobileOpenChange={setMobileSidebarOpen}
       />
 
-      {/* Main Content Area */}
-      <div className="pl-16">
-        {/* Header */}
-        <header className="sticky top-0 z-30 h-16 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-          <div className="flex h-full items-center justify-between px-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl border border-border/70 bg-card/90 p-2 shadow-sm">
-                <img src={elitebovLogo} alt="ELITEBOV" className="h-7" />
+      <div className={cn("min-w-0", !isMobile && "pl-16")}>
+        <header
+          className={cn(
+            "sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl",
+            isMobile ? "h-14" : "h-16",
+          )}
+        >
+          <div className={cn("flex h-full items-center justify-between gap-3", isMobile ? "px-4" : "px-6")}>
+            <div className="flex min-w-0 items-center gap-3">
+              {isMobile && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 rounded-full border border-border/70 bg-card/80 shadow-sm hover:bg-accent/80"
+                  onClick={() => setMobileSidebarOpen(true)}
+                >
+                  <Menu className="h-4 w-4 text-foreground" />
+                  <span className="sr-only">Abrir menu</span>
+                </Button>
+              )}
+              <div className={cn("shrink-0 rounded-2xl border border-border/70 bg-card/90 shadow-sm", isMobile ? "p-1.5" : "p-2")}>
+                <img src={elitebovLogo} alt="ELITEBOV" className={cn(isMobile ? "h-6" : "h-7")} />
               </div>
-              <div className="space-y-0.5">
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/55">ELITEBOV</span>
-                <span className="block text-sm font-medium text-foreground/78">Dashboard executivo</span>
+              <div className="min-w-0 space-y-0.5">
+                <span
+                  className={cn(
+                    "block font-semibold uppercase text-foreground/55",
+                    isMobile ? "text-[10px] tracking-[0.2em]" : "text-[11px] tracking-[0.28em]",
+                  )}
+                >
+                  ELITEBOV
+                </span>
+                <span className={cn("block truncate font-medium text-foreground/78", isMobile ? "text-xs" : "text-sm")}>
+                  {pageMeta.title}
+                </span>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <span className="hidden rounded-full border border-border/70 bg-card/85 px-3 py-1.5 text-xs text-muted-foreground shadow-sm md:inline">
+            <div className={cn("flex shrink-0 items-center", isMobile ? "gap-2" : "space-x-3")}>
+              <span className="hidden rounded-full border border-border/70 bg-card/85 px-3 py-1.5 text-xs text-muted-foreground shadow-sm lg:inline">
                 {resolvedUser?.user_metadata?.name || resolvedUser?.email}
               </span>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="relative rounded-full border border-border/70 bg-card/80 px-3 shadow-sm hover:bg-accent/80">
+                  <Button
+                    variant="ghost"
+                    size={isMobile ? "icon" : "sm"}
+                    className={cn(
+                      "relative rounded-full border border-border/70 bg-card/80 shadow-sm hover:bg-accent/80",
+                      isMobile ? "h-9 w-9 px-0" : "px-3",
+                    )}
+                  >
                     <Bell className={`h-5 w-5 ${resolvedPendingTasks.length > 0 ? 'text-[hsl(18,72%,52%)]' : 'text-muted-foreground'}`} />
                     {resolvedPendingTasks.length > 0 && (
                       <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/60 bg-[linear-gradient(135deg,rgba(255,182,120,1),rgba(221,109,61,1))] text-[10px] font-semibold text-white shadow-[0_10px_20px_-10px_rgba(221,109,61,0.9)]">
@@ -266,18 +345,23 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
               <Button
                 onClick={handleSignOut}
                 variant="ghost"
-                size="sm"
-                className="rounded-full border border-border/70 bg-card/80 text-muted-foreground shadow-sm hover:border-border hover:bg-accent/80 hover:text-foreground"
+                size={isMobile ? "icon" : "sm"}
+                className={cn(
+                  "rounded-full border border-border/70 bg-card/80 text-muted-foreground shadow-sm hover:border-border hover:bg-accent/80 hover:text-foreground",
+                  isMobile ? "h-9 w-9" : "",
+                )}
               >
                 <LogOut className="h-4 w-4" />
+                <span className="sr-only">Sair</span>
               </Button>
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="p-8 md:p-10">
-          {children}
+        <main className="main-content">
+          <div className="page-content">
+            {children}
+          </div>
         </main>
       </div>
 

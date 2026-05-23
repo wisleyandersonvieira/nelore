@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface BreedingAnimal {
   id: string;
@@ -55,6 +56,7 @@ interface ActiveAnimalSummary {
 
 const AnimaisMatrizes = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [breedingAnimals, setBreedingAnimals] = useState<BreedingAnimalWithCounts[]>([]);
   const [allBreedingAnimals, setAllBreedingAnimals] = useState<BreedingAnimal[]>([]);
   const [activeAnimals, setActiveAnimals] = useState<ActiveAnimalSummary[]>([]);
@@ -520,25 +522,25 @@ const AnimaisMatrizes = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="h-9 w-9 rounded-full">
+        <div className="page-content flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="h-9 w-9 shrink-0 rounded-full">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="space-y-1">
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Matrizes & Genitores</h1>
-              <p className="text-sm text-muted-foreground">Consulta e gestão de matrizes e reprodutores cadastrados.</p>
+            <div className="min-w-0 space-y-1">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Matrizes & Genitores</h1>
+              <p className="text-xs text-muted-foreground sm:text-sm">Consulta e gestão de matrizes e reprodutores cadastrados.</p>
             </div>
           </div>
-          <Button onClick={() => handleOpenModal()} className="h-10 gap-2 rounded-lg px-4 shadow-sm">
+          <Button onClick={() => handleOpenModal()} className="h-10 w-full gap-2 rounded-lg px-4 shadow-sm sm:w-auto">
             <Plus className="h-4 w-4" />
             Cadastrar
           </Button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-6">
-        <div className="mb-5 rounded-xl border border-border/70 bg-card/70 px-4 py-4 shadow-sm">
+      <main className="page-content px-4 py-4 sm:px-6 sm:py-6">
+        <div className="mb-4 rounded-xl border border-border/70 bg-card/70 px-4 py-4 shadow-sm sm:mb-5 sm:px-5 sm:py-5">
           <div className="mb-3">
             <p className="text-sm font-semibold text-foreground">Filtros</p>
             <p className="text-xs text-muted-foreground">Refine a listagem com uma visualização mais compacta e direta.</p>
@@ -570,100 +572,183 @@ const AnimaisMatrizes = () => {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-          <Table>
-            <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
-              <TableRow>
-                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("name")}>
-                  <div className="flex items-center gap-1">Nome <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
-                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("sex")}>
-                  <div className="flex items-center gap-1">Sexo <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
-                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Registro</TableHead>
-                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("offspringCount")}>
-                  <div className="flex items-center gap-1">Animais Filhos Ativos <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
-                <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("grandchildrenCount")}>
-                  <div className="flex items-center gap-1">Animais Netos Ativos <ArrowUpDown className="h-3 w-3" /></div>
-                </TableHead>
-                <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {isMobile ? (
+            <div className="space-y-3 p-3">
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
+                <div className="rounded-xl border border-border/70 bg-muted/15 px-4 py-8 text-center text-sm text-muted-foreground">
+                  Carregando...
+                </div>
               ) : paginatedAnimals.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                    Nenhuma matriz ou genitor encontrado
-                  </TableCell>
-                </TableRow>
+                <div className="rounded-xl border border-border/70 bg-muted/15 px-4 py-8 text-center text-sm text-muted-foreground">
+                  Nenhuma matriz ou genitor encontrado
+                </div>
               ) : (
                 paginatedAnimals.map((animal) => (
-                  <TableRow key={animal.id} className="border-border/60 hover:bg-muted/25">
-                    <TableCell className="px-4 py-3 font-medium text-foreground">{animal.name}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm text-foreground">{getSexLabel(animal.sex)}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">{animal.registration || "-"}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm text-foreground">{animal.offspringCount}</TableCell>
-                    <TableCell className="px-4 py-3 text-sm text-foreground">{animal.grandchildrenCount}</TableCell>
-                    <TableCell className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 rounded-lg">
-                              <FileText className="h-3 w-3 mr-1" />
-                              Relatório
-                              <ChevronDown className="h-3 w-3 ml-1" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-background">
-                            <DropdownMenuItem onClick={() => generateOffspringReport(animal)}>
-                              PDF - Animais Filhos
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => generateGrandchildrenReport(animal)}>
-                              PDF - Animais Netos
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  <article key={animal.id} className="rounded-xl border border-border/70 bg-background/70 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="truncate text-base font-semibold text-foreground">{animal.name}</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Registro: <span className="font-medium text-foreground/85">{animal.registration || "-"}</span>
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-[11px] font-semibold text-foreground">
+                        {getSexLabel(animal.sex)}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-lg bg-muted/30 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Filhos ativos</p>
+                        <p className="mt-1 text-base font-semibold text-foreground">{animal.offspringCount}</p>
+                      </div>
+                      <div className="rounded-lg bg-muted/30 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Netos ativos</p>
+                        <p className="mt-1 text-base font-semibold text-foreground">{animal.grandchildrenCount}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="h-9 w-full justify-between rounded-lg">
+                            <span className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              Relatórios
+                            </span>
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-background">
+                          <DropdownMenuItem onClick={() => generateOffspringReport(animal)}>
+                            PDF - Animais Filhos
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => generateGrandchildrenReport(animal)}>
+                            PDF - Animais Netos
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg"
+                          className="h-9 rounded-lg"
                           onClick={() => handleOpenModal(animal)}
                         >
-                          <Pencil className="h-3 w-3" />
+                          <Pencil className="mr-2 h-3.5 w-3.5" />
+                          Editar
                         </Button>
                         <Button
                           variant="outline"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg"
+                          className="h-9 rounded-lg"
                           onClick={() => openDeleteDialog(animal)}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />
+                          Excluir
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </article>
                 ))
               )}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <Table className="min-w-[900px]">
+                <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
+                  <TableRow>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("name")}>
+                      <div className="flex items-center gap-1">Nome <ArrowUpDown className="h-3 w-3" /></div>
+                    </TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("sex")}>
+                      <div className="flex items-center gap-1">Sexo <ArrowUpDown className="h-3 w-3" /></div>
+                    </TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Registro</TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("offspringCount")}>
+                      <div className="flex items-center gap-1">Animais Filhos Ativos <ArrowUpDown className="h-3 w-3" /></div>
+                    </TableHead>
+                    <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("grandchildrenCount")}>
+                      <div className="flex items-center gap-1">Animais Netos Ativos <ArrowUpDown className="h-3 w-3" /></div>
+                    </TableHead>
+                    <TableHead className="h-11 px-4 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center">
+                        Carregando...
+                      </TableCell>
+                    </TableRow>
+                  ) : paginatedAnimals.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                        Nenhuma matriz ou genitor encontrado
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedAnimals.map((animal) => (
+                      <TableRow key={animal.id} className="border-border/60 hover:bg-muted/25">
+                        <TableCell className="px-4 py-3 font-medium text-foreground">{animal.name}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">{getSexLabel(animal.sex)}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">{animal.registration || "-"}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">{animal.offspringCount}</TableCell>
+                        <TableCell className="px-4 py-3 text-sm text-foreground">{animal.grandchildrenCount}</TableCell>
+                        <TableCell className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 rounded-lg">
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  Relatório
+                                  <ChevronDown className="ml-1 h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-background">
+                                <DropdownMenuItem onClick={() => generateOffspringReport(animal)}>
+                                  PDF - Animais Filhos
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => generateGrandchildrenReport(animal)}>
+                                  PDF - Animais Netos
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg"
+                              onClick={() => handleOpenModal(animal)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg"
+                              onClick={() => openDeleteDialog(animal)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
-              <span className="text-sm text-muted-foreground">
+            <div className="flex flex-col gap-3 border-t border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-center text-sm text-muted-foreground sm:text-left">
                 Página {currentPage} de {totalPages} ({sortedAnimals.length} registros)
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-lg"
+                  className="w-full rounded-lg sm:w-auto"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
@@ -673,7 +758,7 @@ const AnimaisMatrizes = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-lg"
+                  className="w-full rounded-lg sm:w-auto"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
@@ -687,7 +772,7 @@ const AnimaisMatrizes = () => {
       </main>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedAnimal ? "Editar Matriz/Genitor" : "Cadastrar Matriz/Genitor"}</DialogTitle>
           </DialogHeader>
