@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import MobileReportCard from "@/components/MobileReportCard";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +26,7 @@ import { toast } from "@/hooks/use-toast";
 import { fetchRecipientAllocationOptions, fetchSemenAllocationOptions } from "@/lib/financialAllocations";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import { createPdfReportLayout } from "@/lib/pdfReportLayout";
+import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -37,6 +41,12 @@ interface SyntheticPeriodBlock {
   endDate: string;
   subtotal: number;
   dailyTotals: SyntheticDailyTotal[];
+}
+
+interface AccountAllocationDetail {
+  labels: string[];
+  linkedNames: string[];
+  types: string[];
 }
 
 type PdfDocWithAutoTable = jsPDF & {
@@ -66,6 +76,16 @@ const toDateKey = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const formatDateTimeBR = (date: string) => new Date(date).toLocaleDateString("pt-BR");
+
+const getUniqueValues = (values: Array<string | null | undefined>) =>
+  Array.from(new Set(values.filter((value): value is string => Boolean(value && value.trim()))));
+
+const joinValues = (values: Array<string | null | undefined>) => {
+  const uniqueValues = getUniqueValues(values);
+  return uniqueValues.length > 0 ? uniqueValues.join(" • ") : null;
 };
 
 const AccountsPayableReport = () => {
@@ -99,6 +119,8 @@ const AccountsPayableReport = () => {
   const [syntheticPdfModalOpen, setSyntheticPdfModalOpen] = useState(false);
   const [syntheticIntervalDays, setSyntheticIntervalDays] = useState("15");
   const [syntheticPdfLoading, setSyntheticPdfLoading] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [accountAllocationDetails, setAccountAllocationDetails] = useState<Map<string, AccountAllocationDetail>>(new Map());
 
   useEffect(() => {
     fetchSuppliers();
@@ -148,6 +170,30 @@ const AccountsPayableReport = () => {
     };
     fetchAllocationItems();
   }, [allocationType]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (accounts.length === 0) {
+      setAccountAllocationDetails(new Map());
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadAllocationDetails = async () => {
+      const details = await fetchAllocationDetailsForAccounts(accounts);
+      if (isMounted) {
+        setAccountAllocationDetails(details);
+      }
+    };
+
+    void loadAllocationDetails();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accounts]);
 
   const fetchSuppliers = async () => {
     const { data } = await supabase.from("suppliers").select("id, name");
@@ -287,6 +333,12 @@ const AccountsPayableReport = () => {
             suppliers(id, name),
             employees(id, name),
             stores(id, name),
+            chart_of_accounts:account_id(
+              id,
+              code,
+              name,
+              account_groups:group_id(id, name)
+            ),
             accounts_payable_installments(*),
             accounts_payable_payments(
               id,
@@ -300,7 +352,7 @@ const AccountsPayableReport = () => {
               quantity,
               unit_price,
               total_price,
-              products(id, name, subgroup_id, account_groups:subgroup_id(id, name))
+              products(id, name, subgroup_id, account_groups:subgroup_id(id, name, parent_id))
             )
           `)
           .in("status", ["pending", "partial"]);
@@ -330,9 +382,41 @@ const AccountsPayableReport = () => {
         return query;
       });
 
+      const parentGroupIds = Array.from(
+        new Set(
+          (allAccounts || [])
+            .flatMap((account: any) =>
+              (account.accounts_payable_items || []).map((item: any) => item.products?.account_groups?.parent_id),
+            )
+            .filter(Boolean),
+        ),
+      ) as string[];
+
+      const { data: parentGroups } =
+        parentGroupIds.length > 0
+          ? await supabase.from("account_groups").select("id, name").in("id", parentGroupIds)
+          : { data: [] as Array<{ id: string; name: string }> };
+
+      const parentGroupNameMap = new Map((parentGroups || []).map((group) => [group.id, group.name]));
+
+      const hydratedAccounts = (allAccounts || []).map((account: any) => ({
+        ...account,
+        accounts_payable_items: (account.accounts_payable_items || []).map((item: any) => ({
+          ...item,
+          products: item.products
+            ? {
+                ...item.products,
+                category_name: item.products.account_groups?.parent_id
+                  ? parentGroupNameMap.get(item.products.account_groups.parent_id) || null
+                  : null,
+              }
+            : null,
+        })),
+      }));
+
       // Filter for unpaid accounts only and expand installments
       let accountsData: any[] = [];
-      (allAccounts || []).forEach((account: any) => {
+      hydratedAccounts.forEach((account: any) => {
         if (account.status === "paid" || account.status === "pagamento_suspenso") return;
 
         if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
@@ -408,6 +492,7 @@ const AccountsPayableReport = () => {
       // supplier/store/competence/created/product/allocation filters are now applied before or during query
 
       setAccounts(accountsData);
+      setMobileFiltersOpen(false);
       toast({
         title: "Pesquisa realizada",
         description: `${accountsData.length} conta(s) encontrada(s)`,
@@ -441,6 +526,8 @@ const AccountsPayableReport = () => {
     setSelectedAllocationIds([]);
     setAllocationItems([]);
     setHasSearched(false);
+    setAccountAllocationDetails(new Map());
+    setMobileFiltersOpen(false);
   };
 
   const handleSort = (column: string) => {
@@ -450,6 +537,40 @@ const AccountsPayableReport = () => {
       setSortColumn(column);
       setSortDirection("asc");
     }
+  };
+
+  const getAccountStatusMeta = (account: any) => {
+    const normalizedStatus = String(account.status || "").toLowerCase();
+
+    if (normalizedStatus === "paid" || account.payment_date) {
+      return {
+        label: "Pago",
+        sortValue: 2,
+        className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      };
+    }
+
+    if (normalizedStatus === "cancelled" || normalizedStatus === "canceled") {
+      return {
+        label: "Cancelado",
+        sortValue: 3,
+        className: "border-slate-200 bg-slate-100 text-slate-700",
+      };
+    }
+
+    if (account.due_date && account.due_date < toDateKey(new Date())) {
+      return {
+        label: "Vencido",
+        sortValue: 1,
+        className: "border-rose-200 bg-rose-50 text-rose-700",
+      };
+    }
+
+    return {
+      label: "Em aberto",
+      sortValue: 0,
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+    };
   };
 
   const getSortIcon = (column: string) => {
@@ -479,6 +600,14 @@ const AccountsPayableReport = () => {
         case "amount":
           valA = a.amount || 0;
           valB = b.amount || 0;
+          break;
+        case "created_at":
+          valA = a.created_at || "";
+          valB = b.created_at || "";
+          break;
+        case "status":
+          valA = getAccountStatusMeta(a).sortValue;
+          valB = getAccountStatusMeta(b).sortValue;
           break;
         default:
           return 0;
@@ -557,7 +686,9 @@ const AccountsPayableReport = () => {
             ? "Prenhez"
             : allocationType === "recipient"
               ? "Receptoras"
-              : "Animais";
+              : allocationType === "semen"
+                ? "Sêmen"
+                : "Animais";
 
       const selectedNames = allocationItems
         .filter((item) => selectedAllocationIds.includes(item.id))
@@ -574,6 +705,51 @@ const AccountsPayableReport = () => {
 
     return filterItems;
   };
+
+  const mobileFilterSummary = React.useMemo(() => {
+    const supplierName = filters.supplier_id !== "all"
+      ? suppliers.find((item) => item.id === filters.supplier_id)?.name
+      : null;
+    const storeName = filters.store_id !== "all"
+      ? stores.find((item) => item.id === filters.store_id)?.name
+      : null;
+    const productName = filters.product_id !== "all"
+      ? products.find((item) => item.id === filters.product_id)?.name
+      : null;
+
+    const allocationLabel =
+      allocationType === "none"
+        ? "Nenhum vínculo"
+        : selectedAllocationIds.length > 0
+          ? `${selectedAllocationIds.length} vínculo(s)`
+          : `Tipo: ${
+              allocationType === "aspiration"
+                ? "Aspiração"
+                : allocationType === "pregnancy"
+                  ? "Prenhez"
+                  : allocationType === "recipient"
+                    ? "Receptoras"
+                    : allocationType === "semen"
+                      ? "Sêmen"
+                      : "Animais"
+            }`;
+
+    return [
+      supplierName || "Todos os fornecedores",
+      storeName || "Todas as fazendas",
+      productName || "Todos os produtos",
+      allocationLabel,
+    ].join(" • ");
+  }, [
+    allocationType,
+    filters.product_id,
+    filters.store_id,
+    filters.supplier_id,
+    products,
+    selectedAllocationIds.length,
+    stores,
+    suppliers,
+  ]);
 
   const buildSyntheticPeriodBlocks = (intervalDays: number): SyntheticPeriodBlock[] => {
     const dailyTotalsMap = new Map<string, number>();
@@ -1709,7 +1885,7 @@ const AccountsPayableReport = () => {
     doc.save("contas-a-pagar-por-subgrupo.pdf");
   };
 
-  const fetchAllocationsForAccounts = async (accountsList: any[]) => {
+  const fetchAllocationDetailsForAccounts = async (accountsList: any[]) => {
     // Collect all item IDs from all accounts
     const allItemIds: string[] = [];
     accountsList.forEach((account) => {
@@ -1750,7 +1926,7 @@ const AccountsPayableReport = () => {
 
     const recipientMap = new Map((recipients || []).map((recipient: any) => [recipient.id, `${recipient.code} - ${recipient.name}`]));
 
-    // Build a map: account_payable_id -> list of vínculo labels
+    // Build a map: account_payable_id -> allocation details
     const itemToAccount = new Map<string, string>();
     accountsList.forEach((account) => {
       if (account.accounts_payable_items) {
@@ -1760,40 +1936,80 @@ const AccountsPayableReport = () => {
       }
     });
 
-    const accountAllocations = new Map<string, Set<string>>();
+    const accountAllocations = new Map<
+      string,
+      {
+        labels: Set<string>;
+        linkedNames: Set<string>;
+        types: Set<string>;
+      }
+    >();
 
     (allocations || []).forEach((alloc: any) => {
       const accountId = itemToAccount.get(alloc.account_payable_item_id);
       if (!accountId) return;
 
       if (!accountAllocations.has(accountId)) {
-        accountAllocations.set(accountId, new Set());
+        accountAllocations.set(accountId, {
+          labels: new Set(),
+          linkedNames: new Set(),
+          types: new Set(),
+        });
       }
 
       let label = "";
+      let linkedName = "";
+      let typeLabel = "";
       if (alloc.animal_id && alloc.animals) {
+        typeLabel = "Animal";
+        linkedName = `${(alloc.animals as any).code} - ${(alloc.animals as any).name}`;
         label = `Animal: ${(alloc.animals as any).code} - ${(alloc.animals as any).name}`;
       } else if (alloc.aspiration_id && alloc.aspiration_management) {
+        typeLabel = "Aspiração";
+        linkedName = `${(alloc.aspiration_management as any).code} - ${(alloc.aspiration_management as any).name}`;
         label = `Aspiração: ${(alloc.aspiration_management as any).code} - ${(alloc.aspiration_management as any).name}`;
       } else if (alloc.pregnancy_id && alloc.pregnancy_management) {
+        typeLabel = "Prenhez";
+        linkedName = `${(alloc.pregnancy_management as any).code} - ${(alloc.pregnancy_management as any).name}`;
         label = `Prenhez: ${(alloc.pregnancy_management as any).code} - ${(alloc.pregnancy_management as any).name}`;
       } else if (alloc.recipient_id && recipientMap.has(alloc.recipient_id)) {
+        typeLabel = "Receptora";
+        linkedName = recipientMap.get(alloc.recipient_id) || "";
         label = `Receptora: ${recipientMap.get(alloc.recipient_id)}`;
       } else if (alloc.semen_id && alloc.semen_ref) {
+        typeLabel = "Sêmen";
+        linkedName = `${(alloc.semen_ref as any).code} - ${(alloc.semen_ref as any).name}`;
         label = `Sêmen: ${(alloc.semen_ref as any).code} - ${(alloc.semen_ref as any).name}`;
       }
 
       if (label) {
-        accountAllocations.get(accountId)!.add(label);
+        const details = accountAllocations.get(accountId)!;
+        details.labels.add(label);
+        if (linkedName) details.linkedNames.add(linkedName);
+        if (typeLabel) details.types.add(typeLabel);
       }
     });
 
-    // Convert sets to arrays
-    const result = new Map<string, string[]>();
-    accountAllocations.forEach((labels, accountId) => {
-      result.set(accountId, Array.from(labels));
+    const result = new Map<string, AccountAllocationDetail>();
+    accountAllocations.forEach((details, accountId) => {
+      result.set(accountId, {
+        labels: Array.from(details.labels),
+        linkedNames: Array.from(details.linkedNames),
+        types: Array.from(details.types),
+      });
     });
     return result;
+  };
+
+  const fetchAllocationsForAccounts = async (accountsList: any[]) => {
+    const detailsMap = await fetchAllocationDetailsForAccounts(accountsList);
+    const labelsMap = new Map<string, string[]>();
+
+    detailsMap.forEach((details, accountId) => {
+      labelsMap.set(accountId, details.labels);
+    });
+
+    return labelsMap;
   };
 
   const exportToPDFResumidoComVinculo = async () => {
@@ -1876,6 +2092,50 @@ const AccountsPayableReport = () => {
     XLSX.writeFile(wb, "contas-a-pagar.xlsx");
   };
 
+  const sortOptions = [
+    { value: "none", label: "Padrão" },
+    { value: "due_date", label: "Vencimento" },
+    { value: "supplier", label: "Fornecedor" },
+    { value: "amount", label: "Valor" },
+    { value: "status", label: "Status" },
+    { value: "created_at", label: "Data de cadastro" },
+  ];
+
+  const sortedAccountsTotal = React.useMemo(
+    () => sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0),
+    [sortedAccounts],
+  );
+
+  const getAccountTitle = (account: any) => account.document_number || account.description || "Sem identificação";
+
+  const getAccountSubtitle = (account: any) => {
+    if (account.document_number && account.description && account.document_number !== account.description) {
+      return account.description;
+    }
+
+    return account.document_type || null;
+  };
+
+  const getInstallmentLabel = (account: any) =>
+    account.total_installments > 1
+      ? `${account.installment_number}/${account.total_installments}`
+      : "À vista";
+
+  const getAccountCategory = (account: any) =>
+    joinValues(
+      (account.accounts_payable_items || []).map((item: any) => item.products?.category_name)
+    ) || account.chart_of_accounts?.account_groups?.name || null;
+
+  const getAccountSubcategory = (account: any) =>
+    joinValues(
+      (account.accounts_payable_items || []).map((item: any) => item.products?.account_groups?.name)
+    );
+
+  const getAccountProducts = (account: any) =>
+    joinValues((account.accounts_payable_items || []).map((item: any) => item.products?.name));
+
+  const getAccountAllocation = (accountId: string) => accountAllocationDetails.get(accountId);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -1895,16 +2155,260 @@ const AccountsPayableReport = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
+        <Card className="mb-6 overflow-hidden">
+          <CardHeader className="hidden md:block">
             <CardTitle className="flex items-center gap-2">
               <Filter className="h-5 w-5" />
               Filtros
             </CardTitle>
             <CardDescription>Configure os filtros para o relatório</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+          <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen} className="md:hidden">
+            <div className="border-b border-border/70 px-4 py-4">
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="group h-auto w-full justify-between rounded-xl px-0 py-0 text-left hover:bg-transparent"
+                >
+                  <div className="space-y-2">
+                    <span className="flex items-center gap-2 text-base font-semibold text-foreground">
+                      <Filter className="h-4 w-4" />
+                      Filtros
+                    </span>
+                    <p className="pr-4 text-sm leading-relaxed text-muted-foreground">{mobileFilterSummary}</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+
+            <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label htmlFor="due_start_mobile">Data Vencimento (Início)</Label>
+                    <Input
+                      id="due_start_mobile"
+                      type="date"
+                      value={filters.due_start}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, due_start: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="due_end_mobile">Data Vencimento (Fim)</Label>
+                    <Input
+                      id="due_end_mobile"
+                      type="date"
+                      value={filters.due_end}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, due_end: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="competencia_start_mobile">Data Competência (Início)</Label>
+                    <Input
+                      id="competencia_start_mobile"
+                      type="date"
+                      value={filters.competencia_start}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, competencia_start: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="competencia_end_mobile">Data Competência (Fim)</Label>
+                    <Input
+                      id="competencia_end_mobile"
+                      type="date"
+                      value={filters.competencia_end}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, competencia_end: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="created_start_mobile">Data Cadastro (Início)</Label>
+                    <Input
+                      id="created_start_mobile"
+                      type="date"
+                      value={filters.created_start}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, created_start: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="created_end_mobile">Data Cadastro (Fim)</Label>
+                    <Input
+                      id="created_end_mobile"
+                      type="date"
+                      value={filters.created_end}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, created_end: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Fornecedor</Label>
+                    <Select
+                      value={filters.supplier_id}
+                      onValueChange={(value) => setFilters((prev) => ({ ...prev, supplier_id: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar fornecedor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {suppliers.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Fazenda</Label>
+                    <Select
+                      value={filters.store_id}
+                      onValueChange={(value) => setFilters((prev) => ({ ...prev, store_id: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar fazenda" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {stores.map((store) => (
+                          <SelectItem key={store.id} value={store.id}>
+                            {store.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Produto</Label>
+                    <Select
+                      value={filters.product_id}
+                      onValueChange={(value) => setFilters((prev) => ({ ...prev, product_id: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {products.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Tipo de Vínculo</Label>
+                    <Select value={allocationType} onValueChange={(value) => setAllocationType(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        <SelectItem value="aspiration">Aspiração</SelectItem>
+                        <SelectItem value="pregnancy">Prenhez</SelectItem>
+                        <SelectItem value="animal">Animais</SelectItem>
+                        <SelectItem value="recipient">Receptoras</SelectItem>
+                        <SelectItem value="semen">Sêmen</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {allocationType !== "none" && allocationItems.length > 0 && (
+                    <div>
+                      <Label>
+                        {allocationType === "aspiration"
+                          ? "Aspirações"
+                          : allocationType === "pregnancy"
+                            ? "Prenhez"
+                            : allocationType === "recipient"
+                              ? "Receptoras"
+                              : allocationType === "semen"
+                                ? "Sêmen"
+                                : "Animais"}
+                      </Label>
+                      <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between font-normal">
+                            {selectedAllocationIds.length === 0
+                              ? "Selecionar..."
+                              : selectedAllocationIds.length === allocationItems.length
+                                ? "Todos selecionados"
+                                : `${selectedAllocationIds.length} selecionado(s)`}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[320px] p-0" align="start">
+                          <div className="border-b p-2">
+                            <Input
+                              placeholder="Buscar pelo nome..."
+                              value={allocationSearch}
+                              onChange={(e) => setAllocationSearch(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="border-b p-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-mobile"
+                                checked={selectedAllocationIds.length === allocationItems.length && allocationItems.length > 0}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedAllocationIds(allocationItems.map((item) => item.id));
+                                  } else {
+                                    setSelectedAllocationIds([]);
+                                  }
+                                }}
+                              />
+                              <label htmlFor="select-all-mobile" className="cursor-pointer text-sm font-medium">
+                                Selecionar todos
+                              </label>
+                            </div>
+                          </div>
+                          <ScrollArea className="h-[250px]">
+                            <div className="space-y-1 p-2">
+                              {allocationItems
+                                .filter((item) => item.name.toLowerCase().includes(allocationSearch.toLowerCase()))
+                                .map((item) => (
+                                  <div key={item.id} className="flex items-center space-x-2 py-1">
+                                    <Checkbox
+                                      id={`alloc-mobile-${item.id}`}
+                                      checked={selectedAllocationIds.includes(item.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedAllocationIds((prev) => [...prev, item.id]);
+                                        } else {
+                                          setSelectedAllocationIds((prev) => prev.filter((id) => id !== item.id));
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor={`alloc-mobile-${item.id}`} className="cursor-pointer text-sm">
+                                      {item.name}
+                                    </label>
+                                  </div>
+                                ))}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button onClick={handleSearch} disabled={loading} className="w-full">
+                    {loading ? "Pesquisando..." : "Pesquisar"}
+                  </Button>
+                  <Button onClick={clearFilters} variant="outline" className="w-full">
+                    Limpar Filtros
+                  </Button>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <CardContent className="hidden space-y-4 md:block">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
                 <Label htmlFor="due_start">Data Vencimento (Início)</Label>
                 <Input
@@ -2018,35 +2522,32 @@ const AccountsPayableReport = () => {
               </div>
               <div>
                 <Label>Tipo de Vínculo</Label>
-                <Select
-                  value={allocationType}
-                  onValueChange={(value) => setAllocationType(value)}
-                >
+                <Select value={allocationType} onValueChange={(value) => setAllocationType(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar tipo" />
                   </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      <SelectItem value="aspiration">Aspiração</SelectItem>
-                      <SelectItem value="pregnancy">Prenhez</SelectItem>
-                      <SelectItem value="animal">Animais</SelectItem>
-                      <SelectItem value="recipient">Receptoras</SelectItem>
-                      <SelectItem value="semen">Sêmen</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    <SelectItem value="aspiration">Aspiração</SelectItem>
+                    <SelectItem value="pregnancy">Prenhez</SelectItem>
+                    <SelectItem value="animal">Animais</SelectItem>
+                    <SelectItem value="recipient">Receptoras</SelectItem>
+                    <SelectItem value="semen">Sêmen</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {allocationType !== "none" && allocationItems.length > 0 && (
                 <div>
                   <Label>
                     {allocationType === "aspiration"
                       ? "Aspirações"
                       : allocationType === "pregnancy"
-                      ? "Prenhez"
-                      : allocationType === "recipient"
-                      ? "Receptoras"
-                      : allocationType === "semen"
-                      ? "Sêmen"
-                      : "Animais"}
+                        ? "Prenhez"
+                        : allocationType === "recipient"
+                          ? "Receptoras"
+                          : allocationType === "semen"
+                            ? "Sêmen"
+                            : "Animais"}
                   </Label>
                   <Popover open={allocationPopoverOpen} onOpenChange={setAllocationPopoverOpen}>
                     <PopoverTrigger asChild>
@@ -2054,13 +2555,13 @@ const AccountsPayableReport = () => {
                         {selectedAllocationIds.length === 0
                           ? "Selecionar..."
                           : selectedAllocationIds.length === allocationItems.length
-                          ? "Todos selecionados"
-                          : `${selectedAllocationIds.length} selecionado(s)`}
+                            ? "Todos selecionados"
+                            : `${selectedAllocationIds.length} selecionado(s)`}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[320px] p-0" align="start">
-                      <div className="p-2 border-b">
+                      <div className="border-b p-2">
                         <Input
                           placeholder="Buscar pelo nome..."
                           value={allocationSearch}
@@ -2068,46 +2569,46 @@ const AccountsPayableReport = () => {
                           className="h-8 text-sm"
                         />
                       </div>
-                      <div className="p-2 border-b">
+                      <div className="border-b p-2">
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="select-all"
                             checked={selectedAllocationIds.length === allocationItems.length && allocationItems.length > 0}
                             onCheckedChange={(checked) => {
                               if (checked) {
-                                setSelectedAllocationIds(allocationItems.map(i => i.id));
+                                setSelectedAllocationIds(allocationItems.map((item) => item.id));
                               } else {
                                 setSelectedAllocationIds([]);
                               }
                             }}
                           />
-                          <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                          <label htmlFor="select-all" className="cursor-pointer text-sm font-medium">
                             Selecionar todos
                           </label>
                         </div>
                       </div>
                       <ScrollArea className="h-[250px]">
-                        <div className="p-2 space-y-1">
+                        <div className="space-y-1 p-2">
                           {allocationItems
-                            .filter(item => item.name.toLowerCase().includes(allocationSearch.toLowerCase()))
+                            .filter((item) => item.name.toLowerCase().includes(allocationSearch.toLowerCase()))
                             .map((item) => (
-                            <div key={item.id} className="flex items-center space-x-2 py-1">
-                              <Checkbox
-                                id={`alloc-${item.id}`}
-                                checked={selectedAllocationIds.includes(item.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedAllocationIds(prev => [...prev, item.id]);
-                                  } else {
-                                    setSelectedAllocationIds(prev => prev.filter(id => id !== item.id));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`alloc-${item.id}`} className="text-sm cursor-pointer">
-                                {item.name}
-                              </label>
-                            </div>
-                          ))}
+                              <div key={item.id} className="flex items-center space-x-2 py-1">
+                                <Checkbox
+                                  id={`alloc-${item.id}`}
+                                  checked={selectedAllocationIds.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedAllocationIds((prev) => [...prev, item.id]);
+                                    } else {
+                                      setSelectedAllocationIds((prev) => prev.filter((id) => id !== item.id));
+                                    }
+                                  }}
+                                />
+                                <label htmlFor={`alloc-${item.id}`} className="cursor-pointer text-sm">
+                                  {item.name}
+                                </label>
+                              </div>
+                            ))}
                         </div>
                       </ScrollArea>
                     </PopoverContent>
@@ -2131,109 +2632,263 @@ const AccountsPayableReport = () => {
         {hasSearched && (
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Contas a Pagar ({accounts.length})</CardTitle>
-                <div className="flex gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <FileDown className="h-4 w-4 mr-2" />
-                        PDF
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={exportToPDFResumido}>Relatório Resumido</DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFDetalhado}>PDF Analítico</DropdownMenuItem>
-                      <DropdownMenuItem onClick={openSyntheticPdfModal}>PDF Sintético</DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>Relatório por Subgrupo</DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFResumidoPorMes}>
-                        Relatório Resumido por Mês
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFResumidoPorDia}>
-                        Relatório Resumido por Dia
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFResumidoComVinculo}>
-                        Relatório Resumido com Vínculo
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportToPDFPorDiaVinculo}>
-                        Relatório Dia/Animal
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button onClick={exportToExcel} variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Excel
-                  </Button>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle className="hidden md:block">Contas a Pagar ({accounts.length})</CardTitle>
+                  <div className="space-y-1 md:hidden">
+                    <CardTitle className="text-xl leading-tight">Contas a Pagar</CardTitle>
+                    <CardDescription>{accounts.length} registros encontrados</CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-between md:w-auto">
+                          <FileDown className="mr-2 h-4 w-4" />
+                          PDF
+                          <ChevronDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={exportToPDFResumido}>Relatório Resumido</DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDFDetalhado}>PDF Analítico</DropdownMenuItem>
+                        <DropdownMenuItem onClick={openSyntheticPdfModal}>PDF Sintético</DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDFPorSubgrupo}>Relatório por Subgrupo</DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDFResumidoPorMes}>
+                          Relatório Resumido por Mês
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDFResumidoPorDia}>
+                          Relatório Resumido por Dia
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDFResumidoComVinculo}>
+                          Relatório Resumido com Vínculo
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportToPDFPorDiaVinculo}>
+                          Relatório Dia/Animal
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button onClick={exportToExcel} variant="outline" size="sm" className="w-full md:w-auto">
+                      <Download className="mr-2 h-4 w-4" />
+                      Excel
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-2 md:hidden sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="mobile-sort-column">Ordenar por</Label>
+                      <Select
+                        value={sortColumn || "none"}
+                        onValueChange={(value) => setSortColumn(value === "none" ? null : value)}
+                      >
+                        <SelectTrigger id="mobile-sort-column">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sortOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="mobile-sort-direction">Direção</Label>
+                      <Select
+                        value={sortDirection}
+                        onValueChange={(value: "asc" | "desc") => setSortDirection(value)}
+                      >
+                        <SelectTrigger id="mobile-sort-direction">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="asc">Crescente</SelectItem>
+                          <SelectItem value="desc">Decrescente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>
-                      Título {getSortIcon("description")}
-                    </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("supplier")}>
-                      Fornecedor {getSortIcon("supplier")}
-                    </TableHead>
-                    <TableHead>Fazenda</TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("due_date")}>
-                      Vencimento {getSortIcon("due_date")}
-                    </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("amount")}>
-                      Valor {getSortIcon("amount")}
-                    </TableHead>
-                    <TableHead>Parcelas</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedAccounts.length === 0 ? (
+            <CardContent className="space-y-4">
+              <div className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 md:hidden">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-medium text-muted-foreground">Total encontrado</span>
+                  <span className="text-base font-semibold text-foreground">
+                    {formatCurrencyBRL(sortedAccountsTotal)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-                        Nenhuma movimentação encontrada para os filtros informados.
-                      </TableCell>
+                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>
+                        Título {getSortIcon("description")}
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("supplier")}>
+                        Fornecedor {getSortIcon("supplier")}
+                      </TableHead>
+                      <TableHead>Fazenda</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("due_date")}>
+                        Vencimento {getSortIcon("due_date")}
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("amount")}>
+                        Valor {getSortIcon("amount")}
+                      </TableHead>
+                      <TableHead>Parcelas</TableHead>
                     </TableRow>
-                  ) : (
-                    <>
-                      {sortedAccounts.map((account, index) => (
-                        <TableRow key={`${account.id}-${account.installment_id || index}`}>
-                          <TableCell>{account.description}</TableCell>
-                          <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
-                          <TableCell>{account.stores?.name || "N/A"}</TableCell>
-                          <TableCell>{new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
-                          <TableCell>
-                            {account.amount?.toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }) || "N/A"}
-                          </TableCell>
-                          <TableCell>
-                            {account.total_installments > 1
-                              ? `${account.installment_number}/${account.total_installments}`
-                              : "À vista"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="border-t-2 font-bold bg-muted/50">
-                        <TableCell colSpan={4} className="text-right">
-                          Total:
+                  </TableHeader>
+                  <TableBody>
+                    {sortedAccounts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
+                          Nenhuma movimentação encontrada para os filtros informados.
                         </TableCell>
-                        <TableCell>
-                          {sortedAccounts
-                            .reduce((sum, account) => sum + (account.amount || 0), 0)
-                            .toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
-                        </TableCell>
-                        <TableCell>{sortedAccounts.length} parcela(s)</TableCell>
                       </TableRow>
-                    </>
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      <>
+                        {sortedAccounts.map((account, index) => (
+                          <TableRow key={`${account.id}-${account.installment_id || index}`}>
+                            <TableCell>{account.description}</TableCell>
+                            <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
+                            <TableCell>{account.stores?.name || "N/A"}</TableCell>
+                            <TableCell>{new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
+                            <TableCell>
+                              {account.amount?.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }) || "N/A"}
+                            </TableCell>
+                            <TableCell>{getInstallmentLabel(account)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="border-t-2 bg-muted/50 font-bold">
+                          <TableCell colSpan={4} className="text-right">
+                            Total:
+                          </TableCell>
+                          <TableCell>{formatCurrencyBRL(sortedAccountsTotal)}</TableCell>
+                          <TableCell>{sortedAccounts.length} parcela(s)</TableCell>
+                        </TableRow>
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="space-y-3 md:hidden">
+                {sortedAccounts.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="flex min-h-[160px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                      Nenhuma movimentação encontrada para os filtros informados.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  sortedAccounts.map((account, index) => {
+                    const allocation = getAccountAllocation(account.id);
+                    const statusMeta = getAccountStatusMeta(account);
+
+                    return (
+                      <MobileReportCard
+                        key={`${account.id}-${account.installment_id || index}`}
+                        title={getAccountTitle(account)}
+                        subtitle={getAccountSubtitle(account)}
+                        badge={
+                          <Badge variant="outline" className={cn("font-medium", statusMeta.className)}>
+                            {statusMeta.label}
+                          </Badge>
+                        }
+                        titleAside={
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                              Valor
+                            </p>
+                            <p className="text-base font-semibold text-primary">
+                              {formatCurrencyBRL(account.amount || 0)}
+                            </p>
+                          </div>
+                        }
+                        summaryFields={[
+                          {
+                            label: "Fornecedor",
+                            value: account.employees?.name || account.suppliers?.name,
+                          },
+                          {
+                            label: "Vencimento",
+                            value: account.due_date ? formatDateBR(account.due_date) : null,
+                          },
+                          {
+                            label: "Status",
+                            value: statusMeta.label,
+                          },
+                        ]}
+                        detailFields={[
+                          {
+                            label: "Fazenda",
+                            value: account.stores?.name,
+                          },
+                          {
+                            label: "Documento",
+                            value: account.document_number,
+                          },
+                          {
+                            label: "Categoria",
+                            value: getAccountCategory(account),
+                          },
+                          {
+                            label: "Subcategoria",
+                            value: getAccountSubcategory(account),
+                          },
+                          {
+                            label: "Conta",
+                            value: account.chart_of_accounts
+                              ? `${account.chart_of_accounts.code} - ${account.chart_of_accounts.name}`
+                              : null,
+                          },
+                          {
+                            label: "Competência",
+                            value: account.data_competencia ? formatDateBR(account.data_competencia) : null,
+                          },
+                          {
+                            label: "Forma de pagamento",
+                            value: getInstallmentLabel(account),
+                          },
+                          {
+                            label: "Data de cadastro",
+                            value: account.created_at ? formatDateTimeBR(account.created_at) : null,
+                          },
+                          {
+                            label: "Data de pagamento",
+                            value: account.payment_date ? formatDateBR(account.payment_date) : null,
+                          },
+                          {
+                            label: "Observação",
+                            value: account.notes,
+                          },
+                          {
+                            label: "Projeto/vínculo",
+                            value: allocation?.linkedNames.join(" • "),
+                          },
+                          {
+                            label: "Produto/vínculo",
+                            value: getAccountProducts(account),
+                          },
+                          {
+                            label: "Tipo de vínculo",
+                            value: allocation?.types.join(" • "),
+                          },
+                        ]}
+                      />
+                    );
+                  })
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
