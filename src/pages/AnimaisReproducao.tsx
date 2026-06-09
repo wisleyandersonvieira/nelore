@@ -33,6 +33,7 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { getRecipientCategoryIds } from "@/lib/animalCategoryRules";
 
 const ITEMS_PER_PAGE = 15;
 
@@ -234,7 +235,12 @@ const AnimaisReproducao = () => {
   };
   const getAnimal = (id: string | null) => (id ? animals.find((a) => a.id === id) : undefined);
 
-  const activeAnimals = useMemo(() => animals.filter((a) => a.is_active), [animals]);
+  // Animais ativos, excluindo receptoras (não podem iniciar uma reprodução como matriz)
+  const recipientCategoryIds = useMemo(() => getRecipientCategoryIds(categories), [categories]);
+  const activeAnimals = useMemo(
+    () => animals.filter((a) => a.is_active && !(a.category_id && recipientCategoryIds.includes(a.category_id))),
+    [animals, recipientCategoryIds],
+  );
   const selectedAnimal = useMemo(() => getAnimal(selectedAnimalId), [selectedAnimalId, animals]);
 
   const filteredRecords = useMemo(() => {
