@@ -51,6 +51,7 @@ interface EntregaRecord {
   status_faturamento: string;
   manter_fazenda_propria: boolean;
   data_entrega: string | null;
+  data_prevista_entrega: string | null;
   observacoes_entrega: string | null;
   venda_id: string | null;
   store_id: string;
@@ -101,6 +102,13 @@ const Entregas = () => {
   const [filterVendaFim, setFilterVendaFim] = useState("");
   const [filterEntregaInicio, setFilterEntregaInicio] = useState("");
   const [filterEntregaFim, setFilterEntregaFim] = useState("");
+  const [filterPrevisaoInicio, setFilterPrevisaoInicio] = useState("");
+  const [filterPrevisaoFim, setFilterPrevisaoFim] = useState("");
+
+  // Editar data prevista
+  const [previsaoRecord, setPrevisaoRecord] = useState<EntregaRecord | null>(null);
+  const [previsaoDate, setPrevisaoDate] = useState<Date | null>(null);
+  const [savingPrevisao, setSavingPrevisao] = useState(false);
 
   // View
   const [viewRecord, setViewRecord] = useState<EntregaRecord | null>(null);
@@ -162,9 +170,11 @@ const Entregas = () => {
       if (filterVendaFim && (!r.data_venda || r.data_venda > filterVendaFim)) return false;
       if (filterEntregaInicio && (!r.data_entrega || r.data_entrega < filterEntregaInicio)) return false;
       if (filterEntregaFim && (!r.data_entrega || r.data_entrega > filterEntregaFim)) return false;
+      if (filterPrevisaoInicio && (!r.data_prevista_entrega || r.data_prevista_entrega < filterPrevisaoInicio)) return false;
+      if (filterPrevisaoFim && (!r.data_prevista_entrega || r.data_prevista_entrega > filterPrevisaoFim)) return false;
       return true;
     });
-  }, [records, filterCliente, filterTipo, filterEntrega, filterFaturamento, filterVendaInicio, filterVendaFim, filterEntregaInicio, filterEntregaFim]);
+  }, [records, filterCliente, filterTipo, filterEntrega, filterFaturamento, filterVendaInicio, filterVendaFim, filterEntregaInicio, filterEntregaFim, filterPrevisaoInicio, filterPrevisaoFim]);
 
   const summary = useMemo(() => ({
     total: records.length,
@@ -181,7 +191,32 @@ const Entregas = () => {
   const clearFilters = () => {
     setFilterCliente("all"); setFilterTipo("all"); setFilterEntrega("all"); setFilterFaturamento("all");
     setFilterVendaInicio(""); setFilterVendaFim(""); setFilterEntregaInicio(""); setFilterEntregaFim("");
+    setFilterPrevisaoInicio(""); setFilterPrevisaoFim("");
     setPage(1);
+  };
+
+  const openPrevisao = (record: EntregaRecord) => {
+    setPrevisaoRecord(record);
+    setPrevisaoDate(record.data_prevista_entrega ? new Date(`${record.data_prevista_entrega}T12:00:00`) : null);
+  };
+
+  const handleSavePrevisao = async () => {
+    if (!previsaoRecord) return;
+    setSavingPrevisao(true);
+    try {
+      const { error } = await supabase
+        .from("entregas")
+        .update({ data_prevista_entrega: previsaoDate ? format(previsaoDate, "yyyy-MM-dd") : null })
+        .eq("id", previsaoRecord.id);
+      if (error) throw error;
+      toast({ title: "Data prevista atualizada" });
+      setPrevisaoRecord(null);
+      fetchRecords();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error?.message || "Não foi possível atualizar a data prevista.", variant: "destructive" });
+    } finally {
+      setSavingPrevisao(false);
+    }
   };
 
   // ---- Actions ----
@@ -415,6 +450,14 @@ const Entregas = () => {
                 <Label className="text-xs text-muted-foreground">Entrega - fim</Label>
                 <Input type="date" value={filterEntregaFim} onChange={(e) => setFilterEntregaFim(e.target.value)} className="mt-1 h-10" />
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Previsão - início</Label>
+                <Input type="date" value={filterPrevisaoInicio} onChange={(e) => setFilterPrevisaoInicio(e.target.value)} className="mt-1 h-10" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Previsão - fim</Label>
+                <Input type="date" value={filterPrevisaoFim} onChange={(e) => setFilterPrevisaoFim(e.target.value)} className="mt-1 h-10" />
+              </div>
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <Button variant="outline" onClick={clearFilters}>Limpar filtros</Button>
@@ -433,6 +476,7 @@ const Entregas = () => {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Registro</TableHead>
                 <TableHead>Data Venda</TableHead>
+                <TableHead>Data Prevista</TableHead>
                 <TableHead>Valor</TableHead>
                 <TableHead>% Venda</TableHead>
                 <TableHead>Entrega</TableHead>
@@ -443,9 +487,9 @@ const Entregas = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={11} className="py-10 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="py-10 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : paginated.length === 0 ? (
-                <TableRow><TableCell colSpan={11} className="py-10 text-center text-muted-foreground">Nenhuma entrega encontrada.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="py-10 text-center text-muted-foreground">Nenhuma entrega encontrada.</TableCell></TableRow>
               ) : paginated.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">#{r.code}</TableCell>
@@ -453,6 +497,7 @@ const Entregas = () => {
                   <TableCell>{TIPO_LABEL[r.tipo_item] || r.tipo_item}</TableCell>
                   <TableCell>{r.registro_nome || "-"}</TableCell>
                   <TableCell>{formatDateBR(r.data_venda)}</TableCell>
+                  <TableCell>{r.data_prevista_entrega ? formatDateBR(r.data_prevista_entrega) : "Não informada"}</TableCell>
                   <TableCell>{r.valor_venda != null ? formatCurrencyBRL(Number(r.valor_venda)) : "-"}</TableCell>
                   <TableCell>{r.percentual_venda != null ? `${r.percentual_venda}%` : "-"}</TableCell>
                   <TableCell>
@@ -477,6 +522,9 @@ const Entregas = () => {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openDeliver(r)} disabled={r.status_entrega === "entregue"}>
                           <Truck className="mr-2 h-4 w-4" /> Marcar como entregue
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openPrevisao(r)}>
+                          <CalendarIcon className="mr-2 h-4 w-4" /> Editar data prevista
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleManterFazenda(r)} disabled={r.status_entrega === "manter_fazenda_propria"}>
                           <Home className="mr-2 h-4 w-4" /> Manter na fazenda própria
@@ -522,6 +570,7 @@ const Entregas = () => {
               <div><span className="text-muted-foreground">Tipo:</span> {TIPO_LABEL[viewRecord.tipo_item]}</div>
               <div><span className="text-muted-foreground">Registro:</span> {viewRecord.registro_nome || "-"}</div>
               <div><span className="text-muted-foreground">Data venda:</span> {formatDateBR(viewRecord.data_venda)}</div>
+              <div><span className="text-muted-foreground">Data prevista:</span> {viewRecord.data_prevista_entrega ? formatDateBR(viewRecord.data_prevista_entrega) : "Não informada"}</div>
               <div><span className="text-muted-foreground">Valor:</span> {viewRecord.valor_venda != null ? formatCurrencyBRL(Number(viewRecord.valor_venda)) : "-"}</div>
               <div><span className="text-muted-foreground">% Venda:</span> {viewRecord.percentual_venda != null ? `${viewRecord.percentual_venda}%` : "-"}</div>
               <div><span className="text-muted-foreground">Entrega:</span> {ENTREGA_META[viewRecord.status_entrega]?.label}</div>
@@ -583,6 +632,39 @@ const Entregas = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeliverRecord(null)} disabled={savingDeliver}>Cancelar</Button>
             <Button onClick={handleSaveDeliver} disabled={savingDeliver}>{savingDeliver ? "Salvando..." : "Confirmar entrega"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editar data prevista modal */}
+      <Dialog open={!!previsaoRecord} onOpenChange={(o) => !o && setPrevisaoRecord(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar data prevista de entrega</DialogTitle>
+            <DialogDescription>Atualiza apenas a previsão de entrega da entrega #{previsaoRecord?.code}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Data prevista de entrega</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !previsaoDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {previsaoDate ? format(previsaoDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecione..."}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={previsaoDate || undefined} onSelect={(d) => setPrevisaoDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+            {previsaoDate && (
+              <Button variant="ghost" size="sm" className="px-0 text-muted-foreground" onClick={() => setPrevisaoDate(null)}>
+                Limpar data
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrevisaoRecord(null)} disabled={savingPrevisao}>Cancelar</Button>
+            <Button onClick={handleSavePrevisao} disabled={savingPrevisao}>{savingPrevisao ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

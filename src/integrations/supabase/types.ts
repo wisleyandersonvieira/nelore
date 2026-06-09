@@ -1237,6 +1237,7 @@ export type Database = {
           client_id: string
           created_at: string | null
           created_by: string | null
+          data_prevista_entrega: string | null
           id: string
           sale_date: string
           sale_percentage: number
@@ -1248,6 +1249,7 @@ export type Database = {
           client_id: string
           created_at?: string | null
           created_by?: string | null
+          data_prevista_entrega?: string | null
           id?: string
           sale_date: string
           sale_percentage: number
@@ -1259,6 +1261,7 @@ export type Database = {
           client_id?: string
           created_at?: string | null
           created_by?: string | null
+          data_prevista_entrega?: string | null
           id?: string
           sale_date?: string
           sale_percentage?: number
@@ -1556,6 +1559,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           data_entrega: string | null
+          data_prevista_entrega: string | null
           data_venda: string | null
           id: string
           manter_fazenda_propria: boolean
@@ -1579,6 +1583,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_entrega?: string | null
+          data_prevista_entrega?: string | null
           data_venda?: string | null
           id?: string
           manter_fazenda_propria?: boolean
@@ -1602,6 +1607,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_entrega?: string | null
+          data_prevista_entrega?: string | null
           data_venda?: string | null
           id?: string
           manter_fazenda_propria?: boolean
@@ -1906,6 +1912,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          data_prevista_entrega: string | null
           id: string
           sale_date: string
           sale_percentage: number
@@ -1917,6 +1924,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          data_prevista_entrega?: string | null
           id?: string
           sale_date: string
           sale_percentage: number
@@ -1928,6 +1936,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          data_prevista_entrega?: string | null
           id?: string
           sale_date?: string
           sale_percentage?: number
@@ -4686,6 +4695,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          data_prevista_entrega: string | null
           id: string
           pregnancy_id: string
           sale_date: string
@@ -4697,6 +4707,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          data_prevista_entrega?: string | null
           id?: string
           pregnancy_id: string
           sale_date: string
@@ -4708,6 +4719,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          data_prevista_entrega?: string | null
           id?: string
           pregnancy_id?: string
           sale_date?: string

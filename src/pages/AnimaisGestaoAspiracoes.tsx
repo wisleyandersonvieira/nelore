@@ -268,6 +268,7 @@ const AnimaisGestaoAspiracoes = () => {
   const [saleRecord, setSaleRecord] = useState<AspirationRecord | null>(null);
   const [saleClientId, setSaleClientId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | null>(null);
+  const [saleExpectedDeliveryDate, setSaleExpectedDeliveryDate] = useState<Date | null>(null);
   const [saleValue, setSaleValue] = useState("");
   const [salePercentage, setSalePercentage] = useState("");
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
@@ -1231,6 +1232,7 @@ const AnimaisGestaoAspiracoes = () => {
     setSaleRecord(record);
     setSaleClientId("");
     setSaleDate(null);
+    setSaleExpectedDeliveryDate(null);
     setSaleValue("");
     setSalePercentage("");
     setClientSearchTerm("");
@@ -1307,6 +1309,7 @@ const AnimaisGestaoAspiracoes = () => {
         sale_date: format(saleDate, "yyyy-MM-dd"),
         sale_value: parseFloat(saleValue),
         sale_percentage: percentage,
+        data_prevista_entrega: saleExpectedDeliveryDate ? format(saleExpectedDeliveryDate, "yyyy-MM-dd") : null,
         created_by: userData.user?.id,
       });
       if (error) throw error;
@@ -4323,6 +4326,21 @@ const AnimaisGestaoAspiracoes = () => {
                   }}
                   placeholder="0,00"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data prevista de entrega</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleExpectedDeliveryDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {saleExpectedDeliveryDate ? format(saleExpectedDeliveryDate, "dd/MM/yyyy") : "Selecione..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={saleExpectedDeliveryDate || undefined} onSelect={(d) => setSaleExpectedDeliveryDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
