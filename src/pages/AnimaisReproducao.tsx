@@ -98,6 +98,7 @@ const AnimaisReproducao = () => {
   const [ownFarms, setOwnFarms] = useState<NamedRecord[]>([]);
   const [thirdPartyFarms, setThirdPartyFarms] = useState<NamedRecord[]>([]);
   const [aspiracoesMap, setAspiracoesMap] = useState<Record<string, AspiracaoInfo>>({});
+  const [soldAnimalIds, setSoldAnimalIds] = useState<Set<string>>(new Set());
 
   // pagination / search
   const [search, setSearch] = useState("");
@@ -188,7 +189,28 @@ const AnimaisReproducao = () => {
       setCategories(categoriesRes.data || []);
       setOwnFarms(storesRes.data || []);
       setThirdPartyFarms(thirdRes.data || []);
-      setAnimals((animalsRes.data || []) as AnimalOption[]);
+      const animalList = (animalsRes.data || []) as AnimalOption[];
+      setAnimals(animalList);
+
+      // Identifica animais "vendidos": a fazenda própria (store) não possui mais participação
+      const animalIds = animalList.map((a) => a.id);
+      if (animalIds.length > 0) {
+        const { data: ownerData } = await supabase
+          .from("animal_owners")
+          .select("animal_id, owner_type, percentage")
+          .in("animal_id", animalIds);
+        const withOwners = new Set<string>();
+        const withStoreOwner = new Set<string>();
+        (ownerData || []).forEach((o: any) => {
+          withOwners.add(o.animal_id);
+          if (o.owner_type === "store" && Number(o.percentage) > 0) withStoreOwner.add(o.animal_id);
+        });
+        const sold = new Set<string>();
+        withOwners.forEach((id) => { if (!withStoreOwner.has(id)) sold.add(id); });
+        setSoldAnimalIds(sold);
+      } else {
+        setSoldAnimalIds(new Set());
+      }
 
       const repro = (reproRes.data || []) as ReproducaoRecord[];
       setRecords(repro);
@@ -235,11 +257,15 @@ const AnimaisReproducao = () => {
   };
   const getAnimal = (id: string | null) => (id ? animals.find((a) => a.id === id) : undefined);
 
-  // Animais ativos, excluindo receptoras (não podem iniciar uma reprodução como matriz)
+  // Animais ativos, excluindo receptoras e animais vendidos (não podem iniciar uma reprodução como matriz)
   const recipientCategoryIds = useMemo(() => getRecipientCategoryIds(categories), [categories]);
   const activeAnimals = useMemo(
-    () => animals.filter((a) => a.is_active && !(a.category_id && recipientCategoryIds.includes(a.category_id))),
-    [animals, recipientCategoryIds],
+    () => animals.filter((a) =>
+      a.is_active &&
+      !soldAnimalIds.has(a.id) &&
+      !(a.category_id && recipientCategoryIds.includes(a.category_id)),
+    ),
+    [animals, recipientCategoryIds, soldAnimalIds],
   );
   const selectedAnimal = useMemo(() => getAnimal(selectedAnimalId), [selectedAnimalId, animals]);
 
