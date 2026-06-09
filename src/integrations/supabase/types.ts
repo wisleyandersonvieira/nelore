@@ -1548,6 +1548,108 @@ export type Database = {
           },
         ]
       }
+      entregas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          code: number
+          created_at: string
+          created_by: string | null
+          data_entrega: string | null
+          data_venda: string | null
+          id: string
+          manter_fazenda_propria: boolean
+          observacoes_entrega: string | null
+          origem_sale_id: string | null
+          percentual_venda: number | null
+          registro_id: string
+          registro_nome: string | null
+          status_entrega: string
+          status_faturamento: string
+          store_id: string
+          tipo_item: string
+          updated_at: string
+          valor_venda: number | null
+          venda_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          code: number
+          created_at?: string
+          created_by?: string | null
+          data_entrega?: string | null
+          data_venda?: string | null
+          id?: string
+          manter_fazenda_propria?: boolean
+          observacoes_entrega?: string | null
+          origem_sale_id?: string | null
+          percentual_venda?: number | null
+          registro_id: string
+          registro_nome?: string | null
+          status_entrega?: string
+          status_faturamento?: string
+          store_id: string
+          tipo_item: string
+          updated_at?: string
+          valor_venda?: number | null
+          venda_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          code?: number
+          created_at?: string
+          created_by?: string | null
+          data_entrega?: string | null
+          data_venda?: string | null
+          id?: string
+          manter_fazenda_propria?: boolean
+          observacoes_entrega?: string | null
+          origem_sale_id?: string | null
+          percentual_venda?: number | null
+          registro_id?: string
+          registro_nome?: string | null
+          status_entrega?: string
+          status_faturamento?: string
+          store_id?: string
+          tipo_item?: string
+          updated_at?: string
+          valor_venda?: number | null
+          venda_id?: string | null
+        }
+        Relationships: []
+      }
+      entrega_anexos: {
+        Row: {
+          created_at: string
+          entrega_id: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          entrega_id: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          entrega_id?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+        }
+        Relationships: []
+      }
       reproducoes: {
         Row: {
           animal_gerado_id: string | null

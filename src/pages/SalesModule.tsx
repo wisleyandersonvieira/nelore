@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SalesCreateModal } from "@/components/SalesCreateModal";
+import { ImportarVendaModal } from "@/components/ImportarVendaModal";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
@@ -38,6 +39,7 @@ import {
   Package2,
   Plus,
   Search,
+  Download,
 } from "lucide-react";
 
 interface SaleRow {
@@ -218,6 +220,7 @@ const SalesModule = () => {
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<SaleRow | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | SaleType>("all");
@@ -470,13 +473,23 @@ const SalesModule = () => {
         </div>
 
         {canEdit && (
-          <Button
-            onClick={() => setCreateOpen(true)}
-            className="h-11 rounded-2xl bg-emerald-600 px-5 text-white hover:bg-emerald-700"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova venda
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+              className="h-11 rounded-2xl border-emerald-600/40 px-5 text-emerald-700 hover:bg-emerald-50"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Importar Venda
+            </Button>
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="h-11 rounded-2xl bg-emerald-600 px-5 text-white hover:bg-emerald-700"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nova venda
+            </Button>
+          </div>
         )}
       </div>
 
@@ -713,6 +726,14 @@ const SalesModule = () => {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSaved={async () => {
+          await loadSales();
+        }}
+      />
+
+      <ImportarVendaModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={async () => {
           await loadSales();
         }}
       />

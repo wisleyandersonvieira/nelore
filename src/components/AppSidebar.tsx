@@ -343,6 +343,7 @@ const AppSidebar = ({
         { id: "animais-aspiracoes", label: "Gestão de Aspirações", route: "/animais/aspiracoes" },
         { id: "animais-reproducao-nova", label: "Nova Reprodução", route: "/animais/reproducao/nova" },
         { id: "animais-reproducao-cadastradas", label: "Reproduções Cadastradas", route: "/animais/reproducao/cadastradas" },
+        { id: "animais-entregas", label: "Entregas", route: "/animais/entregas" },
         { id: "animais-semen", label: "Sêmen", route: "/animais/semen" },
         { id: "animais-transferencia-embriao", label: "Pós Transferência de Embrião", route: "/animais/transferencia-embriao" },
         { id: "animais-cadastros-gerais", label: "Cadastros Gerais", route: "/animais/cadastros-gerais" },
