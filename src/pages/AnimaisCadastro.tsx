@@ -57,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
 import ReproducoesVinculadas from "@/components/ReproducoesVinculadas";
+import FinanceiroReproducao from "@/components/FinanceiroReproducao";
 
 interface Animal {
   id: string;
@@ -259,6 +260,22 @@ const AnimaisCadastro = () => {
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [loadingFinancial, setLoadingFinancial] = useState(false);
   const [financialViewMode, setFinancialViewMode] = useState<"geral" | "pagos">("geral");
+
+  // Saldo direto do animal no modo atual (mesma lógica do bloco financeiro do animal),
+  // usado para compor o card "Resultado Geral" do bloco Financeiro Reprodução.
+  const animalDirectSaldo = useMemo(() => {
+    const filtered = financialViewMode === "pagos"
+      ? financialRecords
+          .filter((r) => r.paid_amount > 0 || r.status === "paid")
+          .map((r) => ({ ...r, paid_amount: r.paid_amount > 0 ? r.paid_amount : (r.status === "paid" ? r.item_total_price : 0) }))
+      : financialRecords;
+    const receitas = filtered.filter((r) => r.record_type === "revenue");
+    const despesas = filtered.filter((r) => r.record_type === "expense");
+    if (financialViewMode === "pagos") {
+      return receitas.reduce((s, r) => s + r.paid_amount, 0) - despesas.reduce((s, r) => s + r.paid_amount, 0);
+    }
+    return receitas.reduce((s, r) => s + r.item_total_price, 0) - despesas.reduce((s, r) => s + r.item_total_price, 0);
+  }, [financialRecords, financialViewMode]);
 
   // Sale modal state
   const [saleModalOpen, setSaleModalOpen] = useState(false);
@@ -2753,6 +2770,14 @@ const AnimaisCadastro = () => {
                   </>
                 );
               })()}
+
+              {/* Bloco: Financeiro Reprodução (abaixo do financeiro direto do animal) */}
+              <FinanceiroReproducao
+                animalId={selectedAnimal?.id ?? null}
+                viewMode={financialViewMode}
+                onViewModeChange={setFinancialViewMode}
+                animalSaldo={animalDirectSaldo}
+              />
             </TabsContent>
 
             {/* Tab: Proprietários */}
