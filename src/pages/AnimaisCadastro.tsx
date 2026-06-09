@@ -56,6 +56,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
+import ReproducoesVinculadas from "@/components/ReproducoesVinculadas";
 
 interface Animal {
   id: string;
@@ -2531,6 +2532,9 @@ const AnimaisCadastro = () => {
                   disabled={isReadOnly}
                 />
               </div>
+
+              {/* Histórico / Reproduções vinculadas a este animal */}
+              <ReproducoesVinculadas animalId={selectedAnimal?.id ?? null} />
             </TabsContent>
 
             {/* Tab: Pesagem */}

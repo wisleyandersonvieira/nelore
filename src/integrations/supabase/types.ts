@@ -1548,6 +1548,51 @@ export type Database = {
           },
         ]
       }
+      reproducoes: {
+        Row: {
+          animal_gerado_id: string | null
+          animal_mae_id: string
+          aspiracao_id: string | null
+          code: number
+          created_at: string
+          id: string
+          observacao: string | null
+          pos_transferencia_id: string | null
+          prenhez_id: string | null
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          animal_gerado_id?: string | null
+          animal_mae_id: string
+          aspiracao_id?: string | null
+          code: number
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          pos_transferencia_id?: string | null
+          prenhez_id?: string | null
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          animal_gerado_id?: string | null
+          animal_mae_id?: string
+          aspiracao_id?: string | null
+          code?: number
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          pos_transferencia_id?: string | null
+          prenhez_id?: string | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       aspiration_management: {
         Row: {
           aspiration_date: string | null
