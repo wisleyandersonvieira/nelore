@@ -38,10 +38,25 @@ import {
   sumInstallments,
 } from "@/lib/sales";
 
+export interface SalesCreateInitialValues {
+  clientId?: string;
+  saleType?: SaleType;
+  itemId?: string;
+  saleDate?: string;
+  firstDueDate?: string;
+  totalAmount?: number;
+  description?: string;
+  notes?: string;
+}
+
 interface SalesCreateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void> | void;
+  /** Quando informado, pré-preenche o formulário (ex.: importação de uma entrega). */
+  initialValues?: SalesCreateInitialValues | null;
+  /** Quando informado, a venda criada marca a entrega de origem como faturada. */
+  sourceEntregaId?: string | null;
 }
 
 interface ClientOption {
@@ -77,7 +92,7 @@ const EMPTY_ITEMS: Record<SaleType, SaleItemOption[]> = {
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-export function SalesCreateModal({ open, onOpenChange, onSaved }: SalesCreateModalProps) {
+export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, sourceEntregaId }: SalesCreateModalProps) {
   const { toast } = useToast();
   const { canEdit: canEditCadastros, canDelete: canDeleteCadastros } = useCadastrosPermissions();
   const [loading, setLoading] = useState(false);
@@ -298,7 +313,20 @@ export function SalesCreateModal({ open, onOpenChange, onSaved }: SalesCreateMod
     }
 
     resetForm();
+    // Pré-preenchimento inteligente (ex.: importação de uma entrega). Todos os
+    // campos continuam editáveis normalmente pelo usuário.
+    if (initialValues) {
+      if (initialValues.clientId) setClientId(initialValues.clientId);
+      if (initialValues.saleType) setSaleType(initialValues.saleType);
+      if (initialValues.itemId) setItemId(initialValues.itemId);
+      if (initialValues.saleDate) setSaleDate(initialValues.saleDate);
+      if (initialValues.firstDueDate) setFirstDueDate(initialValues.firstDueDate);
+      if (typeof initialValues.totalAmount === "number") setTotalAmount(initialValues.totalAmount);
+      if (initialValues.description) setDescription(initialValues.description);
+      if (initialValues.notes) setNotes(initialValues.notes);
+    }
     void loadReferenceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -426,6 +454,32 @@ export function SalesCreateModal({ open, onOpenChange, onSaved }: SalesCreateMod
       return;
     }
 
+    // Evita importação duplicada: a entrega de origem precisa continuar não faturada.
+    if (sourceEntregaId) {
+      const { data: entrega, error: entregaError } = await supabase
+        .from("entregas")
+        .select("status_faturamento, venda_id")
+        .eq("id", sourceEntregaId)
+        .single();
+      if (entregaError) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível validar a entrega de origem.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (entrega.status_faturamento !== "nao_faturado" || entrega.venda_id) {
+        toast({
+          title: "Entrega já faturada",
+          description: "Esta entrega já foi faturada e não pode ser importada novamente.",
+          variant: "destructive",
+        });
+        onOpenChange(false);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const result = await createSaleWithReceivable({
@@ -445,6 +499,20 @@ export function SalesCreateModal({ open, onOpenChange, onSaved }: SalesCreateMod
         negotiationMethod: negotiationMethod || undefined,
         installments: effectiveInstallments,
       });
+
+      // Importação a partir de uma entrega: marca como faturada e vincula a venda.
+      // A condição status_faturamento = 'nao_faturado' garante, no banco, que a
+      // mesma entrega não seja faturada duas vezes.
+      if (sourceEntregaId && result?.sale_id) {
+        const { error: updateError } = await supabase
+          .from("entregas")
+          .update({ status_faturamento: "faturado", venda_id: result.sale_id })
+          .eq("id", sourceEntregaId)
+          .eq("status_faturamento", "nao_faturado");
+        if (updateError) {
+          console.error("Erro ao atualizar entrega faturada:", updateError);
+        }
+      }
 
       toast({
         title: "Venda registrada",

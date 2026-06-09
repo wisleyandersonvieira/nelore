@@ -13,8 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { SalesCreateModal } from "@/components/SalesCreateModal";
-import { ImportarVendaModal } from "@/components/ImportarVendaModal";
+import { SalesCreateModal, type SalesCreateInitialValues } from "@/components/SalesCreateModal";
+import { ImportarVendaModal, type EntregaImportavel } from "@/components/ImportarVendaModal";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
@@ -221,6 +221,36 @@ const SalesModule = () => {
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importPrefill, setImportPrefill] = useState<SalesCreateInitialValues | null>(null);
+  const [importEntregaId, setImportEntregaId] = useState<string | null>(null);
+
+  const ENTREGA_SALE_TYPE: Record<string, SaleType> = {
+    animal: "animal",
+    prenhez: "pregnancy",
+    aspiracao: "aspiration",
+  };
+
+  const handleNewSale = () => {
+    setImportPrefill(null);
+    setImportEntregaId(null);
+    setCreateOpen(true);
+  };
+
+  const handleImportEntrega = (entrega: EntregaImportavel) => {
+    const tipoLabel = entrega.tipo_item === "prenhez" ? "prenhez" : entrega.tipo_item === "aspiracao" ? "aspiração" : "animal";
+    setImportPrefill({
+      clientId: entrega.cliente_id || undefined,
+      saleType: ENTREGA_SALE_TYPE[entrega.tipo_item] || "animal",
+      itemId: entrega.registro_id,
+      saleDate: entrega.data_venda || undefined,
+      firstDueDate: entrega.data_venda || undefined,
+      totalAmount: entrega.valor_venda != null ? Number(entrega.valor_venda) : undefined,
+      description: `Venda de ${tipoLabel} - ${entrega.registro_nome || ""} para ${entrega.cliente_nome || ""}`.trim(),
+    });
+    setImportEntregaId(entrega.id);
+    setImportOpen(false);
+    setCreateOpen(true);
+  };
   const [selectedSale, setSelectedSale] = useState<SaleRow | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | SaleType>("all");
@@ -483,7 +513,7 @@ const SalesModule = () => {
               Importar Venda
             </Button>
             <Button
-              onClick={() => setCreateOpen(true)}
+              onClick={handleNewSale}
               className="h-11 rounded-2xl bg-emerald-600 px-5 text-white hover:bg-emerald-700"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -724,7 +754,15 @@ const SalesModule = () => {
 
       <SalesCreateModal
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            setImportPrefill(null);
+            setImportEntregaId(null);
+          }
+        }}
+        initialValues={importPrefill}
+        sourceEntregaId={importEntregaId}
         onSaved={async () => {
           await loadSales();
         }}
@@ -733,9 +771,7 @@ const SalesModule = () => {
       <ImportarVendaModal
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImported={async () => {
-          await loadSales();
-        }}
+        onImport={handleImportEntrega}
       />
 
       <Dialog open={Boolean(selectedSale)} onOpenChange={(open) => !open && setSelectedSale(null)}>
