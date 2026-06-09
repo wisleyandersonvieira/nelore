@@ -17,6 +17,7 @@ import { SalesCreateModal, type SalesCreateInitialValues } from "@/components/Sa
 import { ImportarVendaModal, type EntregaImportavel } from "@/components/ImportarVendaModal";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { cn } from "@/lib/utils";
 import {
@@ -236,11 +237,30 @@ const SalesModule = () => {
     setCreateOpen(true);
   };
 
-  const handleImportEntrega = (entrega: EntregaImportavel) => {
+  const handleImportEntrega = async (entrega: EntregaImportavel) => {
+    let saleType: SaleType = ENTREGA_SALE_TYPE[entrega.tipo_item] || "animal";
+    // Uma entrega de animal pode ser, na verdade, uma receptora. Detectamos isso
+    // para usar o mesmo tipo de venda ("recipient") de uma venda direta, garantindo
+    // que a alocação/referência no Contas a Receber fique correta.
+    if (entrega.tipo_item === "animal") {
+      try {
+        const [animalRes, recipientCategoryIds] = await Promise.all([
+          supabase.from("animals").select("category_id").eq("id", entrega.registro_id).maybeSingle(),
+          fetchRecipientCategoryIds(),
+        ]);
+        const categoryId = animalRes.data?.category_id;
+        if (categoryId && recipientCategoryIds.includes(categoryId)) {
+          saleType = "recipient";
+        }
+      } catch (error) {
+        console.error("Erro ao detectar categoria do animal importado:", error);
+      }
+    }
+
     const tipoLabel = entrega.tipo_item === "prenhez" ? "prenhez" : entrega.tipo_item === "aspiracao" ? "aspiração" : "animal";
     setImportPrefill({
       clientId: entrega.cliente_id || undefined,
-      saleType: ENTREGA_SALE_TYPE[entrega.tipo_item] || "animal",
+      saleType,
       itemId: entrega.registro_id,
       saleDate: entrega.data_venda || undefined,
       firstDueDate: entrega.data_venda || undefined,

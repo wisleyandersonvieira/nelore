@@ -845,8 +845,38 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         (allocData2 || []).forEach((a: any) => allocationsMap2.set(a.account_receivable_item_id, a));
       }
 
+      // Resolve os nomes das referências direto das tabelas de origem, sem os filtros
+      // de status/ativo usados nos dropdowns. Necessário para vendas importadas, cujo
+      // registro de origem já está vendido (e por isso fora das listas de alocação).
+      const directNameMap = new Map<string, string>();
+      {
+        const animalIds = new Set<string>();
+        const pregnancyIds = new Set<string>();
+        const embryoIds = new Set<string>();
+        const aspirationIds = new Set<string>();
+        Array.from(allocationsMap2.values()).forEach((a: any) => {
+          const targetId = getFinancialAllocationTargetId(a);
+          if (!targetId) return;
+          switch (a.allocation_type) {
+            case "animal":
+            case "recipient": animalIds.add(targetId); break;
+            case "pregnancy": pregnancyIds.add(targetId); break;
+            case "embryo_transfer": embryoIds.add(targetId); break;
+            case "aspiration": aspirationIds.add(targetId); break;
+          }
+        });
+        const [aRes, pRes, eRes, asRes] = await Promise.all([
+          animalIds.size ? supabase.from("animals").select("id, name").in("id", Array.from(animalIds)) : Promise.resolve({ data: [] as any[] }),
+          pregnancyIds.size ? supabase.from("pregnancy_management").select("id, name").in("id", Array.from(pregnancyIds)) : Promise.resolve({ data: [] as any[] }),
+          embryoIds.size ? supabase.from("embryo_transfer_management").select("id, name").in("id", Array.from(embryoIds)) : Promise.resolve({ data: [] as any[] }),
+          aspirationIds.size ? supabase.from("aspiration_management").select("id, name").in("id", Array.from(aspirationIds)) : Promise.resolve({ data: [] as any[] }),
+        ]);
+        [aRes, pRes, eRes, asRes].forEach((res: any) => (res.data || []).forEach((row: any) => directNameMap.set(row.id, row.name)));
+      }
+
       const formattedItems = (itemsData || []).map((item: any) => {
         const alloc = allocationsMap2.get(item.id);
+        const targetId = getFinancialAllocationTargetId(alloc);
         return {
           id: item.id,
           product_id: item.product_id,
@@ -857,8 +887,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
           store_id: item.store_id,
           store_name: item.stores?.name || "",
           allocation_type: alloc?.allocation_type || undefined,
-          allocation_id: getFinancialAllocationTargetId(alloc),
-          allocation_name: alloc ? getAllocationName(alloc.allocation_type, getFinancialAllocationTargetId(alloc) || "") : undefined,
+          allocation_id: targetId,
+          allocation_name: alloc
+            ? (getAllocationName(alloc.allocation_type, targetId || "") || directNameMap.get(targetId || "") || undefined)
+            : undefined,
         };
       });
 
