@@ -64,6 +64,7 @@ interface MigrationPayableRow {
   payment_date: string | null;
   status: string;
   notes: string | null;
+  created_at: string;
 }
 
 interface SupplierOption {
