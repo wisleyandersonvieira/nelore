@@ -129,6 +129,7 @@ interface PayableListRow {
   productId: string | null;
   status: string;
   notes: string | null;
+  createdAt: string;
 }
 
 interface PayableItemLookupRow {
