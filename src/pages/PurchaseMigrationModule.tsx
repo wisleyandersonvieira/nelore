@@ -1123,17 +1123,29 @@ const PurchaseMigrationModule = () => {
                       onCheckedChange={(checked) => handleToggleAllVisible(Boolean(checked))}
                     />
                   </TableHead>
-                  <TableHead>Migração</TableHead>
-                  <TableHead>Fornecedor</TableHead>
-                  <TableHead>Descrição</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("supplierName")}>
+                    <div className="flex items-center gap-1">Fornecedor <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("description")}>
+                    <div className="flex items-center gap-1">Descrição <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
                   <TableHead>Documento</TableHead>
-                  <TableHead>Emissão</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("issueDate")}>
+                    <div className="flex items-center gap-1">Emissão <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("dueDate")}>
+                    <div className="flex items-center gap-1">Vencimento <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer text-right" onClick={() => handleSort("totalAmount")}>
+                    <div className="flex items-center justify-end gap-1">Valor <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
                   <TableHead className="text-center">Parcelas</TableHead>
                   <TableHead className="text-right">Pago</TableHead>
                   <TableHead className="text-right">Pendente</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("createdAt")}>
+                    <div className="flex items-center gap-1">Data real do cadastro <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
                   <TableHead>Compra vinculada</TableHead>
                 </TableRow>
               </TableHeader>
