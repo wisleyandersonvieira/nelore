@@ -1210,6 +1210,7 @@ const PurchaseMigrationModule = () => {
                           {row.status === "paid" ? "Pago" : row.status === "partial" ? "Parcial" : "Pendente"}
                         </Badge>
                       </TableCell>
+                      <TableCell>{formatDateBR(row.createdAt)}</TableCell>
                       <TableCell>
                         {row.purchaseCode ? (
                           <div className="flex items-center gap-2">
