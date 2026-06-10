@@ -1551,156 +1551,6 @@ export type Database = {
           },
         ]
       }
-      entregas: {
-        Row: {
-          cliente_id: string | null
-          cliente_nome: string | null
-          code: number
-          created_at: string
-          created_by: string | null
-          data_entrega: string | null
-          data_prevista_entrega: string | null
-          data_venda: string | null
-          id: string
-          manter_fazenda_propria: boolean
-          observacoes_entrega: string | null
-          origem_sale_id: string | null
-          percentual_venda: number | null
-          registro_id: string
-          registro_nome: string | null
-          status_entrega: string
-          status_faturamento: string
-          store_id: string
-          tipo_item: string
-          updated_at: string
-          valor_venda: number | null
-          venda_id: string | null
-        }
-        Insert: {
-          cliente_id?: string | null
-          cliente_nome?: string | null
-          code: number
-          created_at?: string
-          created_by?: string | null
-          data_entrega?: string | null
-          data_prevista_entrega?: string | null
-          data_venda?: string | null
-          id?: string
-          manter_fazenda_propria?: boolean
-          observacoes_entrega?: string | null
-          origem_sale_id?: string | null
-          percentual_venda?: number | null
-          registro_id: string
-          registro_nome?: string | null
-          status_entrega?: string
-          status_faturamento?: string
-          store_id: string
-          tipo_item: string
-          updated_at?: string
-          valor_venda?: number | null
-          venda_id?: string | null
-        }
-        Update: {
-          cliente_id?: string | null
-          cliente_nome?: string | null
-          code?: number
-          created_at?: string
-          created_by?: string | null
-          data_entrega?: string | null
-          data_prevista_entrega?: string | null
-          data_venda?: string | null
-          id?: string
-          manter_fazenda_propria?: boolean
-          observacoes_entrega?: string | null
-          origem_sale_id?: string | null
-          percentual_venda?: number | null
-          registro_id?: string
-          registro_nome?: string | null
-          status_entrega?: string
-          status_faturamento?: string
-          store_id?: string
-          tipo_item?: string
-          updated_at?: string
-          valor_venda?: number | null
-          venda_id?: string | null
-        }
-        Relationships: []
-      }
-      entrega_anexos: {
-        Row: {
-          created_at: string
-          entrega_id: string
-          file_name: string
-          file_size: number | null
-          file_type: string | null
-          file_url: string
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          entrega_id: string
-          file_name: string
-          file_size?: number | null
-          file_type?: string | null
-          file_url: string
-          id?: string
-        }
-        Update: {
-          created_at?: string
-          entrega_id?: string
-          file_name?: string
-          file_size?: number | null
-          file_type?: string | null
-          file_url?: string
-          id?: string
-        }
-        Relationships: []
-      }
-      reproducoes: {
-        Row: {
-          animal_gerado_id: string | null
-          animal_mae_id: string
-          aspiracao_id: string | null
-          code: number
-          created_at: string
-          id: string
-          observacao: string | null
-          pos_transferencia_id: string | null
-          prenhez_id: string | null
-          status: string
-          store_id: string
-          updated_at: string
-        }
-        Insert: {
-          animal_gerado_id?: string | null
-          animal_mae_id: string
-          aspiracao_id?: string | null
-          code: number
-          created_at?: string
-          id?: string
-          observacao?: string | null
-          pos_transferencia_id?: string | null
-          prenhez_id?: string | null
-          status?: string
-          store_id: string
-          updated_at?: string
-        }
-        Update: {
-          animal_gerado_id?: string | null
-          animal_mae_id?: string
-          aspiracao_id?: string | null
-          code?: number
-          created_at?: string
-          id?: string
-          observacao?: string | null
-          pos_transferencia_id?: string | null
-          prenhez_id?: string | null
-          status?: string
-          store_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       aspiration_management: {
         Row: {
           aspiration_date: string | null
@@ -3984,6 +3834,205 @@ export type Database = {
           },
         ]
       }
+      entrega_anexos: {
+        Row: {
+          created_at: string
+          entrega_id: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          entrega_id: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          entrega_id?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrega_anexos_entrega_id_fkey"
+            columns: ["entrega_id"]
+            isOneToOne: false
+            referencedRelation: "entregas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entrega_clientes: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          entrega_id: string
+          id: string
+          percentual_animal: number | null
+          percentual_venda: number
+          status_faturamento: string
+          updated_at: string
+          valor_venda: number
+          venda_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          entrega_id: string
+          id?: string
+          percentual_animal?: number | null
+          percentual_venda: number
+          status_faturamento?: string
+          updated_at?: string
+          valor_venda: number
+          venda_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          entrega_id?: string
+          id?: string
+          percentual_animal?: number | null
+          percentual_venda?: number
+          status_faturamento?: string
+          updated_at?: string
+          valor_venda?: number
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrega_clientes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrega_clientes_entrega_id_fkey"
+            columns: ["entrega_id"]
+            isOneToOne: false
+            referencedRelation: "entregas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrega_clientes_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregas: {
+        Row: {
+          cliente_id: string | null
+          cliente_nome: string | null
+          code: number
+          created_at: string
+          created_by: string | null
+          data_entrega: string | null
+          data_prevista_entrega: string | null
+          data_venda: string | null
+          id: string
+          manter_fazenda_propria: boolean
+          observacoes_entrega: string | null
+          origem_sale_id: string | null
+          percentual_venda: number | null
+          registro_id: string
+          registro_nome: string | null
+          status_entrega: string
+          status_faturamento: string
+          store_id: string
+          tipo_item: string
+          updated_at: string
+          valor_venda: number | null
+          venda_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          code: number
+          created_at?: string
+          created_by?: string | null
+          data_entrega?: string | null
+          data_prevista_entrega?: string | null
+          data_venda?: string | null
+          id?: string
+          manter_fazenda_propria?: boolean
+          observacoes_entrega?: string | null
+          origem_sale_id?: string | null
+          percentual_venda?: number | null
+          registro_id: string
+          registro_nome?: string | null
+          status_entrega?: string
+          status_faturamento?: string
+          store_id: string
+          tipo_item: string
+          updated_at?: string
+          valor_venda?: number | null
+          venda_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          code?: number
+          created_at?: string
+          created_by?: string | null
+          data_entrega?: string | null
+          data_prevista_entrega?: string | null
+          data_venda?: string | null
+          id?: string
+          manter_fazenda_propria?: boolean
+          observacoes_entrega?: string | null
+          origem_sale_id?: string | null
+          percentual_venda?: number | null
+          registro_id?: string
+          registro_nome?: string | null
+          status_entrega?: string
+          status_faturamento?: string
+          store_id?: string
+          tipo_item?: string
+          updated_at?: string
+          valor_venda?: number | null
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregas_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregas_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           account_id: string
@@ -5109,6 +5158,94 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reproducoes: {
+        Row: {
+          animal_gerado_id: string | null
+          animal_mae_id: string
+          aspiracao_id: string | null
+          code: number
+          created_at: string
+          id: string
+          observacao: string | null
+          pos_transferencia_id: string | null
+          prenhez_id: string | null
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          animal_gerado_id?: string | null
+          animal_mae_id: string
+          aspiracao_id?: string | null
+          code: number
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          pos_transferencia_id?: string | null
+          prenhez_id?: string | null
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          animal_gerado_id?: string | null
+          animal_mae_id?: string
+          aspiracao_id?: string | null
+          code?: number
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          pos_transferencia_id?: string | null
+          prenhez_id?: string | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reproducoes_animal_gerado_id_fkey"
+            columns: ["animal_gerado_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproducoes_animal_mae_id_fkey"
+            columns: ["animal_mae_id"]
+            isOneToOne: false
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproducoes_aspiracao_id_fkey"
+            columns: ["aspiracao_id"]
+            isOneToOne: false
+            referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproducoes_pos_transferencia_id_fkey"
+            columns: ["pos_transferencia_id"]
+            isOneToOne: false
+            referencedRelation: "embryo_transfer_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproducoes_prenhez_id_fkey"
+            columns: ["prenhez_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancy_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproducoes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -6790,6 +6927,18 @@ export type Database = {
       refresh_aspiration_batch_summary: {
         Args: { p_aspiration_id: string }
         Returns: undefined
+      }
+      register_operational_sale: {
+        Args: {
+          p_clients: Json
+          p_data_prevista: string
+          p_item_id: string
+          p_owners?: Json
+          p_sale_date: string
+          p_tipo: string
+          p_total: number
+        }
+        Returns: string
       }
       reverse_accounts_payable_payment_batch: {
         Args: { p_batch_id: string }
