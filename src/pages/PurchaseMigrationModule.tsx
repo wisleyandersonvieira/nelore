@@ -549,6 +549,7 @@ const PurchaseMigrationModule = () => {
           productId: uniqueProductIds.length === 1 ? uniqueProductIds[0] : null,
           status: payable.status,
           notes: payable.notes,
+          createdAt: payable.created_at,
         } satisfies PayableListRow;
       });
 
