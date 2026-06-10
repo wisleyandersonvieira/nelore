@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -135,6 +135,7 @@ const emptyGroupCommon = {
 
 const Receptoras = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<ReceptoraRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -385,6 +386,18 @@ const Receptoras = () => {
     if (!selectedRecord || activeTab !== "financeiro") return;
     fetchFinancial(selectedRecord.id);
   }, [selectedRecord, activeTab]);
+
+  // Abre automaticamente o cadastro vindo do Rebanho (?open=<id>)
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId || records.length === 0) return;
+    const record = records.find((r) => r.id === openId);
+    if (record) {
+      openEditModal(record, "view");
+      searchParams.delete("open");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, records]);
 
   const fetchFinancial = async (animalId: string) => {
     const cached = financialCacheRef.current.get(animalId);

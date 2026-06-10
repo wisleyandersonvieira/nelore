@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,7 @@ const INITIAL_ITEMS = 10;
 
 const AnimaisTransferenciaEmbriao = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<EmbryoTransferRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -175,6 +176,18 @@ const AnimaisTransferenciaEmbriao = () => {
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
 
   useEffect(() => { fetchRecords(); fetchDropdownData(); }, []);
+
+  // Abre automaticamente o cadastro vindo do Rebanho (?open=<id>)
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId || records.length === 0) return;
+    const record = records.find((r) => r.id === openId);
+    if (record) {
+      handleOpenModal("view", record);
+      searchParams.delete("open");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, records]);
 
   // Load recipient names for table display
   useEffect(() => {

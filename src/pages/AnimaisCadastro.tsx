@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
 import { CreateLeilaoModal } from "@/components/CreateLeilaoModal";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,6 +132,7 @@ interface WeighingWithGMD extends WeighingRecord {
 
 const AnimaisCadastro = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [soldAnimalIds, setSoldAnimalIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -322,6 +323,18 @@ const AnimaisCadastro = () => {
     fetchDropdownData();
     fetchClients();
   }, []);
+
+  // Abre automaticamente o cadastro do animal vindo do Rebanho (?open=<id>)
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId || animals.length === 0) return;
+    const animal = animals.find((a) => a.id === openId);
+    if (animal) {
+      handleOpenModal("view", animal);
+      searchParams.delete("open");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, animals]);
 
   const getUserStoreId = async (userId: string): Promise<string | null> => {
     const { data: profile } = await supabase

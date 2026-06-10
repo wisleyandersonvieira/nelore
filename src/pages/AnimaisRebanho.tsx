@@ -1574,8 +1574,8 @@ const AnimaisRebanho = () => {
       </main>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="w-[95vw] max-w-5xl max-h-[88vh] overflow-hidden p-0">
-          <div className="p-6 border-b bg-slate-50/70">
+        <DialogContent className="w-[95vw] max-w-5xl max-h-[88vh] overflow-hidden p-0 flex flex-col">
+          <div className="p-6 border-b bg-slate-50/70 shrink-0">
             <DialogHeader>
               <DialogTitle className="text-slate-900">
                 {selectedDetail ? `${categoryTitle[selectedDetail.category]} - ${selectedDetail.name}` : "Detalhes"}
@@ -1589,7 +1589,7 @@ const AnimaisRebanho = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(categoryModuleRoute[selectedDetail.category])}
+                  onClick={() => navigate(`${categoryModuleRoute[selectedDetail.category]}?open=${selectedDetail.id}`)}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Abrir cadastro completo
@@ -1598,7 +1598,7 @@ const AnimaisRebanho = () => {
             )}
           </div>
 
-          <div className="px-6 pb-6 overflow-y-auto">
+          <div className="px-6 pb-6 overflow-y-auto flex-1 min-h-0">
             {detailLoading ? (
               <div className="py-10 text-center text-slate-500">Carregando detalhes do cadastro...</div>
             ) : (
