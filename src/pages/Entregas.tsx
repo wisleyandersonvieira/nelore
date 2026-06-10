@@ -81,8 +81,21 @@ const ENTREGA_META: Record<string, { label: string; className: string }> = {
 
 const FATURAMENTO_META: Record<string, { label: string; className: string }> = {
   nao_faturado: { label: "Não faturado", className: "bg-muted text-muted-foreground border-border" },
+  parcialmente_faturado: { label: "Parcialmente faturado", className: "bg-amber-100 text-amber-700 border-amber-200" },
   faturado: { label: "Faturado", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
 };
+
+interface EntregaClienteRow {
+  id: string;
+  entrega_id: string;
+  cliente_id: string | null;
+  cliente_nome: string | null;
+  percentual_venda: number | null;
+  valor_venda: number | null;
+  percentual_animal: number | null;
+  status_faturamento: string;
+  venda_id: string | null;
+}
 
 const Entregas = () => {
   const navigate = useNavigate();
@@ -113,6 +126,10 @@ const Entregas = () => {
   // View
   const [viewRecord, setViewRecord] = useState<EntregaRecord | null>(null);
 
+  // Clientes da entrega
+  const [clientesByEntrega, setClientesByEntrega] = useState<Record<string, EntregaClienteRow[]>>({});
+  const [clientesRecord, setClientesRecord] = useState<EntregaRecord | null>(null);
+
   // Mark as delivered modal
   const [deliverRecord, setDeliverRecord] = useState<EntregaRecord | null>(null);
   const [deliverDate, setDeliverDate] = useState<Date | null>(null);
@@ -142,6 +159,22 @@ const Entregas = () => {
       const { data, error } = await query;
       if (error) throw error;
       setRecords((data || []) as EntregaRecord[]);
+
+      // Clientes vinculados a cada entrega
+      const ids = (data || []).map((d: any) => d.id);
+      if (ids.length > 0) {
+        const { data: cli } = await (supabase as any)
+          .from("entrega_clientes")
+          .select("*")
+          .in("entrega_id", ids);
+        const map: Record<string, EntregaClienteRow[]> = {};
+        (cli || []).forEach((c: EntregaClienteRow) => {
+          (map[c.entrega_id] = map[c.entrega_id] || []).push(c);
+        });
+        setClientesByEntrega(map);
+      } else {
+        setClientesByEntrega({});
+      }
     } catch (error) {
       console.error("Erro ao carregar entregas:", error);
       toast({ title: "Erro", description: "Não foi possível carregar as entregas.", variant: "destructive" });
@@ -182,8 +215,26 @@ const Entregas = () => {
     fazenda: records.filter((r) => r.status_entrega === "manter_fazenda_propria").length,
     entregues: records.filter((r) => r.status_entrega === "entregue").length,
     naoFaturadas: records.filter((r) => r.status_faturamento === "nao_faturado").length,
+    parciais: records.filter((r) => r.status_faturamento === "parcialmente_faturado").length,
     faturadas: records.filter((r) => r.status_faturamento === "faturado").length,
   }), [records]);
+
+  // Lista de clientes de uma entrega (com fallback para o cliente da própria entrega)
+  const clientesDe = (r: EntregaRecord): EntregaClienteRow[] => {
+    const list = clientesByEntrega[r.id];
+    if (list && list.length > 0) return list;
+    return [{
+      id: r.id, entrega_id: r.id, cliente_id: r.cliente_id, cliente_nome: r.cliente_nome,
+      percentual_venda: 100, valor_venda: r.valor_venda, percentual_animal: r.percentual_venda,
+      status_faturamento: r.status_faturamento, venda_id: r.venda_id,
+    }];
+  };
+
+  const clienteLabel = (r: EntregaRecord): string => {
+    const list = clientesDe(r);
+    const first = list[0]?.cliente_nome || "-";
+    return list.length > 1 ? `${first} +${list.length - 1}` : first;
+  };
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -341,6 +392,7 @@ const Entregas = () => {
     { title: "Mantidas na fazenda", value: summary.fazenda, icon: Home, accent: "from-sky-500/18 to-sky-500/5 text-sky-700" },
     { title: "Entregues", value: summary.entregues, icon: PackageCheck, accent: "from-green-500/18 to-green-500/5 text-green-700" },
     { title: "Não faturadas", value: summary.naoFaturadas, icon: FileX, accent: "from-muted to-muted text-muted-foreground" },
+    { title: "Parcialmente faturadas", value: summary.parciais, icon: Receipt, accent: "from-amber-500/18 to-amber-500/5 text-amber-700" },
     { title: "Faturadas", value: summary.faturadas, icon: Receipt, accent: "from-emerald-500/18 to-emerald-500/5 text-emerald-700" },
   ];
 
@@ -430,6 +482,7 @@ const Entregas = () => {
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="nao_faturado">Não faturado</SelectItem>
+                    <SelectItem value="parcialmente_faturado">Parcialmente faturado</SelectItem>
                     <SelectItem value="faturado">Faturado</SelectItem>
                   </SelectContent>
                 </Select>
@@ -493,7 +546,7 @@ const Entregas = () => {
               ) : paginated.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">#{r.code}</TableCell>
-                  <TableCell>{r.cliente_nome || "-"}</TableCell>
+                  <TableCell>{clienteLabel(r)}</TableCell>
                   <TableCell>{TIPO_LABEL[r.tipo_item] || r.tipo_item}</TableCell>
                   <TableCell>{r.registro_nome || "-"}</TableCell>
                   <TableCell>{formatDateBR(r.data_venda)}</TableCell>
@@ -519,6 +572,9 @@ const Entregas = () => {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setViewRecord(r)}>
                           <Eye className="mr-2 h-4 w-4" /> Visualizar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setClientesRecord(r)}>
+                          <Receipt className="mr-2 h-4 w-4" /> Visualizar clientes
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openDeliver(r)} disabled={r.status_entrega === "entregue"}>
                           <Truck className="mr-2 h-4 w-4" /> Marcar como entregue
@@ -580,6 +636,55 @@ const Entregas = () => {
             </div>
           )}
           <DialogFooter><Button variant="outline" onClick={() => setViewRecord(null)}>Fechar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clientes da venda modal */}
+      <Dialog open={!!clientesRecord} onOpenChange={(o) => !o && setClientesRecord(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Clientes da venda — Entrega #{clientesRecord?.code}</DialogTitle>
+            <DialogDescription>Participação de cada cliente nesta venda operacional.</DialogDescription>
+          </DialogHeader>
+          {clientesRecord && (
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-right">% Venda</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-right">% Animal</TableHead>
+                    <TableHead>Faturamento</TableHead>
+                    <TableHead className="text-right">Venda vinculada</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientesDe(clientesRecord).map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.cliente_nome || "-"}</TableCell>
+                      <TableCell className="text-right">{c.percentual_venda != null ? `${c.percentual_venda}%` : "-"}</TableCell>
+                      <TableCell className="text-right">{c.valor_venda != null ? formatCurrencyBRL(Number(c.valor_venda)) : "-"}</TableCell>
+                      <TableCell className="text-right">{c.percentual_animal != null ? `${c.percentual_animal}%` : "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("font-medium", FATURAMENTO_META[c.status_faturamento]?.className)}>
+                          {FATURAMENTO_META[c.status_faturamento]?.label || c.status_faturamento}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {c.venda_id ? (
+                          <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/sales")}>
+                            <Receipt className="h-3.5 w-3.5" /> Abrir
+                          </Button>
+                        ) : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter><Button variant="outline" onClick={() => setClientesRecord(null)}>Fechar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

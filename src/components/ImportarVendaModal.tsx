@@ -18,25 +18,28 @@ import { toast } from "@/hooks/use-toast";
 import { fetchAccessibleStoreScope, formatCurrencyBRL } from "@/lib/sales";
 
 export interface EntregaImportavel {
-  id: string;
-  code: number;
+  /** id do registro em entrega_clientes (cliente específico) */
+  entrega_cliente_id: string;
+  entrega_id: string;
   cliente_id: string | null;
   cliente_nome: string | null;
+  percentual_venda: number | null;
+  valor_venda: number | null; // valor correspondente a este cliente
+  status_faturamento: string;
+  venda_id: string | null;
+  // dados da entrega (item vendido)
+  code: number;
   tipo_item: string;
   registro_id: string;
   registro_nome: string | null;
   data_venda: string | null;
-  valor_venda: number | null;
-  percentual_venda: number | null;
   status_entrega: string;
-  status_faturamento: string;
-  venda_id: string | null;
 }
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Chamado quando o usuário escolhe importar uma entrega não faturada. */
+  /** Chamado quando o usuário escolhe importar um cliente ainda não faturado. */
   onImport: (entrega: EntregaImportavel) => void;
 }
 
@@ -66,20 +69,40 @@ export function ImportarVendaModal({ open, onOpenChange, onImport }: Props) {
         setLoading(false);
         return;
       }
-      let query = supabase
-        .from("entregas")
-        .select("*")
-        .eq("status_faturamento", "nao_faturado")
-        .is("venda_id", null)
-        .order("code", { ascending: false });
-      if (storeIds && storeIds.length > 0) {
-        query = query.in("store_id", storeIds);
-      }
-      const { data, error } = await query;
+      // Uma linha por cliente ainda não faturado (venda_id IS NULL).
+      const { data, error } = await (supabase as any)
+        .from("entrega_clientes")
+        .select(
+          "id, entrega_id, cliente_id, cliente_nome, percentual_venda, valor_venda, status_faturamento, venda_id, " +
+          "entregas!inner(code, tipo_item, registro_id, registro_nome, data_venda, status_entrega, store_id)"
+        )
+        .is("venda_id", null);
       if (error) throw error;
-      setRows((data || []) as EntregaImportavel[]);
+
+      const allowed = Array.isArray(storeIds) && storeIds.length > 0 ? new Set(storeIds) : null;
+      const mapped: EntregaImportavel[] = (data || [])
+        .filter((r: any) => !allowed || allowed.has(r.entregas?.store_id))
+        .map((r: any) => ({
+          entrega_cliente_id: r.id,
+          entrega_id: r.entrega_id,
+          cliente_id: r.cliente_id,
+          cliente_nome: r.cliente_nome,
+          percentual_venda: r.percentual_venda,
+          valor_venda: r.valor_venda,
+          status_faturamento: r.status_faturamento,
+          venda_id: r.venda_id,
+          code: r.entregas?.code,
+          tipo_item: r.entregas?.tipo_item,
+          registro_id: r.entregas?.registro_id,
+          registro_nome: r.entregas?.registro_nome,
+          data_venda: r.entregas?.data_venda,
+          status_entrega: r.entregas?.status_entrega,
+        }))
+        .sort((a, b) => (b.code || 0) - (a.code || 0));
+
+      setRows(mapped);
     } catch (error: any) {
-      toast({ title: "Erro", description: error?.message || "Falha ao carregar entregas.", variant: "destructive" });
+      toast({ title: "Erro", description: error?.message || "Falha ao carregar vendas.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -108,14 +131,14 @@ export function ImportarVendaModal({ open, onOpenChange, onImport }: Props) {
 
   const handleImportClick = async (row: EntregaImportavel) => {
     // Revalida no banco para evitar importação duplicada.
-    const { data: fresh, error } = await supabase
-      .from("entregas").select("status_faturamento, venda_id").eq("id", row.id).single();
+    const { data: fresh, error } = await (supabase as any)
+      .from("entrega_clientes").select("status_faturamento, venda_id").eq("id", row.entrega_cliente_id).single();
     if (error) {
-      toast({ title: "Erro", description: "Não foi possível validar a entrega.", variant: "destructive" });
+      toast({ title: "Erro", description: "Não foi possível validar a venda.", variant: "destructive" });
       return;
     }
     if (fresh.status_faturamento !== "nao_faturado" || fresh.venda_id) {
-      toast({ title: "Entrega já faturada", description: "Esta entrega já foi faturada e não pode ser importada novamente.", variant: "destructive" });
+      toast({ title: "Cliente já faturado", description: "Este cliente já foi faturado nesta entrega.", variant: "destructive" });
       loadData();
       return;
     }
@@ -128,7 +151,7 @@ export function ImportarVendaModal({ open, onOpenChange, onImport }: Props) {
         <DialogHeader>
           <DialogTitle>Importar Venda</DialogTitle>
           <DialogDescription>
-            Selecione uma venda ainda não faturada para importar para o módulo Comercial.
+            Selecione um cliente ainda não faturado para importar para o módulo Comercial. Cada cliente gera uma venda individual.
           </DialogDescription>
         </DialogHeader>
 
@@ -175,23 +198,25 @@ export function ImportarVendaModal({ open, onOpenChange, onImport }: Props) {
                 <TableHead>Data da venda</TableHead>
                 <TableHead>Valor</TableHead>
                 <TableHead>% Venda</TableHead>
+                <TableHead>Entrega</TableHead>
                 <TableHead>Status entrega</TableHead>
                 <TableHead className="text-right">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Nenhuma venda não faturada.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Nenhuma venda não faturada.</TableCell></TableRow>
               ) : filtered.map((r) => (
-                <TableRow key={r.id}>
+                <TableRow key={r.entrega_cliente_id}>
                   <TableCell>{r.cliente_nome || "-"}</TableCell>
                   <TableCell>{TIPO_LABEL[r.tipo_item]}</TableCell>
                   <TableCell>{r.registro_nome || "-"}</TableCell>
                   <TableCell>{r.data_venda ? new Date(`${r.data_venda}T12:00:00`).toLocaleDateString("pt-BR") : "-"}</TableCell>
                   <TableCell>{r.valor_venda != null ? formatCurrencyBRL(Number(r.valor_venda)) : "-"}</TableCell>
                   <TableCell>{r.percentual_venda != null ? `${r.percentual_venda}%` : "-"}</TableCell>
+                  <TableCell>#{r.code}</TableCell>
                   <TableCell><Badge variant="outline">{ENTREGA_LABEL[r.status_entrega]}</Badge></TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" className="gap-1" onClick={() => handleImportClick(r)}>

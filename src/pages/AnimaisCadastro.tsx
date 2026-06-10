@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
 import { CreateLeilaoModal } from "@/components/CreateLeilaoModal";
+import { SaleModal } from "@/components/SaleModal";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -755,58 +756,8 @@ const AnimaisCadastro = () => {
     }
   };
 
-  const handleOpenSaleModal = async (animal: Animal) => {
+  const handleOpenSaleModal = (animal: Animal) => {
     setSaleAnimal(animal);
-    setSaleClientId("");
-    setSaleDate(null);
-    setSaleExpectedDeliveryDate(null);
-    setSaleValue("");
-    setSalePercentage("");
-    setClientSearchTerm("");
-    fetchClients();
-    
-    // Fetch current owners for this animal
-    try {
-      const { data: owners } = await supabase
-        .from("animal_owners")
-        .select("owner_id, owner_type, store_owner_id, third_party_farm_id, percentage")
-        .eq("animal_id", animal.id);
-      
-      const ownersWithNames: { owner_id: string; owner_name: string; percentage: number; owner_type: string; store_owner_id: string | null; third_party_farm_id: string | null }[] = [];
-      for (const o of owners || []) {
-        const ownerType = (o as any).owner_type || "supplier";
-        let ownerName = "N/A";
-        const effectiveId = ownerType === "store"
-          ? (o as any).store_owner_id
-          : ownerType === "third_party_farm"
-            ? (o as any).third_party_farm_id
-            : o.owner_id;
-        
-        if (ownerType === "store" && (o as any).store_owner_id) {
-          const { data: store } = await supabase.from("stores").select("name").eq("id", (o as any).store_owner_id).single();
-          ownerName = store?.name || "Fazenda não encontrada";
-        } else if (ownerType === "third_party_farm" && (o as any).third_party_farm_id) {
-          const { data: farm } = await supabase.from("third_party_farms").select("name").eq("id", (o as any).third_party_farm_id).single();
-          ownerName = farm?.name || "Fazenda não encontrada";
-        } else if (o.owner_id) {
-          const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", o.owner_id).single();
-          ownerName = supplier?.name || "N/A";
-        }
-        ownersWithNames.push({
-          owner_id: effectiveId || "",
-          owner_name: ownerName,
-          percentage: Number(o.percentage),
-          owner_type: ownerType,
-          store_owner_id: (o as any).store_owner_id || null,
-          third_party_farm_id: (o as any).third_party_farm_id || null,
-        });
-      }
-      setSaleOwners(ownersWithNames);
-    } catch (error) {
-      console.error("Error fetching owners for sale:", error);
-      setSaleOwners([]);
-    }
-    
     setSaleModalOpen(true);
   };
 
@@ -3038,175 +2989,13 @@ const AnimaisCadastro = () => {
       </Dialog>
 
       {/* Sale Modal */}
-      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Registrar Venda - {saleAnimal?.name}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Cliente *</Label>
-                <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between">
-                      {saleClientId ? clients.find(c => c.id === saleClientId)?.name || "Selecionar..." : "Selecionar cliente..."}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50">
-                    <div className="p-2">
-                      <Input
-                        placeholder="Pesquisar cliente..."
-                        value={clientSearchTerm}
-                        onChange={(e) => setClientSearchTerm(e.target.value)}
-                      />
-                    </div>
-                    <div className="max-h-[200px] overflow-y-auto">
-                      {clients
-                        .filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase()))
-                        .map(client => (
-                          <div
-                            key={client.id}
-                            className={cn(
-                              "px-3 py-2 cursor-pointer hover:bg-accent text-sm",
-                              saleClientId === client.id && "bg-accent font-medium"
-                            )}
-                            onClick={() => {
-                              setSaleClientId(client.id);
-                              setClientPopoverOpen(false);
-                            }}
-                          >
-                            {client.name}
-                          </div>
-                        ))}
-                      {clients.filter(c => c.name.toLowerCase().includes(clientSearchTerm.toLowerCase())).length === 0 && (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Data da Venda *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleDate && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {saleDate ? format(saleDate, "dd/MM/yyyy") : "Selecione..."}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={saleDate || undefined} onSelect={(d) => setSaleDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Valor da Venda (R$) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={saleValue}
-                    onChange={(e) => setSaleValue(e.target.value)}
-                    placeholder="0,00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>% de Venda *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="100"
-                    value={salePercentage}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      if (e.target.value === "" || (val >= 0 && val <= 100)) {
-                        setSalePercentage(e.target.value);
-                      }
-                    }}
-                    placeholder="0,00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Data prevista de entrega</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !saleExpectedDeliveryDate && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {saleExpectedDeliveryDate ? format(saleExpectedDeliveryDate, "dd/MM/yyyy") : "Selecione..."}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={saleExpectedDeliveryDate || undefined} onSelect={(d) => setSaleExpectedDeliveryDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-            </div>
-
-            {/* Owners Table - shown after client is selected */}
-            {saleClientId && saleOwners.length > 0 && (
-              <div className="border-t pt-4 space-y-2">
-                <Label className="text-base font-semibold">Proprietários Atuais</Label>
-                <p className="text-sm text-muted-foreground">Ajuste as participações dos proprietários conforme a venda.</p>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Proprietário</TableHead>
-                        <TableHead className="text-right">% Atual</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {saleOwners.map((owner, idx) => (
-                        <TableRow key={owner.owner_id}>
-                          <TableCell className="font-medium">{owner.owner_name}</TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              value={owner.percentage}
-                              onChange={(e) => {
-                                const val = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                                if (!isNaN(val) && val >= 0 && val <= 100) {
-                                  const updated = [...saleOwners];
-                                  updated[idx] = { ...updated[idx], percentage: val };
-                                  setSaleOwners(updated);
-                                }
-                              }}
-                              className="w-24 ml-auto text-right"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-muted rounded-lg text-sm">
-                  <span className="font-medium">Total Proprietários</span>
-                  <span className={cn("font-semibold", saleOwners.reduce((s, o) => s + o.percentage, 0) > 100 && "text-destructive")}>
-                    {saleOwners.reduce((s, o) => s + o.percentage, 0).toFixed(2)}%
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSale}>Salvar Venda</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SaleModal
+        open={saleModalOpen}
+        onOpenChange={setSaleModalOpen}
+        tipo="animal"
+        record={saleAnimal ? { id: saleAnimal.id, name: saleAnimal.name } : null}
+        onSaved={fetchAnimals}
+      />
 
       {/* Death Modal */}
       <Dialog open={deathModalOpen} onOpenChange={setDeathModalOpen}>

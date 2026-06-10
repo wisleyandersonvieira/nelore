@@ -224,6 +224,7 @@ const SalesModule = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [importPrefill, setImportPrefill] = useState<SalesCreateInitialValues | null>(null);
   const [importEntregaId, setImportEntregaId] = useState<string | null>(null);
+  const [importEntregaClienteId, setImportEntregaClienteId] = useState<string | null>(null);
 
   const ENTREGA_SALE_TYPE: Record<string, SaleType> = {
     animal: "animal",
@@ -234,6 +235,7 @@ const SalesModule = () => {
   const handleNewSale = () => {
     setImportPrefill(null);
     setImportEntregaId(null);
+    setImportEntregaClienteId(null);
     setCreateOpen(true);
   };
 
@@ -267,7 +269,8 @@ const SalesModule = () => {
       totalAmount: entrega.valor_venda != null ? Number(entrega.valor_venda) : undefined,
       description: `Venda de ${tipoLabel} - ${entrega.registro_nome || ""} para ${entrega.cliente_nome || ""}`.trim(),
     });
-    setImportEntregaId(entrega.id);
+    setImportEntregaId(entrega.entrega_id);
+    setImportEntregaClienteId(entrega.entrega_cliente_id);
     setImportOpen(false);
     setCreateOpen(true);
   };
@@ -779,10 +782,12 @@ const SalesModule = () => {
           if (!open) {
             setImportPrefill(null);
             setImportEntregaId(null);
+            setImportEntregaClienteId(null);
           }
         }}
         initialValues={importPrefill}
         sourceEntregaId={importEntregaId}
+        sourceEntregaClienteId={importEntregaClienteId}
         onSaved={async () => {
           await loadSales();
         }}

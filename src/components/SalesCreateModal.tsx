@@ -55,8 +55,10 @@ interface SalesCreateModalProps {
   onSaved: () => Promise<void> | void;
   /** Quando informado, pré-preenche o formulário (ex.: importação de uma entrega). */
   initialValues?: SalesCreateInitialValues | null;
-  /** Quando informado, a venda criada marca a entrega de origem como faturada. */
+  /** Quando informado, a venda criada marca a entrega de origem como faturada (legado / 1 cliente). */
   sourceEntregaId?: string | null;
+  /** Quando informado, a venda criada marca apenas este cliente da entrega como faturado. */
+  sourceEntregaClienteId?: string | null;
 }
 
 interface ClientOption {
@@ -92,7 +94,7 @@ const EMPTY_ITEMS: Record<SaleType, SaleItemOption[]> = {
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, sourceEntregaId }: SalesCreateModalProps) {
+export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, sourceEntregaId, sourceEntregaClienteId }: SalesCreateModalProps) {
   const { toast } = useToast();
   const { canEdit: canEditCadastros, canDelete: canDeleteCadastros } = useCadastrosPermissions();
   const [loading, setLoading] = useState(false);
@@ -454,8 +456,24 @@ export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, s
       return;
     }
 
-    // Evita importação duplicada: a entrega de origem precisa continuar não faturada.
-    if (sourceEntregaId) {
+    // Evita importação duplicada por cliente: o cliente da entrega precisa continuar não faturado.
+    if (sourceEntregaClienteId) {
+      const { data: cli, error: cliError } = await (supabase as any)
+        .from("entrega_clientes")
+        .select("status_faturamento, venda_id")
+        .eq("id", sourceEntregaClienteId)
+        .single();
+      if (cliError) {
+        toast({ title: "Erro", description: "Não foi possível validar o cliente da entrega.", variant: "destructive" });
+        return;
+      }
+      if (cli.status_faturamento !== "nao_faturado" || cli.venda_id) {
+        toast({ title: "Cliente já faturado", description: "Este cliente já foi faturado nesta entrega.", variant: "destructive" });
+        onOpenChange(false);
+        return;
+      }
+    } else if (sourceEntregaId) {
+      // Caminho legado (entrega sem clientes detalhados)
       const { data: entrega, error: entregaError } = await supabase
         .from("entregas")
         .select("status_faturamento, venda_id")
@@ -500,10 +518,20 @@ export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, s
         installments: effectiveInstallments,
       });
 
-      // Importação a partir de uma entrega: marca como faturada e vincula a venda.
-      // A condição status_faturamento = 'nao_faturado' garante, no banco, que a
-      // mesma entrega não seja faturada duas vezes.
-      if (sourceEntregaId && result?.sale_id) {
+      // Importação por cliente: marca o cliente da entrega como faturado e vincula a venda.
+      // O trigger recalc_entrega_faturamento atualiza o status geral da entrega
+      // (nao_faturado / parcialmente_faturado / faturado).
+      if (sourceEntregaClienteId && result?.sale_id) {
+        const { error: updateError } = await (supabase as any)
+          .from("entrega_clientes")
+          .update({ status_faturamento: "faturado", venda_id: result.sale_id })
+          .eq("id", sourceEntregaClienteId)
+          .is("venda_id", null);
+        if (updateError) {
+          console.error("Erro ao atualizar cliente da entrega faturado:", updateError);
+        }
+      } else if (sourceEntregaId && result?.sale_id) {
+        // Caminho legado (entrega sem clientes detalhados)
         const { error: updateError } = await supabase
           .from("entregas")
           .update({ status_faturamento: "faturado", venda_id: result.sale_id })
