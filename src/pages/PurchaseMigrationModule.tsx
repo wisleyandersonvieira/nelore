@@ -619,6 +619,31 @@ const PurchaseMigrationModule = () => {
     valueMin,
   ]);
 
+  const sortedRows = useMemo(() => {
+    if (!sortColumn) return filteredRows;
+    const direction = sortDirection === "asc" ? 1 : -1;
+    return [...filteredRows].sort((a, b) => {
+      const aVal = a[sortColumn as keyof PayableListRow];
+      const bVal = b[sortColumn as keyof PayableListRow];
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return (aVal - bVal) * direction;
+      }
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return aVal.localeCompare(bVal) * direction;
+      }
+      return 0;
+    });
+  }, [filteredRows, sortColumn, sortDirection]);
+
+  const handleSort = (column: keyof PayableListRow) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
   const selectedRows = useMemo(
     () => rows.filter((row) => selectedIds.includes(row.id)),
     [rows, selectedIds],
