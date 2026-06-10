@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import {
   ArrowRightLeft,
+  ArrowUpDown,
   CircleAlert,
   ExternalLink,
   Loader2,
@@ -64,6 +65,7 @@ interface MigrationPayableRow {
   payment_date: string | null;
   status: string;
   notes: string | null;
+  created_at: string;
 }
 
 interface SupplierOption {
@@ -128,6 +130,7 @@ interface PayableListRow {
   productId: string | null;
   status: string;
   notes: string | null;
+  createdAt: string;
 }
 
 interface PayableItemLookupRow {
@@ -196,6 +199,9 @@ const PurchaseMigrationModule = () => {
   const [descriptionFilter, setDescriptionFilter] = useState("");
   const [valueMin, setValueMin] = useState("");
   const [valueMax, setValueMax] = useState("");
+
+  const [sortColumn, setSortColumn] = useState<keyof PayableListRow | "">("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const [purchaseType, setPurchaseType] = useState<PurchaseType>("animal");
   const [itemId, setItemId] = useState("");
@@ -385,7 +391,7 @@ const PurchaseMigrationModule = () => {
         let query = supabase
           .from("accounts_payable")
           .select(
-            "id, supplier_id, store_id, purchase_id, purchase_link_origin, description, document_type, document_number, issue_date, due_date, data_competencia, amount, total_amount, payment_date, status, notes",
+            "id, supplier_id, store_id, purchase_id, purchase_link_origin, description, document_type, document_number, issue_date, due_date, data_competencia, amount, total_amount, payment_date, status, notes, created_at",
           )
           .order("due_date", { ascending: false });
 
@@ -543,6 +549,7 @@ const PurchaseMigrationModule = () => {
           productId: uniqueProductIds.length === 1 ? uniqueProductIds[0] : null,
           status: payable.status,
           notes: payable.notes,
+          createdAt: payable.created_at,
         } satisfies PayableListRow;
       });
 
@@ -611,6 +618,31 @@ const PurchaseMigrationModule = () => {
     valueMax,
     valueMin,
   ]);
+
+  const sortedRows = useMemo(() => {
+    if (!sortColumn) return filteredRows;
+    const direction = sortDirection === "asc" ? 1 : -1;
+    return [...filteredRows].sort((a, b) => {
+      const aVal = a[sortColumn as keyof PayableListRow];
+      const bVal = b[sortColumn as keyof PayableListRow];
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return (aVal - bVal) * direction;
+      }
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return aVal.localeCompare(bVal) * direction;
+      }
+      return 0;
+    });
+  }, [filteredRows, sortColumn, sortDirection]);
+
+  const handleSort = (column: keyof PayableListRow) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
 
   const selectedRows = useMemo(
     () => rows.filter((row) => selectedIds.includes(row.id)),
@@ -1091,29 +1123,41 @@ const PurchaseMigrationModule = () => {
                       onCheckedChange={(checked) => handleToggleAllVisible(Boolean(checked))}
                     />
                   </TableHead>
-                  <TableHead>Migração</TableHead>
-                  <TableHead>Fornecedor</TableHead>
-                  <TableHead>Descrição</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("supplierName")}>
+                    <div className="flex items-center gap-1">Fornecedor <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("description")}>
+                    <div className="flex items-center gap-1">Descrição <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
                   <TableHead>Documento</TableHead>
-                  <TableHead>Emissão</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("issueDate")}>
+                    <div className="flex items-center gap-1">Emissão <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("dueDate")}>
+                    <div className="flex items-center gap-1">Vencimento <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer text-right" onClick={() => handleSort("totalAmount")}>
+                    <div className="flex items-center justify-end gap-1">Valor <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
                   <TableHead className="text-center">Parcelas</TableHead>
                   <TableHead className="text-right">Pago</TableHead>
                   <TableHead className="text-right">Pendente</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("createdAt")}>
+                    <div className="flex items-center gap-1">Data real do cadastro <ArrowUpDown className="h-3 w-3" /></div>
+                  </TableHead>
                   <TableHead>Compra vinculada</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.length === 0 ? (
+                {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="h-28 text-center text-muted-foreground">
+                    <TableCell colSpan={14} className="h-28 text-center text-muted-foreground">
                       Nenhum lançamento encontrado com os filtros atuais.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRows.map((row) => (
+                  sortedRows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
                         <Checkbox
@@ -1166,6 +1210,7 @@ const PurchaseMigrationModule = () => {
                           {row.status === "paid" ? "Pago" : row.status === "partial" ? "Parcial" : "Pendente"}
                         </Badge>
                       </TableCell>
+                      <TableCell>{formatDateBR(row.createdAt)}</TableCell>
                       <TableCell>
                         {row.purchaseCode ? (
                           <div className="flex items-center gap-2">
