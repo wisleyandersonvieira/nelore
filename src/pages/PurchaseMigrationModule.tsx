@@ -200,6 +200,9 @@ const PurchaseMigrationModule = () => {
   const [valueMin, setValueMin] = useState("");
   const [valueMax, setValueMax] = useState("");
 
+  const [sortColumn, setSortColumn] = useState<keyof PayableListRow | "">("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   const [purchaseType, setPurchaseType] = useState<PurchaseType>("animal");
   const [itemId, setItemId] = useState("");
   const [itemSearchTerm, setItemSearchTerm] = useState("");
