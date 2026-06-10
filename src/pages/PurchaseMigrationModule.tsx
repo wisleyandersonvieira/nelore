@@ -1150,14 +1150,14 @@ const PurchaseMigrationModule = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.length === 0 ? (
+                {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="h-28 text-center text-muted-foreground">
+                    <TableCell colSpan={14} className="h-28 text-center text-muted-foreground">
                       Nenhum lançamento encontrado com os filtros atuais.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRows.map((row) => (
+                  sortedRows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
                         <Checkbox
