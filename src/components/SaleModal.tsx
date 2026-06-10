@@ -10,6 +10,9 @@ import { Calendar } from "@/components/ui/calendar";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { CalendarIcon, Plus, Search, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -66,6 +69,9 @@ const formatCurrency = (value: number) =>
 
 export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [auctions, setAuctions] = useState<{ id: string; name: string }[]>([]);
+  const [auctionId, setAuctionId] = useState("");
+  const [auctionLot, setAuctionLot] = useState("");
   const [saleDate, setSaleDate] = useState<Date | null>(null);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<Date | null>(null);
   const [totalValue, setTotalValue] = useState("");
@@ -85,7 +91,10 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
     setRows([emptyRow()]);
     setClientSearch("");
     setOpenClientPopover(null);
+    setAuctionId("");
+    setAuctionLot("");
     fetchClients();
+    fetchAuctions();
     fetchOwners(record.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, record?.id]);
@@ -103,6 +112,22 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
       setClients(data || []);
     } catch (error) {
       console.error("Error fetching clients:", error);
+    }
+  };
+
+  const fetchAuctions = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: profile } = await supabase
+        .from("profiles").select("matrix_id, store_id").eq("id", userData.user.id).single();
+      const query = profile?.matrix_id
+        ? supabase.from("leiloes").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true)
+        : supabase.from("leiloes").select("id, name").eq("store_id", profile?.store_id || "").eq("is_active", true);
+      const { data } = await query.order("date", { ascending: false });
+      setAuctions(data || []);
+    } catch (error) {
+      console.error("Error fetching auctions:", error);
     }
   };
 
@@ -222,7 +247,8 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
     !hasDuplicate &&
     Math.abs(distributedPct - 100) < 0.01 &&
     Math.abs(difference) < 0.01 &&
-    animalGrandTotal <= 100 + 0.01;
+    animalGrandTotal <= 100 + 0.01 &&
+    (!auctionId || auctionLot.trim() !== "");
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name || "Selecionar cliente...";
 
@@ -238,6 +264,10 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
     }
     if (animalGrandTotal > 100 + 0.01) {
       toast({ title: "Erro", description: `O somatório das participações dos proprietários (${ownersTotal.toFixed(2)}%) + venda do animal ultrapassa 100%.`, variant: "destructive" });
+      return;
+    }
+    if (auctionId && !auctionLot.trim()) {
+      toast({ title: "Erro", description: "Informe o lote do leilão.", variant: "destructive" });
       return;
     }
 
@@ -262,6 +292,8 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
           third_party_farm_id: o.third_party_farm_id,
           percentage: o.percentage,
         })),
+        p_auction_id: auctionId || null,
+        p_auction_lot: auctionLot.trim() || null,
       });
       if (error) throw error;
 
@@ -324,6 +356,29 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
                   <Calendar mode="single" selected={expectedDeliveryDate || undefined} onSelect={(d) => setExpectedDeliveryDate(d || null)} locale={ptBR} initialFocus className="pointer-events-auto" />
                 </PopoverContent>
               </Popover>
+            </div>
+          </div>
+
+          {/* Leilão da venda (opcional) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Leilão</Label>
+              <Select value={auctionId || "none"} onValueChange={(v) => setAuctionId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Selecionar leilão..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {auctions.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Lote{auctionId ? " *" : ""}</Label>
+              <Input
+                value={auctionLot}
+                onChange={(e) => setAuctionLot(e.target.value)}
+                placeholder="Lote no leilão"
+                disabled={!auctionId}
+              />
             </div>
           </div>
 

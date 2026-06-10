@@ -48,7 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type AuctionSortField = "code" | "name" | "date" | "city" | "linked_records_count";
+type AuctionSortField = "code" | "name" | "date" | "city" | "linked_records_count" | "sales_count";
 type SortDirection = "asc" | "desc";
 type ModalMode = "create" | "edit" | "view";
 type ModalTab = "details" | "linked";
@@ -78,6 +78,7 @@ interface AuctionOverviewRpcRow {
   pregnancy_count: number | string;
   aspiration_count: number | string;
   linked_records_count: number | string;
+  sales_count: number | string;
   total_count: number | string;
 }
 
@@ -98,6 +99,7 @@ interface AuctionRow {
   pregnancyCount: number;
   aspirationCount: number;
   linkedRecordsCount: number;
+  salesCount: number;
   totalCount: number;
 }
 
@@ -139,6 +141,17 @@ interface AspirationLinkedRow {
   embryo_count: number | null;
   auction_lot: string | null;
   created_at: string;
+}
+
+interface SaleLinkedRow {
+  id: string;
+  tipo: string;
+  registro: string;
+  code: number | null;
+  auction_lot: string | null;
+  sale_date: string | null;
+  sale_value: number | null;
+  cliente: string | null;
 }
 
 const emptyFormData = {
@@ -186,6 +199,7 @@ const normalizeAuctionRow = (row: AuctionOverviewRpcRow): AuctionRow => ({
   pregnancyCount: Number(row.pregnancy_count || 0),
   aspirationCount: Number(row.aspiration_count || 0),
   linkedRecordsCount: Number(row.linked_records_count || 0),
+  salesCount: Number(row.sales_count || 0),
   totalCount: Number(row.total_count || 0),
 });
 
@@ -303,6 +317,7 @@ const AnimaisLeiloes = () => {
   const [linkedAnimals, setLinkedAnimals] = useState<AnimalLinkedRow[]>([]);
   const [linkedPregnancies, setLinkedPregnancies] = useState<PregnancyLinkedRow[]>([]);
   const [linkedAspirations, setLinkedAspirations] = useState<AspirationLinkedRow[]>([]);
+  const [linkedSales, setLinkedSales] = useState<SaleLinkedRow[]>([]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [auctionToDelete, setAuctionToDelete] = useState<AuctionRow | null>(null);
@@ -380,7 +395,7 @@ const AnimaisLeiloes = () => {
   const loadLinkedRecords = useCallback(async (auctionId: string) => {
     setLinkedLoading(true);
     try {
-      const [animalsRes, pregnanciesRes, aspirationsRes] = await Promise.all([
+      const [animalsRes, pregnanciesRes, aspirationsRes, animalSalesRes, pregnancySalesRes, aspirationSalesRes] = await Promise.all([
         supabase
           .from("animals")
           .select("id, code, name, sex, registration, auction_lot, is_active, created_at")
@@ -396,6 +411,18 @@ const AnimaisLeiloes = () => {
           .select("id, code, name, status, aspiration_date, embryo_count, auction_lot, created_at")
           .eq("auction_id", auctionId)
           .order("name"),
+        (supabase as any)
+          .from("animal_sales")
+          .select("id, sale_date, sale_value, auction_lot, animals(code, name), suppliers(name)")
+          .eq("auction_id", auctionId),
+        (supabase as any)
+          .from("pregnancy_sales")
+          .select("id, sale_date, sale_value, auction_lot, pregnancy_management(code, name), suppliers(name)")
+          .eq("auction_id", auctionId),
+        (supabase as any)
+          .from("aspiration_sales")
+          .select("id, sale_date, sale_value, auction_lot, aspiration_management(code, name), suppliers(name)")
+          .eq("auction_id", auctionId),
       ]);
 
       if (animalsRes.error) throw animalsRes.error;
@@ -405,6 +432,23 @@ const AnimaisLeiloes = () => {
       setLinkedAnimals((animalsRes.data || []) as AnimalLinkedRow[]);
       setLinkedPregnancies((pregnanciesRes.data || []) as PregnancyLinkedRow[]);
       setLinkedAspirations((aspirationsRes.data || []) as AspirationLinkedRow[]);
+
+      const mapSale = (rows: any[], tipo: string, itemKey: string): SaleLinkedRow[] =>
+        (rows || []).map((s) => ({
+          id: s.id,
+          tipo,
+          registro: s[itemKey]?.name || "N/D",
+          code: s[itemKey]?.code ?? null,
+          auction_lot: s.auction_lot,
+          sale_date: s.sale_date,
+          sale_value: s.sale_value != null ? Number(s.sale_value) : null,
+          cliente: s.suppliers?.name || null,
+        }));
+      setLinkedSales([
+        ...mapSale(animalSalesRes.data, "Animal", "animals"),
+        ...mapSale(pregnancySalesRes.data, "Prenhez", "pregnancy_management"),
+        ...mapSale(aspirationSalesRes.data, "Aspiração", "aspiration_management"),
+      ]);
     } catch (error) {
       console.error("Erro ao carregar cadastros vinculados do leilão:", error);
       toast({
@@ -415,6 +459,7 @@ const AnimaisLeiloes = () => {
       setLinkedAnimals([]);
       setLinkedPregnancies([]);
       setLinkedAspirations([]);
+      setLinkedSales([]);
     } finally {
       setLinkedLoading(false);
     }
@@ -490,6 +535,7 @@ const AnimaisLeiloes = () => {
   );
 
   const modalLinkedCount = selectedAuction?.linkedRecordsCount || 0;
+  const modalSalesCount = selectedAuction?.salesCount || 0;
 
   const resetModalState = () => {
     setModalMode("create");
@@ -501,6 +547,7 @@ const AnimaisLeiloes = () => {
     setLinkedAnimals([]);
     setLinkedPregnancies([]);
     setLinkedAspirations([]);
+    setLinkedSales([]);
     setLinkedLoading(false);
   };
 
@@ -927,10 +974,20 @@ const AnimaisLeiloes = () => {
                         onToggle={toggleSort}
                       />
                     </TableHead>
-                    <TableHead className="w-[130px] text-center">
+                    <TableHead className="w-[110px] text-center">
                       <SortableHeader
                         label="Compras"
                         field="linked_records_count"
+                        currentField={sortField}
+                        currentDirection={sortDirection}
+                        onToggle={toggleSort}
+                        align="center"
+                      />
+                    </TableHead>
+                    <TableHead className="w-[110px] text-center">
+                      <SortableHeader
+                        label="Vendas"
+                        field="sales_count"
                         currentField={sortField}
                         currentDirection={sortDirection}
                         onToggle={toggleSort}
@@ -943,7 +1000,7 @@ const AnimaisLeiloes = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-28 text-center">
+                      <TableCell colSpan={7} className="h-28 text-center">
                         <div className="flex items-center justify-center gap-2 text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Carregando leilões...
@@ -952,7 +1009,7 @@ const AnimaisLeiloes = () => {
                     </TableRow>
                   ) : auctions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
                         Nenhum leilão encontrado com os filtros atuais.
                       </TableCell>
                     </TableRow>
@@ -981,6 +1038,17 @@ const AnimaisLeiloes = () => {
                             )}
                           >
                             {auction.linkedRecordsCount}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "min-w-12 justify-center rounded-full",
+                              auction.salesCount > 0 && "border-emerald-200 bg-emerald-50 text-emerald-800",
+                            )}
+                          >
+                            {auction.salesCount}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -1074,7 +1142,7 @@ const AnimaisLeiloes = () => {
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="details">Cadastro</TabsTrigger>
               <TabsTrigger value="linked" disabled={!selectedAuction}>
-                Cadastros {selectedAuction ? `(${modalLinkedCount})` : ""}
+                Compras e vendas {selectedAuction ? `(${modalLinkedCount + modalSalesCount})` : ""}
               </TabsTrigger>
             </TabsList>
 
@@ -1344,6 +1412,41 @@ const AnimaisLeiloes = () => {
                           <TableCell>{formatDateBR(aspiration.aspiration_date)}</TableCell>
                           <TableCell>{aspiration.embryo_count ?? 0}</TableCell>
                           <TableCell>{aspiration.auction_lot || "N/D"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </LinkedSectionCard>
+
+              <LinkedSectionCard
+                title="Vendas"
+                description="Vendas realizadas neste leilão (animais, prenhezes e aspirações)."
+                emptyMessage="Nenhuma venda vinculada a este leilão."
+                loading={linkedLoading}
+                count={linkedSales.length}
+              >
+                <div className="overflow-x-auto rounded-2xl border border-border/70">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Registro</TableHead>
+                        <TableHead>Lote</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Cliente</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {linkedSales.map((sale) => (
+                        <TableRow key={sale.id}>
+                          <TableCell><Badge variant="outline">{sale.tipo}</Badge></TableCell>
+                          <TableCell>{sale.code != null ? `#${sale.code} ` : ""}{sale.registro}</TableCell>
+                          <TableCell>{sale.auction_lot || "N/D"}</TableCell>
+                          <TableCell>{formatDateBR(sale.sale_date)}</TableCell>
+                          <TableCell>{sale.sale_value != null ? sale.sale_value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "N/D"}</TableCell>
+                          <TableCell>{sale.cliente || "N/D"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
