@@ -391,7 +391,7 @@ const PurchaseMigrationModule = () => {
         let query = supabase
           .from("accounts_payable")
           .select(
-            "id, supplier_id, store_id, purchase_id, purchase_link_origin, description, document_type, document_number, issue_date, due_date, data_competencia, amount, total_amount, payment_date, status, notes",
+            "id, supplier_id, store_id, purchase_id, purchase_link_origin, description, document_type, document_number, issue_date, due_date, data_competencia, amount, total_amount, payment_date, status, notes, created_at",
           )
           .order("due_date", { ascending: false });
 
