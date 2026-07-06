@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://yfhuhbnosohfayyyvbro.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "elitebov-mcp",
+      "version": "0.1.0",
+      "title": "ELITEBOV"
+    },
+    "tools": [
+      {
+        "name": "list_animals",
+        "title": "Listar animais",
+        "description": "Lista os animais do rebanho da fazenda do usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "search": {
+              "description": "Filtra por brinco (ear_tag) ou nome.",
+              "type": "string"
+            },
+            "limit": {
+              "description": "Máximo de registros (padrão 50).",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_pending_payables",
+        "title": "Listar contas a pagar pendentes",
+        "description": "Retorna contas a pagar em aberto, opcionalmente filtradas por intervalo de vencimento.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "due_from": {
+              "description": "Data inicial (YYYY-MM-DD) de vencimento.",
+              "type": "string"
+            },
+            "due_to": {
+              "description": "Data final (YYYY-MM-DD) de vencimento.",
+              "type": "string"
+            },
+            "limit": {
+              "description": "Máximo de registros (padrão 100).",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
