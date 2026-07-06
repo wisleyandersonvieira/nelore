@@ -25,6 +25,8 @@ const Auth = () => {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +66,7 @@ const Auth = () => {
         }
       }
 
-      navigate("/dashboard");
+      navigate(nextPath);
     } catch (error: any) {
       toast({
         variant: "destructive",
