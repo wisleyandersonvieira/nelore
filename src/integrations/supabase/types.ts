@@ -1234,6 +1234,8 @@ export type Database = {
       animal_sales: {
         Row: {
           animal_id: string
+          auction_id: string | null
+          auction_lot: string | null
           client_id: string
           created_at: string | null
           created_by: string | null
@@ -1246,6 +1248,8 @@ export type Database = {
         }
         Insert: {
           animal_id: string
+          auction_id?: string | null
+          auction_lot?: string | null
           client_id: string
           created_at?: string | null
           created_by?: string | null
@@ -1258,6 +1262,8 @@ export type Database = {
         }
         Update: {
           animal_id?: string
+          auction_id?: string | null
+          auction_lot?: string | null
           client_id?: string
           created_at?: string | null
           created_by?: string | null
@@ -1274,6 +1280,13 @@ export type Database = {
             columns: ["animal_id"]
             isOneToOne: false
             referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "animal_sales_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
             referencedColumns: ["id"]
           },
           {
@@ -1759,6 +1772,8 @@ export type Database = {
       aspiration_sales: {
         Row: {
           aspiration_id: string
+          auction_id: string | null
+          auction_lot: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1771,6 +1786,8 @@ export type Database = {
         }
         Insert: {
           aspiration_id: string
+          auction_id?: string | null
+          auction_lot?: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -1783,6 +1800,8 @@ export type Database = {
         }
         Update: {
           aspiration_id?: string
+          auction_id?: string | null
+          auction_lot?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -1799,6 +1818,13 @@ export type Database = {
             columns: ["aspiration_id"]
             isOneToOne: false
             referencedRelation: "aspiration_management"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aspiration_sales_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
             referencedColumns: ["id"]
           },
           {
@@ -4741,6 +4767,8 @@ export type Database = {
       }
       pregnancy_sales: {
         Row: {
+          auction_id: string | null
+          auction_lot: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -4753,6 +4781,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auction_id?: string | null
+          auction_lot?: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -4765,6 +4795,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auction_id?: string | null
+          auction_lot?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -4777,6 +4809,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pregnancy_sales_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "leiloes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pregnancy_sales_client_id_fkey"
             columns: ["client_id"]
@@ -6896,6 +6935,7 @@ export type Database = {
           name: string
           observations: string
           pregnancy_count: number
+          sales_count: number
           store_id: string
           total_count: number
           updated_at: string
@@ -6930,6 +6970,8 @@ export type Database = {
       }
       register_operational_sale: {
         Args: {
+          p_auction_id?: string
+          p_auction_lot?: string
           p_clients: Json
           p_data_prevista: string
           p_item_id: string
