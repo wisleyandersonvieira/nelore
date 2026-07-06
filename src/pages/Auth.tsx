@@ -5,9 +5,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import elitebovLogo from "@/assets/elitebov-logo.png";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
+
+function safeNext(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  try {
+    const decoded = decodeURIComponent(raw);
+    if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
+  } catch {}
+  return "/dashboard";
+}
 
 const Auth = () => {
   const [email, setEmail] = useState("");
