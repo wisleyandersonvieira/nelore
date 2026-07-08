@@ -449,6 +449,22 @@ export function PurchasesCreateModal({
         payment_date: installment.payment_date || null,
       })),
     );
+
+    if (purchase.purchase_type === "semen") {
+      const { data: semenItemsRes } = await supabase
+        .from("purchase_semen_items" as any)
+        .select("semen_id, amount")
+        .eq("purchase_id", targetPurchaseId);
+      const items = (((semenItemsRes as unknown) || []) as Array<{ semen_id: string; amount: number | string }>).map((row) => ({
+        semen_id: row.semen_id,
+        amount: Number(row.amount || 0),
+      }));
+      setSemenItems(items.length > 0 ? items : [{ semen_id: itemId, amount: Number(purchase.total_amount || 0) }]);
+    } else {
+      setSemenItems([]);
+    }
+  };
+    );
   };
 
   useEffect(() => {
