@@ -464,8 +464,7 @@ export function PurchasesCreateModal({
       setSemenItems([]);
     }
   };
-    );
-  };
+
 
   useEffect(() => {
     if (!open) {
