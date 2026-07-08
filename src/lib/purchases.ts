@@ -6,6 +6,11 @@ export type PurchaseType = "animal" | "pregnancy" | "aspiration" | "recipient" |
 export type PurchaseInstallmentDraft = SaleInstallmentDraft;
 export type PurchaseOriginType = "manual" | "migrated_from_accounts_payable";
 
+export interface PurchaseSemenItemDraft {
+  semen_id: string;
+  amount: number;
+}
+
 export const PURCHASE_TYPE_OPTIONS: Array<{ value: PurchaseType; label: string }> = [
   { value: "animal", label: "Animal" },
   { value: "pregnancy", label: "Prenhez" },
