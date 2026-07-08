@@ -5044,6 +5044,45 @@ export type Database = {
           },
         ]
       }
+      purchase_semen_items: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          purchase_id: string
+          semen_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          purchase_id: string
+          semen_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          purchase_id?: string
+          semen_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_semen_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_semen_items_semen_id_fkey"
+            columns: ["semen_id"]
+            isOneToOne: false
+            referencedRelation: "semen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           animal_id: string | null
@@ -6783,30 +6822,56 @@ export type Database = {
           commission_id: string
         }[]
       }
-      create_purchase_with_payable: {
-        Args: {
-          p_competence_date: string
-          p_description?: string
-          p_document_number?: string
-          p_document_type?: string
-          p_first_due_date: string
-          p_installments?: Json
-          p_issue_date: string
-          p_item_id: string
-          p_negotiation_method?: string
-          p_notes?: string
-          p_product_id: string
-          p_purchase_date: string
-          p_purchase_type: string
-          p_supplier_id: string
-          p_total_amount: number
-        }
-        Returns: {
-          account_payable_id: string
-          purchase_code: number
-          purchase_id: string
-        }[]
-      }
+      create_purchase_with_payable:
+        | {
+            Args: {
+              p_competence_date: string
+              p_description?: string
+              p_document_number?: string
+              p_document_type?: string
+              p_first_due_date: string
+              p_installments?: Json
+              p_issue_date: string
+              p_item_id: string
+              p_negotiation_method?: string
+              p_notes?: string
+              p_product_id: string
+              p_purchase_date: string
+              p_purchase_type: string
+              p_supplier_id: string
+              p_total_amount: number
+            }
+            Returns: {
+              account_payable_id: string
+              purchase_code: number
+              purchase_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_competence_date: string
+              p_description?: string
+              p_document_number?: string
+              p_document_type?: string
+              p_first_due_date: string
+              p_installments?: Json
+              p_issue_date: string
+              p_item_id: string
+              p_negotiation_method?: string
+              p_notes?: string
+              p_product_id: string
+              p_purchase_date: string
+              p_purchase_type: string
+              p_semen_items?: Json
+              p_supplier_id: string
+              p_total_amount: number
+            }
+            Returns: {
+              account_payable_id: string
+              purchase_code: number
+              purchase_id: string
+            }[]
+          }
       create_sale_with_receivable: {
         Args: {
           p_client_id: string
@@ -7020,31 +7085,58 @@ export type Database = {
           commission_id: string
         }[]
       }
-      update_purchase_with_payable: {
-        Args: {
-          p_competence_date: string
-          p_description?: string
-          p_document_number?: string
-          p_document_type?: string
-          p_first_due_date: string
-          p_installments?: Json
-          p_issue_date: string
-          p_item_id: string
-          p_negotiation_method?: string
-          p_notes?: string
-          p_product_id: string
-          p_purchase_date: string
-          p_purchase_id: string
-          p_purchase_type: string
-          p_supplier_id: string
-          p_total_amount: number
-        }
-        Returns: {
-          account_payable_id: string
-          purchase_code: number
-          purchase_id: string
-        }[]
-      }
+      update_purchase_with_payable:
+        | {
+            Args: {
+              p_competence_date: string
+              p_description?: string
+              p_document_number?: string
+              p_document_type?: string
+              p_first_due_date: string
+              p_installments?: Json
+              p_issue_date: string
+              p_item_id: string
+              p_negotiation_method?: string
+              p_notes?: string
+              p_product_id: string
+              p_purchase_date: string
+              p_purchase_id: string
+              p_purchase_type: string
+              p_supplier_id: string
+              p_total_amount: number
+            }
+            Returns: {
+              account_payable_id: string
+              purchase_code: number
+              purchase_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_competence_date: string
+              p_description?: string
+              p_document_number?: string
+              p_document_type?: string
+              p_first_due_date: string
+              p_installments?: Json
+              p_issue_date: string
+              p_item_id: string
+              p_negotiation_method?: string
+              p_notes?: string
+              p_product_id: string
+              p_purchase_date: string
+              p_purchase_id: string
+              p_purchase_type: string
+              p_semen_items?: Json
+              p_supplier_id: string
+              p_total_amount: number
+            }
+            Returns: {
+              account_payable_id: string
+              purchase_code: number
+              purchase_id: string
+            }[]
+          }
       user_can_access_task: { Args: { p_task_id: string }; Returns: boolean }
       user_can_access_task_v2: { Args: { p_task_id: string }; Returns: boolean }
       user_has_access_to_account_stores: {
