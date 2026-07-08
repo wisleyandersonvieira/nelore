@@ -674,8 +674,38 @@ export function CommissionFormModal({
       if (pregnanciesRes.error) throw pregnanciesRes.error;
       if (aspirationsRes.error) throw aspirationsRes.error;
 
+      const animals = (animalsRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
+      const pregnancies = (pregnanciesRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
+      const aspirations = (aspirationsRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
+
+      // Filtra pelos itens que têm registro em compras ou vendas conforme o tipo de comissão.
+      const sourceTable = commissionKind === "sale" ? "sales" : "purchases";
+      const animalIds = animals.map((i) => i.id);
+      const pregnancyIds = pregnancies.map((i) => i.id);
+      const aspirationIds = aspirations.map((i) => i.id);
+
+      const [srcAnimalsRes, srcPregnanciesRes, srcAspirationsRes] = await Promise.all([
+        animalIds.length
+          ? supabase.from(sourceTable).select("animal_id").in("animal_id", animalIds)
+          : Promise.resolve({ data: [], error: null } as any),
+        pregnancyIds.length
+          ? supabase.from(sourceTable).select("pregnancy_id").in("pregnancy_id", pregnancyIds)
+          : Promise.resolve({ data: [], error: null } as any),
+        aspirationIds.length
+          ? supabase.from(sourceTable).select("aspiration_id").in("aspiration_id", aspirationIds)
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+
+      if (srcAnimalsRes.error) throw srcAnimalsRes.error;
+      if (srcPregnanciesRes.error) throw srcPregnanciesRes.error;
+      if (srcAspirationsRes.error) throw srcAspirationsRes.error;
+
+      const validAnimalIds = new Set((srcAnimalsRes.data || []).map((r: any) => r.animal_id).filter(Boolean));
+      const validPregnancyIds = new Set((srcPregnanciesRes.data || []).map((r: any) => r.pregnancy_id).filter(Boolean));
+      const validAspirationIds = new Set((srcAspirationsRes.data || []).map((r: any) => r.aspiration_id).filter(Boolean));
+
       const rawItems = [
-        ...((animalsRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>).map((item) => ({
+        ...animals.filter((i) => validAnimalIds.has(i.id)).map((item) => ({
           item_type: "animal" as const,
           item_id: item.id,
           item_name: item.name,
@@ -684,7 +714,7 @@ export function CommissionFormModal({
           store_name: storesMap[item.store_id]?.name || null,
           source_type: "auction" as const,
         })),
-        ...((pregnanciesRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>).map((item) => ({
+        ...pregnancies.filter((i) => validPregnancyIds.has(i.id)).map((item) => ({
           item_type: "pregnancy" as const,
           item_id: item.id,
           item_name: item.name,
@@ -693,7 +723,7 @@ export function CommissionFormModal({
           store_name: storesMap[item.store_id]?.name || null,
           source_type: "auction" as const,
         })),
-        ...((aspirationsRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>).map((item) => ({
+        ...aspirations.filter((i) => validAspirationIds.has(i.id)).map((item) => ({
           item_type: "aspiration" as const,
           item_id: item.id,
           item_name: item.name,
@@ -717,7 +747,9 @@ export function CommissionFormModal({
       if (rawItems.length === 0) {
         toast({
           title: "Nenhum cadastro encontrado",
-          description: "Não existem animais, prenhezes ou aspirações vinculados a este leilão.",
+          description: commissionKind === "sale"
+            ? "Não existem vendas de animais, prenhezes ou aspirações vinculadas a este leilão."
+            : "Não existem compras de animais, prenhezes ou aspirações vinculadas a este leilão.",
         });
       }
     } catch (error) {
