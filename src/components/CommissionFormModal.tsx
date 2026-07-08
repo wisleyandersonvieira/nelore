@@ -785,7 +785,7 @@ export function CommissionFormModal({
         })),
       ];
 
-      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts(rawItems);
+      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts(rawItems, commissionKind);
       const percentage = parseFloat(defaultPercentage) || 0;
       const nextEntries = rawItems.map((item) => ({
         ...item,
@@ -836,7 +836,7 @@ export function CommissionFormModal({
 
     try {
       const key = buildLocalItemId(extraItemType, selectedExtraItem.id);
-      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts([{ item_type: extraItemType, item_id: selectedExtraItem.id }]);
+      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts([{ item_type: extraItemType, item_id: selectedExtraItem.id }], commissionKind);
       const percentage = parseFloat(defaultPercentage) || 0;
 
       setItems((current) =>
