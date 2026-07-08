@@ -232,7 +232,10 @@ export function CommissionFormModal({
     setSuppliers((data || []) as SupplierOption[]);
   };
 
-  const fetchAccumulatedPurchaseAmounts = async (selectedItems: Array<{ item_type: CommissionItemType; item_id: string }>) => {
+  const fetchAccumulatedPurchaseAmounts = async (
+    selectedItems: Array<{ item_type: CommissionItemType; item_id: string }>,
+    kind: CommissionKind,
+  ) => {
     const amounts = new Map<string, number>();
     const animalIds = Array.from(new Set(selectedItems.filter((item) => item.item_type === "animal").map((item) => item.item_id)));
     const pregnancyIds = Array.from(new Set(selectedItems.filter((item) => item.item_type === "pregnancy").map((item) => item.item_id)));
@@ -243,7 +246,7 @@ export function CommissionFormModal({
     }
 
     const fillMap = (
-      rows: Array<{ total_amount: number; animal_id?: string | null; pregnancy_id?: string | null; aspiration_id?: string | null }>,
+      rows: Array<{ total_amount?: number; sale_value?: number; animal_id?: string | null; pregnancy_id?: string | null; aspiration_id?: string | null }>,
       type: CommissionItemType,
     ) => {
       rows.forEach((row) => {
@@ -252,47 +255,85 @@ export function CommissionFormModal({
 
         if (!targetId) return;
         const key = buildLocalItemId(type, targetId);
-        amounts.set(key, roundMoney((amounts.get(key) || 0) + Number(row.total_amount || 0)));
+        const value = kind === "sale" ? row.sale_value : row.total_amount;
+        amounts.set(key, roundMoney((amounts.get(key) || 0) + Number(value || 0)));
       });
     };
 
-    const [animalPurchases, pregnancyPurchases, aspirationPurchases] = await Promise.all([
-      animalIds.length > 0
-        ? supabase
-            .from("purchases")
-            .select("animal_id, total_amount, purchase_date, created_at")
-            .eq("purchase_type", "animal")
-            .in("animal_id", animalIds)
-            .order("purchase_date", { ascending: false })
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
-      pregnancyIds.length > 0
-        ? supabase
-            .from("purchases")
-            .select("pregnancy_id, total_amount, purchase_date, created_at")
-            .eq("purchase_type", "pregnancy")
-            .in("pregnancy_id", pregnancyIds)
-            .order("purchase_date", { ascending: false })
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
-      aspirationIds.length > 0
-        ? supabase
-            .from("purchases")
-            .select("aspiration_id, total_amount, purchase_date, created_at")
-            .eq("purchase_type", "aspiration")
-            .in("aspiration_id", aspirationIds)
-            .order("purchase_date", { ascending: false })
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+    if (kind === "sale") {
+      const [animalSales, pregnancySales, aspirationSales] = await Promise.all([
+        animalIds.length > 0
+          ? supabase
+              .from("animal_sales")
+              .select("animal_id, sale_value, sale_date, created_at")
+              .in("animal_id", animalIds)
+              .order("sale_date", { ascending: false })
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        pregnancyIds.length > 0
+          ? supabase
+              .from("pregnancy_sales")
+              .select("pregnancy_id, sale_value, sale_date, created_at")
+              .in("pregnancy_id", pregnancyIds)
+              .order("sale_date", { ascending: false })
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        aspirationIds.length > 0
+          ? supabase
+              .from("aspiration_sales")
+              .select("aspiration_id, sale_value, sale_date, created_at")
+              .in("aspiration_id", aspirationIds)
+              .order("sale_date", { ascending: false })
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-    if (animalPurchases.error) throw animalPurchases.error;
-    if (pregnancyPurchases.error) throw pregnancyPurchases.error;
-    if (aspirationPurchases.error) throw aspirationPurchases.error;
+      if (animalSales.error) throw animalSales.error;
+      if (pregnancySales.error) throw pregnancySales.error;
+      if (aspirationSales.error) throw aspirationSales.error;
 
-    fillMap((animalPurchases.data || []) as any[], "animal");
-    fillMap((pregnancyPurchases.data || []) as any[], "pregnancy");
-    fillMap((aspirationPurchases.data || []) as any[], "aspiration");
+      fillMap((animalSales.data || []) as any[], "animal");
+      fillMap((pregnancySales.data || []) as any[], "pregnancy");
+      fillMap((aspirationSales.data || []) as any[], "aspiration");
+    } else {
+      const [animalPurchases, pregnancyPurchases, aspirationPurchases] = await Promise.all([
+        animalIds.length > 0
+          ? supabase
+              .from("purchases")
+              .select("animal_id, total_amount, purchase_date, created_at")
+              .eq("purchase_type", "animal")
+              .in("animal_id", animalIds)
+              .order("purchase_date", { ascending: false })
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        pregnancyIds.length > 0
+          ? supabase
+              .from("purchases")
+              .select("pregnancy_id, total_amount, purchase_date, created_at")
+              .eq("purchase_type", "pregnancy")
+              .in("pregnancy_id", pregnancyIds)
+              .order("purchase_date", { ascending: false })
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        aspirationIds.length > 0
+          ? supabase
+              .from("purchases")
+              .select("aspiration_id, total_amount, purchase_date, created_at")
+              .eq("purchase_type", "aspiration")
+              .in("aspiration_id", aspirationIds)
+              .order("purchase_date", { ascending: false })
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (animalPurchases.error) throw animalPurchases.error;
+      if (pregnancyPurchases.error) throw pregnancyPurchases.error;
+      if (aspirationPurchases.error) throw aspirationPurchases.error;
+
+      fillMap((animalPurchases.data || []) as any[], "animal");
+      fillMap((pregnancyPurchases.data || []) as any[], "pregnancy");
+      fillMap((aspirationPurchases.data || []) as any[], "aspiration");
+    }
 
     return amounts;
   };
@@ -744,7 +785,7 @@ export function CommissionFormModal({
         })),
       ];
 
-      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts(rawItems);
+      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts(rawItems, commissionKind);
       const percentage = parseFloat(defaultPercentage) || 0;
       const nextEntries = rawItems.map((item) => ({
         ...item,
@@ -795,7 +836,7 @@ export function CommissionFormModal({
 
     try {
       const key = buildLocalItemId(extraItemType, selectedExtraItem.id);
-      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts([{ item_type: extraItemType, item_id: selectedExtraItem.id }]);
+      const purchaseAmounts = await fetchAccumulatedPurchaseAmounts([{ item_type: extraItemType, item_id: selectedExtraItem.id }], commissionKind);
       const percentage = parseFloat(defaultPercentage) || 0;
 
       setItems((current) =>
@@ -1335,7 +1376,9 @@ export function CommissionFormModal({
                         <TableHead>Tipo</TableHead>
                         <TableHead>Cadastro</TableHead>
                         <TableHead>Origem</TableHead>
-                        <TableHead className="text-right">Valor de compra</TableHead>
+                        <TableHead className="text-right">
+                          {commissionKind === "sale" ? "Valor de venda" : "Valor de compra"}
+                        </TableHead>
                         <TableHead className="text-right">% Comissão</TableHead>
                         <TableHead className="text-right">Valor comissão</TableHead>
                         {!readOnly && <TableHead className="text-right">Ações</TableHead>}
@@ -1363,7 +1406,11 @@ export function CommissionFormModal({
                               <div className="space-y-1">
                                 <p className="font-medium">{buildCommissionItemLabel({ code: item.item_code, name: item.item_name })}</p>
                                 {item.purchase_amount <= 0 && (
-                                  <p className="text-xs text-amber-700">Sem valor de compra encontrado no módulo de compras.</p>
+                                  <p className="text-xs text-amber-700">
+                                    {commissionKind === "sale"
+                                      ? "Sem valor de venda encontrado no módulo de vendas."
+                                      : "Sem valor de compra encontrado no módulo de compras."}
+                                  </p>
                                 )}
                               </div>
                             </TableCell>
