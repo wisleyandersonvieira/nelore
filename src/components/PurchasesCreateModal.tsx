@@ -355,11 +355,11 @@ export function PurchasesCreateModal({
         supabase.from("purchase_semen_items" as any).select("semen_id"),
       ]);
       const linkedIds = new Set<string>();
-      ((existingLinkedRes.data || []) as Array<{ semen_id: string | null }>).forEach((r) => {
-        if (r.semen_id) linkedIds.add(r.semen_id);
+      (((existingLinkedRes.data as unknown) || []) as Array<{ semen_id: string | null }>).forEach((r) => {
+        if (r?.semen_id) linkedIds.add(r.semen_id);
       });
-      ((existingItemsRes.data || []) as Array<{ semen_id: string | null }>).forEach((r) => {
-        if (r.semen_id) linkedIds.add(r.semen_id);
+      (((existingItemsRes.data as unknown) || []) as Array<{ semen_id: string | null }>).forEach((r) => {
+        if (r?.semen_id) linkedIds.add(r.semen_id);
       });
       setSemenPurchaseIds(linkedIds);
     } catch (error) {
