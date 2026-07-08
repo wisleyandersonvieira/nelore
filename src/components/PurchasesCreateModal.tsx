@@ -348,6 +348,20 @@ export function PurchasesCreateModal({
         recipient: recipientOptions,
         semen: semenOptions,
       });
+
+      // Load list of semen IDs already linked to a purchase (for green/red highlight)
+      const [existingLinkedRes, existingItemsRes] = await Promise.all([
+        supabase.from("purchases").select("semen_id").eq("purchase_type", "semen").not("semen_id", "is", null),
+        supabase.from("purchase_semen_items" as any).select("semen_id"),
+      ]);
+      const linkedIds = new Set<string>();
+      ((existingLinkedRes.data || []) as Array<{ semen_id: string | null }>).forEach((r) => {
+        if (r.semen_id) linkedIds.add(r.semen_id);
+      });
+      ((existingItemsRes.data || []) as Array<{ semen_id: string | null }>).forEach((r) => {
+        if (r.semen_id) linkedIds.add(r.semen_id);
+      });
+      setSemenPurchaseIds(linkedIds);
     } catch (error) {
       console.error("Erro ao carregar dados de compras:", error);
       toast({
