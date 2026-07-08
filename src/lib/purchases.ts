@@ -43,6 +43,7 @@ export const createPurchaseWithPayable = async (input: {
   notes?: string;
   negotiationMethod?: string;
   installments: PurchaseInstallmentDraft[];
+  semenItems?: PurchaseSemenItemDraft[];
 }) => {
   const { data, error } = await supabase.rpc("create_purchase_with_payable", {
     p_supplier_id: input.supplierId,
@@ -60,7 +61,8 @@ export const createPurchaseWithPayable = async (input: {
     p_notes: input.notes || null,
     p_negotiation_method: input.negotiationMethod || null,
     p_installments: input.installments as unknown as Json,
-  });
+    p_semen_items: (input.semenItems ?? null) as unknown as Json,
+  } as any);
 
   if (error) {
     throw error;
@@ -86,6 +88,7 @@ export const updatePurchaseWithPayable = async (input: {
   notes?: string;
   negotiationMethod?: string;
   installments: PurchaseInstallmentDraft[];
+  semenItems?: PurchaseSemenItemDraft[];
 }) => {
   const { data, error } = await supabase.rpc("update_purchase_with_payable", {
     p_purchase_id: input.purchaseId,
@@ -104,7 +107,8 @@ export const updatePurchaseWithPayable = async (input: {
     p_notes: input.notes || null,
     p_negotiation_method: input.negotiationMethod || null,
     p_installments: input.installments as unknown as Json,
-  });
+    p_semen_items: (input.semenItems ?? null) as unknown as Json,
+  } as any);
 
   if (error) {
     throw error;
@@ -112,6 +116,7 @@ export const updatePurchaseWithPayable = async (input: {
 
   return data?.[0] || null;
 };
+
 
 export const migrateAccountsPayableToPurchase = async (input: {
   accountPayableIds: string[];

@@ -5074,13 +5074,6 @@ export type Database = {
             referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "purchase_semen_items_semen_id_fkey"
-            columns: ["semen_id"]
-            isOneToOne: false
-            referencedRelation: "semen"
-            referencedColumns: ["id"]
-          },
         ]
       }
       purchases: {
