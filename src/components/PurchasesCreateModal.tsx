@@ -1115,7 +1115,7 @@ export function PurchasesCreateModal({
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Valor total</Label>
+                      <Label>Valor total{isSemenMulti ? " (soma dos sêmens)" : ""}</Label>
                       <Input
                         type="number"
                         min="0"
@@ -1123,6 +1123,8 @@ export function PurchasesCreateModal({
                         value={totalAmount || ""}
                         onChange={(event) => setTotalAmount(Number(event.target.value))}
                         placeholder="0,00"
+                        readOnly={isSemenMulti}
+                        className={isSemenMulti ? "bg-muted/60" : undefined}
                       />
                     </div>
                   </div>
