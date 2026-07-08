@@ -153,6 +153,10 @@ export function PurchasesCreateModal({
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [installmentCount, setInstallmentCount] = useState<number>(1);
   const [installments, setInstallments] = useState<SaleInstallmentDraft[]>([]);
+  const [semenItems, setSemenItems] = useState<PurchaseSemenItemDraft[]>([]);
+  const [semenPurchaseIds, setSemenPurchaseIds] = useState<Set<string>>(new Set());
+  const [semenPickerIndex, setSemenPickerIndex] = useState<number | null>(null);
+  const [semenItemSearchTerm, setSemenItemSearchTerm] = useState("");
 
   const resetForm = () => {
     const today = todayISO();
@@ -172,6 +176,9 @@ export function PurchasesCreateModal({
     setTotalAmount(0);
     setInstallmentCount(1);
     setInstallments([]);
+    setSemenItems([]);
+    setSemenPickerIndex(null);
+    setSemenItemSearchTerm("");
     setSupplierSearchTerm("");
     setItemSearchTerm("");
     setSupplierPopoverOpen(false);
