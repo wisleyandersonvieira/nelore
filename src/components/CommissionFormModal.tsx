@@ -649,63 +649,73 @@ export function CommissionFormModal({
 
     setLoadingAuctionItems(true);
     try {
-      const [animalsRes, pregnanciesRes, aspirationsRes] = await Promise.all([
-        supabase
-          .from("animals")
-          .select("id, name, code, store_id")
-          .eq("auction_id", auctionId)
-          .eq("store_id", selectedAuction.store_id)
-          .order("name"),
-        supabase
-          .from("pregnancy_management")
-          .select("id, name, code, store_id")
-          .eq("auction_id", auctionId)
-          .eq("store_id", selectedAuction.store_id)
-          .order("name"),
-        supabase
-          .from("aspiration_management")
-          .select("id, name, code, store_id")
-          .eq("auction_id", auctionId)
-          .eq("store_id", selectedAuction.store_id)
-          .order("name"),
-      ]);
+      let animalIds: string[] = [];
+      let pregnancyIds: string[] = [];
+      let aspirationIds: string[] = [];
 
-      if (animalsRes.error) throw animalsRes.error;
-      if (pregnanciesRes.error) throw pregnanciesRes.error;
-      if (aspirationsRes.error) throw aspirationsRes.error;
+      if (commissionKind === "sale") {
+        // Vendas vinculadas ao leilão vivem em animal_sales/pregnancy_sales/aspiration_sales.
+        const [aSales, pSales, asSales] = await Promise.all([
+          supabase.from("animal_sales").select("animal_id").eq("auction_id", auctionId),
+          supabase.from("pregnancy_sales").select("pregnancy_id").eq("auction_id", auctionId),
+          supabase.from("aspiration_sales").select("aspiration_id").eq("auction_id", auctionId),
+        ]);
+        if (aSales.error) throw aSales.error;
+        if (pSales.error) throw pSales.error;
+        if (asSales.error) throw asSales.error;
+        animalIds = Array.from(new Set((aSales.data || []).map((r: any) => r.animal_id).filter(Boolean)));
+        pregnancyIds = Array.from(new Set((pSales.data || []).map((r: any) => r.pregnancy_id).filter(Boolean)));
+        aspirationIds = Array.from(new Set((asSales.data || []).map((r: any) => r.aspiration_id).filter(Boolean)));
+      } else {
+        // Compras: itens cadastrados no leilão que possuem registro em purchases.
+        const [animalsRes, pregnanciesRes, aspirationsRes] = await Promise.all([
+          supabase.from("animals").select("id").eq("auction_id", auctionId),
+          supabase.from("pregnancy_management").select("id").eq("auction_id", auctionId),
+          supabase.from("aspiration_management").select("id").eq("auction_id", auctionId),
+        ]);
+        if (animalsRes.error) throw animalsRes.error;
+        if (pregnanciesRes.error) throw pregnanciesRes.error;
+        if (aspirationsRes.error) throw aspirationsRes.error;
 
-      const animals = (animalsRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
-      const pregnancies = (pregnanciesRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
-      const aspirations = (aspirationsRes.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
+        const aIds = (animalsRes.data || []).map((r: any) => r.id);
+        const pIds = (pregnanciesRes.data || []).map((r: any) => r.id);
+        const asIds = (aspirationsRes.data || []).map((r: any) => r.id);
 
-      // Filtra pelos itens que têm registro em compras ou vendas conforme o tipo de comissão.
-      const sourceTable = commissionKind === "sale" ? "sales" : "purchases";
-      const animalIds = animals.map((i) => i.id);
-      const pregnancyIds = pregnancies.map((i) => i.id);
-      const aspirationIds = aspirations.map((i) => i.id);
+        const [pAnimals, pPreg, pAsp] = await Promise.all([
+          aIds.length ? supabase.from("purchases").select("animal_id").in("animal_id", aIds) : Promise.resolve({ data: [], error: null } as any),
+          pIds.length ? supabase.from("purchases").select("pregnancy_id").in("pregnancy_id", pIds) : Promise.resolve({ data: [], error: null } as any),
+          asIds.length ? supabase.from("purchases").select("aspiration_id").in("aspiration_id", asIds) : Promise.resolve({ data: [], error: null } as any),
+        ]);
+        if (pAnimals.error) throw pAnimals.error;
+        if (pPreg.error) throw pPreg.error;
+        if (pAsp.error) throw pAsp.error;
 
-      const [srcAnimalsRes, srcPregnanciesRes, srcAspirationsRes] = await Promise.all([
+        animalIds = Array.from(new Set((pAnimals.data || []).map((r: any) => r.animal_id).filter(Boolean)));
+        pregnancyIds = Array.from(new Set((pPreg.data || []).map((r: any) => r.pregnancy_id).filter(Boolean)));
+        aspirationIds = Array.from(new Set((pAsp.data || []).map((r: any) => r.aspiration_id).filter(Boolean)));
+      }
+
+      const [animalsInfo, pregnanciesInfo, aspirationsInfo] = await Promise.all([
         animalIds.length
-          ? supabase.from(sourceTable).select("animal_id").in("animal_id", animalIds)
+          ? supabase.from("animals").select("id, name, code, store_id").in("id", animalIds)
           : Promise.resolve({ data: [], error: null } as any),
         pregnancyIds.length
-          ? supabase.from(sourceTable).select("pregnancy_id").in("pregnancy_id", pregnancyIds)
+          ? supabase.from("pregnancy_management").select("id, name, code, store_id").in("id", pregnancyIds)
           : Promise.resolve({ data: [], error: null } as any),
         aspirationIds.length
-          ? supabase.from(sourceTable).select("aspiration_id").in("aspiration_id", aspirationIds)
+          ? supabase.from("aspiration_management").select("id, name, code, store_id").in("id", aspirationIds)
           : Promise.resolve({ data: [], error: null } as any),
       ]);
+      if (animalsInfo.error) throw animalsInfo.error;
+      if (pregnanciesInfo.error) throw pregnanciesInfo.error;
+      if (aspirationsInfo.error) throw aspirationsInfo.error;
 
-      if (srcAnimalsRes.error) throw srcAnimalsRes.error;
-      if (srcPregnanciesRes.error) throw srcPregnanciesRes.error;
-      if (srcAspirationsRes.error) throw srcAspirationsRes.error;
-
-      const validAnimalIds = new Set((srcAnimalsRes.data || []).map((r: any) => r.animal_id).filter(Boolean));
-      const validPregnancyIds = new Set((srcPregnanciesRes.data || []).map((r: any) => r.pregnancy_id).filter(Boolean));
-      const validAspirationIds = new Set((srcAspirationsRes.data || []).map((r: any) => r.aspiration_id).filter(Boolean));
+      const animals = (animalsInfo.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
+      const pregnancies = (pregnanciesInfo.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
+      const aspirations = (aspirationsInfo.data || []) as Array<{ id: string; name: string; code: number; store_id: string }>;
 
       const rawItems = [
-        ...animals.filter((i) => validAnimalIds.has(i.id)).map((item) => ({
+        ...animals.map((item) => ({
           item_type: "animal" as const,
           item_id: item.id,
           item_name: item.name,
@@ -714,7 +724,7 @@ export function CommissionFormModal({
           store_name: storesMap[item.store_id]?.name || null,
           source_type: "auction" as const,
         })),
-        ...pregnancies.filter((i) => validPregnancyIds.has(i.id)).map((item) => ({
+        ...pregnancies.map((item) => ({
           item_type: "pregnancy" as const,
           item_id: item.id,
           item_name: item.name,
@@ -723,7 +733,7 @@ export function CommissionFormModal({
           store_name: storesMap[item.store_id]?.name || null,
           source_type: "auction" as const,
         })),
-        ...aspirations.filter((i) => validAspirationIds.has(i.id)).map((item) => ({
+        ...aspirations.map((item) => ({
           item_type: "aspiration" as const,
           item_id: item.id,
           item_name: item.name,
