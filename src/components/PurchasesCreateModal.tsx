@@ -620,6 +620,27 @@ export function PurchasesCreateModal({
   };
 
   const handleSave = async () => {
+    // Semen-specific validations
+    if (isSemenMulti) {
+      if (semenItems.length === 0) {
+        toast({ title: "Sem sêmens", description: "Adicione pelo menos um sêmen à compra.", variant: "destructive" });
+        return;
+      }
+      if (semenItems.some((it) => !it.semen_id)) {
+        toast({ title: "Sêmen não selecionado", description: "Selecione o sêmen em todos os itens da lista.", variant: "destructive" });
+        return;
+      }
+      if (semenItems.some((it) => Number(it.amount || 0) <= 0)) {
+        toast({ title: "Valor inválido", description: "Cada item de sêmen precisa ter valor maior que zero.", variant: "destructive" });
+        return;
+      }
+      const ids = semenItems.map((it) => it.semen_id);
+      if (new Set(ids).size !== ids.length) {
+        toast({ title: "Sêmen duplicado", description: "Não é possível adicionar o mesmo sêmen mais de uma vez.", variant: "destructive" });
+        return;
+      }
+    }
+
     if (!supplierId || !itemId || !productId) {
       toast({
         title: "Campos obrigatórios",
@@ -689,7 +710,9 @@ export function PurchasesCreateModal({
         notes: notes || undefined,
         negotiationMethod: negotiationMethod || undefined,
         installments: effectiveInstallments,
+        semenItems: isSemenMulti ? semenItems : undefined,
       };
+
 
       const result =
         isEditMode && purchaseId
