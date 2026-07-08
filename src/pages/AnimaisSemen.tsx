@@ -406,7 +406,8 @@ const AnimaisSemen = () => {
               due_date,
               payment_date,
               status,
-              supplier_id
+              supplier_id,
+              purchase_id
             )
           )
         `)
@@ -446,10 +447,53 @@ const AnimaisSemen = () => {
         });
       }
 
+      // Para compras de sêmen com múltiplos itens, buscar o valor individual de cada sêmen
+      const purchaseIds = Array.from(
+        new Set(
+          (expenseAllocations || [])
+            .map((allocation: any) => allocation.accounts_payable_items?.accounts_payable?.purchase_id)
+            .filter(Boolean),
+        ),
+      );
+
+      const semenAmountByPurchase = new Map<string, number>();
+      const purchaseTotalsMap = new Map<string, number>();
+      if (purchaseIds.length > 0) {
+        const { data: semenItems } = await supabase
+          .from("purchase_semen_items")
+          .select("purchase_id, semen_id, amount")
+          .in("purchase_id", purchaseIds);
+
+        (semenItems || []).forEach((it: any) => {
+          purchaseTotalsMap.set(
+            it.purchase_id,
+            (purchaseTotalsMap.get(it.purchase_id) || 0) + Number(it.amount || 0),
+          );
+          if (it.semen_id === recordId) {
+            semenAmountByPurchase.set(
+              it.purchase_id,
+              (semenAmountByPurchase.get(it.purchase_id) || 0) + Number(it.amount || 0),
+            );
+          }
+        });
+      }
+
       const nextFinancialRecords: FinancialRecord[] = (expenseAllocations || []).map((allocation: any) => {
         const item = allocation.accounts_payable_items;
         const payable = item?.accounts_payable;
         const payableId = payable?.id || "";
+        const purchaseId = payable?.purchase_id || "";
+
+        const individualAmount = purchaseId ? semenAmountByPurchase.get(purchaseId) : undefined;
+        const itemTotal = individualAmount !== undefined ? individualAmount : Number(item?.total_price || 0);
+
+        // Rateia o valor pago proporcionalmente quando vários sêmens compartilham a mesma conta
+        const totalPurchaseSemen = purchaseId ? purchaseTotalsMap.get(purchaseId) : undefined;
+        const fullPaid = paidAmountsMap.get(payableId) || 0;
+        const paidAmount =
+          individualAmount !== undefined && totalPurchaseSemen && totalPurchaseSemen > 0
+            ? fullPaid * (individualAmount / totalPurchaseSemen)
+            : fullPaid;
 
         return {
           id: allocation.id,
@@ -459,9 +503,9 @@ const AnimaisSemen = () => {
           status: payable?.status || "",
           supplier_name: payable?.supplier_id ? suppliersMap.get(payable.supplier_id) || null : null,
           allocation_type: allocation.allocation_type,
-          item_total_price: Number(item?.total_price || 0),
+          item_total_price: itemTotal,
           account_payable_id: payableId,
-          paid_amount: paidAmountsMap.get(payableId) || 0,
+          paid_amount: paidAmount,
           record_type: "expense",
         };
       });
