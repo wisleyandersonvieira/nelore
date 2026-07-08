@@ -1406,7 +1406,11 @@ export function CommissionFormModal({
                               <div className="space-y-1">
                                 <p className="font-medium">{buildCommissionItemLabel({ code: item.item_code, name: item.item_name })}</p>
                                 {item.purchase_amount <= 0 && (
-                                  <p className="text-xs text-amber-700">Sem valor de compra encontrado no módulo de compras.</p>
+                                  <p className="text-xs text-amber-700">
+                                    {commissionKind === "sale"
+                                      ? "Sem valor de venda encontrado no módulo de vendas."
+                                      : "Sem valor de compra encontrado no módulo de compras."}
+                                  </p>
                                 )}
                               </div>
                             </TableCell>
