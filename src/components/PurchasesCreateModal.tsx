@@ -839,6 +839,8 @@ export function PurchasesCreateModal({
                           setItemId("");
                           setItemSearchTerm("");
                           setDescription("");
+                          setSemenItems(value === "semen" ? [{ semen_id: "", amount: 0 }] : []);
+                          setSemenPickerIndex(null);
                         }}
                       >
                         <SelectTrigger>
@@ -854,60 +856,62 @@ export function PurchasesCreateModal({
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Registro comprado</Label>
-                      <Popover open={itemPopoverOpen} onOpenChange={setItemPopoverOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between">
-                            <span className="truncate">
-                              {selectedItem ? buildSaleItemLabel(selectedItem) : "Selecionar registro"}
-                            </span>
-                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                          <div className="border-b p-2">
-                            <Input
-                              placeholder={`Pesquisar ${PURCHASE_TYPE_LABELS[purchaseType].toLowerCase()}...`}
-                              value={itemSearchTerm}
-                              onChange={(event) => setItemSearchTerm(event.target.value)}
-                            />
-                          </div>
-                          <div className="max-h-64 overflow-y-auto">
-                            {filteredItems.map((item) => (
-                              <button
-                                type="button"
-                                key={item.id}
-                                className={cn(
-                                  "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
-                                  itemId === item.id && "bg-accent",
-                                )}
-                                onClick={() => {
-                                  setItemId(item.id);
-                                  setItemPopoverOpen(false);
-                                  if (!description) {
-                                    setDescription(`${PURCHASE_TYPE_LABELS[purchaseType]} ${buildSaleItemLabel(item)}`);
-                                  }
-                                }}
-                              >
-                                <span className="font-medium">{buildSaleItemLabel(item)}</span>
-                                {item.store_name && (
-                                  <span className="text-xs text-muted-foreground">{item.store_name}</span>
-                                )}
-                              </button>
-                            ))}
-                            {filteredItems.length === 0 && (
-                              <div className="px-3 py-4 text-sm text-muted-foreground">
-                                Nenhum registro encontrado para este tipo.
-                              </div>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+                    {!isSemenMulti && (
+                      <div className="space-y-2">
+                        <Label>Registro comprado</Label>
+                        <Popover open={itemPopoverOpen} onOpenChange={setItemPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between">
+                              <span className="truncate">
+                                {selectedItem ? buildSaleItemLabel(selectedItem) : "Selecionar registro"}
+                              </span>
+                              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                            <div className="border-b p-2">
+                              <Input
+                                placeholder={`Pesquisar ${PURCHASE_TYPE_LABELS[purchaseType].toLowerCase()}...`}
+                                value={itemSearchTerm}
+                                onChange={(event) => setItemSearchTerm(event.target.value)}
+                              />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto">
+                              {filteredItems.map((item) => (
+                                <button
+                                  type="button"
+                                  key={item.id}
+                                  className={cn(
+                                    "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                                    itemId === item.id && "bg-accent",
+                                  )}
+                                  onClick={() => {
+                                    setItemId(item.id);
+                                    setItemPopoverOpen(false);
+                                    if (!description) {
+                                      setDescription(`${PURCHASE_TYPE_LABELS[purchaseType]} ${buildSaleItemLabel(item)}`);
+                                    }
+                                  }}
+                                >
+                                  <span className="font-medium">{buildSaleItemLabel(item)}</span>
+                                  {item.store_name && (
+                                    <span className="text-xs text-muted-foreground">{item.store_name}</span>
+                                  )}
+                                </button>
+                              ))}
+                              {filteredItems.length === 0 && (
+                                <div className="px-3 py-4 text-sm text-muted-foreground">
+                                  Nenhum registro encontrado para este tipo.
+                                </div>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
                   </div>
 
-                  {selectedItem && (
+                  {!isSemenMulti && selectedItem && (
                     <div className="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 p-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">
@@ -920,6 +924,146 @@ export function PurchasesCreateModal({
                       <p className="mt-2 text-sm text-muted-foreground">
                         Fazenda de origem: {selectedItem.store_name || storesMap[selectedItem.store_id]?.name || "N/D"}
                       </p>
+                    </div>
+                  )}
+
+                  {isSemenMulti && (
+                    <div className="space-y-3 rounded-2xl border border-indigo-200/70 bg-indigo-50/40 p-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Sêmens vinculados à compra</Label>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" /> já comprado
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-rose-500" /> sem compra
+                          </span>
+                        </div>
+                      </div>
+
+                      {semenItems.length === 0 && (
+                        <p className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+                          Adicione ao menos um sêmen com o botão abaixo.
+                        </p>
+                      )}
+
+                      {semenItems.map((item, index) => {
+                        const selectedSemen = purchaseItems.semen.find((s) => s.id === item.semen_id) || null;
+                        const filteredSemen = purchaseItems.semen.filter((s) =>
+                          buildSaleItemLabel(s).toLowerCase().includes(semenItemSearchTerm.trim().toLowerCase()),
+                        );
+                        return (
+                          <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/85 p-2">
+                            <div className="flex-1 min-w-[180px]">
+                              <Popover
+                                open={semenPickerIndex === index}
+                                onOpenChange={(openState) => {
+                                  setSemenPickerIndex(openState ? index : null);
+                                  if (openState) setSemenItemSearchTerm("");
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-between",
+                                      selectedSemen && semenPurchaseIds.has(selectedSemen.id)
+                                        ? "border-emerald-400 text-emerald-800"
+                                        : selectedSemen
+                                          ? "border-rose-400 text-rose-800"
+                                          : "",
+                                    )}
+                                  >
+                                    <span className="truncate">
+                                      {selectedSemen ? buildSaleItemLabel(selectedSemen) : "Selecionar sêmen"}
+                                    </span>
+                                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                                  <div className="border-b p-2">
+                                    <Input
+                                      placeholder="Pesquisar sêmen..."
+                                      value={semenItemSearchTerm}
+                                      onChange={(event) => setSemenItemSearchTerm(event.target.value)}
+                                    />
+                                  </div>
+                                  <div className="max-h-64 overflow-y-auto">
+                                    {filteredSemen.map((option) => {
+                                      const alreadyLinked = semenPurchaseIds.has(option.id);
+                                      const alreadyInList = semenItems.some((it, i) => i !== index && it.semen_id === option.id);
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={option.id}
+                                          disabled={alreadyInList}
+                                          className={cn(
+                                            "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                                            alreadyLinked
+                                              ? "bg-emerald-50 text-emerald-900"
+                                              : "bg-rose-50 text-rose-900",
+                                            alreadyInList && "opacity-40",
+                                          )}
+                                          onClick={() => {
+                                            updateSemenItemId(index, option.id);
+                                            setSemenPickerIndex(null);
+                                          }}
+                                        >
+                                          <span className="font-medium">{buildSaleItemLabel(option)}</span>
+                                          <span className="text-xs">
+                                            {alreadyLinked ? "Já possui compra vinculada" : "Sem compra vinculada"}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                    {filteredSemen.length === 0 && (
+                                      <div className="px-3 py-4 text-sm text-muted-foreground">
+                                        Nenhum sêmen encontrado.
+                                      </div>
+                                    )}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Valor"
+                              className="w-32 text-right"
+                              value={item.amount || ""}
+                              onChange={(event) => updateSemenItemAmount(index, Number(event.target.value))}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 text-rose-600"
+                              onClick={() => removeSemenItem(index)}
+                              title="Remover"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+
+                      <div className="flex items-center justify-between">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={addSemenItem}
+                        >
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Adicionar sêmen
+                        </Button>
+                        <div className="text-right text-sm">
+                          <span className="text-muted-foreground">Soma dos itens: </span>
+                          <span className="font-semibold">{formatCurrencyBRL(semenItemsSum)}</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </CardContent>
