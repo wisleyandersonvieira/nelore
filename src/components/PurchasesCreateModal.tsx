@@ -528,10 +528,57 @@ export function PurchasesCreateModal({
     [itemSearchTerm, purchaseItems, purchaseType],
   );
 
+  const isSemenMulti = purchaseType === "semen";
+
+  const semenItemsSum = useMemo(
+    () => semenItems.reduce((acc, item) => acc + Number(item.amount || 0), 0),
+    [semenItems],
+  );
+
+  // For semen purchases, total is auto-computed from items
+  useEffect(() => {
+    if (isSemenMulti) {
+      const sum = Math.round(semenItemsSum * 100) / 100;
+      setTotalAmount((prev) => (Math.abs(prev - sum) > 0.001 ? sum : prev));
+    }
+  }, [isSemenMulti, semenItemsSum]);
+
   const installmentDifference = useMemo(
     () => Math.abs(sumInstallments(installments) - Number(totalAmount || 0)),
     [installments, totalAmount],
   );
+
+  const addSemenItem = () => {
+    setSemenItems((current) => [...current, { semen_id: "", amount: 0 }]);
+    setSemenPickerIndex(semenItems.length);
+    setSemenItemSearchTerm("");
+  };
+
+  const removeSemenItem = (index: number) => {
+    setSemenItems((current) => current.filter((_, i) => i !== index));
+  };
+
+  const updateSemenItemId = (index: number, semenId: string) => {
+    setSemenItems((current) =>
+      current.map((it, i) => (i === index ? { ...it, semen_id: semenId } : it)),
+    );
+    // sync primary itemId to first item so validation passes
+    if (index === 0) setItemId(semenId);
+  };
+
+  const updateSemenItemAmount = (index: number, amount: number) => {
+    setSemenItems((current) =>
+      current.map((it, i) => (i === index ? { ...it, amount } : it)),
+    );
+  };
+
+  // Keep itemId synced to first semen item id
+  useEffect(() => {
+    if (isSemenMulti && semenItems.length > 0 && semenItems[0].semen_id) {
+      setItemId((prev) => (prev === semenItems[0].semen_id ? prev : semenItems[0].semen_id));
+    }
+  }, [isSemenMulti, semenItems]);
+
 
   const handleGenerateInstallments = () => {
     if (!firstDueDate || totalAmount <= 0) {
