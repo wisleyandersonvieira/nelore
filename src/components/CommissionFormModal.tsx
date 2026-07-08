@@ -1376,7 +1376,9 @@ export function CommissionFormModal({
                         <TableHead>Tipo</TableHead>
                         <TableHead>Cadastro</TableHead>
                         <TableHead>Origem</TableHead>
-                        <TableHead className="text-right">Valor de compra</TableHead>
+                        <TableHead className="text-right">
+                          {commissionKind === "sale" ? "Valor de venda" : "Valor de compra"}
+                        </TableHead>
                         <TableHead className="text-right">% Comissão</TableHead>
                         <TableHead className="text-right">Valor comissão</TableHead>
                         {!readOnly && <TableHead className="text-right">Ações</TableHead>}
