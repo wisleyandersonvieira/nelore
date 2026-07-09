@@ -100,6 +100,7 @@ const AccountsPayableReport = () => {
     supplier_id: "all",
     store_id: "all",
     product_id: "all",
+    include_suspended: false,
   });
 
   const [allocationType, setAllocationType] = useState<string>("none");
@@ -355,7 +356,12 @@ const AccountsPayableReport = () => {
               products(id, name, subgroup_id, account_groups:subgroup_id(id, name, parent_id))
             )
           `)
-          .in("status", ["pending", "partial"]);
+          .in(
+            "status",
+            filters.include_suspended
+              ? ["pending", "partial", "pagamento_suspenso"]
+              : ["pending", "partial"],
+          );
 
         if (filters.supplier_id && filters.supplier_id !== "all") {
           query = query.eq("supplier_id", filters.supplier_id);
@@ -417,12 +423,14 @@ const AccountsPayableReport = () => {
       // Filter for unpaid accounts only and expand installments
       let accountsData: any[] = [];
       hydratedAccounts.forEach((account: any) => {
-        if (account.status === "paid" || account.status === "pagamento_suspenso") return;
+        if (account.status === "paid") return;
+        if (account.status === "pagamento_suspenso" && !filters.include_suspended) return;
 
         if (account.accounts_payable_installments && account.accounts_payable_installments.length > 0) {
           // Has installments - create one row per unpaid installment
           account.accounts_payable_installments.forEach((installment: any) => {
-            if (!installment.payment_date && installment.status !== 'pagamento_suspenso') {
+            const isSuspended = installment.status === 'pagamento_suspenso';
+            if (!installment.payment_date && (!isSuspended || filters.include_suspended)) {
               // Only unpaid installments
               // Check if there are any reversed payments with interest/discount for this installment
               const installmentPayments = (account.accounts_payable_payments || []).filter(
@@ -446,6 +454,7 @@ const AccountsPayableReport = () => {
                 installment_number: installment.installment_number,
                 total_installments: account.accounts_payable_installments.length,
                 installment_id: installment.id,
+                is_suspended: isSuspended,
               });
             }
           });
@@ -473,6 +482,7 @@ const AccountsPayableReport = () => {
             amount: adjustedAmount,
             installment_number: 1,
             total_installments: 1,
+            is_suspended: account.status === "pagamento_suspenso",
           });
         }
       });
@@ -520,6 +530,7 @@ const AccountsPayableReport = () => {
       supplier_id: "all",
       store_id: "all",
       product_id: "all",
+      include_suspended: false,
     });
     setAccounts([]);
     setAllocationType("none");
@@ -541,6 +552,14 @@ const AccountsPayableReport = () => {
 
   const getAccountStatusMeta = (account: any) => {
     const normalizedStatus = String(account.status || "").toLowerCase();
+
+    if (account.is_suspended || normalizedStatus === "pagamento_suspenso") {
+      return {
+        label: "Suspenso",
+        sortValue: 4,
+        className: "border-red-200 bg-red-50 text-red-600",
+      };
+    }
 
     if (normalizedStatus === "paid" || account.payment_date) {
       return {
@@ -2314,6 +2333,18 @@ const AccountsPayableReport = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="include-suspended-mobile"
+                      checked={filters.include_suspended}
+                      onCheckedChange={(checked) =>
+                        setFilters((prev) => ({ ...prev, include_suspended: checked === true }))
+                      }
+                    />
+                    <label htmlFor="include-suspended-mobile" className="cursor-pointer text-sm font-medium">
+                      Incluir contas suspensas
+                    </label>
+                  </div>
                   {allocationType !== "none" && allocationItems.length > 0 && (
                     <div>
                       <Label>
@@ -2536,6 +2567,18 @@ const AccountsPayableReport = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center space-x-2 self-end pb-2">
+                <Checkbox
+                  id="include-suspended"
+                  checked={filters.include_suspended}
+                  onCheckedChange={(checked) =>
+                    setFilters((prev) => ({ ...prev, include_suspended: checked === true }))
+                  }
+                />
+                <label htmlFor="include-suspended" className="cursor-pointer text-sm font-medium">
+                  Incluir contas suspensas
+                </label>
+              </div>
               {allocationType !== "none" && allocationItems.length > 0 && (
                 <div>
                   <Label>
@@ -2755,7 +2798,10 @@ const AccountsPayableReport = () => {
                     ) : (
                       <>
                         {sortedAccounts.map((account, index) => (
-                          <TableRow key={`${account.id}-${account.installment_id || index}`}>
+                          <TableRow
+                            key={`${account.id}-${account.installment_id || index}`}
+                            className={cn(account.is_suspended && "text-red-600")}
+                          >
                             <TableCell>{account.description}</TableCell>
                             <TableCell>{account.employees?.name || account.suppliers?.name || "N/A"}</TableCell>
                             <TableCell>{account.stores?.name || "N/A"}</TableCell>
@@ -2797,7 +2843,11 @@ const AccountsPayableReport = () => {
                     return (
                       <MobileReportCard
                         key={`${account.id}-${account.installment_id || index}`}
-                        title={getAccountTitle(account)}
+                        title={
+                          <span className={cn(account.is_suspended && "text-red-600")}>
+                            {getAccountTitle(account)}
+                          </span>
+                        }
                         subtitle={getAccountSubtitle(account)}
                         badge={
                           <Badge variant="outline" className={cn("font-medium", statusMeta.className)}>

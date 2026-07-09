@@ -844,6 +844,40 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
         }
       }
 
+      // Filtro por status "Suspenso": incluir contas que possuem qualquer parcela
+      // com pagamento suspenso (o status da conta-pai só vira "pagamento_suspenso"
+      // quando TODAS as parcelas pendentes são suspensas, então filtrar apenas por
+      // accounts_payable.status deixaria de fora contas parcialmente suspensas).
+      if (filterStatus === "pagamento_suspenso") {
+        hasIdFilter = true;
+
+        const { data: suspendedInstallments } = await supabase
+          .from("accounts_payable_installments")
+          .select("account_payable_id")
+          .eq("status", "pagamento_suspenso");
+
+        const { data: suspendedAccounts } = await supabase
+          .from("accounts_payable")
+          .select("id")
+          .eq("status", "pagamento_suspenso");
+
+        const suspendedAccountIds = [
+          ...new Set([
+            ...(suspendedInstallments?.map((i) => i.account_payable_id) || []),
+            ...(suspendedAccounts?.map((a) => a.id) || []),
+          ]),
+        ];
+
+        if (suspendedAccountIds.length === 0) {
+          setAccountsPayable([]);
+          setViewCurrentPage(1);
+          setShowFilteredData(true);
+          return;
+        }
+
+        idFilters.push(new Set(suspendedAccountIds));
+      }
+
       // Calculate intersection of all ID filters
       let finalIds: string[] | null = null;
       if (hasIdFilter && idFilters.length > 0) {
