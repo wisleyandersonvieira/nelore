@@ -34,6 +34,7 @@ import * as XLSX from "xlsx";
 interface SyntheticDailyTotal {
   date: string;
   total: number;
+  hasSuspended: boolean;
 }
 
 interface SyntheticPeriodBlock {
@@ -771,12 +772,16 @@ const AccountsPayableReport = () => {
   ]);
 
   const buildSyntheticPeriodBlocks = (intervalDays: number): SyntheticPeriodBlock[] => {
-    const dailyTotalsMap = new Map<string, number>();
+    const dailyTotalsMap = new Map<string, { total: number; hasSuspended: boolean }>();
 
     sortedAccounts.forEach((account) => {
       const dueDate = account.due_date;
       if (!dueDate || dueDate < filters.due_start || dueDate > filters.due_end) return;
-      dailyTotalsMap.set(dueDate, (dailyTotalsMap.get(dueDate) || 0) + Number(account.amount || 0));
+      const current = dailyTotalsMap.get(dueDate) || { total: 0, hasSuspended: false };
+      dailyTotalsMap.set(dueDate, {
+        total: current.total + Number(account.amount || 0),
+        hasSuspended: current.hasSuspended || Boolean(account.is_suspended),
+      });
     });
 
     const blocks: SyntheticPeriodBlock[] = [];
@@ -794,9 +799,10 @@ const AccountsPayableReport = () => {
       const dailyTotals = Array.from(dailyTotalsMap.entries())
         .filter(([date]) => date >= startDateKey && date <= endDateKey)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([date, total]) => ({
+        .map(([date, value]) => ({
           date,
-          total,
+          total: value.total,
+          hasSuspended: value.hasSuspended,
         }));
 
       blocks.push({
@@ -960,12 +966,16 @@ const AccountsPayableReport = () => {
 
       currentY += 16;
 
-      const bodyRows =
+      const bodyRows: any[] =
         block.dailyTotals.length > 0
-          ? block.dailyTotals.map((item) => [
-              formatDateBR(item.date),
-              formatCurrencyBRL(item.total),
-            ])
+          ? block.dailyTotals.map((item) => {
+              const cells = [formatDateBR(item.date), formatCurrencyBRL(item.total)];
+              // Dias com contas suspensas com fonte em vermelho para destaque
+              if (item.hasSuspended) {
+                return cells.map((content) => ({ content, styles: { textColor: [220, 38, 38] } }));
+              }
+              return cells;
+            })
           : [["Sem movimentações no intervalo", "-"]];
 
       bodyRows.push([
@@ -1355,14 +1365,20 @@ const AccountsPayableReport = () => {
       // Items for this day
       let dayTotal = 0;
       dayGroup.accounts.forEach((account) => {
-        tableData.push([
+        const cells = [
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
           account.stores?.name || "N/A",
           new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
           account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
           account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
-        ]);
+        ];
+        // Contas suspensas com fonte em vermelho para destaque
+        if (account.is_suspended) {
+          tableData.push(cells.map((content) => ({ content, styles: { textColor: [220, 38, 38] } })));
+        } else {
+          tableData.push(cells);
+        }
         dayTotal += account.amount || 0;
       });
 
@@ -1616,23 +1632,25 @@ const AccountsPayableReport = () => {
     const tableData: any[] = [];
 
     sortedAccounts.forEach((account) => {
+      // Contas suspensas com fonte em vermelho para destaque
+      const suspendedColor = account.is_suspended ? { textColor: [220, 38, 38] } : {};
       // Main account row
       tableData.push([
-        { content: account.description, styles: { fontStyle: "bold" } },
-        { content: account.employees?.name || account.suppliers?.name || "N/A", styles: { fontStyle: "bold" } },
-        { content: account.stores?.name || "N/A", styles: { fontStyle: "bold" } },
+        { content: account.description, styles: { fontStyle: "bold", ...suspendedColor } },
+        { content: account.employees?.name || account.suppliers?.name || "N/A", styles: { fontStyle: "bold", ...suspendedColor } },
+        { content: account.stores?.name || "N/A", styles: { fontStyle: "bold", ...suspendedColor } },
         {
           content: new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
-          styles: { fontStyle: "bold" },
+          styles: { fontStyle: "bold", ...suspendedColor },
         },
         {
           content: account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-          styles: { fontStyle: "bold" },
+          styles: { fontStyle: "bold", ...suspendedColor },
         },
         {
           content:
             account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
-          styles: { fontStyle: "bold" },
+          styles: { fontStyle: "bold", ...suspendedColor },
         },
       ]);
 
@@ -2050,9 +2068,9 @@ const AccountsPayableReport = () => {
       doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
     }
 
-    const tableData = sortedAccounts.map((account) => {
+    const tableData: any[] = sortedAccounts.map((account) => {
       const vinculos = allocMap.get(account.id) || [];
-      return [
+      const cells = [
         account.description,
         account.employees?.name || account.suppliers?.name || "N/A",
         account.stores?.name || "N/A",
@@ -2061,6 +2079,11 @@ const AccountsPayableReport = () => {
         account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
         vinculos.join("\n") || "-",
       ];
+      // Contas suspensas com fonte em vermelho para destaque
+      if (account.is_suspended) {
+        return cells.map((content) => ({ content, styles: { textColor: [220, 38, 38] } }));
+      }
+      return cells;
     });
 
     const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
