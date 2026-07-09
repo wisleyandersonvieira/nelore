@@ -68,10 +68,12 @@ const formatCurrency = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) {
-  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
-  const [auctions, setAuctions] = useState<{ id: string; name: string }[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string; trade_name: string | null }[]>([]);
+  const [auctions, setAuctions] = useState<{ id: string; name: string; date: string | null }[]>([]);
   const [auctionId, setAuctionId] = useState("");
   const [auctionLot, setAuctionLot] = useState("");
+  const [openAuctionPopover, setOpenAuctionPopover] = useState(false);
+  const [auctionSearch, setAuctionSearch] = useState("");
   const [saleDate, setSaleDate] = useState<Date | null>(null);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<Date | null>(null);
   const [totalValue, setTotalValue] = useState("");
@@ -93,6 +95,8 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
     setOpenClientPopover(null);
     setAuctionId("");
     setAuctionLot("");
+    setAuctionSearch("");
+    setOpenAuctionPopover(false);
     fetchClients();
     fetchAuctions();
     fetchOwners(record.id);
@@ -107,7 +111,7 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
         .from("profiles").select("matrix_id").eq("id", userData.user.id).single();
       if (!profile?.matrix_id) return;
       const { data } = await supabase
-        .from("suppliers").select("id, name")
+        .from("suppliers").select("id, name, trade_name")
         .eq("matrix_id", profile.matrix_id).eq("is_active", true).order("name");
       setClients(data || []);
     } catch (error) {
@@ -122,8 +126,8 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
       const { data: profile } = await supabase
         .from("profiles").select("matrix_id, store_id").eq("id", userData.user.id).single();
       const query = profile?.matrix_id
-        ? supabase.from("leiloes").select("id, name").eq("matrix_id", profile.matrix_id).eq("is_active", true)
-        : supabase.from("leiloes").select("id, name").eq("store_id", profile?.store_id || "").eq("is_active", true);
+        ? supabase.from("leiloes").select("id, name, date").eq("matrix_id", profile.matrix_id).eq("is_active", true)
+        : supabase.from("leiloes").select("id, name, date").eq("store_id", profile?.store_id || "").eq("is_active", true);
       const { data } = await query.order("date", { ascending: false });
       setAuctions(data || []);
     } catch (error) {
@@ -250,7 +254,13 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
     animalGrandTotal <= 100 + 0.01 &&
     (!auctionId || auctionLot.trim() !== "");
 
-  const clientName = (id: string) => clients.find((c) => c.id === id)?.name || "Selecionar cliente...";
+  const clientLabel = (c: { name: string; trade_name: string | null }) =>
+    c.trade_name ? `${c.name} (${c.trade_name})` : c.name;
+
+  const clientName = (id: string) => {
+    const c = clients.find((c) => c.id === id);
+    return c ? clientLabel(c) : "Selecionar cliente...";
+  };
 
   const handleSave = async () => {
     if (!record || !saleDate) return;
@@ -308,8 +318,33 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
     }
   };
 
+  const auctionDate = (d: string | null) => (d ? format(new Date(d + "T00:00:00"), "dd/MM/yyyy") : "");
+
+  const auctionLabel = (a: { name: string; date: string | null }) =>
+    a.date ? `${a.name} (${auctionDate(a.date)})` : a.name;
+
+  const auctionName = (id: string) => {
+    const a = auctions.find((a) => a.id === id);
+    return a ? auctionLabel(a) : "Selecionar leilão...";
+  };
+
+  const filteredAuctions = useMemo(
+    () =>
+      auctions
+        .filter((a) => a.name.toLowerCase().includes(auctionSearch.toLowerCase()))
+        .sort((x, y) => x.name.localeCompare(y.name, "pt-BR")),
+    [auctions, auctionSearch]
+  );
+
   const filteredClients = useMemo(
-    () => clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase())),
+    () =>
+      clients.filter((c) => {
+        const term = clientSearch.toLowerCase();
+        return (
+          c.name.toLowerCase().includes(term) ||
+          (c.trade_name ? c.trade_name.toLowerCase().includes(term) : false)
+        );
+      }),
     [clients, clientSearch]
   );
 
@@ -363,13 +398,39 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Leilão</Label>
-              <Select value={auctionId || "none"} onValueChange={(v) => setAuctionId(v === "none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecionar leilão..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {auctions.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Popover open={openAuctionPopover} onOpenChange={(o) => { setOpenAuctionPopover(o); if (!o) setAuctionSearch(""); }}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {auctionId ? auctionName(auctionId) : "Selecionar leilão..."}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50">
+                  <div className="p-2">
+                    <Input placeholder="Pesquisar leilão..." value={auctionSearch} onChange={(e) => setAuctionSearch(e.target.value)} />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    <div
+                      className={cn("px-3 py-2 cursor-pointer hover:bg-accent text-sm", !auctionId && "bg-accent font-medium")}
+                      onClick={() => { setAuctionId(""); setOpenAuctionPopover(false); setAuctionSearch(""); }}
+                    >
+                      Nenhum
+                    </div>
+                    {filteredAuctions.map((a) => (
+                      <div
+                        key={a.id}
+                        className={cn("px-3 py-2 cursor-pointer hover:bg-accent text-sm", auctionId === a.id && "bg-accent font-medium")}
+                        onClick={() => { setAuctionId(a.id); setOpenAuctionPopover(false); setAuctionSearch(""); }}
+                      >
+                        {auctionLabel(a)}
+                      </div>
+                    ))}
+                    {filteredAuctions.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum leilão encontrado.</div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>Lote{auctionId ? " *" : ""}</Label>
@@ -414,7 +475,7 @@ export function SaleModal({ open, onOpenChange, tipo, record, onSaved }: Props) 
                               className={cn("px-3 py-2 cursor-pointer hover:bg-accent text-sm", row.clienteId === c.id && "bg-accent font-medium")}
                               onClick={() => handleSelectClient(idx, c.id)}
                             >
-                              {c.name}
+                              {clientLabel(c)}
                             </div>
                           ))}
                           {filteredClients.length === 0 && (

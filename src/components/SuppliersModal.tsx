@@ -362,6 +362,7 @@ export const SuppliersModal = ({
 
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (supplier.trade_name && supplier.trade_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (supplier.cnpj_cpf && supplier.cnpj_cpf.includes(searchTerm))
   );
 
