@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { createPdfReportLayout, getVinculoBadge, REPORT_COLORS, type PdfSummaryCard, type TotalizerItem } from "@/lib/pdfReportLayout";
 
 const ReceivedAccountsReport = () => {
   const navigate = useNavigate();
@@ -350,39 +351,16 @@ const ReceivedAccountsReport = () => {
     return account.description || 'N/A';
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS RECEBIDAS", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas já recebidas", 105, 28, { align: "center" });
-    
-    // Date range info
-    let filterInfo = [];
-    if (filters.payment_start || filters.payment_end) {
-      const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
-      const end = filters.payment_end ? new Date(filters.payment_end).toLocaleDateString("pt-BR") : "Hoje";
-      filterInfo.push(`Recebimento: ${start} a ${end}`);
-    }
-    if (filters.creditor_id !== "all") {
-      const creditor = creditors.find(s => s.id === filters.creditor_id);
-      if (creditor) filterInfo.push(`Credor: ${creditor.name}`);
-    }
-    if (filters.store_id !== "all") {
-      const store = stores.find(s => s.id === filters.store_id);
-      if (store) filterInfo.push(`Loja: ${store.name}`);
-    }
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
-    
+  const exportToPDF = async () => {
+    const doc = new jsPDF("landscape");
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Recebidas",
+      subtitle: "Contas recebidas — Geral",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Table data
     const tableData = accounts.map(account => [
       getAccountTitle(account),
@@ -394,43 +372,26 @@ const ReceivedAccountsReport = () => {
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
-    // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-    
-    // Add total row
-    tableData.push([
-      { content: "TOTAL", colSpan: 5, styles: { fontStyle: "bold", halign: "right" } },
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Credor", "Loja", "Vencimento", "Recebimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: 255,
-        fontStyle: "bold"
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245]
-      },
-      margin: { left: 20, right: 20 }
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 7.5 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "center", cellWidth: 24 },
+          5: { halign: "right", cellWidth: 30 },
+          6: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-recebidas.pdf");
   };
@@ -454,11 +415,76 @@ const ReceivedAccountsReport = () => {
     return filterInfo;
   };
 
+  const formatBRL = (value: number) =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  // Structured filter items for the reusable PDF layout (mirrors getFilterInfo)
+  const getFilterItems = (): { label: string; value: string }[] => {
+    const items: { label: string; value: string }[] = [];
+    if (filters.payment_start || filters.payment_end) {
+      const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
+      const end = filters.payment_end ? new Date(filters.payment_end).toLocaleDateString("pt-BR") : "Hoje";
+      items.push({ label: "Recebimento", value: `${start} a ${end}` });
+    }
+    if (filters.creditor_id !== "all") {
+      const creditor = creditors.find(s => s.id === filters.creditor_id);
+      if (creditor) items.push({ label: "Credor", value: creditor.name });
+    }
+    if (filters.store_id !== "all") {
+      const store = stores.find(s => s.id === filters.store_id);
+      if (store) items.push({ label: "Loja", value: store.name });
+    }
+    return items;
+  };
+
+  const buildSummaryCards = (): PdfSummaryCard[] => {
+    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const registros = new Set(accounts.map((account) => account.id)).size;
+    const parcelas = accounts.length;
+
+    const cards: PdfSummaryCard[] = [
+      { label: "Total geral", value: formatBRL(total), tone: "gold" },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(parcelas) },
+      { label: "Situação", value: "Recebidas", tone: "success" },
+    ];
+
+    if (filters.store_id !== "all") {
+      const store = stores.find((s) => s.id === filters.store_id);
+      if (store) cards.push({ label: "Loja", value: store.name });
+    }
+
+    if (filters.payment_start || filters.payment_end) {
+      const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
+      const end = filters.payment_end ? new Date(filters.payment_end).toLocaleDateString("pt-BR") : "Hoje";
+      cards.push({ label: "Período", value: `${start} a ${end}` });
+    }
+
+    return cards;
+  };
+
+  const buildTotalizerItems = (): TotalizerItem[] => {
+    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    const registros = new Set(accounts.map((account) => account.id)).size;
+    const parcelas = accounts.length;
+    return [
+      { label: "Total geral", value: formatBRL(total), emphasis: true },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(parcelas) },
+    ];
+  };
+
   // Export PDF by Creditor
-  const exportToPDFPorCredor = () => {
+  const exportToPDFPorCredor = async () => {
     const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Recebidas",
+      subtitle: "Contas recebidas — Por credor",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Group accounts by creditor
     const accountsByCreditor: { [key: string]: any[] } = {};
     accounts.forEach(account => {
@@ -471,44 +497,27 @@ const ReceivedAccountsReport = () => {
 
     // Sort creditors alphabetically
     const sortedCreditors = Object.keys(accountsByCreditor).sort();
-    
-    let currentY = 20;
-    let isFirstPage = true;
-    let grandTotal = 0;
-    let grandCount = 0;
 
-    sortedCreditors.forEach((creditorName, creditorIndex) => {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let currentY = layout.startY;
+
+    sortedCreditors.forEach((creditorName) => {
       const creditorAccounts = accountsByCreditor[creditorName];
       const creditorTotal = creditorAccounts.reduce((sum, acc) => sum + (acc.amount || 0), 0);
-      grandTotal += creditorTotal;
-      grandCount += creditorAccounts.length;
 
       // Check if we need a new page
-      if (!isFirstPage && currentY > 250) {
+      if (currentY > pageHeight - 47) {
         doc.addPage();
-        currentY = 20;
-      }
-
-      if (isFirstPage) {
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.text("RELATÓRIO DE CONTAS RECEBIDAS POR CREDOR", 105, currentY, { align: "center" });
-        currentY += 10;
-        
-        if (filterInfo.length > 0) {
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.text(`Filtros: ${filterInfo.join(" | ")}`, 20, currentY);
-          currentY += 10;
-        }
-        isFirstPage = false;
+        layout.willDrawPage({ pageNumber: doc.getNumberOfPages() });
+        currentY = layout.tableMargin.top;
       }
 
       // Creditor header
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`${creditorName}`, 20, currentY);
-      currentY += 2;
+      doc.setTextColor(...REPORT_COLORS.navy);
+      doc.text(`${creditorName}`, layout.tableMargin.left, currentY + 3);
+      currentY += 5;
 
       const tableData = creditorAccounts.map(account => [
         getAccountTitle(account),
@@ -530,38 +539,39 @@ const ReceivedAccountsReport = () => {
         head: [["Título", "Loja", "Vencimento", "Recebimento", "Valor", "Parcelas"]],
         body: tableData,
         startY: currentY,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: 20, right: 20 }
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          columnStyles: {
+            2: { halign: "center", cellWidth: 24 },
+            3: { halign: "center", cellWidth: 24 },
+            4: { halign: "right", cellWidth: 28 },
+            5: { halign: "center", cellWidth: 20 },
+          },
+        }),
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 10;
     });
 
-    // Grand total
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcela(s))`, 20, currentY);
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-recebidas-por-credor.pdf");
   };
 
   // Export PDF by Month
-  const exportToPDFPorMes = () => {
-    const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
+  const exportToPDFPorMes = async () => {
+    const doc = new jsPDF("landscape");
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Recebidas",
+      subtitle: "Contas recebidas — Por mês",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Group accounts by month/year of payment_date
     const accountsByMonth: { [key: string]: any[] } = {};
     accounts.forEach(account => {
@@ -580,43 +590,26 @@ const ReceivedAccountsReport = () => {
       if (yearA !== yearB) return yearA - yearB;
       return monthA - monthB;
     });
-    
-    let currentY = 20;
-    let isFirstPage = true;
-    let grandTotal = 0;
-    let grandCount = 0;
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let currentY = layout.startY;
 
     sortedMonths.forEach((monthYear) => {
       const monthAccounts = accountsByMonth[monthYear];
       const monthTotal = monthAccounts.reduce((sum, acc) => sum + (acc.amount || 0), 0);
-      grandTotal += monthTotal;
-      grandCount += monthAccounts.length;
 
-      if (!isFirstPage && currentY > 250) {
+      if (currentY > pageHeight - 40) {
         doc.addPage();
-        currentY = 20;
-      }
-
-      if (isFirstPage) {
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.text("RELATÓRIO DE CONTAS RECEBIDAS POR MÊS", 105, currentY, { align: "center" });
-        currentY += 10;
-        
-        if (filterInfo.length > 0) {
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.text(`Filtros: ${filterInfo.join(" | ")}`, 20, currentY);
-          currentY += 10;
-        }
-        isFirstPage = false;
+        layout.willDrawPage({ pageNumber: doc.getNumberOfPages() });
+        currentY = layout.tableMargin.top;
       }
 
       // Month header
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Mês: ${monthYear}`, 20, currentY);
-      currentY += 2;
+      doc.setTextColor(...REPORT_COLORS.navy);
+      doc.text(`Mês: ${monthYear}`, layout.tableMargin.left, currentY + 3);
+      currentY += 5;
 
       const tableData = monthAccounts.map(account => [
         getAccountTitle(account),
@@ -639,38 +632,33 @@ const ReceivedAccountsReport = () => {
         head: [["Título", "Credor", "Loja", "Vencimento", "Recebimento", "Valor", "Parcelas"]],
         body: tableData,
         startY: currentY,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: 20, right: 20 }
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          styles: { fontSize: 7.5 },
+          columnStyles: {
+            3: { halign: "center", cellWidth: 24 },
+            4: { halign: "center", cellWidth: 24 },
+            5: { halign: "right", cellWidth: 30 },
+            6: { halign: "center", cellWidth: 20 },
+          },
+        }),
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 10;
     });
 
-    // Grand total
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcela(s))`, 20, currentY);
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-recebidas-por-mes.pdf");
   };
 
   // Export PDF by Subgroup
-  const exportToPDFPorSubgrupo = () => {
+  const exportToPDFPorSubgrupo = async () => {
     const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
+
     // Process accounts and group by subgroup
     const accountsBySubgroup: { [key: string]: any[] } = {};
     
@@ -732,43 +720,33 @@ const ReceivedAccountsReport = () => {
 
     // Sort subgroups alphabetically
     const sortedSubgroups = Object.keys(accountsBySubgroup).sort();
-    
-    let currentY = 20;
-    let isFirstPage = true;
-    let grandTotal = 0;
-    let grandCount = 0;
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Recebidas",
+      subtitle: "Contas recebidas — Por subgrupo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let currentY = layout.startY;
 
     sortedSubgroups.forEach((subgroupName) => {
       const subgroupAccounts = accountsBySubgroup[subgroupName];
       const subgroupTotal = subgroupAccounts.reduce((sum, acc) => sum + (acc.amount || 0), 0);
-      grandTotal += subgroupTotal;
-      grandCount += subgroupAccounts.length;
 
-      if (!isFirstPage && currentY > 250) {
+      if (currentY > pageHeight - 47) {
         doc.addPage();
-        currentY = 20;
-      }
-
-      if (isFirstPage) {
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.text("RELATÓRIO DE CONTAS RECEBIDAS POR SUBGRUPO", 105, currentY, { align: "center" });
-        currentY += 10;
-        
-        if (filterInfo.length > 0) {
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.text(`Filtros: ${filterInfo.join(" | ")}`, 20, currentY);
-          currentY += 10;
-        }
-        isFirstPage = false;
+        layout.willDrawPage({ pageNumber: doc.getNumberOfPages() });
+        currentY = layout.tableMargin.top;
       }
 
       // Subgroup header
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`${subgroupName}`, 20, currentY);
-      currentY += 2;
+      doc.setTextColor(...REPORT_COLORS.navy);
+      doc.text(`${subgroupName}`, layout.tableMargin.left, currentY + 3);
+      currentY += 5;
 
       const tableData = subgroupAccounts.map(account => [
         getAccountTitle(account),
@@ -790,75 +768,69 @@ const ReceivedAccountsReport = () => {
         head: [["Título", "Credor", "Loja", "Recebimento", "Valor", "Parcelas"]],
         body: tableData,
         startY: currentY,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: 20, right: 20 }
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          columnStyles: {
+            3: { halign: "center", cellWidth: 26 },
+            4: { halign: "right", cellWidth: 30 },
+            5: { halign: "center", cellWidth: 22 },
+          },
+        }),
       });
 
       currentY = (doc as any).lastAutoTable.finalY + 10;
     });
 
-    // Grand total
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} item(s))`, 20, currentY);
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-recebidas-por-subgrupo.pdf");
   };
 
   // Export PDF Detailed (with products)
-  const exportToPDFDetalhado = () => {
+  const exportToPDFDetalhado = async () => {
     const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
-    let currentY = 20;
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DETALHADO DE CONTAS RECEBIDAS", 105, currentY, { align: "center" });
-    currentY += 10;
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Filtros: ${filterInfo.join(" | ")}`, 20, currentY);
-      currentY += 10;
-    }
 
-    let grandTotal = 0;
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Recebidas",
+      subtitle: "Contas recebidas — Detalhado (com produtos)",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
-    accounts.forEach((account, index) => {
+    const marginLeft = layout.tableMargin.left;
+    const contentWidth = doc.internal.pageSize.getWidth() - layout.tableMargin.left - layout.tableMargin.right;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let currentY = layout.startY;
+
+    accounts.forEach((account) => {
       const items = account.accounts_receivable_items || [];
-      
-      if (currentY > 250) {
+
+      if (currentY > pageHeight - 47) {
         doc.addPage();
-        currentY = 20;
+        layout.willDrawPage({ pageNumber: doc.getNumberOfPages() });
+        currentY = layout.tableMargin.top;
       }
 
-      // Account header
-      doc.setFontSize(10);
+      // Account header (navy band with gold accent)
+      const headerH = 8;
+      doc.setFillColor(...REPORT_COLORS.navy);
+      doc.rect(marginLeft, currentY, contentWidth, headerH, 'F');
+      doc.setFillColor(...REPORT_COLORS.gold);
+      doc.rect(marginLeft, currentY, 1.6, headerH, 'F');
+      doc.setFontSize(9.5);
       doc.setFont("helvetica", "bold");
-      doc.setFillColor(240, 240, 240);
-      doc.rect(20, currentY - 4, doc.internal.pageSize.width - 40, 8, 'F');
-      doc.text(`${getAccountTitle(account)} - ${account.suppliers?.name || "N/A"} - ${account.stores?.name || "N/A"}`, 22, currentY);
-      currentY += 6;
+      doc.setTextColor(...REPORT_COLORS.white);
+      doc.text(`${getAccountTitle(account)} - ${account.suppliers?.name || "N/A"} - ${account.stores?.name || "N/A"}`, marginLeft + 4, currentY + 5.4);
+      currentY += headerH + 3;
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Vencimento: ${new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")} | Recebimento: ${new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR")} | Parcelas: ${account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}`, 22, currentY);
-      currentY += 6;
+      doc.setTextColor(...REPORT_COLORS.textPrimary);
+      doc.text(`Vencimento: ${new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR")} | Recebimento: ${new Date(account.payment_date + 'T00:00:00').toLocaleDateString("pt-BR")} | Parcelas: ${account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"}`, marginLeft + 2, currentY);
+      currentY += 5;
 
       if (items.length > 0) {
         const tableData = items.map((item: any) => [
@@ -873,9 +845,16 @@ const ReceivedAccountsReport = () => {
           head: [["Produto", "Subgrupo", "Qtd", "Preço Unit.", "Total"]],
           body: tableData,
           startY: currentY,
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: [100, 100, 100], textColor: 255, fontStyle: "bold" },
-          margin: { left: 22, right: 22 }
+          margin: layout.tableMargin,
+          willDrawPage: layout.willDrawPage,
+          ...layout.tableStyles({
+            styles: { fontSize: 8 },
+            columnStyles: {
+              2: { halign: "center", cellWidth: 18 },
+              3: { halign: "right", cellWidth: 30 },
+              4: { halign: "right", cellWidth: 30 },
+            },
+          }),
         });
 
         currentY = (doc as any).lastAutoTable.finalY + 2;
@@ -884,7 +863,8 @@ const ReceivedAccountsReport = () => {
       // Account totals
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      
+      doc.setTextColor(...REPORT_COLORS.navy);
+
       let totalLine = `Valor Recebido: ${account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
       if (account.interest_amount > 0) {
         totalLine += ` (Juros: ${account.interest_amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`;
@@ -892,47 +872,26 @@ const ReceivedAccountsReport = () => {
       if (account.discount_amount > 0) {
         totalLine += ` (Desconto: ${account.discount_amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`;
       }
-      doc.text(totalLine, 22, currentY);
-      currentY += 8;
-
-      grandTotal += account.amount || 0;
+      doc.text(totalLine, marginLeft + 2, currentY + 3);
+      currentY += 10;
     });
 
-    // Grand total
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${accounts.length} parcela(s))`, 20, currentY + 5);
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    layout.drawTotalizer(currentY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-recebidas-detalhado.pdf");
   };
 
   // Export PDF by Creditor and Allocation (Vínculo)
-  const exportToPDFByCreditorAndVinculo = () => {
-    const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS RECEBIDAS", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Por Credor e Vínculo", 105, 28, { align: "center" });
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+  const exportToPDFByCreditorAndVinculo = async () => {
+    const doc = new jsPDF("landscape");
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Recebidas",
+      subtitle: "Contas recebidas — Por credor e vínculo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
       const creditorName = account.suppliers?.name || "Sem Credor";
@@ -941,21 +900,25 @@ const ReceivedAccountsReport = () => {
       return groups;
     }, {});
 
-    let startY = filterInfo.length > 0 ? 45 : 35;
-    let grandTotal = 0;
-    let grandCount = 0;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let currentY = layout.startY;
     const sortedCreditors = Object.keys(groupedByCreditor).sort();
 
-    sortedCreditors.forEach((creditorName, index) => {
+    sortedCreditors.forEach((creditorName) => {
       const creditorAccounts = groupedByCreditor[creditorName];
       const creditorTotal = creditorAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
-      grandTotal += creditorTotal;
-      grandCount += creditorAccounts.length;
+
+      if (currentY > pageHeight - 40) {
+        doc.addPage();
+        layout.willDrawPage({ pageNumber: doc.getNumberOfPages() });
+        currentY = layout.tableMargin.top;
+      }
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Credor: ${creditorName}`, 20, startY);
-      startY += 5;
+      doc.setTextColor(...REPORT_COLORS.navy);
+      doc.text(`Credor: ${creditorName}`, layout.tableMargin.left, currentY + 3);
+      currentY += 5;
 
       const tableData: any[] = [];
       creditorAccounts.forEach((account: any) => {
@@ -968,31 +931,46 @@ const ReceivedAccountsReport = () => {
           account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
         ]);
 
-        const allocations: string[] = [];
+        const allocations: { tipo: string; descricao: string }[] = [];
         (account.accounts_receivable_items || []).forEach((item: any) => {
           (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
             if (alloc.animal_id && allocationNames[`animal-${alloc.animal_id}`]) {
-              allocations.push(`Animal: ${allocationNames[`animal-${alloc.animal_id}`]}`);
+              allocations.push({ tipo: "Animal", descricao: allocationNames[`animal-${alloc.animal_id}`] });
             }
             if (alloc.aspiration_id && allocationNames[`aspiration-${alloc.aspiration_id}`]) {
-              allocations.push(`Aspiração: ${allocationNames[`aspiration-${alloc.aspiration_id}`]}`);
+              allocations.push({ tipo: "Aspiração", descricao: allocationNames[`aspiration-${alloc.aspiration_id}`] });
             }
             if (alloc.pregnancy_id && allocationNames[`pregnancy-${alloc.pregnancy_id}`]) {
-              allocations.push(`Prenhez: ${allocationNames[`pregnancy-${alloc.pregnancy_id}`]}`);
+              allocations.push({ tipo: "Prenhez", descricao: allocationNames[`pregnancy-${alloc.pregnancy_id}`] });
             }
             if (alloc.embryo_transfer_id && allocationNames[`embryo-${alloc.embryo_transfer_id}`]) {
-              allocations.push(`Pós TE: ${allocationNames[`embryo-${alloc.embryo_transfer_id}`]}`);
+              allocations.push({ tipo: "Pós TE", descricao: allocationNames[`embryo-${alloc.embryo_transfer_id}`] });
             }
             if (alloc.recipient_id && allocationNames[`recipient-${alloc.recipient_id}`]) {
-              allocations.push(`Receptora: ${allocationNames[`recipient-${alloc.recipient_id}`]}`);
+              allocations.push({ tipo: "Receptora", descricao: allocationNames[`recipient-${alloc.recipient_id}`] });
             }
           });
         });
 
         if (allocations.length > 0) {
-          [...new Set(allocations)].forEach((allocName) => {
+          const seen = new Set<string>();
+          allocations.forEach(({ tipo, descricao }) => {
+            const key = `${tipo}:${descricao}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            const badge = getVinculoBadge(tipo);
             tableData.push([
-              { content: `    ${allocName}`, colSpan: 6, styles: { fontStyle: "italic", textColor: [100, 100, 100], fontSize: 7, cellPadding: { top: 1, bottom: 1, left: 8, right: 2 } } }
+              {
+                content: `[${badge.label}] ${descricao}`,
+                colSpan: 6,
+                styles: {
+                  fontStyle: "italic",
+                  textColor: badge.color,
+                  fillColor: badge.soft,
+                  fontSize: 7,
+                  cellPadding: { top: 1, bottom: 1, left: 8, right: 2 },
+                },
+              },
             ]);
           });
         }
@@ -1007,32 +985,26 @@ const ReceivedAccountsReport = () => {
       autoTable(doc, {
         head: [["Título", "Loja", "Vencimento", "Recebimento", "Valor", "Parcelas"]],
         body: tableData,
-        startY: startY,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: 20, right: 20 }
+        startY: currentY,
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          styles: { fontSize: 7.5 },
+          columnStyles: {
+            2: { halign: "center", cellWidth: 26 },
+            3: { halign: "center", cellWidth: 26 },
+            4: { halign: "right", cellWidth: 32 },
+            5: { halign: "center", cellWidth: 22 },
+          },
+        }),
       });
 
-      startY = (doc as any).lastAutoTable.finalY + 10;
-      if (startY > 250 && index < sortedCreditors.length - 1) {
-        doc.addPage();
-        startY = 20;
-      }
+      currentY = (doc as any).lastAutoTable.finalY + 10;
     });
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcela(s))`, 20, startY + 5);
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-recebidas-por-credor-vinculo.pdf");
   };

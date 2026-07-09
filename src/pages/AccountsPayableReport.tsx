@@ -25,7 +25,13 @@ import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
 import { fetchRecipientAllocationOptions, fetchSemenAllocationOptions } from "@/lib/financialAllocations";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
-import { createPdfReportLayout } from "@/lib/pdfReportLayout";
+import {
+  createPdfReportLayout,
+  getVinculoBadge,
+  REPORT_COLORS,
+  type PdfSummaryCard,
+  type TotalizerItem,
+} from "@/lib/pdfReportLayout";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -726,6 +732,49 @@ const AccountsPayableReport = () => {
     return filterItems;
   };
 
+  /** Situação do relatório, exibida nos cards de resumo do PDF. */
+  const reportSituacao = filters.include_suspended ? "Em aberto + suspensas" : "Em aberto";
+
+  /** Indicadores agregados reaproveitados pelos cards de resumo e pelo totalizador. */
+  const getReportTotals = () => ({
+    total: sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0),
+    registros: new Set(sortedAccounts.map((account) => account.id)).size,
+    parcelas: sortedAccounts.length,
+  });
+
+  const buildSummaryCards = (situacao: string = reportSituacao): PdfSummaryCard[] => {
+    const { total, registros, parcelas } = getReportTotals();
+
+    const cards: PdfSummaryCard[] = [
+      { label: "Total geral", value: formatCurrencyBRL(total), tone: "gold" },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(parcelas) },
+      { label: "Situação", value: situacao, tone: "primary" },
+    ];
+
+    if (filters.store_id !== "all") {
+      const store = stores.find((item) => item.id === filters.store_id);
+      if (store?.name) cards.push({ label: "Fazenda", value: store.name });
+    }
+
+    if (filters.due_start || filters.due_end) {
+      const start = filters.due_start ? formatDateBR(filters.due_start) : "Início";
+      const end = filters.due_end ? formatDateBR(filters.due_end) : "Fim";
+      cards.push({ label: "Período (vencimento)", value: `${start} a ${end}` });
+    }
+
+    return cards;
+  };
+
+  const buildTotalizerItems = (): TotalizerItem[] => {
+    const { total, registros, parcelas } = getReportTotals();
+    return [
+      { label: "Total geral", value: formatCurrencyBRL(total), emphasis: true },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(parcelas) },
+    ];
+  };
+
   const mobileFilterSummary = React.useMemo(() => {
     const supplierName = filters.supplier_id !== "all"
       ? suppliers.find((item) => item.id === filters.supplier_id)?.name
@@ -869,10 +918,17 @@ const AccountsPayableReport = () => {
     });
 
     const layout = await createPdfReportLayout(doc, {
-      title: "Relatório Sintético de Contas a Pagar",
+      title: "Relatório de Contas a Pagar",
+      subtitle: `Sintético — agrupado a cada ${intervalDays} dia(s)`,
       emittedAt: new Date(),
-      totalRecords: totalMovementDays,
       filters: appliedFilters,
+      summaryCards: [
+        { label: "Total geral", value: formatCurrencyBRL(totalGeneral), tone: "gold" },
+        { label: "Dias com movimentação", value: String(totalMovementDays) },
+        { label: "Blocos", value: String(blocks.length) },
+        { label: "Situação", value: reportSituacao, tone: "primary" },
+        { label: "Período (vencimento)", value: `${formatDateBR(filters.due_start)} a ${formatDateBR(filters.due_end)}` },
+      ],
     });
 
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -890,39 +946,29 @@ const AccountsPayableReport = () => {
     };
 
     const drawTotalBox = () => {
-      ensureSpace(20);
-      doc.setFillColor(17, 94, 89);
-      doc.setDrawColor(17, 94, 89);
-      doc.roundedRect(marginLeft, currentY, contentWidth, 14, 2.5, 2.5, "FD");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text("Total geral do período", marginLeft + 4, currentY + 5.5);
-
-      doc.setFontSize(14);
-      doc.text(formatCurrencyBRL(totalGeneral), marginLeft + contentWidth - 4, currentY + 9.5, {
-        align: "right",
-      });
-
-      currentY += 18;
+      currentY =
+        layout.drawTotalizer(currentY, [
+          { label: "Total geral do período", value: formatCurrencyBRL(totalGeneral), emphasis: true },
+          { label: "Dias", value: String(totalMovementDays) },
+          { label: "Blocos", value: String(blocks.length) },
+        ]) + 4;
     };
 
     if (blocks.every((block) => block.dailyTotals.length === 0)) {
       ensureSpace(40);
 
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(...REPORT_COLORS.cardBg);
+      doc.setDrawColor(...REPORT_COLORS.border);
       doc.roundedRect(marginLeft, currentY, contentWidth, 28, 3, 3, "FD");
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.setTextColor(15, 23, 42);
+      doc.setTextColor(...REPORT_COLORS.navy);
       doc.text("Nenhuma movimentação encontrada no período selecionado.", marginLeft + 5, currentY + 10);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139);
+      doc.setTextColor(...REPORT_COLORS.textMuted);
       doc.text(
         `Período analisado: ${formatDateBR(filters.due_start)} a ${formatDateBR(filters.due_end)}.`,
         marginLeft + 5,
@@ -940,26 +986,28 @@ const AccountsPayableReport = () => {
     blocks.forEach((block, index) => {
       ensureSpace(24);
 
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(...REPORT_COLORS.cardBg);
+      doc.setDrawColor(...REPORT_COLORS.border);
       doc.roundedRect(marginLeft, currentY, contentWidth, 12, 2.5, 2.5, "FD");
+      doc.setFillColor(...REPORT_COLORS.gold);
+      doc.rect(marginLeft, currentY + 2, 1.4, 8, "F");
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
-      doc.text(`Bloco ${index + 1}`, marginLeft + 4, currentY + 5.5);
+      doc.setTextColor(...REPORT_COLORS.navy);
+      doc.text(`Bloco ${index + 1}`, marginLeft + 5, currentY + 5.5);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139);
+      doc.setTextColor(...REPORT_COLORS.textMuted);
       doc.text(
         `${formatDateBR(block.startDate)} a ${formatDateBR(block.endDate)}`,
-        marginLeft + 4,
+        marginLeft + 5,
         currentY + 9,
       );
 
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 94, 89);
+      doc.setTextColor(...REPORT_COLORS.navy);
       doc.text(formatCurrencyBRL(block.subtotal), marginLeft + contentWidth - 4, currentY + 7.2, {
         align: "right",
       });
@@ -984,8 +1032,8 @@ const AccountsPayableReport = () => {
           styles: {
             fontStyle: "bold",
             halign: "right",
-            fillColor: [240, 248, 247],
-            textColor: [15, 23, 42],
+            fillColor: REPORT_COLORS.goldSoft,
+            textColor: REPORT_COLORS.navy,
           },
         } as any,
         {
@@ -993,8 +1041,8 @@ const AccountsPayableReport = () => {
           styles: {
             fontStyle: "bold",
             halign: "right",
-            fillColor: [240, 248, 247],
-            textColor: [17, 94, 89],
+            fillColor: REPORT_COLORS.goldSoft,
+            textColor: REPORT_COLORS.navy,
           },
         } as any,
       ]);
@@ -1004,34 +1052,16 @@ const AccountsPayableReport = () => {
         body: bodyRows,
         startY: currentY,
         margin: layout.tableMargin,
-        theme: "grid",
         showHead: "everyPage",
         willDrawPage: layout.willDrawPage,
-        styles: {
-          fontSize: 9,
-          textColor: [15, 23, 42],
-          cellPadding: { top: 2.8, right: 3, bottom: 2.8, left: 3 },
-          lineColor: [226, 232, 240],
-          lineWidth: 0.15,
-          overflow: "linebreak",
-          valign: "middle",
-        },
-        headStyles: {
-          fillColor: [17, 94, 89],
-          textColor: [255, 255, 255],
-          fontSize: 9,
-          fontStyle: "bold",
-        },
-        bodyStyles: {
-          minCellHeight: 8,
-        },
-        alternateRowStyles: {
-          fillColor: [250, 252, 252],
-        },
-        columnStyles: {
-          0: { cellWidth: 55 },
-          1: { cellWidth: 45, halign: "right" },
-        },
+        ...layout.tableStyles({
+          styles: { fontSize: 9 },
+          bodyStyles: { minCellHeight: 8 },
+          columnStyles: {
+            0: { cellWidth: 55, halign: "center" },
+            1: { cellWidth: 45, halign: "right" },
+          },
+        }),
       });
 
       currentY = (pdf.lastAutoTable?.finalY || currentY) + 8;
@@ -1078,94 +1108,64 @@ const AccountsPayableReport = () => {
     }
   };
 
-  const exportToPDFResumido = () => {
+  const exportToPDFResumido = async () => {
     const doc = new jsPDF();
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não pagas - Resumido", 105, 28, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Contas ainda não pagas — Resumido",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Table data
-    const tableData = sortedAccounts.map((account) => [
-      account.description,
-      account.employees?.name || account.suppliers?.name || "N/A",
-      account.stores?.name || "N/A",
-      new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
-      account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
-      account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
-    ]);
-
-    // Calculate total
-    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-
-    // Add total row
-    tableData.push([
-      { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
-    ]);
+    const tableData: any[] = sortedAccounts.map((account) => {
+      const cells = [
+        account.description,
+        account.employees?.name || account.suppliers?.name || "N/A",
+        account.stores?.name || "N/A",
+        new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
+        account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
+        account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
+      ];
+      // Contas suspensas com fonte em vermelho para destaque
+      if (account.is_suspended) {
+        return cells.map((content) => ({ content, styles: { textColor: [220, 38, 38] } }));
+      }
+      return cells;
+    });
 
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      margin: { left: 20, right: 20 },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-pagar-resumido.pdf");
   };
 
-  const exportToPDFResumidoPorMes = () => {
+  const exportToPDFResumidoPorMes = async () => {
     const doc = new jsPDF();
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não pagas - Resumido por Mês", 105, 28, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Contas ainda não pagas — Resumido por Mês",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Group accounts by month/year
     const accountsByMonth: { [key: string]: { monthLabel: string; accounts: any[]; sortKey: string } } = {};
@@ -1217,21 +1217,32 @@ const AccountsPayableReport = () => {
         {
           content: monthGroup.monthLabel,
           colSpan: 6,
-          styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 },
+          styles: {
+            fontStyle: "bold",
+            fillColor: REPORT_COLORS.goldSoft,
+            textColor: REPORT_COLORS.navy,
+            fontSize: 9.5,
+          },
         },
       ]);
 
       // Items for this month
       let monthTotal = 0;
       monthGroup.accounts.forEach((account) => {
-        tableData.push([
+        const cells = [
           account.description,
           account.employees?.name || account.suppliers?.name || "N/A",
           account.stores?.name || "N/A",
           new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
           account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
           account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
-        ]);
+        ];
+        // Contas suspensas com fonte em vermelho para destaque
+        if (account.is_suspended) {
+          tableData.push(cells.map((content) => ({ content, styles: { textColor: [220, 38, 38] } })));
+        } else {
+          tableData.push(cells);
+        }
         monthTotal += account.amount || 0;
       });
 
@@ -1240,15 +1251,15 @@ const AccountsPayableReport = () => {
         {
           content: `Subtotal ${monthGroup.monthLabel}`,
           colSpan: 4,
-          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: monthTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: `${monthGroup.accounts.length} parcela(s)`,
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "center", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
       ]);
 
@@ -1256,69 +1267,42 @@ const AccountsPayableReport = () => {
       totalInstallments += monthGroup.accounts.length;
     });
 
-    // Grand total row
-    tableData.push([
-      {
-        content: "TOTAL GERAL",
-        colSpan: 4,
-        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: `${totalInstallments} parcela(s)`,
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      margin: { left: 10, right: 10 },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 8 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, [
+      { label: "Total geral", value: formatCurrencyBRL(grandTotal), emphasis: true },
+      { label: "Meses", value: String(sortedMonths.length) },
+      { label: "Parcelas", value: String(totalInstallments) },
+    ]);
+    layout.finalize();
 
     doc.save("contas-a-pagar-resumido-por-mes.pdf");
   };
 
-  const exportToPDFResumidoPorDia = () => {
+  const exportToPDFResumidoPorDia = async () => {
     const doc = new jsPDF();
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não pagas - Resumido por Dia", 105, 28, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Contas ainda não pagas — Resumido por Dia",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Group accounts by day (YYYY-MM-DD)
     const accountsByDay: { [key: string]: { dayLabel: string; accounts: any[]; sortKey: string } } = {};
@@ -1358,7 +1342,12 @@ const AccountsPayableReport = () => {
         {
           content: dayGroup.dayLabel,
           colSpan: 6,
-          styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 },
+          styles: {
+            fontStyle: "bold",
+            fillColor: REPORT_COLORS.goldSoft,
+            textColor: REPORT_COLORS.navy,
+            fontSize: 9.5,
+          },
         },
       ]);
 
@@ -1387,15 +1376,15 @@ const AccountsPayableReport = () => {
         {
           content: `Subtotal do dia`,
           colSpan: 4,
-          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: dayTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: `${dayGroup.accounts.length} parcela(s)`,
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "center", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
       ]);
 
@@ -1403,47 +1392,29 @@ const AccountsPayableReport = () => {
       totalInstallments += dayGroup.accounts.length;
     });
 
-    // Grand total row
-    tableData.push([
-      {
-        content: "TOTAL GERAL",
-        colSpan: 4,
-        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: `${totalInstallments} parcela(s)`,
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      margin: { left: 10, right: 10 },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 8 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, [
+      { label: "Total geral", value: formatCurrencyBRL(grandTotal), emphasis: true },
+      { label: "Dias", value: String(sortedDays.length) },
+      { label: "Parcelas", value: String(totalInstallments) },
+    ]);
+    layout.finalize();
 
     doc.save("contas-a-pagar-resumido-por-dia.pdf");
   };
@@ -1453,19 +1424,12 @@ const AccountsPayableReport = () => {
 
     const doc = new jsPDF("landscape");
 
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 148, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não pagas - Dia / Animal", 148, 28, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Contas ainda não pagas — Dia / Vínculo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Group by day, then by vínculo
     const accountsByDay: {
@@ -1517,7 +1481,7 @@ const AccountsPayableReport = () => {
         {
           content: dayGroup.dayLabel,
           colSpan: 7,
-          styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255, fontSize: 10 },
+          styles: { fontStyle: "bold", fillColor: REPORT_COLORS.navy, textColor: REPORT_COLORS.headText, fontSize: 9.5 },
         },
       ]);
 
@@ -1527,17 +1491,25 @@ const AccountsPayableReport = () => {
       const sortedVinculos = Object.keys(dayGroup.byVinculo).sort((a, b) => a.localeCompare(b));
 
       sortedVinculos.forEach((vincKey) => {
+        const vincLabels = vincKey === "Sem vínculo" ? [] : vincKey.split(" | ");
+        const vinculoCell = buildVinculoCell(vincLabels);
+
         // Vínculo subheader (no subtotal)
         tableData.push([
           {
-            content: vincKey,
+            content: vincLabels.length ? vinculoCell.content.split("\n").join("   •   ") : vincKey,
             colSpan: 7,
-            styles: { fontStyle: "bold", fillColor: [230, 240, 250], fontSize: 9 },
+            styles: {
+              fontStyle: "bold",
+              fontSize: 8.5,
+              fillColor: vinculoCell.styles.fillColor || REPORT_COLORS.goldSoft,
+              textColor: vinculoCell.styles.textColor || REPORT_COLORS.navy,
+            },
           },
         ]);
 
         dayGroup.byVinculo[vincKey].forEach((account) => {
-          tableData.push([
+          const base = [
             account.description,
             account.employees?.name || account.suppliers?.name || "N/A",
             account.stores?.name || "N/A",
@@ -1546,8 +1518,18 @@ const AccountsPayableReport = () => {
             account.total_installments > 1
               ? `${account.installment_number}/${account.total_installments}`
               : "À vista",
-            vincKey === "Sem vínculo" ? "-" : vincKey,
-          ]);
+          ];
+
+          // Contas suspensas com fonte em vermelho para destaque
+          if (account.is_suspended) {
+            tableData.push([
+              ...base.map((content) => ({ content, styles: { textColor: [220, 38, 38] } })),
+              { content: vinculoCell.content, styles: { ...vinculoCell.styles, textColor: [220, 38, 38] } },
+            ]);
+          } else {
+            tableData.push([...base.map((content) => ({ content, styles: {} })), vinculoCell]);
+          }
+
           dayTotal += account.amount || 0;
           dayCount += 1;
         });
@@ -1558,75 +1540,60 @@ const AccountsPayableReport = () => {
         {
           content: "Subtotal do dia",
           colSpan: 4,
-          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: dayTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: `${dayCount} parcela(s)`,
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "center", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
-        { content: "", styles: { fillColor: [240, 240, 240] } },
+        { content: "", styles: { fillColor: REPORT_COLORS.zebra } },
       ]);
 
       grandTotal += dayTotal;
       totalInstallments += dayCount;
     });
 
-    tableData.push([
-      {
-        content: "TOTAL GERAL",
-        colSpan: 4,
-        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: `${totalInstallments} parcela(s)`,
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      { content: "", styles: { fillColor: [41, 128, 185] } },
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas", "Vínculo"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
-      margin: { left: 10, right: 10 },
-      columnStyles: { 6: { cellWidth: 60 } },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 7.5 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 22 },
+          4: { halign: "right", cellWidth: 26 },
+          5: { halign: "center", cellWidth: 18 },
+          6: { cellWidth: 70 },
+        },
+      }),
     });
 
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, [
+      { label: "Total geral", value: formatCurrencyBRL(grandTotal), emphasis: true },
+      { label: "Dias", value: String(sortedDays.length) },
+      { label: "Parcelas", value: String(totalInstallments) },
+    ]);
+    layout.finalize();
 
     doc.save("contas-a-pagar-dia-animal.pdf");
   };
 
-  const exportToPDFDetalhado = () => {
+  const exportToPDFDetalhado = async () => {
     const doc = new jsPDF();
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Contas ainda não pagas — Analítico",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Build table data with product details
     const tableData: any[] = [];
@@ -1677,62 +1644,37 @@ const AccountsPayableReport = () => {
       }
     });
 
-    // Calculate total
-    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-
-    // Add total row
-    tableData.push([
-      { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } },
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 37 : 27,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      margin: { left: 20, right: 20 },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-pagar-detalhado.pdf");
   };
 
-  const exportToPDFPorSubgrupo = () => {
+  const exportToPDFPorSubgrupo = async () => {
     const doc = new jsPDF();
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 105, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Agrupado por Subgrupo", 105, 28, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Agrupado por Subgrupo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Group accounts by subgroup
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
@@ -1848,7 +1790,12 @@ const AccountsPayableReport = () => {
         {
           content: group.subgroupName,
           colSpan: 5,
-          styles: { fontStyle: "bold", fillColor: [220, 220, 220], fontSize: 10 },
+          styles: {
+            fontStyle: "bold",
+            fillColor: REPORT_COLORS.goldSoft,
+            textColor: REPORT_COLORS.navy,
+            fontSize: 9.5,
+          },
         },
       ]);
 
@@ -1870,54 +1817,39 @@ const AccountsPayableReport = () => {
         {
           content: `Subtotal ${group.subgroupName}`,
           colSpan: 4,
-          styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
         {
           content: subgroupTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-          styles: { fontStyle: "bold", fillColor: [240, 240, 240] },
+          styles: { fontStyle: "bold", halign: "right", fillColor: REPORT_COLORS.zebra, textColor: REPORT_COLORS.navy },
         },
       ]);
 
       grandTotal += subgroupTotal;
     });
 
-    // Grand total row
-    tableData.push([
-      {
-        content: "TOTAL GERAL",
-        colSpan: 4,
-        styles: { fontStyle: "bold", halign: "right", fillColor: [41, 128, 185], textColor: 255 },
-      },
-      {
-        content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-        styles: { fontStyle: "bold", fillColor: [41, 128, 185], textColor: 255 },
-      },
-    ]);
-
     autoTable(doc, {
       head: [["Descrição", "Fornecedor", "Fazenda", "Vencimento", "Valor"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      margin: { left: 10, right: 10 },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 8 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 30 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, [
+      { label: "Total geral", value: formatCurrencyBRL(grandTotal), emphasis: true },
+      { label: "Subgrupos", value: String(Object.keys(accountsBySubgroup).length) },
+      { label: "Parcelas", value: String(sortedAccounts.length) },
+    ]);
+    layout.finalize();
 
     doc.save("contas-a-pagar-por-subgrupo.pdf");
   };
@@ -2049,70 +1981,87 @@ const AccountsPayableReport = () => {
     return labelsMap;
   };
 
+  /**
+   * Monta a célula de vínculo exibindo cada item como uma tag: "[PRENHEZ] 26 - LUANA".
+   * Quando todos os vínculos são do mesmo tipo, a célula recebe as cores do badge.
+   */
+  const buildVinculoCell = (vinculos: string[]) => {
+    if (!vinculos.length) return { content: "-", styles: {} as Record<string, any> };
+
+    const parsed = vinculos.map((label) => {
+      const separatorIndex = label.indexOf(":");
+      const tipo = separatorIndex === -1 ? label : label.slice(0, separatorIndex);
+      const descricao = separatorIndex === -1 ? "" : label.slice(separatorIndex + 1).trim();
+      const badge = getVinculoBadge(tipo);
+      return { badge, line: descricao ? `[${badge.label}] ${descricao}` : `[${badge.label}]` };
+    });
+
+    const content = parsed.map((item) => item.line).join("\n");
+    const uniqueTypes = new Set(parsed.map((item) => item.badge.label));
+
+    if (uniqueTypes.size === 1) {
+      const { badge } = parsed[0];
+      return { content, styles: { textColor: badge.color, fillColor: badge.soft, fontStyle: "bold" } };
+    }
+
+    return { content, styles: {} as Record<string, any> };
+  };
+
   const exportToPDFResumidoComVinculo = async () => {
     const allocMap = await fetchAllocationsForAccounts(sortedAccounts);
 
     const doc = new jsPDF("landscape");
 
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A PAGAR", 148, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não pagas - Resumido com Vínculo", 148, 28, { align: "center" });
-
-    const filterInfo = getFilterInfo();
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Pagar",
+      subtitle: "Contas ainda não pagas — Resumido com Vínculo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     const tableData: any[] = sortedAccounts.map((account) => {
       const vinculos = allocMap.get(account.id) || [];
-      const cells = [
+      const base = [
         account.description,
         account.employees?.name || account.suppliers?.name || "N/A",
         account.stores?.name || "N/A",
         new Date(account.due_date + "T00:00:00").toLocaleDateString("pt-BR"),
         account.amount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "N/A",
         account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista",
-        vinculos.join("\n") || "-",
       ];
+      const vinculoCell = buildVinculoCell(vinculos);
+
       // Contas suspensas com fonte em vermelho para destaque
       if (account.is_suspended) {
-        return cells.map((content) => ({ content, styles: { textColor: [220, 38, 38] } }));
+        return [
+          ...base.map((content) => ({ content, styles: { textColor: [220, 38, 38] } })),
+          { content: vinculoCell.content, styles: { ...vinculoCell.styles, textColor: [220, 38, 38] } },
+        ];
       }
-      return cells;
+
+      return [...base.map((content) => ({ content, styles: {} })), vinculoCell];
     });
-
-    const total = sortedAccounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-
-    tableData.push([
-      { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } } as any,
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } } as any,
-      { content: `${sortedAccounts.length} parcela(s)`, styles: { fontStyle: "bold" } } as any,
-      { content: "", styles: {} } as any,
-    ]);
 
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Fazenda", "Vencimento", "Valor", "Parcelas", "Vínculo"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      margin: { left: 10, right: 10 },
-      columnStyles: { 6: { cellWidth: 60 } },
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 7.5 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 22 },
+          4: { halign: "right", cellWidth: 26 },
+          5: { halign: "center", cellWidth: 18 },
+          6: { cellWidth: 70 },
+        },
+      }),
     });
 
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 10, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-pagar-resumido-com-vinculo.pdf");
   };

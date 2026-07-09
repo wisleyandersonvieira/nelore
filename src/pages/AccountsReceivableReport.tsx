@@ -11,9 +11,24 @@ import { ArrowLeft, Download, Filter, FileDown, ChevronDown } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
 import { toast } from "@/hooks/use-toast";
+import { createPdfReportLayout, getVinculoBadge, type PdfSummaryCard, type TotalizerItem } from "@/lib/pdfReportLayout";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+
+type PdfDocWithAutoTable = jsPDF & {
+  lastAutoTable?: {
+    finalY?: number;
+  };
+};
+
+const formatCurrencyBRL = (value: number) =>
+  value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+const formatDateBR = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
 
 const AccountsReceivableReport = () => {
   const navigate = useNavigate();
@@ -323,24 +338,73 @@ const AccountsReceivableReport = () => {
     return filterInfo;
   };
 
-  const exportToPDFGeral = () => {
-    const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas ainda não recebidas", 105, 28, { align: "center" });
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
+  const getFilterItems = (): { label: string; value: string }[] => {
+    const filterItems: { label: string; value: string }[] = [];
+    if (filters.due_start || filters.due_end) {
+      const start = filters.due_start ? formatDateBR(filters.due_start) : "Início";
+      const end = filters.due_end ? formatDateBR(filters.due_end) : "Hoje";
+      filterItems.push({ label: "Vencimento", value: `${start} a ${end}` });
     }
-    
+    if (filters.creditor_id !== "all") {
+      const creditor = creditors.find(s => s.id === filters.creditor_id);
+      if (creditor) filterItems.push({ label: "Credor", value: creditor.name });
+    }
+    if (filters.store_id !== "all") {
+      const store = stores.find(s => s.id === filters.store_id);
+      if (store) filterItems.push({ label: "Loja", value: store.name });
+    }
+    return filterItems;
+  };
+
+  const getReportTotals = () => ({
+    total: accounts.reduce((sum, account) => sum + (account.amount || 0), 0),
+    registros: new Set(accounts.map((account) => account.id)).size,
+    parcelas: accounts.length,
+  });
+
+  const buildSummaryCards = (): PdfSummaryCard[] => {
+    const { total, registros, parcelas } = getReportTotals();
+
+    const cards: PdfSummaryCard[] = [
+      { label: "Total geral", value: formatCurrencyBRL(total), tone: "gold" },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(parcelas) },
+      { label: "Situação", value: "Em aberto", tone: "primary" },
+    ];
+
+    if (filters.store_id !== "all") {
+      const store = stores.find((item) => item.id === filters.store_id);
+      if (store?.name) cards.push({ label: "Loja", value: store.name });
+    }
+
+    if (filters.due_start || filters.due_end) {
+      const start = filters.due_start ? formatDateBR(filters.due_start) : "Início";
+      const end = filters.due_end ? formatDateBR(filters.due_end) : "Hoje";
+      cards.push({ label: "Período", value: `${start} a ${end}` });
+    }
+
+    return cards;
+  };
+
+  const buildTotalizerItems = (): TotalizerItem[] => {
+    const { total, registros, parcelas } = getReportTotals();
+    return [
+      { label: "Total geral", value: formatCurrencyBRL(total), emphasis: true },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(parcelas) },
+    ];
+  };
+
+  const exportToPDFGeral = async () => {
+    const doc = new jsPDF();
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Receber",
+      subtitle: "Contas ainda não recebidas — Geral",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Table data
     const tableData = accounts.map(account => [
       getAccountTitle(account),
@@ -351,64 +415,37 @@ const AccountsReceivableReport = () => {
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
-    // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-    
-    // Add total row
-    tableData.push([
-      { content: "TOTAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } },
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Credor", "Loja", "Vencimento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold"
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245]
-      },
-      margin: { left: 20, right: 20 }
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-receber-geral.pdf");
   };
 
-  const exportToPDFByCreditor = () => {
+  const exportToPDFByCreditor = async () => {
     const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Agrupado por Credor", 105, 28, { align: "center" });
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Receber",
+      subtitle: "Contas ainda não recebidas — Agrupado por Credor",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Group accounts by creditor
     const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
@@ -420,9 +457,7 @@ const AccountsReceivableReport = () => {
       return groups;
     }, {});
 
-    let startY = filterInfo.length > 0 ? 45 : 35;
-    let grandTotal = 0;
-    let grandCount = 0;
+    let startY = layout.startY;
 
     // Sort creditors alphabetically
     const sortedCreditors = Object.keys(groupedByCreditor).sort();
@@ -430,13 +465,11 @@ const AccountsReceivableReport = () => {
     sortedCreditors.forEach((creditorName, index) => {
       const creditorAccounts = groupedByCreditor[creditorName];
       const creditorTotal = creditorAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
-      grandTotal += creditorTotal;
-      grandCount += creditorAccounts.length;
 
       // Creditor header
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Credor: ${creditorName}`, 20, startY);
+      doc.text(`Credor: ${creditorName}`, layout.tableMargin.left, startY);
       startY += 5;
 
       const tableData = creditorAccounts.map((account: any) => [
@@ -458,64 +491,41 @@ const AccountsReceivableReport = () => {
         head: [["Título", "Loja", "Vencimento", "Valor", "Parcelas"]],
         body: tableData,
         startY: startY,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: "bold"
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245]
-        },
-        margin: { left: 20, right: 20 }
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          columnStyles: {
+            2: { halign: "center", cellWidth: 24 },
+            3: { halign: "right", cellWidth: 28 },
+            4: { halign: "center", cellWidth: 20 },
+          },
+        }),
       });
 
-      startY = (doc as any).lastAutoTable.finalY + 10;
+      startY = ((doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? startY) + 10;
 
       // Check if we need a new page
       if (startY > 250 && index < sortedCreditors.length - 1) {
         doc.addPage();
-        startY = 20;
+        startY = layout.tableMargin.top;
       }
     });
 
-    // Grand total
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcelas)`, 20, startY + 5);
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    layout.drawTotalizer(startY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-receber-por-credor.pdf");
   };
 
-  const exportToPDFByMonth = () => {
+  const exportToPDFByMonth = async () => {
     const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Agrupado por Mês de Vencimento", 105, 28, { align: "center" });
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Receber",
+      subtitle: "Contas ainda não recebidas — Agrupado por Mês de Vencimento",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Group accounts by month/year
     const groupedByMonth = accounts.reduce((groups: Record<string, { name: string; accounts: any[] }>, account) => {
@@ -529,9 +539,7 @@ const AccountsReceivableReport = () => {
       return groups;
     }, {});
 
-    let startY = filterInfo.length > 0 ? 45 : 35;
-    let grandTotal = 0;
-    let grandCount = 0;
+    let startY = layout.startY;
 
     // Sort months chronologically
     const sortedMonths = Object.keys(groupedByMonth).sort();
@@ -540,13 +548,11 @@ const AccountsReceivableReport = () => {
       const monthData = groupedByMonth[monthKey];
       const monthAccounts = monthData.accounts;
       const monthTotal = monthAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
-      grandTotal += monthTotal;
-      grandCount += monthAccounts.length;
 
       // Month header
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Mês: ${monthData.name.charAt(0).toUpperCase() + monthData.name.slice(1)}`, 20, startY);
+      doc.text(`Mês: ${monthData.name.charAt(0).toUpperCase() + monthData.name.slice(1)}`, layout.tableMargin.left, startY);
       startY += 5;
 
       const tableData = monthAccounts.map((account: any) => [
@@ -569,63 +575,41 @@ const AccountsReceivableReport = () => {
         head: [["Título", "Credor", "Loja", "Vencimento", "Valor", "Parcelas"]],
         body: tableData,
         startY: startY,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: "bold"
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245]
-        },
-        margin: { left: 20, right: 20 }
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          columnStyles: {
+            3: { halign: "center", cellWidth: 24 },
+            4: { halign: "right", cellWidth: 28 },
+            5: { halign: "center", cellWidth: 20 },
+          },
+        }),
       });
 
-      startY = (doc as any).lastAutoTable.finalY + 10;
+      startY = ((doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? startY) + 10;
 
       // Check if we need a new page
       if (startY > 250 && index < sortedMonths.length - 1) {
         doc.addPage();
-        startY = 20;
+        startY = layout.tableMargin.top;
       }
     });
 
-    // Grand total
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcelas)`, 20, startY + 5);
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    layout.drawTotalizer(startY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-receber-por-mes.pdf");
   };
 
-  const exportToPDFByCreditorAndAnimal = () => {
-    const doc = new jsPDF();
-    const filterInfo = getFilterInfo();
-    
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS A RECEBER", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Por Credor e Animal", 105, 28, { align: "center" });
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+  const exportToPDFByCreditorAndAnimal = async () => {
+    const doc = new jsPDF("landscape");
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas a Receber",
+      subtitle: "Contas ainda não recebidas — Por Credor e Vínculo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     const groupedByCreditor = accounts.reduce((groups: Record<string, any[]>, account) => {
       const creditorName = account.suppliers?.name || "Sem Credor";
@@ -634,20 +618,16 @@ const AccountsReceivableReport = () => {
       return groups;
     }, {});
 
-    let startY = filterInfo.length > 0 ? 45 : 35;
-    let grandTotal = 0;
-    let grandCount = 0;
+    let startY = layout.startY;
     const sortedCreditors = Object.keys(groupedByCreditor).sort();
 
     sortedCreditors.forEach((creditorName, index) => {
       const creditorAccounts = groupedByCreditor[creditorName];
       const creditorTotal = creditorAccounts.reduce((sum: number, acc: any) => sum + (acc.amount || 0), 0);
-      grandTotal += creditorTotal;
-      grandCount += creditorAccounts.length;
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`Credor: ${creditorName}`, 20, startY);
+      doc.text(`Credor: ${creditorName}`, layout.tableMargin.left, startY);
       startY += 5;
 
       const tableData: any[] = [];
@@ -660,31 +640,46 @@ const AccountsReceivableReport = () => {
           account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
         ]);
 
-        const allocations: string[] = [];
+        const allocations: { tipo: string; descricao: string }[] = [];
         (account.accounts_receivable_items || []).forEach((item: any) => {
           (item.accounts_receivable_item_allocations || []).forEach((alloc: any) => {
             if (alloc.animal_id && allocationNames[`animal-${alloc.animal_id}`]) {
-              allocations.push(`Animal: ${allocationNames[`animal-${alloc.animal_id}`]}`);
+              allocations.push({ tipo: "Animal", descricao: allocationNames[`animal-${alloc.animal_id}`] });
             }
             if (alloc.aspiration_id && allocationNames[`aspiration-${alloc.aspiration_id}`]) {
-              allocations.push(`Aspiração: ${allocationNames[`aspiration-${alloc.aspiration_id}`]}`);
+              allocations.push({ tipo: "Aspiração", descricao: allocationNames[`aspiration-${alloc.aspiration_id}`] });
             }
             if (alloc.pregnancy_id && allocationNames[`pregnancy-${alloc.pregnancy_id}`]) {
-              allocations.push(`Prenhez: ${allocationNames[`pregnancy-${alloc.pregnancy_id}`]}`);
+              allocations.push({ tipo: "Prenhez", descricao: allocationNames[`pregnancy-${alloc.pregnancy_id}`] });
             }
             if (alloc.embryo_transfer_id && allocationNames[`embryo-${alloc.embryo_transfer_id}`]) {
-              allocations.push(`Pós TE: ${allocationNames[`embryo-${alloc.embryo_transfer_id}`]}`);
+              allocations.push({ tipo: "Pós TE", descricao: allocationNames[`embryo-${alloc.embryo_transfer_id}`] });
             }
             if (alloc.recipient_id && allocationNames[`recipient-${alloc.recipient_id}`]) {
-              allocations.push(`Receptora: ${allocationNames[`recipient-${alloc.recipient_id}`]}`);
+              allocations.push({ tipo: "Receptora", descricao: allocationNames[`recipient-${alloc.recipient_id}`] });
             }
           });
         });
 
         if (allocations.length > 0) {
-          [...new Set(allocations)].forEach((allocName) => {
+          const seen = new Set<string>();
+          allocations.forEach(({ tipo, descricao }) => {
+            const key = `${tipo}: ${descricao}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            const badge = getVinculoBadge(tipo);
             tableData.push([
-              { content: `    ${allocName}`, colSpan: 5, styles: { fontStyle: "italic", textColor: [100, 100, 100], fontSize: 7, cellPadding: { top: 1, bottom: 1, left: 8, right: 2 } } }
+              {
+                content: `[${badge.label}] ${descricao}`,
+                colSpan: 5,
+                styles: {
+                  fontStyle: "italic",
+                  fontSize: 7,
+                  textColor: badge.color,
+                  fillColor: badge.soft,
+                  cellPadding: { top: 1, bottom: 1, left: 8, right: 2 },
+                },
+              },
             ]);
           });
         }
@@ -700,30 +695,28 @@ const AccountsReceivableReport = () => {
         head: [["Título", "Fazenda", "Vencimento", "Valor", "Parcelas"]],
         body: tableData,
         startY: startY,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: 20, right: 20 }
+        margin: layout.tableMargin,
+        willDrawPage: layout.willDrawPage,
+        ...layout.tableStyles({
+          styles: { fontSize: 7.5 },
+          columnStyles: {
+            0: { cellWidth: 110 },
+            2: { halign: "center", cellWidth: 26 },
+            3: { halign: "right", cellWidth: 30 },
+            4: { halign: "center", cellWidth: 22 },
+          },
+        }),
       });
 
-      startY = (doc as any).lastAutoTable.finalY + 10;
+      startY = ((doc as PdfDocWithAutoTable).lastAutoTable?.finalY ?? startY) + 10;
       if (startY > 250 && index < sortedCreditors.length - 1) {
         doc.addPage();
-        startY = 20;
+        startY = layout.tableMargin.top;
       }
     });
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL: ${grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${grandCount} parcelas)`, 20, startY + 5);
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    layout.drawTotalizer(startY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-a-receber-por-credor-animal.pdf");
   };

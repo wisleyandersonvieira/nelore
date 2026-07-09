@@ -21,6 +21,7 @@ import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { createPdfReportLayout, type PdfSummaryCard, type TotalizerItem } from "@/lib/pdfReportLayout";
 
 const PaidAccountsReport = () => {
   const navigate = useNavigate();
@@ -587,6 +588,74 @@ const PaidAccountsReport = () => {
     return filterInfo;
   };
 
+  const formatBRL = (value: number) =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const getFilterItems = (): { label: string; value: string }[] => {
+    const filterItems: { label: string; value: string }[] = [];
+    if (filters.payment_start || filters.payment_end) {
+      const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
+      const end = filters.payment_end ? new Date(filters.payment_end).toLocaleDateString("pt-BR") : "Hoje";
+      filterItems.push({ label: "Pagamento", value: `${start} a ${end}` });
+    }
+    if (filters.supplier_id !== "all") {
+      const supplier = suppliers.find(s => s.id === filters.supplier_id);
+      if (supplier) filterItems.push({ label: "Fornecedor", value: supplier.name });
+    }
+    if (filters.store_id !== "all") {
+      const store = stores.find(s => s.id === filters.store_id);
+      if (store) filterItems.push({ label: "Loja", value: store.name });
+    }
+    if (filters.account_id !== "all") {
+      const account = availableAccounts.find(a => a.id === filters.account_id);
+      if (account) filterItems.push({ label: "Conta", value: account.name });
+    }
+    if (filters.group_id !== "all") {
+      const group = groups.find(g => g.id === filters.group_id);
+      if (group) filterItems.push({ label: "Grupo", value: group.name });
+    }
+    if (filters.employee_id !== "all") {
+      const employee = employees.find(e => e.id === filters.employee_id);
+      if (employee) filterItems.push({ label: "Funcionário", value: employee.name });
+    }
+    return filterItems;
+  };
+
+  const buildSummaryCards = (): PdfSummaryCard[] => {
+    const total = accounts.reduce((sum, account) => sum + (account.paid_amount ?? account.amount ?? 0), 0);
+    const registros = new Set(accounts.map((account) => account.id)).size;
+
+    const cards: PdfSummaryCard[] = [
+      { label: "Total geral", value: formatBRL(total), tone: "gold" },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(accounts.length) },
+      { label: "Situação", value: "Pagas", tone: "success" },
+    ];
+
+    if (filters.store_id !== "all") {
+      const store = stores.find((s) => s.id === filters.store_id);
+      if (store?.name) cards.push({ label: "Loja", value: store.name });
+    }
+
+    if (filters.payment_start || filters.payment_end) {
+      const start = filters.payment_start ? new Date(filters.payment_start).toLocaleDateString("pt-BR") : "Início";
+      const end = filters.payment_end ? new Date(filters.payment_end).toLocaleDateString("pt-BR") : "Hoje";
+      cards.push({ label: "Período", value: `${start} a ${end}` });
+    }
+
+    return cards;
+  };
+
+  const buildTotalizerItems = (): TotalizerItem[] => {
+    const total = accounts.reduce((sum, account) => sum + (account.paid_amount ?? account.amount ?? 0), 0);
+    const registros = new Set(accounts.map((account) => account.id)).size;
+    return [
+      { label: "Total geral", value: formatBRL(total), emphasis: true },
+      { label: "Registros", value: String(registros) },
+      { label: "Parcelas", value: String(accounts.length) },
+    ];
+  };
+
   const getSupplierOrEmployeeName = (account: any) => {
     if (account.employee_id && account.employees?.name) {
       return account.employees.name;
@@ -594,24 +663,15 @@ const PaidAccountsReport = () => {
     return account.suppliers?.name || "N/A";
   };
 
-  const exportToPDFResumido = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS PAGAS", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Contas já quitadas - Resumido", 105, 28, { align: "center" });
-    
-    const filterInfo = getFilterInfo();
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 38);
-    }
+  const exportToPDFResumido = async () => {
+    const doc = new jsPDF("landscape");
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Pagas",
+      subtitle: "Contas pagas — Resumido",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
 
     // Table data
     const tableData = accounts.map(account => [
@@ -624,62 +684,40 @@ const PaidAccountsReport = () => {
       account.total_installments > 1 ? `${account.installment_number}/${account.total_installments}` : "À vista"
     ]);
 
-    // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.paid_amount ?? account.amount ?? 0), 0);
-    
-    // Add total row
-    tableData.push([
-      { content: "TOTAL", colSpan: 5, styles: { fontStyle: "bold", halign: "right" } },
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 45 : 35,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: 255,
-        fontStyle: "bold"
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245]
-      },
-      margin: { left: 20, right: 20 }
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 7.5 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "center", cellWidth: 24 },
+          5: { halign: "right", cellWidth: 28 },
+          6: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-pagas-resumido.pdf");
   };
 
-  const exportToPDFDetalhado = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS PAGAS", 105, 20, { align: "center" });
-    
-    const filterInfo = getFilterInfo();
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
-    }
-    
+  const exportToPDFDetalhado = async () => {
+    const doc = new jsPDF("landscape");
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Pagas",
+      subtitle: "Contas pagas — Detalhado",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Build table data with product details
     const tableData: any[] = [];
     
@@ -705,71 +743,52 @@ const PaidAccountsReport = () => {
           const totalPrice = item.total_price?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
           
           tableData.push([
-            { content: "", styles: { fontSize: 8 } },
-            { content: `   ${productName}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: subgroupName, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: `${quantity}`, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: "", styles: { fontSize: 8 } },
-            { content: totalPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } },
-            { content: unitPrice, styles: { fontSize: 8, textColor: [100, 100, 100] } }
+            { content: "", styles: { fontSize: 6.5 } },
+            { content: `   ${productName}`, styles: { fontSize: 6.5, textColor: [100, 100, 100] } },
+            { content: subgroupName, styles: { fontSize: 6.5, textColor: [100, 100, 100] } },
+            { content: `${quantity}`, styles: { fontSize: 6.5, textColor: [100, 100, 100] } },
+            { content: "", styles: { fontSize: 6.5 } },
+            { content: totalPrice, styles: { fontSize: 6.5, textColor: [100, 100, 100] } },
+            { content: unitPrice, styles: { fontSize: 6.5, textColor: [100, 100, 100] } }
           ]);
         });
       }
     });
 
-    // Calculate total
-    const total = accounts.reduce((sum, account) => sum + (account.amount || 0), 0);
-    
-    // Add total row
-    tableData.push([
-      { content: "TOTAL", colSpan: 5, styles: { fontStyle: "bold", halign: "right" } },
-      { content: total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold" } },
-      { content: `${accounts.length} parcela(s)`, styles: { fontStyle: "bold" } }
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 37 : 27,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: 255,
-        fontStyle: "bold"
-      },
-      margin: { left: 20, right: 20 }
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        styles: { fontSize: 7.5 },
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "center", cellWidth: 24 },
+          5: { halign: "right", cellWidth: 28 },
+          6: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-pagas-detalhado.pdf");
   };
 
-  const exportToPDFPorSubgrupo = () => {
+  const exportToPDFPorSubgrupo = async () => {
     const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS PAGAS POR SUBGRUPO", 105, 20, { align: "center" });
-    
-    const filterInfo = getFilterInfo();
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
-    }
-    
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Pagas",
+      subtitle: "Contas pagas — Por subgrupo",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Group accounts by subgroup - using product items for grouping
     const accountsBySubgroup: { [key: string]: { subgroupName: string; items: any[] } } = {};
     
@@ -931,56 +950,38 @@ const PaidAccountsReport = () => {
       grandTotal += subgroupTotal;
     });
     
-    // Grand total row
-    tableData.push([
-      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [34, 197, 94], textColor: 255 } },
-      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } },
-      { content: `${totalItems} item(s)`, styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } }
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Fornecedor", "Loja", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 37 : 27,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: 255,
-        fontStyle: "bold"
-      },
-      margin: { left: 20, right: 20 }
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        columnStyles: {
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-pagas-por-subgrupo.pdf");
   };
 
-  const exportToPDFPorFornecedor = () => {
+  const exportToPDFPorFornecedor = async () => {
     const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE CONTAS PAGAS POR FORNECEDOR", 105, 20, { align: "center" });
-    
-    const filterInfo = getFilterInfo();
-    
-    if (filterInfo.length > 0) {
-      doc.setFontSize(10);
-      doc.text(`Filtros aplicados: ${filterInfo.join(" | ")}`, 20, 30);
-    }
-    
+
+    const layout = await createPdfReportLayout(doc, {
+      title: "Relatório de Contas Pagas",
+      subtitle: "Contas pagas — Por fornecedor",
+      filters: getFilterItems(),
+      summaryCards: buildSummaryCards(),
+    });
+
     // Group accounts by supplier
     const accountsBySupplier: { [key: string]: { supplierName: string; items: any[] } } = {};
     
@@ -1047,37 +1048,25 @@ const PaidAccountsReport = () => {
       grandTotal += supplierTotal;
     });
     
-    // Grand total row
-    tableData.push([
-      { content: "TOTAL GERAL", colSpan: 4, styles: { fontStyle: "bold", halign: "right", fillColor: [34, 197, 94], textColor: 255 } },
-      { content: grandTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } },
-      { content: `${totalItems} item(s)`, styles: { fontStyle: "bold", fillColor: [34, 197, 94], textColor: 255 } }
-    ]);
-
     autoTable(doc, {
       head: [["Título", "Loja", "Vencimento", "Pagamento", "Valor", "Parcelas"]],
       body: tableData,
-      startY: filterInfo.length > 0 ? 37 : 27,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: 255,
-        fontStyle: "bold"
-      },
-      margin: { left: 20, right: 20 }
+      startY: layout.startY,
+      margin: layout.tableMargin,
+      willDrawPage: layout.willDrawPage,
+      ...layout.tableStyles({
+        columnStyles: {
+          2: { halign: "center", cellWidth: 24 },
+          3: { halign: "center", cellWidth: 24 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "center", cellWidth: 20 },
+        },
+      }),
     });
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 20, doc.internal.pageSize.height - 10);
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
-    }
+    const finalY = (doc as any).lastAutoTable?.finalY ?? layout.startY;
+    layout.drawTotalizer(finalY, buildTotalizerItems());
+    layout.finalize();
 
     doc.save("contas-pagas-por-fornecedor.pdf");
   };
