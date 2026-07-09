@@ -338,14 +338,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
       const { data: pregnancyInProgress } = await supabase
         .from("pregnancy_management")
         .select("id, name")
-        .eq("status", "em_andamento")
+        .eq("status", "in_progress")
         .order("name");
 
       const { data: pregnancyReleased } = await supabase
         .from("pregnancy_management")
         .select("id, name")
         .eq("financial_released", true)
-        .neq("status", "em_andamento")
+        .neq("status", "in_progress")
         .order("name");
 
       const allPregnancies = [...(pregnancyInProgress || []), ...(pregnancyReleased || [])];
