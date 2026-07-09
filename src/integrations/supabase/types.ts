@@ -5090,6 +5090,8 @@ export type Database = {
           first_due_date: string
           id: string
           installment_count: number
+          invoice_file_name: string | null
+          invoice_file_path: string | null
           issue_date: string
           item_code: string | null
           item_name: string
@@ -5120,6 +5122,8 @@ export type Database = {
           first_due_date: string
           id?: string
           installment_count?: number
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
           issue_date: string
           item_code?: string | null
           item_name: string
@@ -5150,6 +5154,8 @@ export type Database = {
           first_due_date?: string
           id?: string
           installment_count?: number
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
           issue_date?: string
           item_code?: string | null
           item_name?: string

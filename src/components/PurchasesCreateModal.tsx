@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Loader2, PlusCircle, WalletCards, Trash2 } from "lucide-react";
+import { Search, Loader2, PlusCircle, WalletCards, Trash2, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -35,11 +35,16 @@ import {
 } from "@/lib/sales";
 import {
   createPurchaseWithPayable,
+  getPurchaseInvoiceUrl,
+  PURCHASE_INVOICE_ACCEPT,
   PURCHASE_TYPE_LABELS,
   PURCHASE_TYPE_OPTIONS,
+  PurchaseInvoice,
   PurchaseSemenItemDraft,
   PurchaseType,
+  removePurchaseInvoice,
   updatePurchaseWithPayable,
+  uploadPurchaseInvoice,
 } from "@/lib/purchases";
 
 interface PurchasesCreateModalProps {
@@ -84,6 +89,8 @@ interface PurchaseRow {
   aspiration_id: string | null;
   recipient_id: string | null;
   semen_id: string | null;
+  invoice_file_path: string | null;
+  invoice_file_name: string | null;
   purchase_date: string;
   issue_date: string;
   competence_date: string;
@@ -157,6 +164,9 @@ export function PurchasesCreateModal({
   const [semenPurchaseIds, setSemenPurchaseIds] = useState<Set<string>>(new Set());
   const [semenPickerIndex, setSemenPickerIndex] = useState<number | null>(null);
   const [semenItemSearchTerm, setSemenItemSearchTerm] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [existingInvoice, setExistingInvoice] = useState<PurchaseInvoice | null>(null);
+  const [invoiceRemoved, setInvoiceRemoved] = useState(false);
 
   const resetForm = () => {
     const today = todayISO();
@@ -183,6 +193,9 @@ export function PurchasesCreateModal({
     setItemSearchTerm("");
     setSupplierPopoverOpen(false);
     setItemPopoverOpen(false);
+    setInvoiceFile(null);
+    setExistingInvoice(null);
+    setInvoiceRemoved(false);
   };
 
   const loadSuppliers = async () => {
@@ -436,6 +449,16 @@ export function PurchasesCreateModal({
     setNotes(purchase.notes || "");
     setTotalAmount(Number(purchase.total_amount || 0));
     setInstallmentCount(Number(purchase.installment_count || 1));
+    setInvoiceFile(null);
+    setInvoiceRemoved(false);
+    setExistingInvoice(
+      purchase.invoice_file_path
+        ? {
+            filePath: purchase.invoice_file_path,
+            fileName: purchase.invoice_file_name || "nota-fiscal",
+          }
+        : null,
+    );
     setInstallments(
       ((installmentsRes || []) as Array<{
         installment_number: number;
@@ -721,6 +744,28 @@ export function PurchasesCreateModal({
               ...payload,
             })
           : await createPurchaseWithPayable(payload);
+
+      const savedPurchaseId: string | undefined = result?.purchase_id || purchaseId || undefined;
+
+      // A nota fiscal é opcional: uma falha aqui não invalida a compra já registrada.
+      if (savedPurchaseId && (invoiceFile || (invoiceRemoved && existingInvoice))) {
+        try {
+          if (invoiceFile) {
+            await uploadPurchaseInvoice(savedPurchaseId, invoiceFile);
+          } else {
+            await removePurchaseInvoice(savedPurchaseId);
+          }
+        } catch (invoiceError: any) {
+          console.error("Erro ao salvar nota fiscal:", invoiceError);
+          toast({
+            title: "Compra salva, mas a nota fiscal falhou",
+            description:
+              invoiceError?.message ||
+              "Use o botão \"Upload de NF\" na visualização da compra para tentar novamente.",
+            variant: "destructive",
+          });
+        }
+      }
 
       toast({
         title: isEditMode ? "Compra atualizada" : "Compra registrada",
@@ -1179,6 +1224,64 @@ export function PurchasesCreateModal({
                       onChange={(event) => setNotes(event.target.value)}
                       placeholder="Observações internas da compra e do financeiro"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Nota fiscal (opcional)</Label>
+                    {existingInvoice && !invoiceRemoved && !invoiceFile ? (
+                      <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="truncate text-sm font-medium">{existingInvoice.fileName}</span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const url = await getPurchaseInvoiceUrl(existingInvoice.filePath);
+                                window.open(url, "_blank");
+                              } catch (error) {
+                                console.error("Erro ao abrir nota fiscal:", error);
+                                toast({
+                                  title: "Erro",
+                                  description: "Não foi possível abrir a nota fiscal.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => setInvoiceRemoved(true)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <Input
+                      type="file"
+                      accept={PURCHASE_INVOICE_ACCEPT}
+                      onChange={(event) => setInvoiceFile(event.target.files?.[0] || null)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Formatos aceitos: PDF, XML, JPG ou PNG.
+                      {existingInvoice && !invoiceRemoved
+                        ? " Ao selecionar um novo arquivo, a nota fiscal atual será substituída."
+                        : ""}
+                      {existingInvoice && invoiceRemoved && !invoiceFile
+                        ? " A nota fiscal atual será removida ao salvar."
+                        : ""}
+                    </p>
                   </div>
                 </CardContent>
               </Card>

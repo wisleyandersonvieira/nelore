@@ -156,6 +156,111 @@ export const migrateAccountsPayableToPurchase = async (input: {
   return data?.[0] || null;
 };
 
+export const PURCHASE_INVOICE_BUCKET = "purchase-invoices";
+export const PURCHASE_INVOICE_ACCEPT = ".pdf,.xml,.jpg,.jpeg,.png";
+
+export interface PurchaseInvoice {
+  filePath: string;
+  fileName: string;
+}
+
+const sanitizeFileName = (fileName: string) =>
+  fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/^_|_$/g, "");
+
+export const fetchPurchaseInvoice = async (purchaseId: string): Promise<PurchaseInvoice | null> => {
+  const { data, error } = await supabase
+    .from("purchases")
+    .select("invoice_file_path, invoice_file_name")
+    .eq("id", purchaseId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data?.invoice_file_path) {
+    return null;
+  }
+
+  return {
+    filePath: data.invoice_file_path,
+    fileName: data.invoice_file_name || data.invoice_file_path.split("/").pop() || "nota-fiscal",
+  };
+};
+
+/** Envia o arquivo para o storage privado e vincula o caminho à compra. */
+export const uploadPurchaseInvoice = async (purchaseId: string, file: File): Promise<PurchaseInvoice> => {
+  const { data: purchase, error: purchaseError } = await supabase
+    .from("purchases")
+    .select("store_id, invoice_file_path")
+    .eq("id", purchaseId)
+    .single();
+
+  if (purchaseError) {
+    throw purchaseError;
+  }
+
+  const filePath = `${purchase.store_id}/${purchaseId}/${Date.now()}_${sanitizeFileName(file.name)}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PURCHASE_INVOICE_BUCKET)
+    .upload(filePath, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { error: updateError } = await supabase
+    .from("purchases")
+    .update({ invoice_file_path: filePath, invoice_file_name: file.name })
+    .eq("id", purchaseId);
+
+  if (updateError) {
+    await supabase.storage.from(PURCHASE_INVOICE_BUCKET).remove([filePath]);
+    throw updateError;
+  }
+
+  if (purchase.invoice_file_path) {
+    await supabase.storage.from(PURCHASE_INVOICE_BUCKET).remove([purchase.invoice_file_path]);
+  }
+
+  return { filePath, fileName: file.name };
+};
+
+export const removePurchaseInvoice = async (purchaseId: string) => {
+  const current = await fetchPurchaseInvoice(purchaseId);
+
+  const { error } = await supabase
+    .from("purchases")
+    .update({ invoice_file_path: null, invoice_file_name: null })
+    .eq("id", purchaseId);
+
+  if (error) {
+    throw error;
+  }
+
+  if (current) {
+    await supabase.storage.from(PURCHASE_INVOICE_BUCKET).remove([current.filePath]);
+  }
+};
+
+export const getPurchaseInvoiceUrl = async (filePath: string) => {
+  const { data, error } = await supabase.storage
+    .from(PURCHASE_INVOICE_BUCKET)
+    .createSignedUrl(filePath, 3600);
+
+  if (error) {
+    throw error;
+  }
+
+  return data.signedUrl;
+};
+
 export const deletePurchaseWithPayable = async (purchaseId: string) => {
   const { data, error } = await supabase.rpc("delete_purchase_with_payable", {
     p_purchase_id: purchaseId,

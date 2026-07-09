@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PurchasesCreateModal } from "@/components/PurchasesCreateModal";
+import { PurchaseInvoiceModal } from "@/components/PurchaseInvoiceModal";
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated } from "@/utils/supabasePagination";
@@ -43,6 +44,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
+  FileText,
   HandCoins,
   Loader2,
   PackagePlus,
@@ -325,6 +327,8 @@ const PurchasesModule = () => {
   const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
   const [purchaseFormMode, setPurchaseFormMode] = useState<"create" | "edit">("create");
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [invoicePurchase, setInvoicePurchase] = useState<{ id: string; code: number } | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -1408,6 +1412,17 @@ const PurchasesModule = () => {
         purchaseId={editingPurchaseId}
       />
 
+      <PurchaseInvoiceModal
+        open={invoiceModalOpen}
+        onOpenChange={(open) => {
+          setInvoiceModalOpen(open);
+          if (!open) setInvoicePurchase(null);
+        }}
+        purchaseId={invoicePurchase?.id ?? null}
+        purchaseCode={invoicePurchase?.code ?? null}
+        canEdit={canEdit}
+      />
+
       <Dialog
         open={Boolean(selectedPurchase)}
         onOpenChange={(open) => {
@@ -1430,22 +1445,36 @@ const PurchasesModule = () => {
 
                 {canEdit && (
                   <div className="flex flex-col gap-2 sm:items-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        if (!selectedPurchase) return;
-                        setDeleteDialogOpen(false);
-                        setPurchaseFormMode("edit");
-                        setEditingPurchaseId(selectedPurchase.id);
-                        setPurchaseFormOpen(true);
-                        setSelectedPurchase(null);
-                      }}
-                      disabled={!canEditSelectedPurchase}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Editar compra
-                    </Button>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedPurchase) return;
+                          setDeleteDialogOpen(false);
+                          setPurchaseFormMode("edit");
+                          setEditingPurchaseId(selectedPurchase.id);
+                          setPurchaseFormOpen(true);
+                          setSelectedPurchase(null);
+                        }}
+                        disabled={!canEditSelectedPurchase}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Editar compra
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedPurchase) return;
+                          setInvoicePurchase({ id: selectedPurchase.id, code: selectedPurchase.code });
+                          setInvoiceModalOpen(true);
+                        }}
+                      >
+                        <FileText className="h-4 w-4" />
+                        Upload de NF
+                      </Button>
+                    </div>
                     {editPurchaseBlockedReason && (
                       <p className="max-w-xs text-xs text-muted-foreground sm:text-right">
                         {editPurchaseBlockedReason}
