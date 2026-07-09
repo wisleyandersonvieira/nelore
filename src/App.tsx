@@ -60,6 +60,7 @@ import BalancePositionReport from "./pages/BalancePositionReport";
 import MyAccount from "./pages/MyAccount";
 import AIAssistant from "./pages/AIAssistant";
 import AccountingExportReport from "./pages/AccountingExportReport";
+import PurchasesWithoutInvoiceReport from "./pages/PurchasesWithoutInvoiceReport";
 import BankReconciliation from "./pages/BankReconciliation";
 import DashboardLayout from "./components/DashboardLayout";
 import SalesModule from "./pages/SalesModule";
@@ -151,6 +152,7 @@ function App() {
                 <Route path="/reports/income-expense" element={<IncomeExpenseReport />} />
                 <Route path="/reports/balance-position" element={<BalancePositionReport />} />
                 <Route path="/reports/accounting-export" element={<AccountingExportReport />} />
+                <Route path="/reports/purchases-without-invoice" element={<PurchasesWithoutInvoiceReport />} />
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="/goals" element={<Goals />} />
                 <Route path="/my-account" element={<MyAccount />} />
