@@ -2594,19 +2594,57 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   </div>
                   <div>
                     <Label>Credor</Label>
-                    <Select value={filterCreditor} onValueChange={setFilterCreditor}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar credor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {creditors.map((creditor) => (
-                          <SelectItem key={creditor.id} value={creditor.id}>
-                            {creditor.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between font-normal"
+                        >
+                          {filterCreditor && filterCreditor !== "all"
+                            ? creditors.find((c) => c.id === filterCreditor)?.name
+                            : "Todos"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar credor..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum credor encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="todos"
+                                onSelect={() => setFilterCreditor("all")}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    filterCreditor === "all" || filterCreditor === "" ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                Todos
+                              </CommandItem>
+                              {creditors.map((creditor) => (
+                                <CommandItem
+                                  key={creditor.id}
+                                  value={creditor.name}
+                                  onSelect={() => setFilterCreditor(creditor.id)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      filterCreditor === creditor.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {creditor.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <Label>Loja</Label>
