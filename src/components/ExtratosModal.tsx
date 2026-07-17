@@ -662,7 +662,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               if (receivable) {
                 documentNumber = receivable.document_number || '';
                 if (receivable.creditor_id) {
-                  description = creditorsMap.get(receivable.creditor_id) || 'Cliente';
+                  // creditor_id passou a referenciar suppliers(id) (migration 20260221121040);
+                  // resolve pelo suppliersMap e mantém creditorsMap como fallback p/ registros antigos
+                  description = suppliersMap.get(receivable.creditor_id)
+                    || creditorsMap.get(receivable.creditor_id)
+                    || 'Cliente';
                 }
                 const maxInst = receivableInstallmentCounts.get(inst.account_receivable_id) || 1;
                 installmentInfo = `${inst.installment_number}/${maxInst}`;
@@ -674,7 +678,11 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               isValid = true;
               documentNumber = receivable.document_number || '';
               if (receivable.creditor_id) {
-                description = creditorsMap.get(receivable.creditor_id) || 'Cliente';
+                // creditor_id passou a referenciar suppliers(id) (migration 20260221121040);
+                // resolve pelo suppliersMap e mantém creditorsMap como fallback p/ registros antigos
+                description = suppliersMap.get(receivable.creditor_id)
+                  || creditorsMap.get(receivable.creditor_id)
+                  || 'Cliente';
               }
               installmentInfo = 'Integral';
             }
