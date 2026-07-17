@@ -285,6 +285,8 @@ const AnimaisGestaoAspiracoes = () => {
     sale_date: string;
     sale_value: number;
     sale_percentage: number;
+    auction_id: string | null;
+    auction_lot: string | null;
   }
   const [aspirationSales, setAspirationSales] = useState<AspirationSale[]>([]);
   const [loadingSales, setLoadingSales] = useState(false);
@@ -1221,7 +1223,7 @@ const AnimaisGestaoAspiracoes = () => {
     try {
       const { data, error } = await supabase
         .from("aspiration_sales")
-        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .select("id, client_id, sale_date, sale_value, sale_percentage, auction_id, auction_lot")
         .eq("aspiration_id", aspirationId)
         .order("sale_date", { ascending: true });
       if (error) throw error;
@@ -2791,17 +2793,17 @@ const AnimaisGestaoAspiracoes = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } }}>
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } if (v === "leilao" && selectedRecord) { fetchAspirationSales(selectedRecord.id); } }}>
             <TabsList
               className={cn(
                 "grid w-full",
                 formData.is_batch_purchase
                   ? modalMode === "view" && selectedRecord?.status === "finalized"
-                    ? "grid-cols-6"
-                    : "grid-cols-5"
+                    ? "grid-cols-7"
+                    : "grid-cols-6"
                   : modalMode === "view" && selectedRecord?.status === "finalized"
-                  ? "grid-cols-5"
-                  : "grid-cols-4",
+                  ? "grid-cols-6"
+                  : "grid-cols-5",
               )}
             >
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
@@ -2815,6 +2817,7 @@ const AnimaisGestaoAspiracoes = () => {
                   Estoque
                 </TabsTrigger>
               )}
+              <TabsTrigger value="leilao" disabled={modalMode === "create"}>Leilão</TabsTrigger>
               <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
             </TabsList>
 
@@ -3381,6 +3384,53 @@ const AnimaisGestaoAspiracoes = () => {
                 </Card>
               </TabsContent>
             )}
+            <TabsContent value="leilao" className="space-y-6 mt-4">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg border-b pb-2">Leilão de Compra</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Leilão</Label>
+                    <p className="font-medium">{getAuctionName(selectedRecord?.auction_id ?? null)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Lote</Label>
+                    <p className="font-medium">{selectedRecord?.auction_lot || "-"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg border-b pb-2">Leilão de Venda</h3>
+                {loadingSales ? (
+                  <p className="text-center text-muted-foreground py-4">Carregando...</p>
+                ) : aspirationSales.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data da Venda</TableHead>
+                          <TableHead>Leilão</TableHead>
+                          <TableHead>Lote</TableHead>
+                          <TableHead className="text-right">% Vendido</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {aspirationSales.map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>{getAuctionName(sale.auction_id)}</TableCell>
+                            <TableCell>{sale.auction_lot || "-"}</TableCell>
+                            <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
             <TabsContent value="proprietarios" className="mt-4 space-y-4">
               <OwnersTab
                 entityId={selectedRecord?.id || null}

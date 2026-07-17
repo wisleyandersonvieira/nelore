@@ -300,6 +300,8 @@ const AnimaisCadastro = () => {
     sale_date: string;
     sale_value: number;
     sale_percentage: number;
+    auction_id: string | null;
+    auction_lot: string | null;
   }
   const [animalSales, setAnimalSales] = useState<AnimalSale[]>([]);
   const [loadingSales, setLoadingSales] = useState(false);
@@ -725,12 +727,17 @@ const AnimaisCadastro = () => {
     }
   };
 
+  const getAuctionName = (auctionId: string | null) => {
+    if (!auctionId) return "-";
+    return auctions.find((a) => a.id === auctionId)?.name || "-";
+  };
+
   const fetchAnimalSales = async (animalId: string) => {
     setLoadingSales(true);
     try {
       const { data, error } = await supabase
         .from("animal_sales")
-        .select("id, client_id, sale_date, sale_value, sale_percentage")
+        .select("id, client_id, sale_date, sale_value, sale_percentage, auction_id, auction_lot")
         .eq("animal_id", animalId)
         .order("sale_date", { ascending: true });
       if (error) throw error;
@@ -1937,14 +1944,18 @@ const AnimaisCadastro = () => {
               fetchClients();
               fetchAnimalSales(selectedAnimal.id);
             }
+            if (val === "leilao" && selectedAnimal) {
+              fetchAnimalSales(selectedAnimal.id);
+            }
           }} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="reproducao" disabled={modalMode === "create"}>Dados Reprodução</TabsTrigger>
               <TabsTrigger value="pesagem" disabled={modalMode === "create"}>Pesagem</TabsTrigger>
               <TabsTrigger value="observacoes">Observações e Fotos</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>Financeiro</TabsTrigger>
+              <TabsTrigger value="leilao" disabled={modalMode === "create"}>Leilão</TabsTrigger>
               <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
             </TabsList>
 
@@ -2745,6 +2756,55 @@ const AnimaisCadastro = () => {
                 onViewModeChange={setFinancialViewMode}
                 animalSaldo={animalDirectSaldo}
               />
+            </TabsContent>
+
+            {/* Tab: Leilão */}
+            <TabsContent value="leilao" className="space-y-6 mt-4">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg border-b pb-2">Leilão de Compra</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Leilão</Label>
+                    <p className="font-medium">{getAuctionName(selectedAnimal?.auction_id ?? null)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Lote</Label>
+                    <p className="font-medium">{selectedAnimal?.auction_lot || "-"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg border-b pb-2">Leilão de Venda</h3>
+                {loadingSales ? (
+                  <p className="text-center text-muted-foreground py-4">Carregando...</p>
+                ) : animalSales.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data da Venda</TableHead>
+                          <TableHead>Leilão</TableHead>
+                          <TableHead>Lote</TableHead>
+                          <TableHead className="text-right">% Vendido</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {animalSales.map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell>{format(new Date(sale.sale_date + "T12:00:00"), "dd/MM/yyyy")}</TableCell>
+                            <TableCell>{getAuctionName(sale.auction_id)}</TableCell>
+                            <TableCell>{sale.auction_lot || "-"}</TableCell>
+                            <TableCell className="text-right">{sale.sale_percentage.toFixed(2)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             {/* Tab: Proprietários */}
