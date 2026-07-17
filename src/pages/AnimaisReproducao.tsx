@@ -99,6 +99,8 @@ const AnimaisReproducao = () => {
   const [thirdPartyFarms, setThirdPartyFarms] = useState<NamedRecord[]>([]);
   const [aspiracoesMap, setAspiracoesMap] = useState<Record<string, AspiracaoInfo>>({});
   const [soldAnimalIds, setSoldAnimalIds] = useState<Set<string>>(new Set());
+  // Mapa animal_id -> matriz/genitor vinculado (breeding_animals) para carregar a genealogia
+  const [matrizByAnimalId, setMatrizByAnimalId] = useState<Record<string, { id: string; name: string }>>({});
 
   // pagination / search
   const [search, setSearch] = useState("");
@@ -176,14 +178,25 @@ const AnimaisReproducao = () => {
         ? supabase.from("reproducoes").select("*").in("store_id", storeIds).order("code", { ascending: false })
         : supabase.from("reproducoes").select("*").eq("store_id", sId!).order("code", { ascending: false });
 
-      const [breedsRes, categoriesRes, storesRes, thirdRes, animalsRes, reproRes] = await Promise.all([
+      const breedingQuery = storeIds.length > 0
+        ? supabase.from("breeding_animals").select("id, name, animal_id").in("store_id", storeIds).eq("is_active", true).not("animal_id", "is", null)
+        : supabase.from("breeding_animals").select("id, name, animal_id").eq("store_id", sId!).eq("is_active", true).not("animal_id", "is", null);
+
+      const [breedsRes, categoriesRes, storesRes, thirdRes, animalsRes, reproRes, breedingRes] = await Promise.all([
         breedsQuery,
         categoriesQuery,
         supabase.from("stores").select("id, name"),
         supabase.from("third_party_farms").select("id, name").eq("is_active", true),
         animalsQuery,
         reproQuery,
+        breedingQuery,
       ]);
+
+      const matrizMap: Record<string, { id: string; name: string }> = {};
+      (breedingRes.data || []).forEach((b: any) => {
+        if (b.animal_id) matrizMap[b.animal_id] = { id: b.id, name: b.name };
+      });
+      setMatrizByAnimalId(matrizMap);
 
       setBreeds(breedsRes.data || []);
       setCategories(categoriesRes.data || []);
@@ -302,6 +315,10 @@ const AnimaisReproducao = () => {
       toast({ title: "Animal inativo", description: "Não é possível iniciar reprodução com animal inativo.", variant: "destructive" });
       return;
     }
+    if (!matrizByAnimalId[selectedAnimal.id]) {
+      toast({ title: "Vínculo obrigatório", description: "Precisa vincular esse animal a uma matriz.", variant: "destructive" });
+      return;
+    }
     // Pre-fill aspiration form from the selected animal
     setFormData({
       name: selectedAnimal.name,
@@ -340,6 +357,11 @@ const AnimaisReproducao = () => {
       toast({ title: "Erro", description: "O nome é obrigatório.", variant: "destructive" });
       return;
     }
+    const matriz = matrizByAnimalId[selectedAnimal.id];
+    if (!matriz) {
+      toast({ title: "Vínculo obrigatório", description: "Precisa vincular esse animal a uma matriz.", variant: "destructive" });
+      return;
+    }
     const sId = storeId;
     if (!sId) {
       toast({ title: "Erro", description: "Loja/fazenda não identificada para o usuário atual.", variant: "destructive" });
@@ -363,6 +385,7 @@ const AnimaisReproducao = () => {
             : null,
           breed_id: formData.breed_id || null,
           category_id: formData.category_id || null,
+          dam_id: matriz.id,
           farm_id: farmId,
           farm_type: farmType,
           store_id: sId,

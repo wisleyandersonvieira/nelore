@@ -2066,6 +2066,7 @@ export type Database = {
       }
       breeding_animals: {
         Row: {
+          animal_id: string | null
           created_at: string
           dam_id: string | null
           id: string
@@ -2079,6 +2080,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          animal_id?: string | null
           created_at?: string
           dam_id?: string | null
           id?: string
@@ -2092,6 +2094,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          animal_id?: string | null
           created_at?: string
           dam_id?: string | null
           id?: string
@@ -2105,6 +2108,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "breeding_animals_animal_id_fkey"
+            columns: ["animal_id"]
+            isOneToOne: true
+            referencedRelation: "animals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "breeding_animals_dam_id_fkey"
             columns: ["dam_id"]

@@ -39,6 +39,7 @@ interface BreedingAnimal {
   store_id: string;
   sire_id: string | null;
   dam_id: string | null;
+  animal_id: string | null;
 }
 
 interface BreedingAnimalWithCounts extends BreedingAnimal {
@@ -289,6 +290,7 @@ const AnimaisMatrizes = () => {
     registration: "",
     sire_id: "",
     dam_id: "",
+    animal_id: "",
   });
   const [filters, setFilters] = useState({
     name: "",
@@ -344,7 +346,7 @@ const AnimaisMatrizes = () => {
       ] = await Promise.all([
         supabase
           .from("breeding_animals")
-          .select("id, name, sex, registration, store_id, sire_id, dam_id")
+          .select("id, name, sex, registration, store_id, sire_id, dam_id, animal_id")
           .eq("store_id", storeId)
           .eq("is_active", true)
           .order("name"),
@@ -403,6 +405,7 @@ const AnimaisMatrizes = () => {
         registration: animal.registration || "",
         sire_id: animal.sire_id || "",
         dam_id: animal.dam_id || "",
+        animal_id: animal.animal_id || "",
       });
     } else {
       setSelectedAnimal(null);
@@ -412,6 +415,7 @@ const AnimaisMatrizes = () => {
         registration: "",
         sire_id: "",
         dam_id: "",
+        animal_id: "",
       });
     }
     setIsModalOpen(true);
@@ -464,12 +468,27 @@ const AnimaisMatrizes = () => {
         return;
       }
 
+      // Um animal só pode estar vinculado a uma única matriz/genitor
+      if (formData.animal_id) {
+        const { data: existingLink } = await supabase
+          .from("breeding_animals")
+          .select("id")
+          .eq("animal_id", formData.animal_id)
+          .maybeSingle();
+
+        if (existingLink && (!selectedAnimal || existingLink.id !== selectedAnimal.id)) {
+          toast.error("Este animal já está vinculado a outra matriz/genitor");
+          return;
+        }
+      }
+
       const animalData: any = {
         name: formData.name.trim(),
         sex: formData.sex,
         registration: formData.registration.trim() || null,
         sire_id: formData.sire_id || null,
         dam_id: formData.dam_id || null,
+        animal_id: formData.animal_id || null,
         store_id: storeId,
         matrix_id: profileData?.matrix_id || null,
       };
@@ -499,7 +518,7 @@ const AnimaisMatrizes = () => {
     try {
       const { error } = await supabase
         .from("breeding_animals")
-        .update({ is_active: false })
+        .update({ is_active: false, animal_id: null })
         .eq("id", selectedAnimal.id);
 
       if (error) throw error;
@@ -1300,6 +1319,28 @@ const AnimaisMatrizes = () => {
     [allBreedingAnimals, selectedAnimal],
   );
 
+  // Animais do rebanho já vinculados a alguma matriz/genitor (exceto o registro em edição)
+  const linkedAnimalIds = useMemo(
+    () =>
+      new Set(
+        allBreedingAnimals
+          .filter((a) => a.animal_id && (!selectedAnimal || a.id !== selectedAnimal.id))
+          .map((a) => a.animal_id as string),
+      ),
+    [allBreedingAnimals, selectedAnimal],
+  );
+
+  // Animais disponíveis para vincular: mesmo sexo da matriz/genitor e ainda não vinculados
+  const availableAnimalsForLink = useMemo(
+    () =>
+      activeAnimals.filter(
+        (a) =>
+          (!formData.sex || a.sex === formData.sex) &&
+          (!linkedAnimalIds.has(a.id) || a.id === formData.animal_id),
+      ),
+    [activeAnimals, formData.sex, formData.animal_id, linkedAnimalIds],
+  );
+
   useEffect(() => {
     const animalsWithCounts = allBreedingAnimals.map((animal) => ({
       ...animal,
@@ -1687,6 +1728,30 @@ const AnimaisMatrizes = () => {
                 onChange={(e) => setFormData({ ...formData, registration: e.target.value })}
                 placeholder="Número de registro"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="animal_id">Animal vinculado</Label>
+              <Select
+                value={formData.animal_id || "_none"}
+                onValueChange={(value) => setFormData({ ...formData, animal_id: value === "_none" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o animal do rebanho" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Nenhum</SelectItem>
+                  {availableAnimalsForLink.map((animal) => (
+                    <SelectItem key={animal.id} value={animal.id}>
+                      {animal.name}
+                      {animal.ear_tag ? ` - Brinco: ${animal.ear_tag}` : ""}
+                      {animal.registration ? ` (${animal.registration})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Vincule esta matriz/genitor a um animal do rebanho para carregar a genealogia na reprodução.
+              </p>
             </div>
 
             {/* Genealogy Section */}
