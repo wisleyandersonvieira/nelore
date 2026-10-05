@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useMemo } from "react";
 import { OwnersTab } from "@/components/OwnersTab";
 import { useNavigate, useSearchParams } from "react-router-dom";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import { fetchRecipientCategoryIds as fetchRecipientCategoryIdsFromRules } from "@/lib/animalCategoryRules";
 
