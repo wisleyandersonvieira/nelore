@@ -16,9 +16,11 @@ interface ReparcelamentoModalProps {
     description: string;
     amount: number;
     suppliers?: { name: string };
+    creditors?: { name: string };
     employees?: { name: string };
   } | null;
   onSuccess: () => void;
+  kind?: "payable" | "receivable";
 }
 
 interface PendingInstallment {
@@ -29,12 +31,16 @@ interface PendingInstallment {
   status: string;
 }
 
-export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess }: ReparcelamentoModalProps) {
+export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess, kind = "payable" }: ReparcelamentoModalProps) {
   const [pendingInstallments, setPendingInstallments] = useState<PendingInstallment[]>([]);
   const [newFirstDueDate, setNewFirstDueDate] = useState("");
   const [previewDates, setPreviewDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const isRec = kind === "receivable";
+  const instTable = (isRec ? "accounts_receivable_installments" : "accounts_payable_installments") as "accounts_payable_installments";
+  const mainTable = (isRec ? "accounts_receivable" : "accounts_payable") as "accounts_payable";
+  const fkCol = (isRec ? "account_receivable_id" : "account_payable_id") as "account_payable_id";
 
   useEffect(() => {
     if (open && account) {
@@ -55,9 +61,9 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess }: 
   const fetchPendingInstallments = async () => {
     if (!account) return;
     const { data, error } = await supabase
-      .from("accounts_payable_installments")
+      .from(instTable)
       .select("*")
-      .eq("account_payable_id", account.id)
+      .eq(fkCol, account.id)
       .is("payment_date", null)
       .neq("status", "pagamento_suspenso")
       .order("installment_number");
@@ -97,7 +103,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess }: 
     try {
       for (let i = 0; i < pendingInstallments.length; i++) {
         const { error } = await supabase
-          .from("accounts_payable_installments")
+          .from(instTable)
           .update({ due_date: previewDates[i] })
           .eq("id", pendingInstallments[i].id);
 
@@ -106,7 +112,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess }: 
 
       // Update the main account's due_date to the first pending installment's new date
       await supabase
-        .from("accounts_payable")
+        .from(mainTable)
         .update({ due_date: previewDates[0] })
         .eq("id", account.id);
 
@@ -128,7 +134,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess }: 
     }
   };
 
-  const supplierName = account?.suppliers?.name || account?.employees?.name || "-";
+  const supplierName = account?.suppliers?.name || account?.creditors?.name || account?.employees?.name || "-";
   const totalParcelas = pendingInstallments.length;
 
   return (
@@ -153,7 +159,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess }: 
                 <p className="text-sm font-medium">{account.description}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Fornecedor</Label>
+                <Label className="text-xs text-muted-foreground">{isRec ? "Credor" : "Fornecedor"}</Label>
                 <p className="text-sm font-medium">{supplierName}</p>
               </div>
               <div>

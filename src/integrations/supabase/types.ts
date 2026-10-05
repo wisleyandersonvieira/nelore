@@ -736,6 +736,7 @@ export type Database = {
           id: string
           installment_number: number
           payment_date: string | null
+          status: string
           updated_at: string
         }
         Insert: {
@@ -746,6 +747,7 @@ export type Database = {
           id?: string
           installment_number: number
           payment_date?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -756,6 +758,7 @@ export type Database = {
           id?: string
           installment_number?: number
           payment_date?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: [

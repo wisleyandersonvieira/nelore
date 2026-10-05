@@ -1,0 +1,2 @@
+ALTER TABLE public.accounts_receivable_installments ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending';
+UPDATE public.accounts_receivable_installments SET status='paid' WHERE payment_date IS NOT NULL;
