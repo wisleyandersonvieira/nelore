@@ -17,10 +17,12 @@ interface SuspenderPagamentoModalProps {
     amount: number;
     status: string;
     suppliers?: { name: string };
+    creditors?: { name: string };
     employees?: { name: string };
   } | null;
   mode: "suspend" | "reactivate";
   onSuccess: () => void;
+  kind?: "payable" | "receivable";
 }
 
 interface Installment {
@@ -31,12 +33,16 @@ interface Installment {
   status: string;
 }
 
-export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onSuccess }: SuspenderPagamentoModalProps) {
+export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onSuccess, kind = "payable" }: SuspenderPagamentoModalProps) {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [newFirstDueDate, setNewFirstDueDate] = useState("");
   const [previewDates, setPreviewDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const isRec = kind === "receivable";
+  const instTable = (isRec ? "accounts_receivable_installments" : "accounts_payable_installments") as "accounts_payable_installments";
+  const mainTable = (isRec ? "accounts_receivable" : "accounts_payable") as "accounts_payable";
+  const fkCol = (isRec ? "account_receivable_id" : "account_payable_id") as "account_payable_id";
 
   const isSuspend = mode === "suspend";
 
@@ -62,9 +68,9 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
     if (isSuspend) {
       // Fetch pending (unpaid, not suspended) installments
       const { data, error } = await supabase
-        .from("accounts_payable_installments")
+        .from(instTable)
         .select("*")
-        .eq("account_payable_id", account.id)
+        .eq(fkCol, account.id)
         .is("payment_date", null)
         .eq("status", "pending")
         .order("installment_number");
@@ -77,9 +83,9 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
     } else {
       // Fetch suspended installments
       const { data, error } = await supabase
-        .from("accounts_payable_installments")
+        .from(instTable)
         .select("*")
-        .eq("account_payable_id", account.id)
+        .eq(fkCol, account.id)
         .eq("status", "pagamento_suspenso")
         .order("installment_number");
 
@@ -119,7 +125,7 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
     try {
       const ids = installments.map((i) => i.id);
       const { error } = await supabase
-        .from("accounts_payable_installments")
+        .from(instTable)
         .update({ status: "pagamento_suspenso" })
         .in("id", ids);
 
@@ -127,9 +133,9 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
 
       // Check if all installments are now suspended or paid
       const { data: allInstallments } = await supabase
-        .from("accounts_payable_installments")
+        .from(instTable)
         .select("status, payment_date")
-        .eq("account_payable_id", account.id);
+        .eq(fkCol, account.id);
 
       const hasPending = allInstallments?.some((i) => i.status === "pending" && !i.payment_date);
       const hasPaid = allInstallments?.some((i) => i.payment_date !== null);
@@ -138,20 +144,20 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
       if (allSuspendedOrPaid && !hasPaid) {
         // All installments are suspended - update main account status
         await supabase
-          .from("accounts_payable")
+          .from(mainTable)
           .update({ status: "pagamento_suspenso" })
           .eq("id", account.id);
       } else if (allSuspendedOrPaid && hasPaid) {
         // Some paid, rest suspended
         await supabase
-          .from("accounts_payable")
+          .from(mainTable)
           .update({ status: "pagamento_suspenso" })
           .eq("id", account.id);
       }
 
       toast({
         title: "Sucesso",
-        description: "Pagamento suspenso com sucesso!",
+        description: isRec ? "Recebimento suspenso com sucesso!" : "Pagamento suspenso com sucesso!",
       });
       onSuccess();
       onOpenChange(false);
@@ -178,7 +184,7 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
     try {
       for (let i = 0; i < installments.length; i++) {
         const { error } = await supabase
-          .from("accounts_payable_installments")
+          .from(instTable)
           .update({
             status: "pending",
             due_date: previewDates[i],
@@ -190,21 +196,21 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
 
       // Update main account status back to pending or partial
       const { data: allInstallments } = await supabase
-        .from("accounts_payable_installments")
+        .from(instTable)
         .select("status, payment_date")
-        .eq("account_payable_id", account.id);
+        .eq(fkCol, account.id);
 
       const hasPaid = allInstallments?.some((i) => i.payment_date !== null);
       const newStatus = hasPaid ? "partial" : "pending";
 
       await supabase
-        .from("accounts_payable")
+        .from(mainTable)
         .update({ status: newStatus, due_date: previewDates[0] })
         .eq("id", account.id);
 
       toast({
         title: "Sucesso",
-        description: "Pagamento reativado com sucesso!",
+        description: isRec ? "Recebimento reativado com sucesso!" : "Pagamento reativado com sucesso!",
       });
       onSuccess();
       onOpenChange(false);
@@ -220,7 +226,7 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
     }
   };
 
-  const supplierName = account?.suppliers?.name || account?.employees?.name || "-";
+  const supplierName = account?.suppliers?.name || account?.creditors?.name || account?.employees?.name || "-";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,7 +238,7 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
             ) : (
               <PlayCircle className="h-5 w-5" />
             )}
-            {isSuspend ? "Suspender Pagamento" : "Reativar Pagamento"}
+            {isSuspend ? (isRec ? "Suspender Recebimento" : "Suspender Pagamento") : (isRec ? "Reativar Recebimento" : "Reativar Pagamento")}
           </DialogTitle>
           <DialogDescription>
             {isSuspend
@@ -250,7 +256,7 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
                 <p className="text-sm font-medium">{account.description}</p>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Fornecedor</Label>
+                <Label className="text-xs text-muted-foreground">{isRec ? "Credor" : "Fornecedor"}</Label>
                 <p className="text-sm font-medium">{supplierName}</p>
               </div>
               <div>
@@ -341,14 +347,14 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
                       disabled={loading}
                       className="bg-orange-600 hover:bg-orange-700"
                     >
-                      {loading ? "Processando..." : "Suspender Pagamento"}
+                      {loading ? "Processando..." : (isRec ? "Suspender Recebimento" : "Suspender Pagamento")}
                     </Button>
                   ) : (
                     <Button
                       onClick={handleReactivate}
                       disabled={loading || !newFirstDueDate || previewDates.length === 0}
                     >
-                      {loading ? "Processando..." : "Reativar Pagamento"}
+                      {loading ? "Processando..." : (isRec ? "Reativar Recebimento" : "Reativar Pagamento")}
                     </Button>
                   )}
                 </div>

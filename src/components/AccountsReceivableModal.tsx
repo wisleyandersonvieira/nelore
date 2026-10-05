@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Paperclip, Loader2, Search, ChevronsUpDown, Check } from "lucide-react";
+import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Paperclip, Loader2, Search, ChevronsUpDown, Check, CalendarClock, PauseCircle, PlayCircle } from "lucide-react";
 import { ProductSearchModal } from "./ProductSearchModal";
+import { ReparcelamentoModal } from "./ReparcelamentoModal";
+import { SuspenderPagamentoModal } from "./SuspenderPagamentoModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from "@/integrations/supabase/client";
@@ -171,6 +173,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
   // Reverse payment modal state  
   const [showReverseModal, setShowReverseModal] = useState(false);
+  const [reparcAccount, setReparcAccount] = useState<any>(null);
+  const [suspAccount, setSuspAccount] = useState<any>(null);
+  const [suspMode, setSuspMode] = useState<"suspend" | "reactivate">("suspend");
   const [reverseAccount, setReverseAccount] = useState<AccountReceivable | null>(null);
   const [reverseInstallments, setReverseInstallments] = useState<DBInstallment[]>([]);
   const [selectedReverseInstallments, setSelectedReverseInstallments] = useState<string[]>([]);
@@ -2771,9 +2776,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 ? "bg-green-100 text-green-800" 
                                 : account.status === "partial"
                                 ? "bg-blue-100 text-blue-800"
+                                : account.status === "pagamento_suspenso"
+                                ? "bg-orange-100 text-orange-800"
                                 : "bg-yellow-100 text-yellow-800"
                             }`}>
-                              {account.status === "paid" ? "Recebido" : account.status === "partial" ? "Parcial" : "Pendente"}
+                              {account.status === "paid" ? "Recebido" : account.status === "partial" ? "Parcial" : account.status === "pagamento_suspenso" ? "Suspenso" : "Pendente"}
                             </span>
                           </TableCell>
                           <TableCell>
@@ -2825,6 +2832,21 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                     </Button>
                                   )}
                                   
+                                  {(account.status === 'pending' || account.status === 'partial') && (
+                                    <>
+                                      <Button size="sm" variant="outline" title="Reparcelamento" onClick={() => setReparcAccount(account)}>
+                                        <CalendarClock className="h-4 w-4" />
+                                      </Button>
+                                      <Button size="sm" variant="outline" title="Suspender recebimento" className="text-orange-600" onClick={() => { setSuspMode("suspend"); setSuspAccount(account); }}>
+                                        <PauseCircle className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {account.status === 'pagamento_suspenso' && (
+                                    <Button size="sm" variant="outline" title="Reativar recebimento" className="text-green-600" onClick={() => { setSuspMode("reactivate"); setSuspAccount(account); }}>
+                                      <PlayCircle className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   {account.status === 'pending' && (
                                     <Button
                                       size="sm"
