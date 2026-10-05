@@ -3967,6 +3967,10 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         onSelectProduct={(product) => handleProductSelect(product)}
         functionType="credit"
       />
+      <ReparcelamentoModal kind="receivable" open={!!reparcAccount} onOpenChange={(o) => !o && setReparcAccount(null)} account={reparcAccount}
+        onSuccess={() => (showFilteredData ? fetchFilteredAccountsReceivable() : fetchAccountsReceivable())} />
+      <SuspenderPagamentoModal kind="receivable" open={!!suspAccount} onOpenChange={(o) => !o && setSuspAccount(null)} account={suspAccount} mode={suspMode}
+        onSuccess={() => (showFilteredData ? fetchFilteredAccountsReceivable() : fetchAccountsReceivable())} />
     </Dialog>
   );
 }
