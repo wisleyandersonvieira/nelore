@@ -2798,68 +2798,49 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                                 <Eye className="h-4 w-4" />
                               </Button>
                               {canEdit && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditAccount(account)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  
-                                  {(account.status === 'paid' || account.status === 'partial') && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleReversePayment(account)}
-                                      disabled={loading}
-                                      title="Estornar recebimento"
-                                    >
-                                      <RefreshCw className="h-4 w-4" />
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button size="sm" variant="outline" disabled={loading} title="Mais ações">
+                                      <MoreHorizontal className="h-4 w-4" />
                                     </Button>
-                                  )}
-                                  
-                                  {(account.status === 'pending' || account.status === 'partial') && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => openPaymentModal(account)}
-                                      disabled={loading}
-                                      title="Receber conta"
-                                      className="text-green-600 hover:text-green-700"
-                                    >
-                                      <DollarSign className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  
-                                  {(account.status === 'pending' || account.status === 'partial') && (
-                                    <>
-                                      <Button size="sm" variant="outline" title="Reparcelamento" onClick={() => setReparcAccount(account)}>
-                                        <CalendarClock className="h-4 w-4" />
-                                      </Button>
-                                      <Button size="sm" variant="outline" title="Suspender recebimento" className="text-orange-600" onClick={() => { setSuspMode("suspend"); setSuspAccount(account); }}>
-                                        <PauseCircle className="h-4 w-4" />
-                                      </Button>
-                                    </>
-                                  )}
-                                  {account.status === 'pagamento_suspenso' && (
-                                    <Button size="sm" variant="outline" title="Reativar recebimento" className="text-green-600" onClick={() => { setSuspMode("reactivate"); setSuspAccount(account); }}>
-                                      <PlayCircle className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {account.status === 'pending' && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleDeleteAccount(account.id, account.status, account.data_competencia)}
-                                      disabled={loading}
-                                      title="Excluir conta"
-                                      className="text-red-600 hover:text-red-700"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                </>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                                      <Edit className="h-4 w-4 mr-2" />Editar
+                                    </DropdownMenuItem>
+                                    {(account.status === 'pending' || account.status === 'partial') && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => openPaymentModal(account)} className="text-green-600">
+                                          <DollarSign className="h-4 w-4 mr-2" />Receber conta
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setReparcAccount(account)}>
+                                          <CalendarClock className="h-4 w-4 mr-2" />Reparcelamento
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => { setSuspMode("suspend"); setSuspAccount(account); }} className="text-orange-600">
+                                          <PauseCircle className="h-4 w-4 mr-2" />Suspender recebimento
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    {account.status === 'pagamento_suspenso' && (
+                                      <DropdownMenuItem onClick={() => { setSuspMode("reactivate"); setSuspAccount(account); }} className="text-green-600">
+                                        <PlayCircle className="h-4 w-4 mr-2" />Reativar recebimento
+                                      </DropdownMenuItem>
+                                    )}
+                                    {(account.status === 'paid' || account.status === 'partial') && (
+                                      <DropdownMenuItem onClick={() => handleReversePayment(account)}>
+                                        <RefreshCw className="h-4 w-4 mr-2" />Estornar recebimento
+                                      </DropdownMenuItem>
+                                    )}
+                                    {account.status === 'pending' && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleDeleteAccount(account.id, account.status, account.data_competencia)} className="text-red-600">
+                                          <Trash2 className="h-4 w-4 mr-2" />Excluir conta
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               )}
                             </div>
                           </TableCell>
