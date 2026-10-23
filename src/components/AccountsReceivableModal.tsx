@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import MobileReportCard from "@/components/MobileReportCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Paperclip, Loader2, Search, ChevronsUpDown, Check, CalendarClock, PauseCircle, PlayCircle, MoreHorizontal } from "lucide-react";
@@ -2743,7 +2744,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto">
                   <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
@@ -2849,6 +2850,102 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+
+                <div className="md:hidden space-y-3">
+                  {accountsReceivable.map((account) => (
+                    <MobileReportCard
+                      key={account.id}
+                      title={
+                        account.document_type && account.document_number 
+                          ? `${account.document_type} ${account.document_number}` 
+                          : account.description
+                      }
+                      badge={
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          account.status === "paid" 
+                            ? "bg-green-100 text-green-800" 
+                            : account.status === "partial"
+                            ? "bg-blue-100 text-blue-800"
+                            : account.status === "pagamento_suspenso"
+                            ? "bg-orange-100 text-orange-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {account.status === "paid" ? "Recebido" : account.status === "partial" ? "Parcial" : account.status === "pagamento_suspenso" ? "Suspenso" : "Pendente"}
+                        </span>
+                      }
+                      summaryFields={[
+                        { label: "Credor", value: (account as any).suppliers?.name || "N/A" },
+                        { label: "Vencimento", value: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") },
+                        { label: "Valor", value: `R$ ${account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, valueClassName: "font-semibold" },
+                      ]}
+                      detailFields={[
+                        {
+                          label: "Data Recebimento",
+                          value: account.last_payment_date 
+                            ? new Date(account.last_payment_date + 'T00:00:00').toLocaleDateString("pt-BR")
+                            : "-",
+                        },
+                      ]}
+                      actions={
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewAccount(account)}
+                            className="h-10 w-10 p-0"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canEdit && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline" disabled={loading} title="Mais ações" className="h-10 w-10 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                                  <Edit className="h-4 w-4 mr-2" />Editar
+                                </DropdownMenuItem>
+                                {(account.status === 'pending' || account.status === 'partial') && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => openPaymentModal(account)} className="text-green-600">
+                                      <DollarSign className="h-4 w-4 mr-2" />Receber conta
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setReparcAccount(account)}>
+                                      <CalendarClock className="h-4 w-4 mr-2" />Reparcelamento
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setSuspMode("suspend"); setSuspAccount(account); }} className="text-orange-600">
+                                      <PauseCircle className="h-4 w-4 mr-2" />Suspender recebimento
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {account.status === 'pagamento_suspenso' && (
+                                  <DropdownMenuItem onClick={() => { setSuspMode("reactivate"); setSuspAccount(account); }} className="text-green-600">
+                                    <PlayCircle className="h-4 w-4 mr-2" />Reativar recebimento
+                                  </DropdownMenuItem>
+                                )}
+                                {(account.status === 'paid' || account.status === 'partial') && (
+                                  <DropdownMenuItem onClick={() => handleReversePayment(account)}>
+                                    <RefreshCw className="h-4 w-4 mr-2" />Estornar recebimento
+                                  </DropdownMenuItem>
+                                )}
+                                {account.status === 'pending' && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleDeleteAccount(account.id, account.status, account.data_competencia)} className="text-red-600">
+                                      <Trash2 className="h-4 w-4 mr-2" />Excluir conta
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </>
+                      }
+                    />
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -3393,6 +3490,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         </div>
                       ) : (
                         <>
+                          <div className="hidden md:block">
                           <Table className="table-sticky-first table-sticky-last">
                             <TableHeader>
                               <TableRow>
@@ -3441,6 +3539,48 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               ))}
                             </TableBody>
                           </Table>
+                          </div>
+
+                          <div className="md:hidden space-y-3">
+                            {items.map((item, index) => (
+                              <MobileReportCard
+                                key={index}
+                                title={item.product_name}
+                                summaryFields={[
+                                  { label: "Quantidade", value: item.quantity },
+                                  { label: "Valor Unit.", value: item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+                                  { label: "Total", value: item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), valueClassName: "font-semibold" },
+                                ]}
+                                detailFields={[
+                                  { label: "Fazenda", value: item.store_name },
+                                  {
+                                    label: "Alocação",
+                                    value: item.allocation_type ? (
+                                      <span className="text-xs font-medium">
+                                        {getAllocationLabel(item.allocation_type)}
+                                      </span>
+                                    ) : "-",
+                                  },
+                                  {
+                                    label: "Referência",
+                                    value: item.allocation_name ? (
+                                      <span className="text-xs">{item.allocation_name}</span>
+                                    ) : "-",
+                                  },
+                                ]}
+                                actions={!isViewOnly && !isAttachmentOnlyEdit ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeItem(index)}
+                                    className="h-10 w-10 p-0"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : undefined}
+                              />
+                            ))}
+                          </div>
 
                           <div className="mt-4 p-4 bg-muted rounded-lg">
                             <div className="flex justify-between items-center">

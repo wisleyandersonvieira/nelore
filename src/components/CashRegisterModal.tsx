@@ -1119,8 +1119,8 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                         <div className="mt-4 space-y-2">
                           <Label className="text-sm text-muted-foreground">Novos anexos:</Label>
                           {attachments.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between bg-green-50 p-2 rounded border">
-                              <span className="text-sm">{file.name}</span>
+                            <div key={index} className="flex items-center justify-between gap-2 bg-green-50 p-2 rounded border">
+                              <span className="min-w-0 break-all text-sm">{file.name}</span>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1200,9 +1200,9 @@ const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
   return (
     <div className="space-y-4">
       {!isReadOnly && (
-        <div className="flex gap-4">
+        <div className="flex gap-2 sm:gap-4">
           <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 min-w-0">
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
@@ -1219,7 +1219,7 @@ const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
             placeholder="Valor"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            className="w-32"
+            className="w-24 shrink-0 sm:w-32"
           />
           <Button type="button" onClick={handleAdd}>
             <Plus className="h-4 w-4" />
@@ -1230,8 +1230,8 @@ const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
       {items.length > 0 && (
         <div className="space-y-2">
           {items.map((item: any, index: number) => (
-            <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-              <span>{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
+            <div key={index} className="flex items-center justify-between gap-2 bg-muted p-2 rounded">
+              <span className="min-w-0 break-words">{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
               {!isReadOnly && (
                 <Button
                   type="button"
@@ -1272,9 +1272,9 @@ const CashItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
   return (
     <div className="space-y-4">
       {!isReadOnly && (
-        <div className="flex gap-4">
+        <div className="flex gap-2 sm:gap-4">
           <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 min-w-0">
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
@@ -1291,7 +1291,7 @@ const CashItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
             placeholder="Valor"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            className="w-32"
+            className="w-24 shrink-0 sm:w-32"
           />
           <Button type="button" onClick={handleAdd} disabled={!selectedAccount || !valor || parseFloat(valor) <= 0}>
             <Plus className="h-4 w-4" />
@@ -1302,8 +1302,8 @@ const CashItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
       {items.length > 0 && (
         <div className="space-y-2">
           {items.map((item: any, index: number) => (
-            <div key={index} className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
-              <span className="font-medium">{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
+            <div key={index} className="flex items-center justify-between gap-2 bg-muted/50 p-3 rounded-lg">
+              <span className="min-w-0 break-words font-medium">{item[accountDisplayName]} - R$ {item.valor.toFixed(2)}</span>
               {!isReadOnly && (
                 <Button
                   type="button"

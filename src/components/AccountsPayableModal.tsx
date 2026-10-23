@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import MobileReportCard from "@/components/MobileReportCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -4532,6 +4533,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       
                       return (
                         <>
+                          <div className="hidden md:block">
                           <Table className="table-sticky-first table-sticky-last">
                             <TableHeader>
                               <TableRow>
@@ -4705,10 +4707,151 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               )}
                             </TableBody>
                           </Table>
+                          </div>
+
+                          <div className="md:hidden space-y-3">
+                            {paginatedAccounts.map((account) => (
+                              <MobileReportCard
+                                key={account.id}
+                                title={account.description}
+                                badge={
+                                  <span className={`px-2 py-1 rounded text-xs ${
+                                    account.status === 'paid' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : account.status === 'partial'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : account.status === 'pagamento_suspenso'
+                                      ? 'bg-orange-100 text-orange-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {account.status === 'paid' ? 'Pago' : account.status === 'partial' ? 'Parcial' : account.status === 'pagamento_suspenso' ? 'Suspenso' : 'Pendente'}
+                                  </span>
+                                }
+                                summaryFields={[
+                                  { label: "Fornecedor", value: account.suppliers?.name || account.employees?.name || '-' },
+                                  { label: "Vencimento", value: account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-' },
+                                  { label: "Valor", value: Number(account.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), valueClassName: "font-semibold" },
+                                ]}
+                                detailFields={[
+                                  {
+                                    label: "Valor Parcela",
+                                    value: (() => {
+                                      const installments = (account as any).accounts_payable_installments || [];
+                                      if (!installments.length) return '-';
+                                      const first = [...installments].sort((a: any, b: any) => (a.installment_number || 0) - (b.installment_number || 0))[0];
+                                      return Number(first?.amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                                    })(),
+                                  },
+                                ]}
+                                actions={
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleViewOnlyAccount(account)}
+                                      disabled={loading}
+                                      title="Visualizar conta"
+                                      className="h-10 w-10 p-0 text-blue-600 hover:text-blue-700"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+
+                                    {canEdit && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={loading}
+                                            title="Mais ações"
+                                            className="h-10 w-10 p-0"
+                                          >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          {account.status !== 'paid' && account.status !== 'pagamento_suspenso' && (
+                                            <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                                              <Edit className="h-4 w-4 mr-2" />
+                                              Editar
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {(account.status === 'pending' || account.status === 'partial') && (
+                                            <DropdownMenuItem onClick={() => openPaymentModal(account)} className="text-green-600">
+                                              <DollarSign className="h-4 w-4 mr-2" />
+                                              Pagar
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {(account.status === 'paid' || account.status === 'partial') && (
+                                            <DropdownMenuItem onClick={() => handleReversePayment(account)}>
+                                              <RefreshCw className="h-4 w-4 mr-2" />
+                                              Estornar Pagamento
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {(account.status === 'pending' || account.status === 'partial') && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem onClick={() => {
+                                                setReparcelamentoAccount(account);
+                                                setShowReparcelamentoModal(true);
+                                              }}>
+                                                <CalendarClock className="h-4 w-4 mr-2" />
+                                                Reparcelamento
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => {
+                                                setSuspenderAccount(account);
+                                                setSuspenderMode("suspend");
+                                                setShowSuspenderModal(true);
+                                              }} className="text-orange-600">
+                                                <PauseCircle className="h-4 w-4 mr-2" />
+                                                Suspender Pagamento
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+
+                                          {account.status === 'pagamento_suspenso' && (
+                                            <DropdownMenuItem onClick={() => {
+                                              setSuspenderAccount(account);
+                                              setSuspenderMode("reactivate");
+                                              setShowSuspenderModal(true);
+                                            }} className="text-green-600">
+                                              <PlayCircle className="h-4 w-4 mr-2" />
+                                              Reativar Pagamento
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {account.status === 'pending' && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem onClick={() => handleDeleteAccount(account.id, account.status)} className="text-destructive">
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Excluir
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )}
+                                  </>
+                                }
+                              />
+                            ))}
+                            {accountsPayable.length === 0 && (
+                              <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                                {showFilteredData 
+                                  ? "Nenhuma conta encontrada com os filtros aplicados"
+                                  : "Carregando contas..."
+                                }
+                              </div>
+                            )}
+                          </div>
                           
                           {/* Pagination */}
                           {viewTotalPages > 1 && (
-                            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t">
                               <span className="text-sm text-muted-foreground">
                                 {viewTotalItems} conta(s) • Página {viewCurrentPage} de {viewTotalPages}
                               </span>
@@ -5531,6 +5674,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     </CardContent>
                   </Card>
 
+                  <div className="hidden md:block">
                   <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
@@ -5579,6 +5723,48 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
+
+                  <div className="md:hidden space-y-3">
+                    {items.map((item, index) => (
+                      <MobileReportCard
+                        key={index}
+                        title={item.product_name}
+                        summaryFields={[
+                          { label: "Quantidade", value: item.quantity },
+                          { label: "Valor Unit.", value: item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+                          { label: "Total", value: item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), valueClassName: "font-semibold" },
+                        ]}
+                        detailFields={[
+                          { label: "Fazenda", value: item.store_name },
+                          {
+                            label: "Alocação",
+                            value: item.allocation_type ? (
+                              <span className="text-xs font-medium">
+                                {getAllocationLabel(item.allocation_type)}
+                              </span>
+                            ) : '-',
+                          },
+                          {
+                            label: "Referência",
+                            value: item.allocation_name ? (
+                              <span className="text-xs">{item.allocation_name}</span>
+                            ) : '-',
+                          },
+                        ]}
+                        actions={!isViewOnly ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeItem(index)}
+                            className="h-10 w-10 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : undefined}
+                      />
+                    ))}
+                  </div>
 
                   {items.length > 0 && (
                     <Card>
