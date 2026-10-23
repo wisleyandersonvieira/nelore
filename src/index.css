@@ -160,6 +160,11 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background font-sans text-foreground antialiased;
     background-image:
@@ -204,6 +209,14 @@ All colors MUST be HSL.
   .table-responsive table {
     min-width: 100%;
   }
+
+  .filters-bar {
+    @apply flex flex-wrap gap-2 [&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+  }
 }
 
 @media (max-width: 767px) {
@@ -215,5 +228,14 @@ All colors MUST be HSL.
     .page-content {
       max-width: 100%;
     }
+  }
+}
+
+/* Evita o zoom automático do iOS ao focar campos com fonte menor que 16px */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }

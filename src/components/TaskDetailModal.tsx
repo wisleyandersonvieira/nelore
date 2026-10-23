@@ -657,7 +657,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 sm:p-0">
         <DialogHeader className="p-4 pb-2 border-b">
           <div className="flex items-center justify-between">
             <div className="flex-1 mr-4">

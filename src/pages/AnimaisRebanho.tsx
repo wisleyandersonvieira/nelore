@@ -1574,7 +1574,7 @@ const AnimaisRebanho = () => {
       </main>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="w-[95vw] max-w-5xl max-h-[88vh] overflow-hidden p-0 flex flex-col">
+        <DialogContent className="w-[95vw] max-w-5xl max-h-[88vh] overflow-hidden p-0 sm:p-0 flex flex-col">
           <div className="p-6 border-b bg-slate-50/70 shrink-0">
             <DialogHeader>
               <DialogTitle className="text-slate-900">

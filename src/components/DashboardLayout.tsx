@@ -262,7 +262,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
         onMobileOpenChange={setMobileSidebarOpen}
       />
 
-      <div className={cn("min-w-0", !isMobile && "pl-16")}>
+      <div className={cn("min-w-0 overflow-x-clip", !isMobile && "pl-16")}>
         <header
           className={cn(
             "sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl",

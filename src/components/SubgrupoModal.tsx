@@ -535,7 +535,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0">
+      <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0 sm:p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center gap-4">
             <Button

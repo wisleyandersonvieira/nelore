@@ -889,7 +889,7 @@ const Receptoras = () => {
       </main>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-hidden p-0">
+        <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-hidden p-0 sm:p-0">
           <div className="p-5 border-b bg-slate-50/70">
             <DialogHeader>
               <DialogTitle>
