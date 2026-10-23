@@ -880,7 +880,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
+                                  className="h-10 md:h-7 w-10 md:w-7"
                                   onClick={() => setViewingTransaction(transaction)}
                                 >
                                   <Eye className="h-4 w-4" />
@@ -890,7 +890,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-10 md:h-7 w-10 md:w-7"
                                       onClick={() => handleEdit(transaction)}
                                     >
                                       <Pencil className="h-4 w-4" />
@@ -898,7 +898,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-10 md:h-7 w-10 md:w-7"
                                       onClick={() => handleDeleteClick(transaction)}
                                     >
                                       <Trash2 className="h-4 w-4" />

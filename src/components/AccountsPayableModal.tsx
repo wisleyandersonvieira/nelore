@@ -5940,7 +5940,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             variant="ghost"
                             size="sm"
                             onClick={() => removePaymentAttachment(index)}
-                            className="h-8 w-8 p-0"
+                            className="h-10 md:h-8 w-10 md:w-8 p-0"
                           >
                             <X className="h-4 w-4" />
                           </Button>

@@ -1498,7 +1498,7 @@ const BankReconciliation = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-10 md:h-6 w-10 md:w-6 p-0"
                     onClick={() => setSelectedOfxIds([])}
                   >
                     <X className="h-4 w-4" />
@@ -1523,7 +1523,7 @@ const BankReconciliation = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-10 md:h-6 w-10 md:w-6 p-0"
                     onClick={() => setSelectedOfxIds([])}
                   >
                     <X className="h-4 w-4" />
@@ -1592,7 +1592,7 @@ const BankReconciliation = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="absolute top-1 right-1 h-6 w-6 p-0"
+                        className="absolute top-1 right-1 h-10 md:h-6 w-10 md:w-6 p-0"
                         onClick={() => setSelectedInternalIds([])}
                       >
                         <X className="h-4 w-4" />

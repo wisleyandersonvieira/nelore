@@ -287,7 +287,7 @@ const FinanceiroReproducao = ({ animalId, viewMode, onViewModeChange, animalSald
                   <Badge variant={r.status === "paid" ? "default" : "secondary"} className="px-1.5 py-0 text-[12px]">{statusLabel(r.status)}</Badge>
                 </TableCell>
                 <TableCell className="py-1 text-right">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(ETAPA_ROUTE[etapa])} title="Abrir registro de origem">
+                  <Button variant="ghost" size="icon" className="h-10 md:h-7 w-10 md:w-7" onClick={() => navigate(ETAPA_ROUTE[etapa])} title="Abrir registro de origem">
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Button>
                 </TableCell>

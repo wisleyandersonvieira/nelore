@@ -1884,7 +1884,7 @@ const AnimaisCadastro = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                           onClick={() => handleOpenModal("view", animal)}
                         >
                           <Eye className="h-4 w-4" />
@@ -1894,7 +1894,7 @@ const AnimaisCadastro = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
@@ -2381,7 +2381,7 @@ const AnimaisCadastro = () => {
                       <Button
                         variant="destructive"
                         size="icon"
-                        className="absolute -top-2 -right-2 h-6 w-6"
+                        className="absolute -top-2 -right-2 h-10 md:h-6 w-10 md:w-6"
                         onClick={() => setPhotoToDelete({ url: formData.cover_photo, isCover: true })}
                       >
                         <X className="h-4 w-4" />

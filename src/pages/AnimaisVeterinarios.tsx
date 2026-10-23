@@ -171,9 +171,9 @@ const AnimaisVeterinarios = () => {
                   <TableCell className="py-2">{item.email || "-"}</TableCell>
                   <TableCell className="text-right py-2">
                     <div className="flex justify-end gap-1">
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenModal(item, true)}><Eye className="h-3 w-3" /></Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenModal(item)}><Pencil className="h-3 w-3" /></Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openDeleteDialog(item)}><Trash2 className="h-3 w-3" /></Button>
+                      <Button variant="outline" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => handleOpenModal(item, true)}><Eye className="h-3 w-3" /></Button>
+                      <Button variant="outline" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => handleOpenModal(item)}><Pencil className="h-3 w-3" /></Button>
+                      <Button variant="outline" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => openDeleteDialog(item)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>

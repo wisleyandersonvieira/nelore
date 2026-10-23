@@ -819,7 +819,7 @@ export function PurchasesCreateModal({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-indigo-700"
+                        className="h-8 max-md:h-10 px-2 text-indigo-700"
                         disabled={!canEditCadastros}
                         onClick={() => setSupplierModalOpen(true)}
                       >

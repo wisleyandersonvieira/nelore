@@ -858,16 +858,16 @@ const Receptoras = () => {
                         <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.category_id ? categoryNameById.get(record.category_id) || "-" : "-"}</TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "view"); }}>
+                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "view"); }}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "edit"); }}>
+                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "edit"); }}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
+                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setRecordToDelete(record);
@@ -1059,7 +1059,7 @@ const Receptoras = () => {
                           type="button"
                           variant="destructive"
                           size="icon"
-                          className="absolute top-1 right-1 h-7 w-7"
+                          className="absolute top-1 right-1 h-10 md:h-7 w-10 md:w-7"
                           onClick={() => setFormData((prev) => ({ ...prev, cover_photo: "" }))}
                         >
                           <X className="h-4 w-4" />
@@ -1092,7 +1092,7 @@ const Receptoras = () => {
                             type="button"
                             variant="destructive"
                             size="icon"
-                            className="absolute top-1 right-1 h-7 w-7"
+                            className="absolute top-1 right-1 h-10 md:h-7 w-10 md:w-7"
                             onClick={() => setFormData((prev) => ({ ...prev, photos: prev.photos.filter((p) => p !== photo) }))}
                           >
                             <X className="h-4 w-4" />

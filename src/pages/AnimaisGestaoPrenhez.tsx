@@ -1885,12 +1885,12 @@ const AnimaisGestaoPrenhez = () => {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)}>
+                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)}>
                               <Eye className="h-4 w-4" />
                             </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+                                <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>

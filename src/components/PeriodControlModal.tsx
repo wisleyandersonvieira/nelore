@@ -422,7 +422,7 @@ export const PeriodControlModal = ({ open, onOpenChange }: PeriodControlModalPro
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-6 text-xs"
+                          className="h-6 max-md:h-10 text-xs"
                           onClick={() => setFilterMonths([])}
                         >
                           Limpar

@@ -908,7 +908,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("documentNumber")}
                             >
                               Documento
@@ -920,7 +920,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("supplierName")}
                             >
                               Fornecedor
@@ -932,7 +932,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("dueDate")}
                             >
                               Vencimento
@@ -944,7 +944,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="ml-auto h-8 px-3"
+                              className="ml-auto h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("amount")}
                             >
                               Valor
@@ -956,7 +956,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("allocation")}
                             >
                               Vínculo

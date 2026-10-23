@@ -329,7 +329,7 @@ const MatricesTab = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => openEditDialog(matrix)}
-                          className="h-8"
+                          className="h-8 max-md:h-10"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -337,7 +337,7 @@ const MatricesTab = () => {
                           size="sm"
                           variant="destructive"
                           onClick={() => openDeleteDialog(matrix)}
-                          className="h-8"
+                          className="h-8 max-md:h-10"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

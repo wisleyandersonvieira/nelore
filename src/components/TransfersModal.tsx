@@ -765,7 +765,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                         variant={currentPage === pageNum ? "default" : "outline"}
                         size="sm"
                         onClick={() => handlePageChange(pageNum)}
-                        className="w-8 h-8 p-0"
+                        className="w-10 md:w-8 h-10 md:h-8 p-0"
                       >
                         {pageNum}
                       </Button>

@@ -2683,34 +2683,34 @@ const AnimaisGestaoAspiracoes = () => {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
                               <Eye className="h-4 w-4" />
                             </Button>
                             {record.status === "pending" && (
                               <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
+                                <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+                                <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>
                               </>
                             )}
                             {record.is_batch_purchase && record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
                             {!record.is_batch_purchase && record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
                             {record.status !== "sold" && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
+                              <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
                                 <DollarSign className="h-4 w-4" />
                               </Button>
                             )}
@@ -2721,7 +2721,7 @@ const AnimaisGestaoAspiracoes = () => {
                                 onClick={() => handleToggleFinancialReleased(record)}
                                 title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
                                 className={cn(
-                                  "h-8 w-8 rounded-lg hover:bg-muted/60",
+                                  "h-10 md:h-8 w-10 md:w-8 rounded-lg hover:bg-muted/60",
                                   record.financial_released ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground",
                                 )}
                               >

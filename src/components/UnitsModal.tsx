@@ -338,7 +338,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleEdit(unit)}
                               title="Editar"
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -349,7 +349,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleToggleStatus(unit)}
                               title={unit.is_active ? "Desativar" : "Ativar"}
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Ban className="h-3.5 w-3.5" />
                             </Button>
@@ -360,7 +360,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleDelete(unit)}
                               title="Excluir"
-                              className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                              className="text-destructive hover:text-destructive h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>

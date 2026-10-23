@@ -319,7 +319,7 @@ export const NFEItemsValidationModal = ({
                                     adjustItemValue(index, parseFloat(newValue));
                                   }
                                 }}
-                                className="h-6 w-6 p-0"
+                                className="h-10 md:h-6 w-10 md:w-6 p-0"
                               >
                                 <Edit2 className="h-3 w-3" />
                               </Button>
@@ -350,7 +350,7 @@ export const NFEItemsValidationModal = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSaveEdit}
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Save className="h-4 w-4 text-green-600" />
                               </Button>
@@ -358,7 +358,7 @@ export const NFEItemsValidationModal = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleCancelEdit}
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <X className="h-4 w-4 text-red-600" />
                               </Button>
@@ -368,7 +368,7 @@ export const NFEItemsValidationModal = ({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditItem(index)}
-                              className="h-8 w-8 p-0"
+                              className="h-10 md:h-8 w-10 md:w-8 p-0"
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>

@@ -449,7 +449,7 @@ const PeriodicObligationModal = ({
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleViewAttachment(entry.attachment_url!)}
-                                  className="text-primary h-7 w-7 flex-shrink-0"
+                                  className="text-primary h-10 md:h-7 w-10 md:w-7 flex-shrink-0"
                                   title="Ver anexo"
                                 >
                                   <Eye className="w-4 h-4" />
@@ -465,7 +465,7 @@ const PeriodicObligationModal = ({
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDelete(entry.id)}
-                            className="text-destructive hover:text-destructive h-7 w-7"
+                            className="text-destructive hover:text-destructive h-10 md:h-7 w-10 md:w-7"
                             title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />

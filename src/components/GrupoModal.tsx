@@ -700,7 +700,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 onClick={() => handleEdit(grupo)}
                                 title={isAuthorized ? "Editar" : "Você não tem permissão para editar"}
                                 disabled={!isAuthorized}
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -712,7 +712,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 onClick={() => handleToggleStatus(grupo)}
                                 title="Bloquear/Desbloquear"
                                 disabled
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>
@@ -724,7 +724,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 onClick={() => handleDelete(grupo)}
                                 title={isAuthorized ? "Excluir" : "Você não tem permissão para excluir"}
                                 disabled={!isAuthorized}
-                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                                className="text-destructive hover:text-destructive h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

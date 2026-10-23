@@ -1621,7 +1621,7 @@ const AnimaisMatrizes = () => {
                           <div className="flex justify-end gap-1.5">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 rounded-lg">
+                                <Button variant="outline" size="sm" className="h-8 max-md:h-10 rounded-lg">
                                   <FileText className="mr-1 h-3 w-3" />
                                   Relatório
                                   <ChevronDown className="ml-1 h-3 w-3" />
@@ -1639,7 +1639,7 @@ const AnimaisMatrizes = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8 rounded-lg"
+                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg"
                               onClick={() => handleOpenModal(animal)}
                             >
                               <Pencil className="h-3 w-3" />
@@ -1647,7 +1647,7 @@ const AnimaisMatrizes = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8 rounded-lg"
+                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg"
                               onClick={() => openDeleteDialog(animal)}
                             >
                               <Trash2 className="h-3 w-3" />

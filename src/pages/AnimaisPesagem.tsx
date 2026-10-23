@@ -718,7 +718,7 @@ const AnimaisPesagem = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-10 md:h-7 w-10 md:w-7"
                             onClick={() => handleViewSession(session)}
                             title="Visualizar"
                           >
@@ -727,7 +727,7 @@ const AnimaisPesagem = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-10 md:h-7 w-10 md:w-7"
                             onClick={() => handleEditSession(session)}
                             title="Editar"
                           >
@@ -949,7 +949,7 @@ const AnimaisPesagem = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-10 md:h-7 w-10 md:w-7"
                                 onClick={() => handleRemoveAnimal(animal.id)}
                               >
                                 <X className="h-4 w-4" />
@@ -1022,7 +1022,7 @@ const AnimaisPesagem = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-10 md:h-7 w-10 md:w-7"
                           onClick={() => handleAddAnimalFromModal(animal)}
                         >
                           <Plus className="h-4 w-4" />
@@ -1234,7 +1234,7 @@ const AnimaisPesagem = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-10 md:h-7 w-10 md:w-7"
                           onClick={() => handleAddAnimalToSession(animal, newAnimalWeight[animal.id] || "")}
                           disabled={isLoading}
                         >

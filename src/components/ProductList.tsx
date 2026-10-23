@@ -347,7 +347,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
             </CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
+                <Button variant="outline" size="sm" className="h-8 max-md:h-10">
                   <Download className="h-4 w-4 mr-2" />
                   Exportar
                 </Button>
@@ -423,7 +423,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               </Select>
             </div>
 
-            <Button variant="outline" onClick={clearFilters} size="sm" className="h-8">
+            <Button variant="outline" onClick={clearFilters} size="sm" className="h-8 max-md:h-10">
               Limpar Filtros
             </Button>
           </div>
@@ -506,7 +506,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                               setViewModalOpen(true);
                             }}
                             title="Visualizar"
-                            className="h-7 w-7 p-0"
+                            className="h-10 md:h-7 w-10 md:w-7 p-0"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -519,7 +519,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                                 setEditModalOpen(true);
                               }}
                               title="Editar"
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -530,7 +530,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                               size="sm"
                               onClick={() => handleToggleBlock(product)}
                               title={product.is_blocked ? "Desbloquear" : "Bloquear"}
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Ban className="h-3.5 w-3.5" />
                             </Button>
@@ -541,7 +541,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                               size="sm"
                               onClick={() => handleDelete(product)}
                               title="Excluir"
-                              className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                              className="text-destructive hover:text-destructive h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -568,7 +568,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
@@ -577,7 +577,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -600,7 +600,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                       variant={currentPage === pageNum ? "default" : "outline"}
                       size="sm"
                       onClick={() => goToPage(pageNum)}
-                      className="h-8 w-8 p-0"
+                      className="h-10 md:h-8 w-10 md:w-8 p-0"
                     >
                       {pageNum}
                     </Button>
@@ -613,7 +613,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -622,7 +622,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronsRight className="h-4 w-4" />
               </Button>

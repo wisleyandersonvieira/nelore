@@ -1237,7 +1237,7 @@ const AnimaisLeiloes = () => {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-10 md:h-7 w-10 md:w-7"
                               onClick={() =>
                                 setAttachmentFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))
                               }
@@ -1268,7 +1268,7 @@ const AnimaisLeiloes = () => {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-10 md:h-7 w-10 md:w-7"
                                 onClick={() => void handleDownloadAttachment(attachment)}
                               >
                                 <Download className="h-4 w-4" />
@@ -1278,7 +1278,7 @@ const AnimaisLeiloes = () => {
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
+                                  className="h-10 md:h-7 w-10 md:w-7"
                                   onClick={() =>
                                     setExistingAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))
                                   }

@@ -639,7 +639,7 @@ const Users = () => {
                               <div className="flex gap-2 justify-end items-center">
                                 {!user.is_active ? (
                                   <>
-                                    <Button size="sm" onClick={() => handleApproveUser(user.id)} className="h-8">
+                                    <Button size="sm" onClick={() => handleApproveUser(user.id)} className="h-8 max-md:h-10">
                                       <Check className="h-4 w-4 mr-1" />
                                       Aprovar
                                     </Button>
@@ -647,7 +647,7 @@ const Users = () => {
                                       size="sm"
                                       variant="destructive"
                                       onClick={() => handleRejectUser(user.id)}
-                                      className="h-8"
+                                      className="h-8 max-md:h-10"
                                     >
                                       <X className="h-4 w-4 mr-1" />
                                       Rejeitar
@@ -658,7 +658,7 @@ const Users = () => {
                                 {/* Dropdown de Configurações */}
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button size="sm" variant="outline" className="h-8">
+                                    <Button size="sm" variant="outline" className="h-8 max-md:h-10">
                                       <Settings className="h-4 w-4 mr-1" />
                                       Configurações
                                     </Button>

@@ -744,7 +744,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => removeStore(store.id)}
                           >
                             <X className="h-3 w-3" />
@@ -795,7 +795,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => removeMember(member.id)}
                           >
                             <X className="h-3 w-3" />
@@ -883,7 +883,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      className="h-10 md:h-6 w-10 md:w-6 opacity-0 group-hover:opacity-100"
                       onClick={() => deleteChecklistItem(item.id)}
                     >
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -951,7 +951,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => handleDownloadAttachment(attachment)}
                           >
                             <Download className="h-3 w-3" />
@@ -960,7 +960,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                              className="h-10 md:h-6 w-10 md:w-6 opacity-0 group-hover:opacity-100"
                               onClick={() => handleDeleteAttachment(attachment)}
                             >
                               <Trash2 className="h-3 w-3 text-destructive" />

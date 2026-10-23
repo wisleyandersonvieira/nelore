@@ -723,7 +723,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="h-6 text-xs"
+                              className="h-6 max-md:h-10 text-xs"
                               onClick={() => setSelectedMonths([])}
                             >
                               Limpar
