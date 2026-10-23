@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { compareByName } from "@/lib/sortByName";
 
 interface Supplier {
   id: string;
@@ -258,7 +259,7 @@ export const ProductSupplierCodes = ({ productId, onCodesChange }: ProductSuppli
                 <SelectValue placeholder="Selecione o fornecedor" />
               </SelectTrigger>
               <SelectContent>
-                {suppliers.map((supplier) => (
+                {[...suppliers].sort(compareByName).map((supplier) => (
                   <SelectItem key={supplier.id} value={supplier.id}>
                     {supplier.name}
                   </SelectItem>

@@ -35,6 +35,7 @@ import {
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import * as pdfjsLib from 'pdfjs-dist';
 import { useFinanceiroPermissions } from "@/hooks/useFinanceiroPermissions";
+import { EntityCombobox } from "@/components/EntityCombobox";
 
 interface AccountsPayableModalProps {
   open: boolean;
@@ -4131,57 +4132,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     </div>
                     <div>
                       <Label htmlFor="filter-supplier">Fornecedor</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="w-full justify-between font-normal"
-                          >
-                            {filterSupplier && filterSupplier !== "all"
-                              ? suppliers.find((s) => s.id === filterSupplier)?.name
-                              : "Todos"}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0 max-h-[340px] overflow-hidden">
-                          <Command>
-                            <CommandInput placeholder="Buscar fornecedor..." />
-                            <CommandList className="max-h-[300px] overflow-y-auto">
-                              <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
-                              <CommandGroup>
-                                <CommandItem
-                                  value="todos"
-                                  onSelect={() => setFilterSupplier("all")}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      filterSupplier === "all" || filterSupplier === "" ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  Todos
-                                </CommandItem>
-                                {suppliers.map((supplier) => (
-                                  <CommandItem
-                                    key={supplier.id}
-                                    value={supplier.name}
-                                    onSelect={() => setFilterSupplier(supplier.id)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        filterSupplier === supplier.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {supplier.name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <EntityCombobox
+                        id="filter-supplier"
+                        items={suppliers}
+                        value={filterSupplier || "all"}
+                        onValueChange={setFilterSupplier}
+                        searchPlaceholder="Buscar fornecedor..."
+                        emptyText="Nenhum fornecedor encontrado."
+                      />
                     </div>
                     <div>
                       <Label htmlFor="filter-employee">Funcionário</Label>

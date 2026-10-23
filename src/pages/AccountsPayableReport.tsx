@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { EntityCombobox } from "@/components/EntityCombobox";
 
 interface SyntheticDailyTotal {
   date: string;
@@ -2235,22 +2236,14 @@ const AccountsPayableReport = () => {
                   </div>
                   <div>
                     <Label>Fornecedor</Label>
-                    <Select
+                    <EntityCombobox
+                      items={suppliers}
                       value={filters.supplier_id}
                       onValueChange={(value) => setFilters((prev) => ({ ...prev, supplier_id: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar fornecedor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {suppliers.map((supplier) => (
-                          <SelectItem key={supplier.id} value={supplier.id}>
-                            {supplier.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Selecionar fornecedor"
+                      searchPlaceholder="Buscar fornecedor..."
+                      emptyText="Nenhum fornecedor encontrado."
+                    />
                   </div>
                   <div>
                     <Label>Fazenda</Label>
@@ -2469,22 +2462,14 @@ const AccountsPayableReport = () => {
               </div>
               <div>
                 <Label>Fornecedor</Label>
-                <Select
+                <EntityCombobox
+                  items={suppliers}
                   value={filters.supplier_id}
                   onValueChange={(value) => setFilters((prev) => ({ ...prev, supplier_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar fornecedor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Selecionar fornecedor"
+                  searchPlaceholder="Buscar fornecedor..."
+                  emptyText="Nenhum fornecedor encontrado."
+                />
               </div>
               <div>
                 <Label>Fazenda</Label>
