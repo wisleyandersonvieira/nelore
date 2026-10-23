@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import MobileReportCard from "@/components/MobileReportCard";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
@@ -791,6 +792,42 @@ const AnimaisLeiloes = () => {
     setSortDirection(field === "date" ? "desc" : "asc");
   };
 
+  const renderAuctionActions = (auction: AuctionRow) => (
+    <div className="flex justify-end gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => void openAuctionModal("view", auction)}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => void openAuctionModal("edit", auction)}
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => handleRequestDelete(auction)}
+        className={cn(
+          auction.linkedRecordsCount > 0
+            ? "text-muted-foreground hover:text-destructive"
+            : "text-destructive",
+        )}
+        title={
+          auction.linkedRecordsCount > 0
+            ? "Leilão com cadastros vinculados não pode ser excluído"
+            : "Excluir leilão"
+        }
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <>
       <div className="space-y-6 p-6">
@@ -935,7 +972,7 @@ const AnimaisLeiloes = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto rounded-2xl border border-border/70">
+            <div className="hidden md:block overflow-x-auto rounded-2xl border border-border/70">
               <Table className="table-sticky-last">
                 <TableHeader>
                   <TableRow>
@@ -1053,45 +1090,76 @@ const AnimaisLeiloes = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void openAuctionModal("view", auction)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void openAuctionModal("edit", auction)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRequestDelete(auction)}
-                              className={cn(
-                                auction.linkedRecordsCount > 0
-                                  ? "text-muted-foreground hover:text-destructive"
-                                  : "text-destructive",
-                              )}
-                              title={
-                                auction.linkedRecordsCount > 0
-                                  ? "Leilão com cadastros vinculados não pode ser excluído"
-                                  : "Excluir leilão"
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          {renderAuctionActions(auction)}
                         </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {loading ? (
+                <div className="flex h-28 items-center justify-center gap-2 rounded-2xl border border-border/70 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Carregando leilões...
+                </div>
+              ) : auctions.length === 0 ? (
+                <div className="flex h-28 items-center justify-center rounded-2xl border border-border/70 px-4 text-center text-muted-foreground">
+                  Nenhum leilão encontrado com os filtros atuais.
+                </div>
+              ) : (
+                auctions.map((auction) => (
+                  <MobileReportCard
+                    key={auction.id}
+                    title={auction.name}
+                    subtitle={
+                      <div className="space-y-1">
+                        <p>#{auction.code}</p>
+                        {auction.observations && (
+                          <p className="line-clamp-1 text-xs text-muted-foreground">
+                            {auction.observations}
+                          </p>
+                        )}
+                      </div>
+                    }
+                    summaryFields={[
+                      { label: "Data", value: formatDateBR(auction.date) },
+                      { label: "Cidade", value: auction.city },
+                      {
+                        label: "Compras",
+                        value: (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "min-w-12 justify-center rounded-full",
+                              auction.linkedRecordsCount > 0 && "border-amber-200 bg-amber-50 text-amber-800",
+                            )}
+                          >
+                            {auction.linkedRecordsCount}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        label: "Vendas",
+                        value: (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "min-w-12 justify-center rounded-full",
+                              auction.salesCount > 0 && "border-emerald-200 bg-emerald-50 text-emerald-800",
+                            )}
+                          >
+                            {auction.salesCount}
+                          </Badge>
+                        ),
+                      },
+                    ]}
+                    actions={renderAuctionActions(auction)}
+                  />
+                ))
+              )}
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
