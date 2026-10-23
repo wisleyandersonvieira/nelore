@@ -299,6 +299,7 @@ const AppSidebar = ({
       icon: BarChart3,
       subMenus: [
         { id: "rel-compras-sem-nf", label: "Compras sem NF", route: "/reports/purchases-without-invoice" },
+        { id: "rel-compras-vendas-fornecedor", label: "Compras e Vendas por Fornecedor", route: "/reports/supplier-trade-balance" },
         { id: "rel-contas-pagar", label: "Contas a Pagar", route: "/reports/accounts-payable/pending" },
         { id: "rel-contas-receber", label: "Contas a Receber", route: "/reports/accounts-receivable/pending" },
         { id: "rel-contas-pagas", label: "Contas Pagas", route: "/reports/accounts-payable/paid" },
