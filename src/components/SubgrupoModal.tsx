@@ -593,7 +593,7 @@ export const SubgrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = 
                     />
                   </div>
                   <Select value={filterGroup} onValueChange={setFilterGroup}>
-                    <SelectTrigger className="w-[180px] h-9">
+                    <SelectTrigger className="w-full sm:w-[180px] h-9">
                       <SelectValue placeholder="Filtrar por grupo" />
                     </SelectTrigger>
                     <SelectContent>

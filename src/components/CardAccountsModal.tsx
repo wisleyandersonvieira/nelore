@@ -414,7 +414,7 @@ export const CardAccountsModal = ({ open, onOpenChange, canEdit = true, canDelet
                 </Button>
               )}
 
-              <div className="flex-1 min-w-[200px]">
+              <div className="min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[200px]">
                 <Label htmlFor="searchNameCard" className="text-sm mb-1 block">Filtrar por Nome</Label>
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -428,7 +428,7 @@ export const CardAccountsModal = ({ open, onOpenChange, canEdit = true, canDelet
                 </div>
               </div>
 
-              <div className="min-w-[200px]">
+              <div className="w-full sm:w-auto sm:min-w-[200px]">
                 <Label htmlFor="filterStoreCard" className="text-sm mb-1 block">Filtrar por Loja</Label>
                 <Select value={filterStoreId} onValueChange={setFilterStoreId}>
                   <SelectTrigger id="filterStoreCard">

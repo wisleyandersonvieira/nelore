@@ -367,7 +367,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-1 flex-1 min-w-[200px]">
+            <div className="space-y-1 min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[200px]">
               <Label htmlFor="filter-description" className="text-xs">Descrição</Label>
               <Input
                 id="filter-description"
@@ -378,7 +378,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               />
             </div>
             
-            <div className="space-y-1 w-[100px]">
+            <div className="space-y-1 min-w-0 flex-1 sm:flex-none sm:w-[100px]">
               <Label htmlFor="filter-code" className="text-xs">Código</Label>
               <Input
                 id="filter-code"
@@ -389,7 +389,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               />
             </div>
             
-            <div className="space-y-1 w-[140px]">
+            <div className="space-y-1 min-w-0 flex-1 sm:flex-none sm:w-[140px]">
               <Label htmlFor="filter-group" className="text-xs">Grupo</Label>
               <Select value={filters.group_id} onValueChange={(value) => setFilters({ ...filters, group_id: value })}>
                 <SelectTrigger className="h-8">
@@ -406,7 +406,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               </Select>
             </div>
             
-            <div className="space-y-1 w-[140px]">
+            <div className="space-y-1 min-w-0 flex-1 sm:flex-none sm:w-[140px]">
               <Label htmlFor="filter-subgroup" className="text-xs">Subgrupo</Label>
               <Select value={filters.subgroup_id} onValueChange={(value) => setFilters({ ...filters, subgroup_id: value })}>
                 <SelectTrigger className="h-8">

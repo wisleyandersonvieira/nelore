@@ -1000,7 +1000,7 @@ export function PurchasesCreateModal({
                         );
                         return (
                           <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/85 p-2">
-                            <div className="flex-1 min-w-[180px]">
+                            <div className="min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[180px]">
                               <Popover
                                 open={semenPickerIndex === index}
                                 onOpenChange={(openState) => {

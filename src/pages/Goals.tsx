@@ -345,7 +345,7 @@ const Goals = () => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
+                <div className="min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[200px]">
                   <Label>Loja</Label>
                   <Select value={selectedStore} onValueChange={setSelectedStore}>
                     <SelectTrigger>
@@ -360,7 +360,7 @@ const Goals = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-[150px]">
+                <div className="min-w-0 flex-1 sm:flex-none sm:w-[150px]">
                   <Label>Ano</Label>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger>

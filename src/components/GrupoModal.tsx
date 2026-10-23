@@ -560,7 +560,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
 
             {/* Filtro por Classe */}
             <Select value={filterAccountType} onValueChange={setFilterAccountType}>
-              <SelectTrigger className="w-[180px] h-9">
+              <SelectTrigger className="w-full sm:w-[180px] h-9">
                 <SelectValue placeholder="Filtrar por classe" />
               </SelectTrigger>
               <SelectContent>

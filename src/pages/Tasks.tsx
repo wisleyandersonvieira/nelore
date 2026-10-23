@@ -449,7 +449,7 @@ const Tasks = () => {
           {/* Filters */}
           <div className="flex flex-wrap gap-2 mt-4">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="min-w-0 flex-1 sm:flex-none sm:w-[140px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -462,7 +462,7 @@ const Tasks = () => {
             </Select>
 
             <Select value={storeFilter} onValueChange={setStoreFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="min-w-0 flex-1 sm:flex-none sm:w-[160px]">
                 <SelectValue placeholder="Loja" />
               </SelectTrigger>
               <SelectContent className="bg-background">
@@ -474,7 +474,7 @@ const Tasks = () => {
             </Select>
 
             <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="min-w-0 flex-1 sm:flex-none sm:w-[160px]">
                 <SelectValue placeholder="Usuário" />
               </SelectTrigger>
               <SelectContent className="bg-background">
