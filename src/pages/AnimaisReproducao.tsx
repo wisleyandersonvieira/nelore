@@ -659,7 +659,7 @@ const AnimaisReproducao = () => {
 
       {/* Step 2: Aspiration form (replica) */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Reprodução - Aspiração</DialogTitle>
             <DialogDescription>O registro será criado na Gestão de Aspiração e vinculado a esta reprodução.</DialogDescription>

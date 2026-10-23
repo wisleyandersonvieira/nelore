@@ -1013,7 +1013,7 @@ const PurchasesModule = () => {
 
   if (permissionsLoading || loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card/80 px-5 py-3 text-sm text-muted-foreground shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           Carregando módulo de compras...
@@ -1432,7 +1432,7 @@ const PurchasesModule = () => {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-[67.2rem] overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] max-w-[67.2rem] overflow-y-auto">
           {selectedPurchase && (
             <>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

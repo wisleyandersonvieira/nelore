@@ -384,7 +384,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Unidades de Medida</DialogTitle>
           <DialogDescription>

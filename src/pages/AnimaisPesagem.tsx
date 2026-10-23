@@ -777,7 +777,7 @@ const AnimaisPesagem = () => {
       </main>
 
       <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {step === "form" ? "Nova Pesagem" : "Registrar Pesos"}
@@ -978,7 +978,7 @@ const AnimaisPesagem = () => {
 
       {/* Modal de busca de animais */}
       <Dialog open={isAnimalSearchModalOpen} onOpenChange={setIsAnimalSearchModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[80dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Selecionar Animais</DialogTitle>
           </DialogHeader>
@@ -1044,7 +1044,7 @@ const AnimaisPesagem = () => {
 
       {/* Modal de visualização/edição de pesagem */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {isEditMode ? "Editar Pesagem" : "Visualizar Pesagem"}
@@ -1178,7 +1178,7 @@ const AnimaisPesagem = () => {
 
       {/* Modal de busca de animais para adicionar em edição */}
       <Dialog open={isEditAnimalSearchModalOpen} onOpenChange={setIsEditAnimalSearchModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[80dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Adicionar Animal à Pesagem</DialogTitle>
           </DialogHeader>

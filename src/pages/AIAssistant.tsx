@@ -224,7 +224,7 @@ const AIAssistant = () => {
 
   if (permissionLoading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
+      <div className="flex h-[60dvh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -232,7 +232,7 @@ const AIAssistant = () => {
 
   if (!canAccess) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+      <div className="flex h-[60dvh] flex-col items-center justify-center gap-4">
         <AlertCircle className="h-16 w-16 text-destructive" />
         <h2 className="text-2xl font-semibold">Acesso Restrito</h2>
         <p className="max-w-md text-center text-muted-foreground">

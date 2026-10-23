@@ -365,7 +365,7 @@ export const CashAccountsModal = ({
   });
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {showForm && <Button variant="ghost" size="sm" onClick={resetForm} className="mr-2">

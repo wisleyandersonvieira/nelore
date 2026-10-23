@@ -185,7 +185,7 @@ const ObligationAttachmentsModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Anexos - {obligationName}</DialogTitle>
           <p className="text-sm text-muted-foreground">

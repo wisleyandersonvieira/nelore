@@ -1476,7 +1476,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       </section>
 
       <Dialog open={attentionModal !== null} onOpenChange={(open) => !open && setAttentionModal(null)}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl border-border/70 bg-background/95">
+        <DialogContent className="max-w-5xl border-border/70 bg-background/95">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-foreground">
               {attentionModal === "pregnancies" && "Prenhezes próximas do parto"}
@@ -1486,7 +1486,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           </DialogHeader>
 
           {attentionModal === "pregnancies" && (
-            <div className="table-responsive max-h-[70vh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
+            <div className="table-responsive max-h-[70dvh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
               <Table className="min-w-[620px]">
                 <TableHeader>
                   <TableRow>
@@ -1517,7 +1517,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           )}
 
           {(attentionModal === "payables" || attentionModal === "receivables") && (
-            <div className="table-responsive max-h-[70vh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
+            <div className="table-responsive max-h-[70dvh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
               <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>

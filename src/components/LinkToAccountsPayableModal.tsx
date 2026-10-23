@@ -828,7 +828,7 @@ export function LinkToAccountsPayableModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Vincular Despesa ao Contas a Pagar</DialogTitle>
           </DialogHeader>

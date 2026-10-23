@@ -1695,7 +1695,7 @@ const AnimaisMatrizes = () => {
       </main>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedAnimal ? "Editar Matriz/Genitor" : "Cadastrar Matriz/Genitor"}</DialogTitle>
           </DialogHeader>
@@ -1818,7 +1818,7 @@ const AnimaisMatrizes = () => {
           }))
         }
       >
-        <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden p-0 sm:p-0">
+        <DialogContent className="flex max-h-[85dvh] max-w-5xl flex-col overflow-hidden p-0 sm:p-0">
           <DialogHeader className="border-b border-border/70 px-5 py-4 sm:px-6">
             <DialogTitle className="text-left text-lg font-semibold text-foreground sm:text-xl">
               {relationshipModalTitle}

@@ -524,7 +524,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Transferências</DialogTitle>
             <DialogDescription>

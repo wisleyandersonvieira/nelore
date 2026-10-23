@@ -2787,7 +2787,7 @@ const AnimaisGestaoAspiracoes = () => {
 
       {/* Create/Edit/View Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "view" ? "Visualizar Registro" : modalMode === "edit" ? "Editar Registro" : "Novo Registro de Aspiração"}
@@ -3563,7 +3563,7 @@ const AnimaisGestaoAspiracoes = () => {
           }
         }}
       >
-        <DialogContent className={cn(firstFinalizeRecord?.is_batch_purchase ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-md")}>
+        <DialogContent className={cn(firstFinalizeRecord?.is_batch_purchase ? "max-w-4xl max-h-[90dvh] overflow-y-auto" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle>
               {firstFinalizeRecord?.is_batch_purchase
@@ -3890,7 +3890,7 @@ const AnimaisGestaoAspiracoes = () => {
           }
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Finalizar Aspiração</DialogTitle>
           </DialogHeader>

@@ -439,7 +439,7 @@ export const DREStructure: React.FC = () => {
             </DialogTrigger>
           )}
           
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {isEditing ? "Editar Estrutura DRE" : "Nova Estrutura DRE"}

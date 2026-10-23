@@ -4078,7 +4078,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Contas a Pagar</DialogTitle>
         </DialogHeader>
@@ -5645,7 +5645,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Parcelas */}
         <Dialog open={showInstallmentsModal} onOpenChange={setShowInstallmentsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configurar Parcelas</DialogTitle>
             </DialogHeader>
@@ -5733,7 +5733,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Pagamento */}
         <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Pagar Conta</DialogTitle>
             </DialogHeader>
@@ -5976,7 +5976,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Estorno */}
         <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Estornar Pagamento</DialogTitle>
             </DialogHeader>

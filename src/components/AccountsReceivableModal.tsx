@@ -2561,7 +2561,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
+      <DialogContent className="max-w-7xl max-h-[90dvh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Contas a Receber</DialogTitle>
         </DialogHeader>
@@ -3521,7 +3521,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         {/* Modal de Parcelas */}
         <Dialog open={showInstallmentsModal} onOpenChange={setShowInstallmentsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configurar Parcelas</DialogTitle>
             </DialogHeader>
@@ -3610,7 +3610,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         {/* Payment Modal */}
         {showPaymentModal && paymentAccount && (
           <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Receber Conta</DialogTitle>
               </DialogHeader>
@@ -3841,7 +3841,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       {/* Modal de Estorno */}
       <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Estornar Recebimento</DialogTitle>
           </DialogHeader>

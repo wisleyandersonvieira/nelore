@@ -596,7 +596,7 @@ export const StoresModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Fazendas</DialogTitle>
           <DialogDescription>
@@ -613,7 +613,7 @@ export const StoresModal = ({
           </TabsList>
 
           {/* Register Tab */}
-          <TabsContent value="register" className="max-h-[70vh] overflow-y-auto">
+          <TabsContent value="register" className="max-h-[70dvh] overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle>

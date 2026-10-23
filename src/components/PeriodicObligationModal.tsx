@@ -269,7 +269,7 @@ const PeriodicObligationModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{obligationName}</DialogTitle>
           <p className="text-sm text-muted-foreground">

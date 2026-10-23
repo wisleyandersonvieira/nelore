@@ -553,7 +553,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90dvh]">
         <DialogHeader>
           <div className="flex items-center gap-2">
             {(selectedStore || selectedEmployee) && (
@@ -572,7 +572,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
+        <ScrollArea className="max-h-[70dvh]">
           {!selectedStore ? (
             // Store Selection
             <div className="p-4">

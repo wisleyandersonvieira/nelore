@@ -103,7 +103,7 @@ export function SupplierSearchModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[80dvh]">
         <DialogHeader>
           <DialogTitle>Pesquisar Fornecedor</DialogTitle>
         </DialogHeader>

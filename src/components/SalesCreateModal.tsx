@@ -566,7 +566,7 @@ export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, s
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ReceiptText className="h-5 w-5 text-emerald-600" />

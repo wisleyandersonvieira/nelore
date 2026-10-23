@@ -147,7 +147,7 @@ export function ImportarVendaModal({ open, onOpenChange, onImport }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Importar Venda</DialogTitle>
           <DialogDescription>

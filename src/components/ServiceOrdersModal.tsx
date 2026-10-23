@@ -267,7 +267,7 @@ export const ServiceOrdersModal = ({ open, onOpenChange }: ServiceOrdersModalPro
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Registro de OS</DialogTitle>
             <DialogDescription>
