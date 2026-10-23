@@ -2875,7 +2875,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         </span>
                       }
                       summaryFields={[
-                        { label: "Credor", value: (account as any).suppliers?.name || "N/A" },
+                        { label: "Credor", value: (account as { suppliers?: { name?: string | null } | null }).suppliers?.name || "N/A" },
                         { label: "Vencimento", value: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") },
                         { label: "Valor", value: `R$ ${account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, valueClassName: "font-semibold" },
                       ]}

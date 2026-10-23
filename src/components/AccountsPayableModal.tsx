@@ -4736,9 +4736,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                                   {
                                     label: "Valor Parcela",
                                     value: (() => {
-                                      const installments = (account as any).accounts_payable_installments || [];
+                                      const installments = (account as { accounts_payable_installments?: { installment_number?: number | null; amount?: number | null }[] }).accounts_payable_installments || [];
                                       if (!installments.length) return '-';
-                                      const first = [...installments].sort((a: any, b: any) => (a.installment_number || 0) - (b.installment_number || 0))[0];
+                                      const first = [...installments].sort((a, b) => (a.installment_number || 0) - (b.installment_number || 0))[0];
                                       return Number(first?.amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                                     })(),
                                   },
