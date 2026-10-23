@@ -1347,7 +1347,7 @@ const AnimaisTransferenciaEmbriao = () => {
               fetchTEFinancial(selectedRecord.id, selectedRecord.aspiration_id);
             }
           }}>
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="flex w-full md:grid md:grid-cols-5">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>

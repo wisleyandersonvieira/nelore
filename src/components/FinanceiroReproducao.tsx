@@ -332,7 +332,7 @@ const FinanceiroReproducao = ({ animalId, viewMode, onViewModeChange, animalSald
       ) : (
         <>
           <Tabs defaultValue="aspiracao" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="flex w-full md:grid md:grid-cols-4">
               <TabsTrigger value="aspiracao">Aspiração ({rowsByEtapa("aspiracao").length})</TabsTrigger>
               <TabsTrigger value="pos">Pós-transferência ({rowsByEtapa("pos").length})</TabsTrigger>
               <TabsTrigger value="prenhez">Prenhez ({rowsByEtapa("prenhez").length})</TabsTrigger>

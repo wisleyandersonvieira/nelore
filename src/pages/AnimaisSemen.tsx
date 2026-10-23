@@ -1121,7 +1121,7 @@ const AnimaisSemen = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="flex w-full md:grid md:grid-cols-4">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>

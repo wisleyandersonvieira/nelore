@@ -130,7 +130,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="aspiracao" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex w-full md:grid md:grid-cols-4">
             <TabsTrigger value="aspiracao">Aspiração ({counts.asp})</TabsTrigger>
             <TabsTrigger value="pos">Pós-transferência ({counts.pos})</TabsTrigger>
             <TabsTrigger value="prenhez">Prenhez ({counts.pre})</TabsTrigger>

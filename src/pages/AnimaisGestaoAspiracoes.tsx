@@ -2797,14 +2797,14 @@ const AnimaisGestaoAspiracoes = () => {
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } if (v === "leilao" && selectedRecord) { fetchAspirationSales(selectedRecord.id); } }}>
             <TabsList
               className={cn(
-                "grid w-full",
+                "flex w-full lg:grid",
                 formData.is_batch_purchase
                   ? modalMode === "view" && selectedRecord?.status === "finalized"
-                    ? "grid-cols-7"
-                    : "grid-cols-6"
+                    ? "lg:grid-cols-7"
+                    : "lg:grid-cols-6"
                   : modalMode === "view" && selectedRecord?.status === "finalized"
-                  ? "grid-cols-6"
-                  : "grid-cols-5",
+                  ? "lg:grid-cols-6"
+                  : "lg:grid-cols-5",
               )}
             >
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>

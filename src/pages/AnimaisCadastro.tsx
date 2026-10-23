@@ -1948,7 +1948,7 @@ const AnimaisCadastro = () => {
               fetchAnimalSales(selectedAnimal.id);
             }
           }} className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="flex w-full lg:grid lg:grid-cols-8">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="reproducao" disabled={modalMode === "create"}>Dados Reprodução</TabsTrigger>

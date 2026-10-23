@@ -663,7 +663,7 @@ export const StockRegisterModal = ({
         </DialogHeader>
 
         <Tabs defaultValue="sorvete" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex w-full md:grid md:grid-cols-4">
             <TabsTrigger value="sorvete" className="flex items-center gap-2">
               <Snowflake className="h-4 w-4" />
               Sorvete

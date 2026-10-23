@@ -1973,7 +1973,7 @@ const AnimaisGestaoPrenhez = () => {
               fetchPregnancySales(selectedRecord.id);
             }
           }}>
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="flex w-full lg:grid lg:grid-cols-6">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
