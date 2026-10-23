@@ -1369,7 +1369,7 @@ const BankReconciliation = () => {
                   </Button>
                 </div>
               </div>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Entradas:</span>
                   <span className="font-semibold text-green-600">{formatCurrency(filteredOfxSums.entries)}</span>
@@ -1572,7 +1572,7 @@ const BankReconciliation = () => {
                   </Button>
                 </div>
               </div>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Entradas:</span>
                   <span className="font-semibold text-green-600">{formatCurrency(filteredInternalSums.entries)}</span>
@@ -1620,7 +1620,7 @@ const BankReconciliation = () => {
                           <p className="text-xs text-muted-foreground">
                             {selectedOfxIds.length} transação(ões) OFX ↔ {selectedInternalIds.length} lançamento(s) do sistema
                           </p>
-                          <div className="flex gap-4 mt-1">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                             <span className={cn("text-sm font-semibold", selectedOfxTotalAmount < 0 ? "text-destructive" : "text-green-600")}>
                               OFX: {formatCurrency(selectedOfxTotalAmount)}
                             </span>
@@ -1740,7 +1740,7 @@ const BankReconciliation = () => {
                         onChange={(e) => setReconciliationNote(e.target.value)}
                         rows={2}
                       />
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
                           size="sm"

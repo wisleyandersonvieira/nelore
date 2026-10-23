@@ -697,7 +697,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         <div className="space-y-6">
           <div className="flex justify-between items-center flex-wrap gap-2">
             <h3 className="text-lg font-semibold">Funcionários Cadastrados</h3>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
