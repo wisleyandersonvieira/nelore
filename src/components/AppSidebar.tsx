@@ -557,7 +557,7 @@ const AppSidebar = ({
   return (
     <>
       {!isMobile && (
-        <aside className="fixed left-0 top-0 z-50 flex h-full w-16 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(20,28,43,0.98),rgba(28,38,57,0.98))] shadow-[14px_0_35px_-28px_rgba(15,23,42,0.8)]">
+        <aside className="fixed left-0 top-0 z-50 hidden h-full w-16 flex-col md:flex border-r border-white/10 bg-[linear-gradient(180deg,rgba(20,28,43,0.98),rgba(28,38,57,0.98))] shadow-[14px_0_35px_-28px_rgba(15,23,42,0.8)]">
           <button
             onClick={() => navigate('/dashboard')}
             className="group flex h-16 cursor-pointer items-center justify-center border-b border-white/10 transition-colors hover:bg-white/[0.04]"
