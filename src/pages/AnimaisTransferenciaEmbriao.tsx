@@ -1358,12 +1358,12 @@ const AnimaisTransferenciaEmbriao = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 md:flex-nowrap md:gap-0 rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
                 <p className="text-sm text-muted-foreground">
                   Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length)} de {filteredRecords.length} registros
                 </p>
                 <Pagination>
-                  <PaginationContent>
+                  <PaginationContent className="flex-wrap justify-center md:flex-nowrap">
                     <PaginationItem>
                       <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={cn(currentPage === 1 && "pointer-events-none opacity-50")} />
                     </PaginationItem>
@@ -1794,9 +1794,9 @@ const AnimaisTransferenciaEmbriao = () => {
           </Tabs>
 
           {modalMode !== "view" && (
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSave}>Salvar</Button>
+            <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 mt-6 sm:static sm:flex-row sm:justify-end sm:border-t-0 sm:bg-transparent sm:py-0">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button className="w-full sm:w-auto" onClick={handleSave}>Salvar</Button>
             </div>
           )}
         </DialogContent>
