@@ -606,7 +606,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           ) : !selectedEmployee ? (
             // Employee Selection
             <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <User className="w-5 h-5" />
                   {showInactiveEmployees ? "Funcionários Inativos" : "Funcionários Ativos"} - {selectedStore.name}

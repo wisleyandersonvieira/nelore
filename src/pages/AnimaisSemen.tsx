@@ -890,7 +890,7 @@ const AnimaisSemen = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-4">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={() => navigate("/animais")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1293,7 +1293,7 @@ const AnimaisSemen = () => {
                   <DollarSign className="h-5 w-5" />
                   Financeiro
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant={financialViewMode === "geral" ? "default" : "outline"}

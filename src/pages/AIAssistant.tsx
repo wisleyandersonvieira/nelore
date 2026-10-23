@@ -246,7 +246,7 @@ const AIAssistant = () => {
   return (
       <div className="flex h-[calc(100vh-120px)] flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
               <Sparkles className="h-6 w-6 text-primary" />

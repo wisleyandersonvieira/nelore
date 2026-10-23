@@ -965,7 +965,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
             </>
           ) : viewingTransaction ? (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <h3 className="text-lg font-semibold">Detalhes da Transação</h3>
                 <Button variant="ghost" size="icon" onClick={() => setViewingTransaction(null)}>
                   <X className="h-4 w-4" />
@@ -1020,7 +1020,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <h3 className="text-lg font-semibold">
                   {editingId ? "Editar Transação" : "Nova Transação"}
                 </h3>

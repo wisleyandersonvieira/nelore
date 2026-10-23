@@ -253,7 +253,7 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-3">
             <h3 className="text-lg font-semibold">Funções Cadastradas</h3>
             {canEdit && (
               <Button 

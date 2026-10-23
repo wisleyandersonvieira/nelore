@@ -387,12 +387,12 @@ const Goals = () => {
           {showResults && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle className="text-lg">
                     Metas - {getStoreName(selectedStore)} - {selectedYear}
                   </CardTitle>
                   {goals.length > 0 && canEdit && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={handleEdit}>
                         <Pencil className="h-4 w-4 mr-2" />
                         Editar

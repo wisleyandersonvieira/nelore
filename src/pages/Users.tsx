@@ -405,7 +405,7 @@ const Users = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between mb-8 gap-3">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={() => navigate("/dashboard")} size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -417,7 +417,7 @@ const Users = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {activeTab === "users" && (
               <Button onClick={() => setIsCreateUserOpen(true)} className="flex items-center gap-2">
                 <UserPlus className="h-4 w-4" />

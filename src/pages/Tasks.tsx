@@ -428,7 +428,7 @@ const Tasks = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-4">
               <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -502,7 +502,7 @@ const Tasks = () => {
               >
                 <Card className="bg-muted/50">
                   <CardHeader className="p-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <CardTitle className="text-sm font-medium">{column.name}</CardTitle>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -577,7 +577,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold text-lg flex items-center gap-2">
           <Users className="h-5 w-5" />
           Proprietários

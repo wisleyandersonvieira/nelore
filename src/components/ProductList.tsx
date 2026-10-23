@@ -340,7 +340,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
       {/* Filtros */}
       <Card>
         <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Search className="h-4 w-4" />
               Filtros de Busca

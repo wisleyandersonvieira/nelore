@@ -2492,7 +2492,7 @@ const AnimaisGestaoAspiracoes = () => {
               {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
             </Button>
             {hasFiltered && filteredRecords.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={handleExportExcel} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
                   <FileSpreadsheet className="h-4 w-4" />
                   Excel

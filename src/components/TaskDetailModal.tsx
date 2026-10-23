@@ -910,7 +910,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
             {/* Seção de Anexos */}
             {showAttachments && (
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-wrap items-center justify-between mb-2 gap-3">
                   <h3 className="text-sm font-medium flex items-center gap-2">
                     <Paperclip className="h-4 w-4" />
                     Anexos
@@ -978,7 +978,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
           {/* Right Panel - Comments & Activity */}
           <div className="w-full md:w-96 border-t md:border-t-0 md:border-l overflow-y-auto">
             <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
                 <h3 className="text-sm font-medium flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
                   Comentários e atividade

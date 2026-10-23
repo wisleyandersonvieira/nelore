@@ -459,7 +459,7 @@ export const DREStructure: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-3">
                   <h3 className="text-lg font-medium">Itens da Estrutura</h3>
                   <div className="flex space-x-2">
                     <Button size="sm" onClick={() => addItem('group')}>

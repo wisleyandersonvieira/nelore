@@ -1136,7 +1136,7 @@ const BankReconciliation = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-4">
             <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1308,7 +1308,7 @@ const BankReconciliation = () => {
           {/* Left Panel - OFX Transactions */}
           <Card className="h-[600px] flex flex-col">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-lg">
                   Transações OFX
                   <Badge variant="secondary" className="ml-2 font-normal">
@@ -1316,7 +1316,7 @@ const BankReconciliation = () => {
                   </Badge>
                 </CardTitle>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={ofxFilter === 'pending' ? 'default' : 'outline'}
                     size="sm"
@@ -1450,7 +1450,7 @@ const BankReconciliation = () => {
           {/* Right Panel - Internal Transactions & Matching */}
           <Card className="h-[600px] flex flex-col">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-lg">
                   {anyOfxSelected ? "Sugestões de Match" : "Lançamentos do Sistema"}
                   <Badge variant="secondary" className="ml-2 font-normal">
@@ -1468,7 +1468,7 @@ const BankReconciliation = () => {
                     }
                   </Badge>
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={internalFilter === 'pending' ? 'default' : 'outline'}
                     size="sm"
