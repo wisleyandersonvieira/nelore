@@ -1209,7 +1209,7 @@ const AnimaisTransferenciaEmbriao = () => {
         ) : (
           <>
             <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                   <TableRow>
                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
@@ -1612,7 +1612,7 @@ const AnimaisTransferenciaEmbriao = () => {
                       <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
                     ) : (
                       <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
                               <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
@@ -1770,7 +1770,7 @@ const AnimaisTransferenciaEmbriao = () => {
                   {recipientSearchTerm.length < 2 ? "Digite ao menos 2 caracteres..." : "Nenhum animal encontrado."}
                 </div>
               ) : (
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>

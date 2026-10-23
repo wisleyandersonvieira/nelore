@@ -259,7 +259,7 @@ const FinanceiroReproducao = ({ animalId, viewMode, onViewModeChange, animalSald
     }
     return (
       <div className="max-h-[280px] overflow-y-auto rounded-lg border">
-        <Table>
+        <Table className="table-sticky-first table-sticky-last">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow className="h-8">
               <TableHead className="py-1 text-xs">Data</TableHead>

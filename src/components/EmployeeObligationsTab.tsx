@@ -422,7 +422,7 @@ const EmployeeObligationsTab = ({ employeeId, employeeName, storeId }: EmployeeO
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">Status</TableHead>

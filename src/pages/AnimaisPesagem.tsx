@@ -683,7 +683,7 @@ const AnimaisPesagem = () => {
         ) : (
           <Card>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="py-2">Data</TableHead>
@@ -897,7 +897,7 @@ const AnimaisPesagem = () => {
               )}
 
               <div className="border rounded-md">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="py-2">Código</TableHead>
@@ -994,7 +994,7 @@ const AnimaisPesagem = () => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto border rounded-md">
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader>
                 <TableRow>
                   <TableHead className="py-2">Código</TableHead>
@@ -1095,7 +1095,7 @@ const AnimaisPesagem = () => {
               )}
 
               <div className="flex-1 overflow-y-auto border rounded-md">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="py-2">Código</TableHead>
@@ -1194,7 +1194,7 @@ const AnimaisPesagem = () => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto border rounded-md">
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader>
                 <TableRow>
                   <TableHead className="py-2">Código</TableHead>

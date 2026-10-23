@@ -140,7 +140,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Aspiração */}
           <TabsContent value="aspiracao" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -186,7 +186,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Pós-transferência de embrião */}
           <TabsContent value="pos" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -226,7 +226,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Prenhez */}
           <TabsContent value="prenhez" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -268,7 +268,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Animal */}
           <TabsContent value="animal" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

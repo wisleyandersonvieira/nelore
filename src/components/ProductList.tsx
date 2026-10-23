@@ -440,7 +440,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-hidden flex flex-col min-h-0">
           {/* Cabeçalho fixo */}
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader className="bg-card">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[8%] h-9 py-1">Código</TableHead>

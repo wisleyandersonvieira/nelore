@@ -591,7 +591,7 @@ export const SuppliersModal = ({
                 </div>
 
                 <ScrollArea className="h-[400px] rounded-md border">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>

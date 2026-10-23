@@ -1120,7 +1120,7 @@ export function LinkToAccountsPayableModal({
               </div>
 
               {items.length > 0 && (
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Produto</TableHead>

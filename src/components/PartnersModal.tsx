@@ -411,7 +411,7 @@ export const PartnersModal = ({
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>

@@ -639,7 +639,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
 
           {/* Tabela */}
           <div className="border rounded-lg">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>

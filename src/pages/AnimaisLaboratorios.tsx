@@ -145,7 +145,7 @@ const AnimaisLaboratorios = () => {
           </Button>
         </div>
         <div className="bg-card rounded-lg border">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-20">Código</TableHead>

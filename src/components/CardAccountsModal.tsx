@@ -447,7 +447,7 @@ export const CardAccountsModal = ({ open, onOpenChange, canEdit = true, canDelet
             </div>
 
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

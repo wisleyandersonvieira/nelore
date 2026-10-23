@@ -4532,7 +4532,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       
                       return (
                         <>
-                          <Table>
+                          <Table className="table-sticky-first table-sticky-last">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="py-2">Documento</TableHead>
@@ -5531,7 +5531,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     </CardContent>
                   </Card>
 
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Produto</TableHead>

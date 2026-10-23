@@ -676,7 +676,7 @@ const SalesModule = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-2xl border border-border/70">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
@@ -910,7 +910,7 @@ const SalesModule = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-2xl border border-border/70">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Parcela</TableHead>

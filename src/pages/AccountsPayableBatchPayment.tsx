@@ -1038,7 +1038,7 @@ const AccountsPayableBatchPayment = () => {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto rounded-md border">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Lote</TableHead>
@@ -1233,7 +1233,7 @@ const AccountsPayableBatchPayment = () => {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto rounded-md border">
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
                   <TableHead>Documento</TableHead>

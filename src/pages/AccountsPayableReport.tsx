@@ -2742,7 +2742,7 @@ const AccountsPayableReport = () => {
               </div>
 
               <div className="hidden md:block">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>

@@ -521,7 +521,7 @@ const Entregas = () => {
 
         {/* Table */}
         <div className="rounded-xl border border-border/70 bg-card shadow-sm">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[70px]">Código</TableHead>
@@ -648,7 +648,7 @@ const Entregas = () => {
           </DialogHeader>
           {clientesRecord && (
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cliente</TableHead>

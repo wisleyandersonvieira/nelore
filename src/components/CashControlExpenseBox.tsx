@@ -628,7 +628,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             </div>
           </div>
           <div className="border rounded">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader className="sticky top-0 bg-card z-10">
                 <TableRow className="h-8">
                   <TableHead 

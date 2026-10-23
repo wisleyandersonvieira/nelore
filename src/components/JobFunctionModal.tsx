@@ -343,7 +343,7 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

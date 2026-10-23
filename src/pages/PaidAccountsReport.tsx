@@ -1485,7 +1485,7 @@ const PaidAccountsReport = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Título</TableHead>

@@ -1369,7 +1369,7 @@ export function CommissionFormModal({
                 )}
 
                 <div className="overflow-x-auto rounded-2xl border border-border/70">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[54px]">Incluir</TableHead>

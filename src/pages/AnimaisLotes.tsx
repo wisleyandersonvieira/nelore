@@ -409,7 +409,7 @@ const AnimaisLotes = () => {
           </div>
         ) : (
           <div className="border rounded-lg">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-20">Cód</TableHead>

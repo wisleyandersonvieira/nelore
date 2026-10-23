@@ -226,7 +226,7 @@ const ObligationAttachmentsModal = ({
               <p>Nenhum anexo cadastrado</p>
             </div>
           ) : (
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Arquivo</TableHead>

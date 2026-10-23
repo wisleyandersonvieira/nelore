@@ -936,7 +936,7 @@ const AnimaisLeiloes = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-2xl border border-border/70">
-              <Table>
+              <Table className="table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[110px]">
@@ -1315,7 +1315,7 @@ const AnimaisLeiloes = () => {
                 count={linkedAnimals.length}
               >
                 <div className="overflow-x-auto rounded-2xl border border-border/70">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Código</TableHead>
@@ -1354,7 +1354,7 @@ const AnimaisLeiloes = () => {
                 count={linkedPregnancies.length}
               >
                 <div className="overflow-x-auto rounded-2xl border border-border/70">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Código</TableHead>
@@ -1391,7 +1391,7 @@ const AnimaisLeiloes = () => {
                 count={linkedAspirations.length}
               >
                 <div className="overflow-x-auto rounded-2xl border border-border/70">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Código</TableHead>
@@ -1428,7 +1428,7 @@ const AnimaisLeiloes = () => {
                 count={linkedSales.length}
               >
                 <div className="overflow-x-auto rounded-2xl border border-border/70">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Tipo</TableHead>

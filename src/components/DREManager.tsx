@@ -259,7 +259,7 @@ export const DREManager: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Período</TableHead>

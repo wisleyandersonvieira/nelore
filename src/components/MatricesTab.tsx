@@ -285,7 +285,7 @@ const MatricesTab = () => {
           </Button>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16">Código</TableHead>

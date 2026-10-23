@@ -485,7 +485,7 @@ export const DREStructure: React.FC = () => {
                   </div>
                 </div>
 
-                {currentStructure.items.length > 0 && <Table>
+                {currentStructure.items.length > 0 && <Table className="table-sticky-first table-sticky-last">
                        <TableHeader>
                          <TableRow>
                            <TableHead>Tipo</TableHead>
@@ -586,7 +586,7 @@ export const DREStructure: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {structures.length > 0 ? <Table>
+          {structures.length > 0 ? <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>

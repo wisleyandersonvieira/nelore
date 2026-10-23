@@ -526,7 +526,7 @@ const AnimaisReproducao = () => {
         </div>
 
         <div className="rounded-xl border border-border/70 bg-card shadow-sm">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">Código</TableHead>

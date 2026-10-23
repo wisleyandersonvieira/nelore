@@ -757,7 +757,7 @@ const AccountingExportReport = () => {
             <CardContent>
               {paymentRecords.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Data Pgto</TableHead>

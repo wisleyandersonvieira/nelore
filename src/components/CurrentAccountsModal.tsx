@@ -460,7 +460,7 @@ export function CurrentAccountsModal({ open, onOpenChange, canEdit = true, canDe
                 </div>
               </div>
 
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

@@ -1060,7 +1060,7 @@ export function ExtratosModal({ open, onOpenChange }: ExtratosModalProps) {
               </div>
             </div>
             
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>

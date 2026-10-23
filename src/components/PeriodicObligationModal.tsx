@@ -361,7 +361,7 @@ const PeriodicObligationModal = ({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50px] text-center">Seq</TableHead>

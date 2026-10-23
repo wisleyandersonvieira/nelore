@@ -524,7 +524,7 @@ const TurnoverReport = () => {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>

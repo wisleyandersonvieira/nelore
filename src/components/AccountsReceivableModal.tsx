@@ -2744,7 +2744,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Documento</TableHead>
@@ -3393,7 +3393,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         </div>
                       ) : (
                         <>
-                          <Table>
+                          <Table className="table-sticky-first table-sticky-last">
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Produto</TableHead>

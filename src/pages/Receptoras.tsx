@@ -809,7 +809,7 @@ const Receptoras = () => {
               <p className="py-8 text-center text-muted-foreground">Nenhuma receptora encontrada</p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                     <TableRow>
                       <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto</TableHead>
@@ -1140,7 +1140,7 @@ const Receptoras = () => {
                       <p className="text-center py-6 text-slate-500">Nenhum lançamento financeiro vinculado</p>
                     ) : (
                       <div className="rounded-lg border overflow-hidden bg-white">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Tipo</TableHead>

@@ -190,7 +190,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess, ki
                 </div>
 
                 {/* Tabela de pré-visualização */}
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Parcela</TableHead>

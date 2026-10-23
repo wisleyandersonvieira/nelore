@@ -322,7 +322,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
                 </Button>
               </div>
 
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

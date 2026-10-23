@@ -1008,7 +1008,7 @@ const AnimaisSemen = () => {
             </div>
 
             <div className="overflow-x-auto rounded-2xl border border-border/70">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -1323,7 +1323,7 @@ const AnimaisSemen = () => {
                       </div>
                     ) : (
                       <div className="overflow-x-auto rounded-xl border">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Número</TableHead>
@@ -1526,7 +1526,7 @@ const AnimaisSemen = () => {
                     <p className="py-8 text-center text-muted-foreground">Carregando histórico...</p>
                   ) : (
                     <div className="overflow-x-auto rounded-xl border">
-                      <Table>
+                      <Table className="table-sticky-first table-sticky-last">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Data</TableHead>

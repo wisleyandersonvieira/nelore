@@ -533,7 +533,7 @@ const Users = () => {
                 <CardTitle>Usuários do Sistema</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>

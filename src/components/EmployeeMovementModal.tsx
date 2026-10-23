@@ -780,7 +780,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                     <CardContent>
                       {payableAccounts.length > 0 ? (
                         <>
-                          <Table>
+                          <Table className="table-sticky-first">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="py-2">Data Pagamento</TableHead>

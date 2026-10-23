@@ -794,7 +794,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                 <div className="text-center py-8">Carregando...</div>
               ) : (
                 <>
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow className="h-8">
                         <TableHead 

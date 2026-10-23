@@ -207,7 +207,7 @@ export default function Profiles() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>

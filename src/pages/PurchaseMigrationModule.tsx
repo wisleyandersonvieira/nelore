@@ -1325,7 +1325,7 @@ const PurchaseMigrationModule = () => {
                   )}
 
                   <div className="overflow-x-auto rounded-2xl border border-border/70">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Documento</TableHead>

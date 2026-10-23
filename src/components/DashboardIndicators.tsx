@@ -1518,7 +1518,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
 
           {(attentionModal === "payables" || attentionModal === "receivables") && (
             <div className="table-responsive max-h-[70dvh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
-              <Table className="min-w-[720px]">
+              <Table className="min-w-[720px] table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

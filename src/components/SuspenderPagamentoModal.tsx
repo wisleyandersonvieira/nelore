@@ -295,7 +295,7 @@ export function SuspenderPagamentoModal({ open, onOpenChange, account, mode, onS
                 )}
 
                 {/* Tabela de parcelas */}
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Parcela</TableHead>

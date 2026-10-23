@@ -273,7 +273,7 @@ const AccountsReceivableReports = () => {
   };
 
   const renderTable = (data: ReceivableAccount[], showPaymentDate: boolean = false) => (
-    <Table>
+    <Table className="table-sticky-first">
       <TableHeader>
         <TableRow>
           <TableHead>Descrição</TableHead>

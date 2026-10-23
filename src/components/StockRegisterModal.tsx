@@ -582,7 +582,7 @@ export const StockRegisterModal = ({
     stock: Record<string, StockItem>,
     category: 'sorvete' | 'mercadorias' | 'embalagens'
   ) => (
-    <Table>
+    <Table className="table-sticky-first">
       <TableHeader>
         <TableRow>
           <TableHead>Produto</TableHead>

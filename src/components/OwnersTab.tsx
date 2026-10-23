@@ -655,7 +655,7 @@ export function OwnersTab({ entityId, entityType, isReadOnly = false }: OwnersTa
       ) : owners.length > 0 ? (
         <>
           <div className="border rounded-lg overflow-hidden">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Tipo</TableHead>

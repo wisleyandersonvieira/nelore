@@ -1551,7 +1551,7 @@ const AnimaisMatrizes = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <Table className="min-w-[900px]">
+              <Table className="min-w-[900px] table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                   <TableRow>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("name")}>
@@ -1887,7 +1887,7 @@ const AnimaisMatrizes = () => {
               </div>
             ) : (
               <div className="table-responsive rounded-xl border border-border/70 bg-card/80">
-                <Table className="min-w-[1080px]">
+                <Table className="min-w-[1080px] table-sticky-first">
                   <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                     <TableRow>
                       <TableHead>Tipo</TableHead>

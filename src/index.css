@@ -210,6 +210,29 @@ All colors MUST be HSL.
     min-width: 100%;
   }
 
+  /* Colunas fixas ao rolar tabelas largas no mobile (opt-in por tabela) */
+  @media (max-width: 767px) {
+    .table-sticky-first :is(th, td):first-child:not([colspan]),
+    .table-sticky-last :is(th, td):last-child:not([colspan]) {
+      position: sticky;
+      z-index: 10;
+      background-color: hsl(var(--card));
+    }
+
+    .table-sticky-first :is(th, td):first-child:not([colspan]) {
+      left: 0;
+      max-width: 40vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: inset -1px 0 0 hsl(var(--border));
+    }
+
+    .table-sticky-last :is(th, td):last-child:not([colspan]) {
+      right: 0;
+      box-shadow: inset 1px 0 0 hsl(var(--border));
+    }
+  }
+
   .filters-bar {
     @apply flex flex-wrap gap-2 [&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none;
   }

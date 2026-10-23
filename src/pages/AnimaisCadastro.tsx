@@ -1806,7 +1806,7 @@ const AnimaisCadastro = () => {
 
           return (
           <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-            <Table className="min-w-[860px]">
+            <Table className="min-w-[860px] table-sticky-first table-sticky-last">
               <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                 <TableRow>
                   <TableHead className="h-11 w-20 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
@@ -2627,7 +2627,7 @@ const AnimaisCadastro = () => {
                       <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
                     ) : (
                       <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
                               <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
@@ -2782,7 +2782,7 @@ const AnimaisCadastro = () => {
                   <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Data da Venda</TableHead>
@@ -2831,7 +2831,7 @@ const AnimaisCadastro = () => {
                   ) : (
                     <>
                       <div className="border rounded-lg overflow-hidden">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Data</TableHead>
@@ -2971,7 +2971,7 @@ const AnimaisCadastro = () => {
             </div>
 
             <div className="border rounded-lg max-h-[300px] overflow-y-auto">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

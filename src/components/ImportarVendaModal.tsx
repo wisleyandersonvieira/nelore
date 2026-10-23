@@ -189,7 +189,7 @@ export function ImportarVendaModal({ open, onOpenChange, onImport }: Props) {
         </div>
 
         <div className="mt-2 rounded-xl border">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>

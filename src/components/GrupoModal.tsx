@@ -637,7 +637,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
             <div className="flex-1 overflow-hidden min-h-0">
               <div className="h-full flex flex-col">
                 {/* Cabeçalho fixo */}
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader className="bg-card">
                     <TableRow className="hover:bg-transparent">
                       <TableHead 

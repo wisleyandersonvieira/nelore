@@ -229,7 +229,7 @@ export const NFEItemsValidationModal = ({
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Status</TableHead>

@@ -895,7 +895,7 @@ const BalancePositionReport = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Loja</TableHead>

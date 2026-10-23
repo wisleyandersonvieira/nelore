@@ -480,7 +480,7 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
               </div>
             ) : (
               <div className="border rounded-md">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>
