@@ -1508,7 +1508,7 @@ const AnimaisMatrizes = () => {
                     <div className="mt-4 flex flex-col gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="h-9 w-full justify-between rounded-lg">
+                          <Button variant="outline" className="h-10 w-full justify-between rounded-lg">
                             <span className="flex items-center gap-2">
                               <FileText className="h-4 w-4" />
                               Relatórios
@@ -1529,7 +1529,7 @@ const AnimaisMatrizes = () => {
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          className="h-9 rounded-lg"
+                          className="h-10 rounded-lg"
                           onClick={() => handleOpenModal(animal)}
                         >
                           <Pencil className="mr-2 h-3.5 w-3.5" />
@@ -1537,7 +1537,7 @@ const AnimaisMatrizes = () => {
                         </Button>
                         <Button
                           variant="outline"
-                          className="h-9 rounded-lg"
+                          className="h-10 rounded-lg"
                           onClick={() => openDeleteDialog(animal)}
                         >
                           <Trash2 className="mr-2 h-3.5 w-3.5" />

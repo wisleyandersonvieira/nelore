@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
 import ReproducoesVinculadas from "@/components/ReproducoesVinculadas";
+import MobileReportCard from "@/components/MobileReportCard";
 import FinanceiroReproducao from "@/components/FinanceiroReproducao";
 
 interface Animal {
@@ -1804,8 +1805,81 @@ const AnimaisCadastro = () => {
             return <p className="text-center text-muted-foreground">Nenhum animal encontrado com os filtros selecionados.</p>;
           }
 
+          const renderAnimalPhoto = (animal: (typeof filteredAnimals)[number]) =>
+            animal.cover_photo ? (
+              <img
+                src={animal.cover_photo}
+                alt={animal.name}
+                className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm"
+              />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
+                <Image className="h-4 w-4 text-muted-foreground" />
+              </div>
+            );
+
+          const renderAnimalStatusBadge = (animal: (typeof filteredAnimals)[number]) => {
+            const isSold = soldAnimalIds.has(animal.id);
+            if (isSold) {
+              return (
+                <Badge className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50">
+                  Vendido
+                </Badge>
+              );
+            }
+            return (
+              <Badge className={cn(
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+                animal.is_active 
+                  ? "border-green-200 bg-green-50 text-green-700" 
+                  : "border-red-200 bg-red-50 text-red-700"
+              )}>
+                {animal.is_active ? "Ativo" : "Inativo"}
+              </Badge>
+            );
+          };
+
+          const renderAnimalActions = (animal: (typeof filteredAnimals)[number]) => (
+            <div className="flex items-center justify-end gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                onClick={() => handleOpenModal("view", animal)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleOpenModal("edit", animal)}>
+                    <Pencil className="h-4 w-4 mr-2" />Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openDeleteDialog(animal)}>
+                    <Trash2 className="h-4 w-4 mr-2" />Excluir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
+                    <DollarSign className="h-4 w-4 mr-2" />Venda
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOpenDeathModal(animal)}>
+                    <Skull className="h-4 w-4 mr-2" />Informar Morte
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+
           return (
-          <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+          <>
+          <div className="hidden md:block overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
             <Table className="min-w-[860px] table-sticky-first table-sticky-last">
               <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                 <TableRow>
@@ -1830,17 +1904,7 @@ const AnimaisCadastro = () => {
                   >
                     <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{animal.code}</TableCell>
                     <TableCell className="px-4 py-3">
-                      {animal.cover_photo ? (
-                        <img
-                          src={animal.cover_photo}
-                          alt={animal.name}
-                          className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm"
-                        />
-                      ) : (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
-                          <Image className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
+                      {renderAnimalPhoto(animal)}
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       <div className="min-w-[180px]">
@@ -1858,69 +1922,36 @@ const AnimaisCadastro = () => {
                       {breeds.find((b) => b.id === animal.breed_id)?.name || "-"}
                     </TableCell>
                     <TableCell className="px-4 py-3">
-                      {(() => {
-                        const isSold = soldAnimalIds.has(animal.id);
-                        if (isSold) {
-                          return (
-                            <Badge className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50">
-                              Vendido
-                            </Badge>
-                          );
-                        }
-                        return (
-                          <Badge className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
-                            animal.is_active 
-                              ? "border-green-200 bg-green-50 text-green-700" 
-                              : "border-red-200 bg-red-50 text-red-700"
-                          )}>
-                            {animal.is_active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        );
-                      })()}
+                      {renderAnimalStatusBadge(animal)}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                          onClick={() => handleOpenModal("view", animal)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenModal("edit", animal)}>
-                              <Pencil className="h-4 w-4 mr-2" />Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openDeleteDialog(animal)}>
-                              <Trash2 className="h-4 w-4 mr-2" />Excluir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
-                              <DollarSign className="h-4 w-4 mr-2" />Venda
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenDeathModal(animal)}>
-                              <Skull className="h-4 w-4 mr-2" />Informar Morte
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                      {renderAnimalActions(animal)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          <div className="md:hidden space-y-3">
+            {filteredAnimals.map((animal) => (
+              <div key={animal.id} className={cn(!animal.is_active && "opacity-70")}>
+                <MobileReportCard
+                  title={animal.name}
+                  subtitle={animal.registration || undefined}
+                  badge={renderAnimalStatusBadge(animal)}
+                  titleAside={renderAnimalPhoto(animal)}
+                  summaryFields={[
+                    { label: "Código", value: animal.code },
+                    { label: "Fazenda", value: getFarmName(animal.farm_id, animal.farm_type) },
+                    { label: "Sexo", value: animal.sex === "macho" ? "Macho" : "Fêmea" },
+                    { label: "Raça", value: breeds.find((b) => b.id === animal.breed_id)?.name || "-" },
+                  ]}
+                  actions={renderAnimalActions(animal)}
+                />
+              </div>
+            ))}
+          </div>
+          </>
           );
         })()}
       </main>
