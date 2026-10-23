@@ -1684,7 +1684,7 @@ const AnimaisTransferenciaEmbriao = () => {
 
                     <div className="border rounded-lg p-4 bg-muted/30">
                       {financialViewMode === "pagos" ? (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
                             <p className="text-lg font-semibold text-destructive">
@@ -1705,7 +1705,7 @@ const AnimaisTransferenciaEmbriao = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Receitas</p>
                             <p className="text-lg font-semibold text-primary">
