@@ -33,6 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { compareByName } from "@/lib/sortByName";
 
 type AllocationFilterValue = "all" | FinancialAllocationType;
 type EligibleSortField = "documentNumber" | "supplierName" | "dueDate" | "amount" | "allocation";
@@ -784,7 +785,7 @@ const AccountsPayableBatchPayment = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os fornecedores</SelectItem>
-                      {suppliers.map((supplier) => (
+                      {[...suppliers].sort(compareByName).map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.name}
                         </SelectItem>

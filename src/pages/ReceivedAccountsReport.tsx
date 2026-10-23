@@ -15,6 +15,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { createPdfReportLayout, getVinculoBadge, REPORT_COLORS, type PdfSummaryCard, type TotalizerItem } from "@/lib/pdfReportLayout";
+import { EntityCombobox } from "@/components/EntityCombobox";
 
 const ReceivedAccountsReport = () => {
   const navigate = useNavigate();
@@ -1113,19 +1114,14 @@ const ReceivedAccountsReport = () => {
               </div>
               <div>
                 <Label>Credor</Label>
-                <Select value={filters.creditor_id} onValueChange={(value) => setFilters(prev => ({...prev, creditor_id: value}))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar credor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {creditors.map((creditor) => (
-                      <SelectItem key={creditor.id} value={creditor.id}>
-                        {creditor.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  items={creditors}
+                  value={filters.creditor_id}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, creditor_id: value }))}
+                  placeholder="Selecionar credor"
+                  searchPlaceholder="Buscar credor..."
+                  emptyText="Nenhum credor encontrado."
+                />
               </div>
               <div>
                 <Label>Loja</Label>

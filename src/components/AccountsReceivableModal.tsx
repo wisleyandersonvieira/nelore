@@ -29,6 +29,7 @@ import {
   getFinancialAllocationTargetId,
 } from "@/lib/financialAllocations";
 import { fetchRecipientCategoryIds } from "@/lib/animalCategoryRules";
+import { compareByName } from "@/lib/sortByName";
 
 interface AccountsReceivableModalProps {
   open: boolean;
@@ -2978,7 +2979,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           <SelectValue placeholder="Selecionar credor" />
                         </SelectTrigger>
                         <SelectContent>
-                          {creditors.map((creditor) => (
+                          {[...creditors].sort(compareByName).map((creditor) => (
                             <SelectItem key={creditor.id} value={creditor.id}>
                               {creditor.name}
                             </SelectItem>

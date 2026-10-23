@@ -22,6 +22,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { createPdfReportLayout, type PdfSummaryCard, type TotalizerItem } from "@/lib/pdfReportLayout";
+import { EntityCombobox } from "@/components/EntityCombobox";
 
 const PaidAccountsReport = () => {
   const navigate = useNavigate();
@@ -1175,57 +1176,14 @@ const PaidAccountsReport = () => {
               </div>
               <div>
                 <Label>Fornecedor</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between font-normal"
-                    >
-                      {filters.supplier_id !== "all"
-                        ? suppliers.find((supplier) => supplier.id === filters.supplier_id)?.name || "Selecionar fornecedor"
-                        : "Todos"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar fornecedor..." />
-                      <CommandList>
-                        <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="all"
-                            onSelect={() => setFilters(prev => ({...prev, supplier_id: "all"}))}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                filters.supplier_id === "all" ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            Todos
-                          </CommandItem>
-                          {suppliers.map((supplier) => (
-                            <CommandItem
-                              key={supplier.id}
-                              value={supplier.name}
-                              onSelect={() => setFilters(prev => ({...prev, supplier_id: supplier.id}))}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  filters.supplier_id === supplier.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {supplier.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <EntityCombobox
+                  items={suppliers}
+                  value={filters.supplier_id}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, supplier_id: value }))}
+                  placeholder="Selecionar fornecedor"
+                  searchPlaceholder="Buscar fornecedor..."
+                  emptyText="Nenhum fornecedor encontrado."
+                />
               </div>
               <div>
                 <Label>Loja</Label>

@@ -48,6 +48,7 @@ import {
   Unplug,
   WalletCards,
 } from "lucide-react";
+import { compareByName } from "@/lib/sortByName";
 
 interface MigrationPayableRow {
   id: string;
@@ -1002,7 +1003,7 @@ const PurchaseMigrationModule = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os fornecedores</SelectItem>
-                    {suppliers.map((supplier) => (
+                    {[...suppliers].sort(compareByName).map((supplier) => (
                       <SelectItem key={supplier.id} value={supplier.id}>
                         {supplier.name}
                       </SelectItem>

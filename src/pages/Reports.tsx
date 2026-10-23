@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, DollarSign, TrendingUpDown, LineChart, Wallet, FileArchive, FileWarning } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, TrendingUpDown, LineChart, Wallet, FileArchive, FileWarning, ArrowLeftRight } from "lucide-react";
 const Reports = () => {
   const navigate = useNavigate();
   const reportModules = [{
@@ -67,6 +67,13 @@ const Reports = () => {
     icon: FileWarning,
     color: "bg-amber-500",
     onClick: () => navigate("/reports/purchases-without-invoice")
+  }, {
+    id: "supplier-trade-balance",
+    title: "Compras e Vendas por Fornecedor",
+    description: "Animais, prenhezes e aspirações comprados e vendidos por fornecedor/credor, com saldo",
+    icon: ArrowLeftRight,
+    color: "bg-sky-500",
+    onClick: () => navigate("/reports/supplier-trade-balance")
   }];
   return <div className="min-h-screen bg-background">
       {/* Header */}

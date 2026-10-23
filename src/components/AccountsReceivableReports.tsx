@@ -15,6 +15,7 @@ import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { compareByName } from "@/lib/sortByName";
 
 interface ReceivableAccount {
   id: string;
@@ -379,7 +380,7 @@ const AccountsReceivableReports = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {creditors.map((creditor) => (
+                  {[...creditors].sort(compareByName).map((creditor) => (
                     <SelectItem key={creditor.id} value={creditor.id}>
                       {creditor.name}
                     </SelectItem>
