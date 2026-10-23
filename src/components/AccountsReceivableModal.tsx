@@ -3096,7 +3096,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           <Label>Novos Anexos</Label>
                           {attachments.map((file, index) => (
                             <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-                              <span className="text-sm truncate">{file.name}</span>
+                              <span className="min-w-0 text-sm truncate">{file.name}</span>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -3115,7 +3115,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           <Label>Anexos Salvos</Label>
                           {existingAttachments.map((file, index) => (
                             <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-                              <span className="text-sm truncate">{file.name}</span>
+                              <span className="min-w-0 text-sm truncate">{file.name}</span>
                               <div className="flex gap-2">
                                 <Button
                                   size="sm"
@@ -3598,9 +3598,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
               </Tabs>
 
               {/* Botões de Ação */}
-              <div className="flex justify-end gap-2 pt-4 border-t">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:pb-0 sm:pt-4">
                 {isViewOnly ? (
-                  <Button variant="outline" onClick={() => {
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setIsViewOnly(false);
                     setViewOnlyAccount(null);
                     setActiveTab("view");
@@ -3609,7 +3609,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   </Button>
                 ) : isEditing ? (
                   <>
-                    <Button variant="outline" onClick={() => {
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                       setIsEditing(false);
                       setEditingAccount(null);
                       setIsAttachmentOnlyEdit(false);
@@ -3619,36 +3619,36 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                     </Button>
                     
                     {!isAttachmentOnlyEdit && (
-                      <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                      <Button className="w-full sm:w-auto" variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
                         Parcelas {installments.length > 0 && `(${installments.length})`}
                       </Button>
                     )}
                     
-                    <Button onClick={handleSave} disabled={loading || items.length === 0}>
+                    <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading || items.length === 0}>
                       {loading ? "Salvando..." : isAttachmentOnlyEdit ? "Salvar Anexos" : "Salvar"}
                     </Button>
                   </>
                 ) : !noteRecorded ? (
                   <>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
                       Cancelar
                     </Button>
                     
-                    <Button onClick={handleRecordNote} disabled={loading || items.length === 0}>
+                    <Button className="w-full sm:w-auto" onClick={handleRecordNote} disabled={loading || items.length === 0}>
                       {loading ? "Gravando..." : "Gravar Nota"}
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
                       Cancelar
                     </Button>
                     
-                    <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
                       Parcelas {installments.length > 0 && `(${installments.length})`}
                     </Button>
                     
-                    <Button onClick={handleSave} disabled={loading || items.length === 0}>
+                    <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading || items.length === 0}>
                       {loading ? "Salvando..." : "Salvar"}
                     </Button>
                   </>
@@ -3733,12 +3733,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </div>
               )}
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowInstallmentsModal(false)}>
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowInstallmentsModal(false)}>
                   Cancelar
                 </Button>
                 {installments.length > 0 && (
-                  <Button onClick={confirmInstallments}>
+                  <Button className="w-full sm:w-auto" onClick={confirmInstallments}>
                     Confirmar Parcelas
                   </Button>
                 )}
@@ -3954,14 +3954,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => {
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setShowPaymentModal(false);
                     setPaymentAttachments([]);
                   }}>
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button className="w-full sm:w-auto" 
                     onClick={handlePayment} 
                     disabled={loading || uploadingPaymentAttachment || (allInstallments.length > 0 && !selectedInstallmentId)}
                   >
@@ -4065,11 +4065,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </p>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowReverseModal(false)}>
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowReverseModal(false)}>
                   Cancelar
                 </Button>
-                <Button 
+                <Button className="w-full sm:w-auto" 
                   onClick={() => performReversePayment(reverseAccount.id)} 
                   disabled={loading || (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0)}
                   variant="destructive"

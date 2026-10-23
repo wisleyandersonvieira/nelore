@@ -5294,7 +5294,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </p>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex gap-4 items-end">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                         <div className="flex-1 space-y-2">
                           <Label>Fazenda Padrão</Label>
                           <Select value={defaultStore} onValueChange={handleDefaultStoreChange}>
@@ -5310,7 +5310,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {defaultStore && (
                             <Button 
                               variant="outline" 
@@ -5781,9 +5781,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </TabsContent>
               </Tabs>
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:pb-0 sm:pt-4">
                 {isViewOnly ? (
-                  <Button variant="outline" onClick={() => {
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setIsViewOnly(false);
                     setViewOnlyAccount(null);
                     setActiveTab("view");
@@ -5792,22 +5792,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </Button>
                   ) : (
                     <>
-                      <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
                         Cancelar
                       </Button>
                       
                       {!noteRecorded ? (
-                        <Button onClick={handleRecordNote} disabled={loading}>
+                        <Button className="w-full sm:w-auto" onClick={handleRecordNote} disabled={loading}>
                           Gravar Nota
                         </Button>
                        ) : (
                         <>
-                          <Button variant="outline" onClick={openInstallmentsModal}>
+                          <Button className="w-full sm:w-auto" variant="outline" onClick={openInstallmentsModal}>
                             Parcelas {installments.length > 0 && `(${installments.length})`}
                           </Button>
                           
                           
-                          <Button onClick={handleSave} disabled={loading}>
+                          <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading}>
                             {loading ? "Salvando..." : "Salvar"}
                           </Button>
                         </>
@@ -5903,12 +5903,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </div>
               )}
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowInstallmentsModal(false)}>
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowInstallmentsModal(false)}>
                   Cancelar
                 </Button>
                 {installments.length > 0 && (
-                  <Button onClick={confirmInstallments}>
+                  <Button className="w-full sm:w-auto" onClick={confirmInstallments}>
                     Confirmar Parcelas
                   </Button>
                 )}
@@ -6136,14 +6136,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   )}
                 </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => {
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setShowPaymentModal(false);
                     setPaymentAttachments([]);
                   }}>
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button className="w-full sm:w-auto" 
                     onClick={handlePayment} 
                     disabled={loading || uploadingPaymentAttachment || !selectedAccountId || !paymentDate || (accountInstallments.length > 0 && selectedInstallments.length === 0)}
                   >
@@ -6278,11 +6278,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowReverseModal(false)}>
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowReverseModal(false)}>
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button className="w-full sm:w-auto" 
                     onClick={() => performReversePayment(reverseAccount.id, reverseInstallments.length > 0 ? selectedReverseInstallments : undefined)} 
                     disabled={loading || (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0)}
                     variant="destructive"

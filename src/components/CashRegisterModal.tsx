@@ -1063,6 +1063,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                                 type="button"
                                 variant="ghost"
                                 size="sm"
+                                className="h-10 w-10 px-0 sm:h-9 sm:w-auto sm:px-3.5"
                                 onClick={() => viewAttachment(url)}
                               >
                                 <Eye className="h-4 w-4" />
@@ -1072,6 +1073,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                                   type="button"
                                   variant="ghost"
                                   size="sm"
+                                  className="h-10 w-10 px-0 sm:h-9 sm:w-auto sm:px-3.5"
                                   onClick={() => {
                                     setAttachmentStatus(prev => {
                                       const existing = prev.find(s => s.url === url);
@@ -1125,6 +1127,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                                 type="button"
                                 variant="ghost"
                                 size="sm"
+                                className="h-10 w-10 px-0 sm:h-9 sm:w-auto sm:px-3.5"
                                 onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1155,8 +1158,8 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                   </div>
                 )}
 
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button 
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:gap-0 sm:space-x-2 sm:pb-0 sm:pt-4">
+                  <Button className="w-full sm:w-auto" 
                     type="button" 
                     variant="outline" 
                     onClick={() => {
@@ -1170,7 +1173,7 @@ export const CashRegisterModal = ({ open, onOpenChange, date, storeId, mode = 'c
                     {isReadOnly ? 'Voltar' : 'Cancelar'}
                   </Button>
                   {!isReadOnly && (
-                    <Button type="submit" disabled={loading}>
+                    <Button className="w-full sm:w-auto" type="submit" disabled={loading}>
                       {loading ? 'Salvando...' : 'Gravar Fechamento'}
                     </Button>
                   )}
@@ -1237,6 +1240,7 @@ const CardItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="h-10 w-10 px-0 sm:h-9 sm:w-auto sm:px-3.5"
                   onClick={() => onRemove(index)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1309,6 +1313,7 @@ const CashItemsSection = ({ items, accounts, onAdd, onRemove, accountKeyName, ac
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="h-10 w-10 px-0 sm:h-9 sm:w-auto sm:px-3.5"
                   onClick={() => onRemove(index)}
                 >
                   <Trash2 className="h-4 w-4" />
