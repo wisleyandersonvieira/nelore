@@ -42,6 +42,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download, MoreHorizontal, ChevronsUpDown, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import MobileReportCard from "@/components/MobileReportCard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1638,6 +1639,62 @@ const AnimaisGestaoPrenhez = () => {
     setRecipientCategoryFilter("");
   };
 
+  const renderStatusBadge = (record: PregnancyRecord) => (
+    <Badge
+      className={cn(
+        "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+        record.status === "in_progress"
+          ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+          : record.status === "finalized_stillborn"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : record.status === "sold"
+          ? "border-blue-200 bg-blue-50 text-blue-700"
+          : "border-green-200 bg-green-50 text-green-700"
+      )}
+    >
+      {getStatusLabel(record.status)}
+    </Badge>
+  );
+
+  const renderRecordActions = (record: PregnancyRecord) => (
+    <>
+      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)}>
+        <Eye className="h-4 w-4" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {record.status === "in_progress" && (
+            <>
+              <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
+                <Pencil className="h-4 w-4 mr-2" />Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
+                <Trash2 className="h-4 w-4 mr-2" />Excluir
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
+                <DollarSign className="h-4 w-4 mr-2" />Venda
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
+                <CheckCircle className="h-4 w-4 mr-2" />Finalizar
+              </DropdownMenuItem>
+            </>
+          )}
+          {["sold", "finalized", "natimorto"].includes(record.status) && (
+            <DropdownMenuItem onClick={() => handleToggleFinancialReleased(record)}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              {record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/80 backdrop-blur">
@@ -1831,7 +1888,7 @@ const AnimaisGestaoPrenhez = () => {
           <div className="text-center py-8">Carregando...</div>
         ) : (
           <>
-            <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+            <div className="hidden md:block overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
               <Table className="table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                   <TableRow>
@@ -1868,57 +1925,11 @@ const AnimaisGestaoPrenhez = () => {
                             : "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3">
-                          <Badge
-                            className={cn(
-                              "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
-                              record.status === "in_progress"
-                                ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-                                : record.status === "finalized_stillborn"
-                                ? "border-red-200 bg-red-50 text-red-700"
-                                : record.status === "sold"
-                                ? "border-blue-200 bg-blue-50 text-blue-700"
-                                : "border-green-200 bg-green-50 text-green-700"
-                            )}
-                          >
-                            {getStatusLabel(record.status)}
-                          </Badge>
+                          {renderStatusBadge(record)}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {record.status === "in_progress" && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
-                                      <Pencil className="h-4 w-4 mr-2" />Editar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
-                                      <Trash2 className="h-4 w-4 mr-2" />Excluir
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
-                                      <DollarSign className="h-4 w-4 mr-2" />Venda
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
-                                      <CheckCircle className="h-4 w-4 mr-2" />Finalizar
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {["sold", "finalized", "natimorto"].includes(record.status) && (
-                                  <DropdownMenuItem onClick={() => handleToggleFinancialReleased(record)}>
-                                    <DollarSign className="h-4 w-4 mr-2" />
-                                    {record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {renderRecordActions(record)}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1926,6 +1937,38 @@ const AnimaisGestaoPrenhez = () => {
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {paginatedRecords.length === 0 ? (
+                <div className="rounded-xl border border-border/70 bg-card py-8 text-center text-muted-foreground shadow-sm">
+                  Nenhum registro encontrado.
+                </div>
+              ) : (
+                paginatedRecords.map((record) => (
+                  <MobileReportCard
+                    key={record.id}
+                    title={record.name}
+                    subtitle={record.code}
+                    badge={renderStatusBadge(record)}
+                    summaryFields={[
+                      { label: "Receptora", value: getRecipientName(record.recipient_id) },
+                      {
+                        label: "Mês Prev. Nascimento",
+                        value: record.expected_birth_month
+                          ? format(new Date(record.expected_birth_month), "MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                      { label: "Fazenda", value: getFarmName(record.farm_id, record.farm_type) },
+                    ]}
+                    detailFields={[
+                      { label: "Sexo", value: getSexLabel(record.sex) },
+                      { label: "Raça", value: getBreedName(record.breed_id) },
+                    ]}
+                    actions={renderRecordActions(record)}
+                  />
+                ))
+              )}
             </div>
 
             {totalPages > 1 && (

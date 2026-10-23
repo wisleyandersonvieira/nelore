@@ -40,6 +40,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import MobileReportCard from "@/components/MobileReportCard";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import jsPDF from "jspdf";
@@ -2460,6 +2461,71 @@ const AnimaisGestaoAspiracoes = () => {
     toast({ title: "Excel gerado com sucesso!" });
   };
 
+  const renderStatusBadge = (record: AspirationRecord) => (
+    <Badge className={cn(
+      "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+      record.status === "pending"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : record.status === "in_progress"
+        ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+        : record.status === "finalized"
+        ? "border-green-200 bg-green-50 text-green-700"
+        : "border-sky-200 bg-sky-50 text-sky-700"
+    )}>
+      {getStatusLabel(record.status)}
+    </Badge>
+  );
+
+  const renderRecordActions = (record: AspirationRecord) => (
+    <>
+      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+        <Eye className="h-4 w-4" />
+      </Button>
+      {record.status === "pending" && (
+        <>
+          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+            <CheckCircle className="h-4 w-4" />
+          </Button>
+        </>
+      )}
+      {record.is_batch_purchase && record.status === "in_progress" && (
+        <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+      {!record.is_batch_purchase && record.status === "in_progress" && (
+        <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+      {record.status !== "sold" && (
+        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
+          <DollarSign className="h-4 w-4" />
+        </Button>
+      )}
+      {record.status === "finalized" && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => handleToggleFinancialReleased(record)}
+          title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+          className={cn(
+            "h-10 md:h-8 w-10 md:w-8 rounded-lg hover:bg-muted/60",
+            record.financial_released ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/80 backdrop-blur">
@@ -2619,7 +2685,7 @@ const AnimaisGestaoAspiracoes = () => {
           <div className="text-center py-8">Carregando...</div>
         ) : (
           <>
-            <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+            <div className="hidden md:block overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
               <Table className="table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                    <TableRow>
@@ -2668,66 +2734,11 @@ const AnimaisGestaoAspiracoes = () => {
                           {record.embryo_count ?? "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3">
-                          <Badge className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
-                            record.status === "pending"
-                              ? "border-blue-200 bg-blue-50 text-blue-700"
-                              : record.status === "in_progress"
-                              ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-                              : record.status === "finalized"
-                              ? "border-green-200 bg-green-50 text-green-700"
-                              : "border-sky-200 bg-sky-50 text-sky-700"
-                          )}>
-                            {getStatusLabel(record.status)}
-                          </Badge>
+                          {renderStatusBadge(record)}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {record.status === "pending" && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            {record.is_batch_purchase && record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {!record.is_batch_purchase && record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {record.status !== "sold" && (
-                              <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
-                                <DollarSign className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {record.status === "finalized" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleFinancialReleased(record)}
-                                title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
-                                className={cn(
-                                  "h-10 md:h-8 w-10 md:w-8 rounded-lg hover:bg-muted/60",
-                                  record.financial_released ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground",
-                                )}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
+                            {renderRecordActions(record)}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -2735,6 +2746,49 @@ const AnimaisGestaoAspiracoes = () => {
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {paginatedRecords.length === 0 ? (
+                <div className="rounded-xl border border-border/70 bg-card py-8 text-center text-muted-foreground shadow-sm">
+                  Nenhum registro encontrado.
+                </div>
+              ) : (
+                paginatedRecords.map((record) => (
+                  <MobileReportCard
+                    key={record.id}
+                    title={record.name}
+                    subtitle={record.code}
+                    badge={renderStatusBadge(record)}
+                    summaryFields={[
+                      {
+                        label: "Data Aspiração",
+                        value: record.aspiration_date
+                          ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                      { label: "Qtd. Embriões", value: record.embryo_count ?? "-" },
+                      { label: "Fazenda", value: getFarmName(record.farm_id, record.farm_type) },
+                    ]}
+                    detailFields={[
+                      { label: "Raça", value: getBreedName(record.breed_id) },
+                      {
+                        label: "Mês Prev. Aspiração",
+                        value: record.expected_aspiration_month
+                          ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                      {
+                        label: "Data Transferência",
+                        value: record.transfer_date
+                          ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                    ]}
+                    actions={renderRecordActions(record)}
+                  />
+                ))
+              )}
             </div>
 
             {/* Pagination */}

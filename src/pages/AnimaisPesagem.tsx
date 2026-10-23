@@ -35,6 +35,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import MobileReportCard from "@/components/MobileReportCard";
 
 interface Batch {
   id: string;
@@ -682,7 +683,7 @@ const AnimaisPesagem = () => {
           </div>
         ) : (
           <Card>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
@@ -739,6 +740,53 @@ const AnimaisPesagem = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="md:hidden space-y-3 p-3">
+              {paginatedSessions.map((session) => (
+                <MobileReportCard
+                  key={session.id}
+                  title={format(new Date(session.date + "T00:00:00"), "dd/MM/yyyy")}
+                  summaryFields={[
+                    { label: "Qtd. Animais", value: String(session.animal_count || 0) },
+                    {
+                      label: "Peso Total (kg)",
+                      value: (session.total_weight || 0).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }),
+                    },
+                    {
+                      label: "Lote",
+                      value: session.weighing_type === "lote" && session.animal_batches
+                        ? `${session.animal_batches.code} - ${session.animal_batches.name}`
+                        : "—",
+                    },
+                  ]}
+                  actions={
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => handleViewSession(session)}
+                        title="Visualizar"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => handleEditSession(session)}
+                        title="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </>
+                  }
+                />
+              ))}
             </div>
             
             {/* Pagination */}

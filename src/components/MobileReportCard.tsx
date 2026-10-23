@@ -13,8 +13,9 @@ export interface MobileReportField {
 }
 
 interface MobileReportCardProps {
+  actions?: React.ReactNode;
   badge?: React.ReactNode;
-  detailFields: MobileReportField[];
+  detailFields?: MobileReportField[];
   summaryFields: MobileReportField[];
   subtitle?: React.ReactNode;
   title: React.ReactNode;
@@ -53,8 +54,9 @@ const FieldList = ({ fields }: { fields: MobileReportField[] }) => (
 );
 
 const MobileReportCard = ({
+  actions,
   badge,
-  detailFields,
+  detailFields = [],
   summaryFields,
   subtitle,
   title,
@@ -80,6 +82,14 @@ const MobileReportCard = ({
 
             <FieldList fields={summaryFields} />
 
+            {actions ? (
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
+                {actions}
+              </div>
+            ) : null}
+
+            {detailFields.length > 0 ? (
+              <>
             <CollapsibleTrigger asChild>
               <Button
                 type="button"
@@ -96,6 +106,8 @@ const MobileReportCard = ({
                 <FieldList fields={detailFields} />
               </div>
             </CollapsibleContent>
+              </>
+            ) : null}
           </div>
         </CardContent>
       </Card>

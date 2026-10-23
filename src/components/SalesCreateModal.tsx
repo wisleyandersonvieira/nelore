@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import MobileReportCard from "@/components/MobileReportCard";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, PlusCircle, ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -899,27 +900,70 @@ export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, s
                   <CardTitle className="text-base">Prévia das parcelas</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="overflow-x-auto rounded-2xl border border-border/70">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Parcela</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {installments.length === 0 ? (
+                  <div className="hidden md:block">
+                    <div className="overflow-x-auto rounded-2xl border border-border/70">
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                              Gere as parcelas para visualizar os títulos que serão criados.
-                            </TableCell>
+                            <TableHead>Parcela</TableHead>
+                            <TableHead>Vencimento</TableHead>
+                            <TableHead className="text-right">Valor</TableHead>
                           </TableRow>
-                        ) : (
-                          installments.map((installment, index) => (
-                            <TableRow key={`${installment.installment_number}-${index}`}>
-                              <TableCell className="font-medium">{installment.installment_number}</TableCell>
-                              <TableCell>
+                        </TableHeader>
+                        <TableBody>
+                          {installments.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                Gere as parcelas para visualizar os títulos que serão criados.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            installments.map((installment, index) => (
+                              <TableRow key={`${installment.installment_number}-${index}`}>
+                                <TableCell className="font-medium">{installment.installment_number}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="date"
+                                    value={installment.due_date}
+                                    onChange={(event) =>
+                                      updateInstallment(index, "due_date", event.target.value)
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="text-right"
+                                    value={installment.amount}
+                                    onChange={(event) =>
+                                      updateInstallment(index, "amount", event.target.value)
+                                    }
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                  <div className="md:hidden space-y-3">
+                    {installments.length === 0 ? (
+                      <div className="rounded-2xl border border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+                        Gere as parcelas para visualizar os títulos que serão criados.
+                      </div>
+                    ) : (
+                      installments.map((installment, index) => (
+                        <MobileReportCard
+                          key={`${installment.installment_number}-${index}`}
+                          title={`Parcela ${installment.installment_number}`}
+                          summaryFields={[
+                            {
+                              label: "Vencimento",
+                              valueClassName: "w-[68%]",
+                              value: (
                                 <Input
                                   type="date"
                                   value={installment.due_date}
@@ -927,8 +971,12 @@ export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, s
                                     updateInstallment(index, "due_date", event.target.value)
                                   }
                                 />
-                              </TableCell>
-                              <TableCell>
+                              ),
+                            },
+                            {
+                              label: "Valor",
+                              valueClassName: "w-[68%]",
+                              value: (
                                 <Input
                                   type="number"
                                   min="0"
@@ -939,12 +987,12 @@ export function SalesCreateModal({ open, onOpenChange, onSaved, initialValues, s
                                     updateInstallment(index, "amount", event.target.value)
                                   }
                                 />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                              ),
+                            },
+                          ]}
+                        />
+                      ))
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-background/85 px-4 py-3">
