@@ -777,7 +777,7 @@ const BalancePositionReport = () => {
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-[280px] justify-start text-left font-normal",
+                      "w-full sm:w-[280px] justify-start text-left font-normal",
                       !selectedDate && "text-muted-foreground"
                     )}
                   >
@@ -895,7 +895,7 @@ const BalancePositionReport = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Loja</TableHead>

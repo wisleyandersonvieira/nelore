@@ -524,7 +524,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Transferências</DialogTitle>
             <DialogDescription>
@@ -639,7 +639,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
 
           {/* Tabela */}
           <div className="border rounded-lg">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
@@ -765,7 +765,7 @@ export function TransfersModal({ open, onOpenChange }: TransfersModalProps) {
                         variant={currentPage === pageNum ? "default" : "outline"}
                         size="sm"
                         onClick={() => handlePageChange(pageNum)}
-                        className="w-8 h-8 p-0"
+                        className="w-10 md:w-8 h-10 md:h-8 p-0"
                       >
                         {pageNum}
                       </Button>

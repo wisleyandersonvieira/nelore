@@ -240,7 +240,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
                 <Input
@@ -290,7 +290,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-hidden flex flex-col min-h-0">
           {/* Cabeçalho fixo */}
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader className="bg-card">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[25%] h-8 py-1">Nome</TableHead>
@@ -338,7 +338,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleEdit(unit)}
                               title="Editar"
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -349,7 +349,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleToggleStatus(unit)}
                               title={unit.is_active ? "Desativar" : "Ativar"}
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Ban className="h-3.5 w-3.5" />
                             </Button>
@@ -360,7 +360,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
                               size="sm"
                               onClick={() => handleDelete(unit)}
                               title="Excluir"
-                              className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                              className="text-destructive hover:text-destructive h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -384,7 +384,7 @@ export const UnitsModal = ({ open, onOpenChange, inlineMode = false, canEdit = t
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Unidades de Medida</DialogTitle>
           <DialogDescription>

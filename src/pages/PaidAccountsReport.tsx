@@ -1451,9 +1451,9 @@ const PaidAccountsReport = () => {
         {accounts.length > 0 && (
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <CardTitle>Contas Pagas ({accounts.length})</CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm">
@@ -1485,7 +1485,7 @@ const PaidAccountsReport = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Título</TableHead>

@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import MobileReportCard from "@/components/MobileReportCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NFEItemsValidationModal } from "./NFEItemsValidationModal";
@@ -4078,7 +4079,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Contas a Pagar</DialogTitle>
         </DialogHeader>
@@ -4532,7 +4533,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       
                       return (
                         <>
-                          <Table>
+                          <div className="hidden md:block">
+                          <Table className="table-sticky-first table-sticky-last">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="py-2">Documento</TableHead>
@@ -4705,10 +4707,151 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                               )}
                             </TableBody>
                           </Table>
+                          </div>
+
+                          <div className="md:hidden space-y-3">
+                            {paginatedAccounts.map((account) => (
+                              <MobileReportCard
+                                key={account.id}
+                                title={account.description}
+                                badge={
+                                  <span className={`px-2 py-1 rounded text-xs ${
+                                    account.status === 'paid' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : account.status === 'partial'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : account.status === 'pagamento_suspenso'
+                                      ? 'bg-orange-100 text-orange-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {account.status === 'paid' ? 'Pago' : account.status === 'partial' ? 'Parcial' : account.status === 'pagamento_suspenso' ? 'Suspenso' : 'Pendente'}
+                                  </span>
+                                }
+                                summaryFields={[
+                                  { label: "Fornecedor", value: account.suppliers?.name || account.employees?.name || '-' },
+                                  { label: "Vencimento", value: account.due_date ? new Date(account.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-' },
+                                  { label: "Valor", value: Number(account.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), valueClassName: "font-semibold" },
+                                ]}
+                                detailFields={[
+                                  {
+                                    label: "Valor Parcela",
+                                    value: (() => {
+                                      const installments = (account as { accounts_payable_installments?: { installment_number?: number | null; amount?: number | null }[] }).accounts_payable_installments || [];
+                                      if (!installments.length) return '-';
+                                      const first = [...installments].sort((a, b) => (a.installment_number || 0) - (b.installment_number || 0))[0];
+                                      return Number(first?.amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                                    })(),
+                                  },
+                                ]}
+                                actions={
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleViewOnlyAccount(account)}
+                                      disabled={loading}
+                                      title="Visualizar conta"
+                                      className="h-10 w-10 p-0 text-blue-600 hover:text-blue-700"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+
+                                    {canEdit && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={loading}
+                                            title="Mais ações"
+                                            className="h-10 w-10 p-0"
+                                          >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          {account.status !== 'paid' && account.status !== 'pagamento_suspenso' && (
+                                            <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                                              <Edit className="h-4 w-4 mr-2" />
+                                              Editar
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {(account.status === 'pending' || account.status === 'partial') && (
+                                            <DropdownMenuItem onClick={() => openPaymentModal(account)} className="text-green-600">
+                                              <DollarSign className="h-4 w-4 mr-2" />
+                                              Pagar
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {(account.status === 'paid' || account.status === 'partial') && (
+                                            <DropdownMenuItem onClick={() => handleReversePayment(account)}>
+                                              <RefreshCw className="h-4 w-4 mr-2" />
+                                              Estornar Pagamento
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {(account.status === 'pending' || account.status === 'partial') && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem onClick={() => {
+                                                setReparcelamentoAccount(account);
+                                                setShowReparcelamentoModal(true);
+                                              }}>
+                                                <CalendarClock className="h-4 w-4 mr-2" />
+                                                Reparcelamento
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => {
+                                                setSuspenderAccount(account);
+                                                setSuspenderMode("suspend");
+                                                setShowSuspenderModal(true);
+                                              }} className="text-orange-600">
+                                                <PauseCircle className="h-4 w-4 mr-2" />
+                                                Suspender Pagamento
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+
+                                          {account.status === 'pagamento_suspenso' && (
+                                            <DropdownMenuItem onClick={() => {
+                                              setSuspenderAccount(account);
+                                              setSuspenderMode("reactivate");
+                                              setShowSuspenderModal(true);
+                                            }} className="text-green-600">
+                                              <PlayCircle className="h-4 w-4 mr-2" />
+                                              Reativar Pagamento
+                                            </DropdownMenuItem>
+                                          )}
+
+                                          {account.status === 'pending' && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem onClick={() => handleDeleteAccount(account.id, account.status)} className="text-destructive">
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Excluir
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )}
+                                  </>
+                                }
+                              />
+                            ))}
+                            {accountsPayable.length === 0 && (
+                              <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                                {showFilteredData 
+                                  ? "Nenhuma conta encontrada com os filtros aplicados"
+                                  : "Carregando contas..."
+                                }
+                              </div>
+                            )}
+                          </div>
                           
                           {/* Pagination */}
                           {viewTotalPages > 1 && (
-                            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t">
                               <span className="text-sm text-muted-foreground">
                                 {viewTotalItems} conta(s) • Página {viewCurrentPage} de {viewTotalPages}
                               </span>
@@ -5151,7 +5294,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       </p>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex gap-4 items-end">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                         <div className="flex-1 space-y-2">
                           <Label>Fazenda Padrão</Label>
                           <Select value={defaultStore} onValueChange={handleDefaultStoreChange}>
@@ -5167,7 +5310,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {defaultStore && (
                             <Button 
                               variant="outline" 
@@ -5531,7 +5674,8 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                     </CardContent>
                   </Card>
 
-                  <Table>
+                  <div className="hidden md:block">
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Produto</TableHead>
@@ -5579,6 +5723,48 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
+
+                  <div className="md:hidden space-y-3">
+                    {items.map((item, index) => (
+                      <MobileReportCard
+                        key={index}
+                        title={item.product_name}
+                        summaryFields={[
+                          { label: "Quantidade", value: item.quantity },
+                          { label: "Valor Unit.", value: item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+                          { label: "Total", value: item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), valueClassName: "font-semibold" },
+                        ]}
+                        detailFields={[
+                          { label: "Fazenda", value: item.store_name },
+                          {
+                            label: "Alocação",
+                            value: item.allocation_type ? (
+                              <span className="text-xs font-medium">
+                                {getAllocationLabel(item.allocation_type)}
+                              </span>
+                            ) : '-',
+                          },
+                          {
+                            label: "Referência",
+                            value: item.allocation_name ? (
+                              <span className="text-xs">{item.allocation_name}</span>
+                            ) : '-',
+                          },
+                        ]}
+                        actions={!isViewOnly ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeItem(index)}
+                            className="h-10 w-10 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : undefined}
+                      />
+                    ))}
+                  </div>
 
                   {items.length > 0 && (
                     <Card>
@@ -5595,9 +5781,9 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </TabsContent>
               </Tabs>
 
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:pb-0 sm:pt-4">
                 {isViewOnly ? (
-                  <Button variant="outline" onClick={() => {
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setIsViewOnly(false);
                     setViewOnlyAccount(null);
                     setActiveTab("view");
@@ -5606,22 +5792,22 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </Button>
                   ) : (
                     <>
-                      <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
                         Cancelar
                       </Button>
                       
                       {!noteRecorded ? (
-                        <Button onClick={handleRecordNote} disabled={loading}>
+                        <Button className="w-full sm:w-auto" onClick={handleRecordNote} disabled={loading}>
                           Gravar Nota
                         </Button>
                        ) : (
                         <>
-                          <Button variant="outline" onClick={openInstallmentsModal}>
+                          <Button className="w-full sm:w-auto" variant="outline" onClick={openInstallmentsModal}>
                             Parcelas {installments.length > 0 && `(${installments.length})`}
                           </Button>
                           
                           
-                          <Button onClick={handleSave} disabled={loading}>
+                          <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading}>
                             {loading ? "Salvando..." : "Salvar"}
                           </Button>
                         </>
@@ -5645,7 +5831,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Parcelas */}
         <Dialog open={showInstallmentsModal} onOpenChange={setShowInstallmentsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configurar Parcelas</DialogTitle>
             </DialogHeader>
@@ -5717,12 +5903,12 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                 </div>
               )}
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowInstallmentsModal(false)}>
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowInstallmentsModal(false)}>
                   Cancelar
                 </Button>
                 {installments.length > 0 && (
-                  <Button onClick={confirmInstallments}>
+                  <Button className="w-full sm:w-auto" onClick={confirmInstallments}>
                     Confirmar Parcelas
                   </Button>
                 )}
@@ -5733,7 +5919,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Pagamento */}
         <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Pagar Conta</DialogTitle>
             </DialogHeader>
@@ -5940,7 +6126,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                             variant="ghost"
                             size="sm"
                             onClick={() => removePaymentAttachment(index)}
-                            className="h-8 w-8 p-0"
+                            className="h-10 md:h-8 w-10 md:w-8 p-0"
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -5950,14 +6136,14 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   )}
                 </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => {
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setShowPaymentModal(false);
                     setPaymentAttachments([]);
                   }}>
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button className="w-full sm:w-auto" 
                     onClick={handlePayment} 
                     disabled={loading || uploadingPaymentAttachment || !selectedAccountId || !paymentDate || (accountInstallments.length > 0 && selectedInstallments.length === 0)}
                   >
@@ -5976,7 +6162,7 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
 
         {/* Modal de Estorno */}
         <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Estornar Pagamento</DialogTitle>
             </DialogHeader>
@@ -6092,11 +6278,11 @@ export function AccountsPayableModal({ open, onOpenChange }: AccountsPayableModa
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowReverseModal(false)}>
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowReverseModal(false)}>
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button className="w-full sm:w-auto" 
                     onClick={() => performReversePayment(reverseAccount.id, reverseInstallments.length > 0 ? selectedReverseInstallments : undefined)} 
                     disabled={loading || (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0)}
                     variant="destructive"

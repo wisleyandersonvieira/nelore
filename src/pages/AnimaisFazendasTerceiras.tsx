@@ -203,7 +203,7 @@ const AnimaisFazendasTerceiras = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between mb-6 gap-3">
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
@@ -226,7 +226,7 @@ const AnimaisFazendasTerceiras = () => {
         </div>
 
         <div className="bg-card rounded-lg border shadow-sm">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-20">Código</TableHead>

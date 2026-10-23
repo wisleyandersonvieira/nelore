@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import MobileReportCard from "@/components/MobileReportCard";
 import {
   ArrowRight,
   Baby,
@@ -1476,7 +1477,7 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
       </section>
 
       <Dialog open={attentionModal !== null} onOpenChange={(open) => !open && setAttentionModal(null)}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl border-border/70 bg-background/95">
+        <DialogContent className="max-w-5xl border-border/70 bg-background/95">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-foreground">
               {attentionModal === "pregnancies" && "Prenhezes próximas do parto"}
@@ -1486,7 +1487,8 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
           </DialogHeader>
 
           {attentionModal === "pregnancies" && (
-            <div className="table-responsive max-h-[70vh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
+            <>
+            <div className="hidden md:block table-responsive max-h-[70dvh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
               <Table className="min-w-[620px]">
                 <TableHeader>
                   <TableRow>
@@ -1514,11 +1516,32 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                 </TableBody>
               </Table>
             </div>
+
+            <div className="md:hidden max-h-[70dvh] space-y-3 overflow-y-auto">
+              {(attentionData?.pregnancies || []).length === 0 ? (
+                <div className="rounded-[1.15rem] border border-border/70 bg-card/80 py-8 text-center text-muted-foreground">
+                  Nenhuma prenhez prevista para os próximos 30 dias.
+                </div>
+              ) : (
+                (attentionData?.pregnancies || []).map((item: AttentionPregnancyItem) => (
+                  <MobileReportCard
+                    key={item.id}
+                    title={item.name}
+                    summaryFields={[
+                      { label: "Data prevista", value: formatDateBR(item.expected_birth_month) },
+                      { label: "Fazenda", value: item.farm_name },
+                    ]}
+                  />
+                ))
+              )}
+            </div>
+            </>
           )}
 
           {(attentionModal === "payables" || attentionModal === "receivables") && (
-            <div className="table-responsive max-h-[70vh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
-              <Table className="min-w-[720px]">
+            <>
+            <div className="hidden md:block table-responsive max-h-[70dvh] overflow-y-auto rounded-[1.15rem] border border-border/70 bg-card/80">
+              <Table className="min-w-[720px] table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
@@ -1553,6 +1576,35 @@ const DashboardIndicators = ({ userId }: DashboardIndicatorsProps) => {
                 </TableBody>
               </Table>
             </div>
+
+            <div className="md:hidden max-h-[70dvh] space-y-3 overflow-y-auto">
+              {((attentionModal === "payables" ? attentionData?.payables : attentionData?.receivables) || []).length === 0 ? (
+                <div className="rounded-[1.15rem] border border-border/70 bg-card/80 py-8 text-center text-muted-foreground">
+                  {attentionModal === "payables"
+                    ? "Nenhuma conta a pagar vencendo nesta semana."
+                    : "Nenhuma conta a receber vencendo nesta semana."}
+                </div>
+              ) : (
+                ((attentionModal === "payables" ? attentionData?.payables : attentionData?.receivables) || []).map(
+                  (item: AttentionFinancialItem) => (
+                    <MobileReportCard
+                      key={item.id}
+                      title={item.partner_name}
+                      summaryFields={[
+                        { label: "Valor da parcela", value: formatCurrencyBR(item.amount) },
+                        { label: "Data de vencimento", value: formatDateBR(item.due_date) },
+                        {
+                          label: "Vínculo",
+                          value: item.allocation_names.length > 0 ? item.allocation_names.join("\n") : "-",
+                          valueClassName: "whitespace-pre-line",
+                        },
+                      ]}
+                    />
+                  ),
+                )
+              )}
+            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

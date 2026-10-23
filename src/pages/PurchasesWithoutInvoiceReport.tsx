@@ -377,7 +377,7 @@ const PurchasesWithoutInvoiceReport = () => {
             {reportData.length > 0 && (
               <CardContent>
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Compra</TableHead>

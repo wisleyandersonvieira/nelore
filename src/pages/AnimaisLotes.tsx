@@ -392,7 +392,7 @@ const AnimaisLotes = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
           <h2 className="text-lg font-semibold">Lotes Cadastrados</h2>
           <Button onClick={() => handleOpenModal()}>
             <Plus className="h-4 w-4 mr-2" />
@@ -409,7 +409,7 @@ const AnimaisLotes = () => {
           </div>
         ) : (
           <div className="border rounded-lg">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-20">Cód</TableHead>

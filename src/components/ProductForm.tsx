@@ -462,7 +462,7 @@ export const ProductForm = ({ onUnitsModalOpen, editingProduct, onSaveSuccess }:
               type="button"
               variant="ghost"
               size="sm"
-              className="ml-2 h-6 w-6 p-0"
+              className="ml-2 h-10 md:h-6 w-10 md:w-6 p-0"
               onClick={onUnitsModalOpen}
               title="Cadastrar nova unidade"
             >

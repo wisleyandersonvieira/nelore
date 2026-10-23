@@ -504,7 +504,7 @@ export const DRERegister: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>

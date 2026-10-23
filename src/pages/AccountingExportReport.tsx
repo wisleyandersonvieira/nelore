@@ -733,12 +733,12 @@ const AccountingExportReport = () => {
         {showResults && (
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <CardTitle>Pagamentos Encontrados</CardTitle>
                   <CardDescription>{paymentRecords.length} pagamento(s) no período selecionado</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={exportToPDF} disabled={paymentRecords.length === 0}>
                     <FileText className="h-4 w-4 mr-2" />
                     Exportar PDF
@@ -757,7 +757,7 @@ const AccountingExportReport = () => {
             <CardContent>
               {paymentRecords.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-sticky-first">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Data Pgto</TableHead>

@@ -139,7 +139,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess, ki
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="h-5 w-5" />
@@ -190,7 +190,7 @@ export function ReparcelamentoModal({ open, onOpenChange, account, onSuccess, ki
                 </div>
 
                 {/* Tabela de pré-visualização */}
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Parcela</TableHead>

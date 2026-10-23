@@ -283,7 +283,7 @@ const BrandsTab = () => {
 
       {/* Modal de Cadastro/Edição */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingBrand ? "Editar Marca" : "Nova Marca"}

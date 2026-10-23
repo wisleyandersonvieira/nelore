@@ -596,7 +596,7 @@ export const StoresModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Fazendas</DialogTitle>
           <DialogDescription>
@@ -613,7 +613,7 @@ export const StoresModal = ({
           </TabsList>
 
           {/* Register Tab */}
-          <TabsContent value="register" className="max-h-[70vh] overflow-y-auto">
+          <TabsContent value="register" className="max-h-[70dvh] overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -835,7 +835,7 @@ export const StoresModal = ({
                 </div>
 
                 <div className="rounded-md border max-h-96 overflow-y-auto">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>

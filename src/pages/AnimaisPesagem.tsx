@@ -35,6 +35,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import MobileReportCard from "@/components/MobileReportCard";
 
 interface Batch {
   id: string;
@@ -575,7 +576,7 @@ const AnimaisPesagem = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-5 w-5" />
@@ -682,8 +683,8 @@ const AnimaisPesagem = () => {
           </div>
         ) : (
           <Card>
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="hidden md:block overflow-x-auto">
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="py-2">Data</TableHead>
@@ -718,7 +719,7 @@ const AnimaisPesagem = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-10 md:h-7 w-10 md:w-7"
                             onClick={() => handleViewSession(session)}
                             title="Visualizar"
                           >
@@ -727,7 +728,7 @@ const AnimaisPesagem = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-10 md:h-7 w-10 md:w-7"
                             onClick={() => handleEditSession(session)}
                             title="Editar"
                           >
@@ -739,6 +740,53 @@ const AnimaisPesagem = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="md:hidden space-y-3 p-3">
+              {paginatedSessions.map((session) => (
+                <MobileReportCard
+                  key={session.id}
+                  title={format(new Date(session.date + "T00:00:00"), "dd/MM/yyyy")}
+                  summaryFields={[
+                    { label: "Qtd. Animais", value: String(session.animal_count || 0) },
+                    {
+                      label: "Peso Total (kg)",
+                      value: (session.total_weight || 0).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }),
+                    },
+                    {
+                      label: "Lote",
+                      value: session.weighing_type === "lote" && session.animal_batches
+                        ? `${session.animal_batches.code} - ${session.animal_batches.name}`
+                        : "—",
+                    },
+                  ]}
+                  actions={
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => handleViewSession(session)}
+                        title="Visualizar"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => handleEditSession(session)}
+                        title="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </>
+                  }
+                />
+              ))}
             </div>
             
             {/* Pagination */}
@@ -777,7 +825,7 @@ const AnimaisPesagem = () => {
       </main>
 
       <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {step === "form" ? "Nova Pesagem" : "Registrar Pesos"}
@@ -897,7 +945,7 @@ const AnimaisPesagem = () => {
               )}
 
               <div className="border rounded-md">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="py-2">Código</TableHead>
@@ -949,7 +997,7 @@ const AnimaisPesagem = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-10 md:h-7 w-10 md:w-7"
                                 onClick={() => handleRemoveAnimal(animal.id)}
                               >
                                 <X className="h-4 w-4" />
@@ -978,7 +1026,7 @@ const AnimaisPesagem = () => {
 
       {/* Modal de busca de animais */}
       <Dialog open={isAnimalSearchModalOpen} onOpenChange={setIsAnimalSearchModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[80dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Selecionar Animais</DialogTitle>
           </DialogHeader>
@@ -994,7 +1042,7 @@ const AnimaisPesagem = () => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto border rounded-md">
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader>
                 <TableRow>
                   <TableHead className="py-2">Código</TableHead>
@@ -1022,7 +1070,7 @@ const AnimaisPesagem = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-10 md:h-7 w-10 md:w-7"
                           onClick={() => handleAddAnimalFromModal(animal)}
                         >
                           <Plus className="h-4 w-4" />
@@ -1044,7 +1092,7 @@ const AnimaisPesagem = () => {
 
       {/* Modal de visualização/edição de pesagem */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {isEditMode ? "Editar Pesagem" : "Visualizar Pesagem"}
@@ -1095,7 +1143,7 @@ const AnimaisPesagem = () => {
               )}
 
               <div className="flex-1 overflow-y-auto border rounded-md">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="py-2">Código</TableHead>
@@ -1178,7 +1226,7 @@ const AnimaisPesagem = () => {
 
       {/* Modal de busca de animais para adicionar em edição */}
       <Dialog open={isEditAnimalSearchModalOpen} onOpenChange={setIsEditAnimalSearchModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[80dvh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Adicionar Animal à Pesagem</DialogTitle>
           </DialogHeader>
@@ -1194,7 +1242,7 @@ const AnimaisPesagem = () => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto border rounded-md">
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader>
                 <TableRow>
                   <TableHead className="py-2">Código</TableHead>
@@ -1234,7 +1282,7 @@ const AnimaisPesagem = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-10 md:h-7 w-10 md:w-7"
                           onClick={() => handleAddAnimalToSession(animal, newAnimalWeight[animal.id] || "")}
                           disabled={isLoading}
                         >

@@ -553,7 +553,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90dvh]">
         <DialogHeader>
           <div className="flex items-center gap-2">
             {(selectedStore || selectedEmployee) && (
@@ -572,7 +572,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
+        <ScrollArea className="max-h-[70dvh]">
           {!selectedStore ? (
             // Store Selection
             <div className="p-4">
@@ -606,7 +606,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
           ) : !selectedEmployee ? (
             // Employee Selection
             <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <User className="w-5 h-5" />
                   {showInactiveEmployees ? "Funcionários Inativos" : "Funcionários Ativos"} - {selectedStore.name}
@@ -723,7 +723,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="h-6 text-xs"
+                              className="h-6 max-md:h-10 text-xs"
                               onClick={() => setSelectedMonths([])}
                             >
                               Limpar
@@ -780,7 +780,7 @@ const EmployeeMovementModal = ({ isOpen, onClose }: EmployeeMovementModalProps) 
                     <CardContent>
                       {payableAccounts.length > 0 ? (
                         <>
-                          <Table>
+                          <Table className="table-sticky-first">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="py-2">Data Pagamento</TableHead>

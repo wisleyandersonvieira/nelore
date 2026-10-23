@@ -286,7 +286,7 @@ const AnimaisRacas = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-10 md:h-8 w-10 md:w-8"
                           onClick={() => handleOpenModal(breed, true)}
                         >
                           <Eye className="h-3 w-3" />
@@ -294,7 +294,7 @@ const AnimaisRacas = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-10 md:h-8 w-10 md:w-8"
                           onClick={() => handleOpenModal(breed)}
                         >
                           <Pencil className="h-3 w-3" />
@@ -302,7 +302,7 @@ const AnimaisRacas = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-10 md:h-8 w-10 md:w-8"
                           onClick={() => openDeleteDialog(breed)}
                         >
                           <Trash2 className="h-3 w-3" />

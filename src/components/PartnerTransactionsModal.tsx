@@ -680,7 +680,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Aportes e Retiradas</DialogTitle>
             <DialogDescription>
@@ -794,7 +794,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                 <div className="text-center py-8">Carregando...</div>
               ) : (
                 <>
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow className="h-8">
                         <TableHead 
@@ -880,7 +880,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
+                                  className="h-10 md:h-7 w-10 md:w-7"
                                   onClick={() => setViewingTransaction(transaction)}
                                 >
                                   <Eye className="h-4 w-4" />
@@ -890,7 +890,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-10 md:h-7 w-10 md:w-7"
                                       onClick={() => handleEdit(transaction)}
                                     >
                                       <Pencil className="h-4 w-4" />
@@ -898,7 +898,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-10 md:h-7 w-10 md:w-7"
                                       onClick={() => handleDeleteClick(transaction)}
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -965,7 +965,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
             </>
           ) : viewingTransaction ? (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <h3 className="text-lg font-semibold">Detalhes da Transação</h3>
                 <Button variant="ghost" size="icon" onClick={() => setViewingTransaction(null)}>
                   <X className="h-4 w-4" />
@@ -1020,7 +1020,7 @@ export const PartnerTransactionsModal = ({ open, onOpenChange }: PartnerTransact
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <h3 className="text-lg font-semibold">
                   {editingId ? "Editar Transação" : "Nova Transação"}
                 </h3>

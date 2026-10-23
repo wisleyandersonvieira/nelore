@@ -378,7 +378,7 @@ export const SuppliersModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90dvh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
          <DialogTitle>Cadastros</DialogTitle>
           <DialogDescription>
@@ -591,7 +591,7 @@ export const SuppliersModal = ({
                 </div>
 
                 <ScrollArea className="h-[400px] rounded-md border">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>

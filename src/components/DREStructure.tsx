@@ -439,7 +439,7 @@ export const DREStructure: React.FC = () => {
             </DialogTrigger>
           )}
           
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {isEditing ? "Editar Estrutura DRE" : "Nova Estrutura DRE"}
@@ -459,7 +459,7 @@ export const DREStructure: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-3">
                   <h3 className="text-lg font-medium">Itens da Estrutura</h3>
                   <div className="flex space-x-2">
                     <Button size="sm" onClick={() => addItem('group')}>
@@ -485,7 +485,7 @@ export const DREStructure: React.FC = () => {
                   </div>
                 </div>
 
-                {currentStructure.items.length > 0 && <Table>
+                {currentStructure.items.length > 0 && <Table className="table-sticky-first table-sticky-last">
                        <TableHeader>
                          <TableRow>
                            <TableHead>Tipo</TableHead>
@@ -586,7 +586,7 @@ export const DREStructure: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {structures.length > 0 ? <Table>
+          {structures.length > 0 ? <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>

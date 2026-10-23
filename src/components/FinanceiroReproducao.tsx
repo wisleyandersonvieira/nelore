@@ -259,7 +259,7 @@ const FinanceiroReproducao = ({ animalId, viewMode, onViewModeChange, animalSald
     }
     return (
       <div className="max-h-[280px] overflow-y-auto rounded-lg border">
-        <Table>
+        <Table className="table-sticky-first table-sticky-last">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow className="h-8">
               <TableHead className="py-1 text-xs">Data</TableHead>
@@ -287,7 +287,7 @@ const FinanceiroReproducao = ({ animalId, viewMode, onViewModeChange, animalSald
                   <Badge variant={r.status === "paid" ? "default" : "secondary"} className="px-1.5 py-0 text-[12px]">{statusLabel(r.status)}</Badge>
                 </TableCell>
                 <TableCell className="py-1 text-right">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(ETAPA_ROUTE[etapa])} title="Abrir registro de origem">
+                  <Button variant="ghost" size="icon" className="h-10 md:h-7 w-10 md:w-7" onClick={() => navigate(ETAPA_ROUTE[etapa])} title="Abrir registro de origem">
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Button>
                 </TableCell>
@@ -332,7 +332,7 @@ const FinanceiroReproducao = ({ animalId, viewMode, onViewModeChange, animalSald
       ) : (
         <>
           <Tabs defaultValue="aspiracao" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="flex w-full md:grid md:grid-cols-4">
               <TabsTrigger value="aspiracao">Aspiração ({rowsByEtapa("aspiracao").length})</TabsTrigger>
               <TabsTrigger value="pos">Pós-transferência ({rowsByEtapa("pos").length})</TabsTrigger>
               <TabsTrigger value="prenhez">Prenhez ({rowsByEtapa("prenhez").length})</TabsTrigger>

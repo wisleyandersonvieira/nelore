@@ -340,14 +340,14 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
       {/* Filtros */}
       <Card>
         <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Search className="h-4 w-4" />
               Filtros de Busca
             </CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
+                <Button variant="outline" size="sm" className="h-8 max-md:h-10">
                   <Download className="h-4 w-4 mr-2" />
                   Exportar
                 </Button>
@@ -367,7 +367,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-1 flex-1 min-w-[200px]">
+            <div className="space-y-1 min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[200px]">
               <Label htmlFor="filter-description" className="text-xs">Descrição</Label>
               <Input
                 id="filter-description"
@@ -378,7 +378,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               />
             </div>
             
-            <div className="space-y-1 w-[100px]">
+            <div className="space-y-1 min-w-0 flex-1 sm:flex-none sm:w-[100px]">
               <Label htmlFor="filter-code" className="text-xs">Código</Label>
               <Input
                 id="filter-code"
@@ -389,7 +389,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               />
             </div>
             
-            <div className="space-y-1 w-[140px]">
+            <div className="space-y-1 min-w-0 flex-1 sm:flex-none sm:w-[140px]">
               <Label htmlFor="filter-group" className="text-xs">Grupo</Label>
               <Select value={filters.group_id} onValueChange={(value) => setFilters({ ...filters, group_id: value })}>
                 <SelectTrigger className="h-8">
@@ -406,7 +406,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               </Select>
             </div>
             
-            <div className="space-y-1 w-[140px]">
+            <div className="space-y-1 min-w-0 flex-1 sm:flex-none sm:w-[140px]">
               <Label htmlFor="filter-subgroup" className="text-xs">Subgrupo</Label>
               <Select value={filters.subgroup_id} onValueChange={(value) => setFilters({ ...filters, subgroup_id: value })}>
                 <SelectTrigger className="h-8">
@@ -423,7 +423,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
               </Select>
             </div>
 
-            <Button variant="outline" onClick={clearFilters} size="sm" className="h-8">
+            <Button variant="outline" onClick={clearFilters} size="sm" className="h-8 max-md:h-10">
               Limpar Filtros
             </Button>
           </div>
@@ -440,7 +440,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-hidden flex flex-col min-h-0">
           {/* Cabeçalho fixo */}
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader className="bg-card">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[8%] h-9 py-1">Código</TableHead>
@@ -506,7 +506,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                               setViewModalOpen(true);
                             }}
                             title="Visualizar"
-                            className="h-7 w-7 p-0"
+                            className="h-10 md:h-7 w-10 md:w-7 p-0"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -519,7 +519,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                                 setEditModalOpen(true);
                               }}
                               title="Editar"
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -530,7 +530,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                               size="sm"
                               onClick={() => handleToggleBlock(product)}
                               title={product.is_blocked ? "Desbloquear" : "Bloquear"}
-                              className="h-7 w-7 p-0"
+                              className="h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Ban className="h-3.5 w-3.5" />
                             </Button>
@@ -541,7 +541,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                               size="sm"
                               onClick={() => handleDelete(product)}
                               title="Excluir"
-                              className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                              className="text-destructive hover:text-destructive h-10 md:h-7 w-10 md:w-7 p-0"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -568,7 +568,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
@@ -577,7 +577,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -600,7 +600,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                       variant={currentPage === pageNum ? "default" : "outline"}
                       size="sm"
                       onClick={() => goToPage(pageNum)}
-                      className="h-8 w-8 p-0"
+                      className="h-10 md:h-8 w-10 md:w-8 p-0"
                     >
                       {pageNum}
                     </Button>
@@ -613,7 +613,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -622,7 +622,7 @@ export const ProductList = ({ canEdit = true, canDelete = true }: ProductListPro
                 size="sm"
                 onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
+                className="h-10 md:h-8 w-10 md:w-8 p-0"
               >
                 <ChevronsRight className="h-4 w-4" />
               </Button>

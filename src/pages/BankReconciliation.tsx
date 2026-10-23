@@ -1136,7 +1136,7 @@ const BankReconciliation = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-4">
             <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1308,7 +1308,7 @@ const BankReconciliation = () => {
           {/* Left Panel - OFX Transactions */}
           <Card className="h-[600px] flex flex-col">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-lg">
                   Transações OFX
                   <Badge variant="secondary" className="ml-2 font-normal">
@@ -1316,7 +1316,7 @@ const BankReconciliation = () => {
                   </Badge>
                 </CardTitle>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={ofxFilter === 'pending' ? 'default' : 'outline'}
                     size="sm"
@@ -1369,7 +1369,7 @@ const BankReconciliation = () => {
                   </Button>
                 </div>
               </div>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Entradas:</span>
                   <span className="font-semibold text-green-600">{formatCurrency(filteredOfxSums.entries)}</span>
@@ -1450,7 +1450,7 @@ const BankReconciliation = () => {
           {/* Right Panel - Internal Transactions & Matching */}
           <Card className="h-[600px] flex flex-col">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-lg">
                   {anyOfxSelected ? "Sugestões de Match" : "Lançamentos do Sistema"}
                   <Badge variant="secondary" className="ml-2 font-normal">
@@ -1468,7 +1468,7 @@ const BankReconciliation = () => {
                     }
                   </Badge>
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={internalFilter === 'pending' ? 'default' : 'outline'}
                     size="sm"
@@ -1498,7 +1498,7 @@ const BankReconciliation = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-10 md:h-6 w-10 md:w-6 p-0"
                     onClick={() => setSelectedOfxIds([])}
                   >
                     <X className="h-4 w-4" />
@@ -1523,7 +1523,7 @@ const BankReconciliation = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-10 md:h-6 w-10 md:w-6 p-0"
                     onClick={() => setSelectedOfxIds([])}
                   >
                     <X className="h-4 w-4" />
@@ -1572,7 +1572,7 @@ const BankReconciliation = () => {
                   </Button>
                 </div>
               </div>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Entradas:</span>
                   <span className="font-semibold text-green-600">{formatCurrency(filteredInternalSums.entries)}</span>
@@ -1592,7 +1592,7 @@ const BankReconciliation = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="absolute top-1 right-1 h-6 w-6 p-0"
+                        className="absolute top-1 right-1 h-10 md:h-6 w-10 md:w-6 p-0"
                         onClick={() => setSelectedInternalIds([])}
                       >
                         <X className="h-4 w-4" />
@@ -1620,7 +1620,7 @@ const BankReconciliation = () => {
                           <p className="text-xs text-muted-foreground">
                             {selectedOfxIds.length} transação(ões) OFX ↔ {selectedInternalIds.length} lançamento(s) do sistema
                           </p>
-                          <div className="flex gap-4 mt-1">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                             <span className={cn("text-sm font-semibold", selectedOfxTotalAmount < 0 ? "text-destructive" : "text-green-600")}>
                               OFX: {formatCurrency(selectedOfxTotalAmount)}
                             </span>
@@ -1740,7 +1740,7 @@ const BankReconciliation = () => {
                         onChange={(e) => setReconciliationNote(e.target.value)}
                         rows={2}
                       />
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
                           size="sm"

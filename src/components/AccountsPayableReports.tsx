@@ -432,7 +432,7 @@ const AccountsPayableReports = () => {
   };
 
   const renderTable = (data: PayableAccount[], showPaymentDate: boolean = false) => (
-    <Table>
+    <Table className="table-sticky-first">
       <TableHeader>
         <TableRow>
           <TableHead>Descrição</TableHead>
@@ -599,12 +599,12 @@ const AccountsPayableReports = () => {
         <TabsContent value="pending" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <CardTitle>Contas a Pagar</CardTitle>
                   <CardDescription>Contas ainda não pagas</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" disabled={pendingAccounts.length === 0}>
@@ -649,12 +649,12 @@ const AccountsPayableReports = () => {
         <TabsContent value="paid" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <CardTitle>Contas Pagas</CardTitle>
                   <CardDescription>Contas já quitadas</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" disabled={paidAccounts.length === 0}>

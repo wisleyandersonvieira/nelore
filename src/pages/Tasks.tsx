@@ -428,7 +428,7 @@ const Tasks = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-4">
               <Button onClick={() => navigate("/dashboard")} variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -449,7 +449,7 @@ const Tasks = () => {
           {/* Filters */}
           <div className="flex flex-wrap gap-2 mt-4">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="min-w-0 flex-1 sm:flex-none sm:w-[140px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -462,7 +462,7 @@ const Tasks = () => {
             </Select>
 
             <Select value={storeFilter} onValueChange={setStoreFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="min-w-0 flex-1 sm:flex-none sm:w-[160px]">
                 <SelectValue placeholder="Loja" />
               </SelectTrigger>
               <SelectContent className="bg-background">
@@ -474,7 +474,7 @@ const Tasks = () => {
             </Select>
 
             <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="min-w-0 flex-1 sm:flex-none sm:w-[160px]">
                 <SelectValue placeholder="Usuário" />
               </SelectTrigger>
               <SelectContent className="bg-background">
@@ -502,11 +502,11 @@ const Tasks = () => {
               >
                 <Card className="bg-muted/50">
                   <CardHeader className="p-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <CardTitle className="text-sm font-medium">{column.name}</CardTitle>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

@@ -160,7 +160,7 @@ export const NFEItemsValidationModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
@@ -229,7 +229,7 @@ export const NFEItemsValidationModal = ({
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Status</TableHead>
@@ -319,7 +319,7 @@ export const NFEItemsValidationModal = ({
                                     adjustItemValue(index, parseFloat(newValue));
                                   }
                                 }}
-                                className="h-6 w-6 p-0"
+                                className="h-10 md:h-6 w-10 md:w-6 p-0"
                               >
                                 <Edit2 className="h-3 w-3" />
                               </Button>
@@ -350,7 +350,7 @@ export const NFEItemsValidationModal = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSaveEdit}
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Save className="h-4 w-4 text-green-600" />
                               </Button>
@@ -358,7 +358,7 @@ export const NFEItemsValidationModal = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleCancelEdit}
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <X className="h-4 w-4 text-red-600" />
                               </Button>
@@ -368,7 +368,7 @@ export const NFEItemsValidationModal = ({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditItem(index)}
-                              className="h-8 w-8 p-0"
+                              className="h-10 md:h-8 w-10 md:w-8 p-0"
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>

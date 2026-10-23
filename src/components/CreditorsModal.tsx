@@ -315,7 +315,7 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gerenciar Credores</DialogTitle>
         </DialogHeader>
@@ -480,7 +480,7 @@ export function CreditorsModal({ open, onOpenChange, canEdit = true, canDelete =
               </div>
             ) : (
               <div className="border rounded-md">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>

@@ -890,7 +890,7 @@ const AnimaisSemen = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-4">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={() => navigate("/animais")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1008,7 +1008,7 @@ const AnimaisSemen = () => {
             </div>
 
             <div className="overflow-x-auto rounded-2xl border border-border/70">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -1108,7 +1108,7 @@ const AnimaisSemen = () => {
       </main>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto">
+        <DialogContent className="max-h-[92dvh] max-w-6xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-5 w-5 text-sky-600" />
@@ -1121,7 +1121,7 @@ const AnimaisSemen = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="flex w-full md:grid md:grid-cols-4">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="financeiro" disabled={modalMode === "create"}>
@@ -1293,7 +1293,7 @@ const AnimaisSemen = () => {
                   <DollarSign className="h-5 w-5" />
                   Financeiro
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant={financialViewMode === "geral" ? "default" : "outline"}
@@ -1323,7 +1323,7 @@ const AnimaisSemen = () => {
                       </div>
                     ) : (
                       <div className="overflow-x-auto rounded-xl border">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Número</TableHead>
@@ -1526,7 +1526,7 @@ const AnimaisSemen = () => {
                     <p className="py-8 text-center text-muted-foreground">Carregando histórico...</p>
                   ) : (
                     <div className="overflow-x-auto rounded-xl border">
-                      <Table>
+                      <Table className="table-sticky-first table-sticky-last">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Data</TableHead>

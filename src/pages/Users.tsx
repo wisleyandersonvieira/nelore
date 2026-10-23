@@ -405,7 +405,7 @@ const Users = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between mb-8 gap-3">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={() => navigate("/dashboard")} size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -417,7 +417,7 @@ const Users = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {activeTab === "users" && (
               <Button onClick={() => setIsCreateUserOpen(true)} className="flex items-center gap-2">
                 <UserPlus className="h-4 w-4" />
@@ -533,7 +533,7 @@ const Users = () => {
                 <CardTitle>Usuários do Sistema</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>
@@ -639,7 +639,7 @@ const Users = () => {
                               <div className="flex gap-2 justify-end items-center">
                                 {!user.is_active ? (
                                   <>
-                                    <Button size="sm" onClick={() => handleApproveUser(user.id)} className="h-8">
+                                    <Button size="sm" onClick={() => handleApproveUser(user.id)} className="h-8 max-md:h-10">
                                       <Check className="h-4 w-4 mr-1" />
                                       Aprovar
                                     </Button>
@@ -647,7 +647,7 @@ const Users = () => {
                                       size="sm"
                                       variant="destructive"
                                       onClick={() => handleRejectUser(user.id)}
-                                      className="h-8"
+                                      className="h-8 max-md:h-10"
                                     >
                                       <X className="h-4 w-4 mr-1" />
                                       Rejeitar
@@ -658,7 +658,7 @@ const Users = () => {
                                 {/* Dropdown de Configurações */}
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button size="sm" variant="outline" className="h-8">
+                                    <Button size="sm" variant="outline" className="h-8 max-md:h-10">
                                       <Settings className="h-4 w-4 mr-1" />
                                       Configurações
                                     </Button>

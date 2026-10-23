@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import MobileReportCard from "@/components/MobileReportCard";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, PlusCircle, WalletCards, Trash2, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -792,7 +793,7 @@ export function PurchasesCreateModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <WalletCards className="h-5 w-5 text-indigo-600" />
@@ -819,7 +820,7 @@ export function PurchasesCreateModal({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-indigo-700"
+                        className="h-8 max-md:h-10 px-2 text-indigo-700"
                         disabled={!canEditCadastros}
                         onClick={() => setSupplierModalOpen(true)}
                       >
@@ -975,7 +976,7 @@ export function PurchasesCreateModal({
 
                   {isSemenMulti && (
                     <div className="space-y-3 rounded-2xl border border-indigo-200/70 bg-indigo-50/40 p-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <Label className="text-sm">Sêmens vinculados à compra</Label>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
@@ -1000,7 +1001,7 @@ export function PurchasesCreateModal({
                         );
                         return (
                           <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/85 p-2">
-                            <div className="flex-1 min-w-[180px]">
+                            <div className="min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[180px]">
                               <Popover
                                 open={semenPickerIndex === index}
                                 onOpenChange={(openState) => {
@@ -1077,7 +1078,7 @@ export function PurchasesCreateModal({
                               min="0"
                               step="0.01"
                               placeholder="Valor"
-                              className="w-32 text-right"
+                              className="w-32 flex-1 text-right sm:flex-initial"
                               value={item.amount || ""}
                               onChange={(event) => updateSemenItemAmount(index, Number(event.target.value))}
                             />
@@ -1085,7 +1086,7 @@ export function PurchasesCreateModal({
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 text-rose-600"
+                              className="h-10 w-10 text-rose-600 sm:h-9 sm:w-9"
                               onClick={() => removeSemenItem(index)}
                               title="Remover"
                             >
@@ -1095,7 +1096,7 @@ export function PurchasesCreateModal({
                         );
                       })}
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <Button
                           type="button"
                           variant="secondary"
@@ -1335,27 +1336,70 @@ export function PurchasesCreateModal({
                   <CardTitle className="text-base">Prévia das parcelas</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="overflow-x-auto rounded-2xl border border-border/70">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Parcela</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {installments.length === 0 ? (
+                  <div className="hidden md:block">
+                    <div className="overflow-x-auto rounded-2xl border border-border/70">
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                              Gere as parcelas para visualizar os títulos que serão criados.
-                            </TableCell>
+                            <TableHead>Parcela</TableHead>
+                            <TableHead>Vencimento</TableHead>
+                            <TableHead className="text-right">Valor</TableHead>
                           </TableRow>
-                        ) : (
-                          installments.map((installment, index) => (
-                            <TableRow key={`${installment.installment_number}-${index}`}>
-                              <TableCell className="font-medium">{installment.installment_number}</TableCell>
-                              <TableCell>
+                        </TableHeader>
+                        <TableBody>
+                          {installments.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                Gere as parcelas para visualizar os títulos que serão criados.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            installments.map((installment, index) => (
+                              <TableRow key={`${installment.installment_number}-${index}`}>
+                                <TableCell className="font-medium">{installment.installment_number}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="date"
+                                    value={installment.due_date}
+                                    onChange={(event) =>
+                                      updateInstallment(index, "due_date", event.target.value)
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="text-right"
+                                    value={installment.amount}
+                                    onChange={(event) =>
+                                      updateInstallment(index, "amount", event.target.value)
+                                    }
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                  <div className="md:hidden space-y-3">
+                    {installments.length === 0 ? (
+                      <div className="rounded-2xl border border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+                        Gere as parcelas para visualizar os títulos que serão criados.
+                      </div>
+                    ) : (
+                      installments.map((installment, index) => (
+                        <MobileReportCard
+                          key={`${installment.installment_number}-${index}`}
+                          title={`Parcela ${installment.installment_number}`}
+                          summaryFields={[
+                            {
+                              label: "Vencimento",
+                              valueClassName: "w-[68%]",
+                              value: (
                                 <Input
                                   type="date"
                                   value={installment.due_date}
@@ -1363,8 +1407,12 @@ export function PurchasesCreateModal({
                                     updateInstallment(index, "due_date", event.target.value)
                                   }
                                 />
-                              </TableCell>
-                              <TableCell>
+                              ),
+                            },
+                            {
+                              label: "Valor",
+                              valueClassName: "w-[68%]",
+                              value: (
                                 <Input
                                   type="number"
                                   min="0"
@@ -1375,12 +1423,12 @@ export function PurchasesCreateModal({
                                     updateInstallment(index, "amount", event.target.value)
                                   }
                                 />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                              ),
+                            },
+                          ]}
+                        />
+                      ))
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-background/85 px-4 py-3">

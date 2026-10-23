@@ -513,7 +513,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[95vh] flex flex-col p-0">
+      <DialogContent className="max-w-6xl h-[95dvh] flex flex-col p-0 sm:p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center gap-4">
             <Button
@@ -560,7 +560,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
 
             {/* Filtro por Classe */}
             <Select value={filterAccountType} onValueChange={setFilterAccountType}>
-              <SelectTrigger className="w-[180px] h-9">
+              <SelectTrigger className="w-full sm:w-[180px] h-9">
                 <SelectValue placeholder="Filtrar por classe" />
               </SelectTrigger>
               <SelectContent>
@@ -581,7 +581,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome</Label>
                     <Input
@@ -637,7 +637,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
             <div className="flex-1 overflow-hidden min-h-0">
               <div className="h-full flex flex-col">
                 {/* Cabeçalho fixo */}
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader className="bg-card">
                     <TableRow className="hover:bg-transparent">
                       <TableHead 
@@ -700,7 +700,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 onClick={() => handleEdit(grupo)}
                                 title={isAuthorized ? "Editar" : "Você não tem permissão para editar"}
                                 disabled={!isAuthorized}
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -712,7 +712,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 onClick={() => handleToggleStatus(grupo)}
                                 title="Bloquear/Desbloquear"
                                 disabled
-                                className="h-8 w-8 p-0"
+                                className="h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>
@@ -724,7 +724,7 @@ export const GrupoModal = ({ open, onOpenChange, canEdit = true, canDelete = tru
                                 onClick={() => handleDelete(grupo)}
                                 title={isAuthorized ? "Excluir" : "Você não tem permissão para excluir"}
                                 disabled={!isAuthorized}
-                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                                className="text-destructive hover:text-destructive h-10 md:h-8 w-10 md:w-8 p-0"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

@@ -1508,7 +1508,7 @@ const AnimaisMatrizes = () => {
                     <div className="mt-4 flex flex-col gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="h-9 w-full justify-between rounded-lg">
+                          <Button variant="outline" className="h-10 w-full justify-between rounded-lg">
                             <span className="flex items-center gap-2">
                               <FileText className="h-4 w-4" />
                               Relatórios
@@ -1529,7 +1529,7 @@ const AnimaisMatrizes = () => {
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="outline"
-                          className="h-9 rounded-lg"
+                          className="h-10 rounded-lg"
                           onClick={() => handleOpenModal(animal)}
                         >
                           <Pencil className="mr-2 h-3.5 w-3.5" />
@@ -1537,7 +1537,7 @@ const AnimaisMatrizes = () => {
                         </Button>
                         <Button
                           variant="outline"
-                          className="h-9 rounded-lg"
+                          className="h-10 rounded-lg"
                           onClick={() => openDeleteDialog(animal)}
                         >
                           <Trash2 className="mr-2 h-3.5 w-3.5" />
@@ -1551,7 +1551,7 @@ const AnimaisMatrizes = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <Table className="min-w-[900px]">
+              <Table className="min-w-[900px] table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                   <TableRow>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground cursor-pointer select-none" onClick={() => handleSort("name")}>
@@ -1621,7 +1621,7 @@ const AnimaisMatrizes = () => {
                           <div className="flex justify-end gap-1.5">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 rounded-lg">
+                                <Button variant="outline" size="sm" className="h-8 max-md:h-10 rounded-lg">
                                   <FileText className="mr-1 h-3 w-3" />
                                   Relatório
                                   <ChevronDown className="ml-1 h-3 w-3" />
@@ -1639,7 +1639,7 @@ const AnimaisMatrizes = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8 rounded-lg"
+                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg"
                               onClick={() => handleOpenModal(animal)}
                             >
                               <Pencil className="h-3 w-3" />
@@ -1647,7 +1647,7 @@ const AnimaisMatrizes = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-8 w-8 rounded-lg"
+                              className="h-10 md:h-8 w-10 md:w-8 rounded-lg"
                               onClick={() => openDeleteDialog(animal)}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -1695,7 +1695,7 @@ const AnimaisMatrizes = () => {
       </main>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedAnimal ? "Editar Matriz/Genitor" : "Cadastrar Matriz/Genitor"}</DialogTitle>
           </DialogHeader>
@@ -1818,7 +1818,7 @@ const AnimaisMatrizes = () => {
           }))
         }
       >
-        <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden p-0">
+        <DialogContent className="flex max-h-[85dvh] max-w-5xl flex-col overflow-hidden p-0 sm:p-0">
           <DialogHeader className="border-b border-border/70 px-5 py-4 sm:px-6">
             <DialogTitle className="text-left text-lg font-semibold text-foreground sm:text-xl">
               {relationshipModalTitle}
@@ -1887,7 +1887,7 @@ const AnimaisMatrizes = () => {
               </div>
             ) : (
               <div className="table-responsive rounded-xl border border-border/70 bg-card/80">
-                <Table className="min-w-[1080px]">
+                <Table className="min-w-[1080px] table-sticky-first">
                   <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                     <TableRow>
                       <TableHead>Tipo</TableHead>

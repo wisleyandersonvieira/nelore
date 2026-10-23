@@ -245,7 +245,7 @@ export const ProductEditModal = ({ open, onOpenChange, product, onSaveSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[85dvh] flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>Editar Produto</DialogTitle>
           <DialogDescription>

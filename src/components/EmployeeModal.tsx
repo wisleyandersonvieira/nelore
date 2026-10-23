@@ -686,7 +686,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <UserPlus className="w-6 h-6" />
@@ -697,7 +697,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
         <div className="space-y-6">
           <div className="flex justify-between items-center flex-wrap gap-2">
             <h3 className="text-lg font-semibold">Funcionários Cadastrados</h3>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
@@ -1118,7 +1118,7 @@ const EmployeeModal = ({ isOpen, onClose }: EmployeeModalProps) => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

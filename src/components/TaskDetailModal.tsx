@@ -657,7 +657,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
+      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-hidden p-0 sm:p-0">
         <DialogHeader className="p-4 pb-2 border-b">
           <div className="flex items-center justify-between">
             <div className="flex-1 mr-4">
@@ -744,7 +744,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => removeStore(store.id)}
                           >
                             <X className="h-3 w-3" />
@@ -795,7 +795,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => removeMember(member.id)}
                           >
                             <X className="h-3 w-3" />
@@ -883,7 +883,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      className="h-10 md:h-6 w-10 md:w-6 opacity-0 group-hover:opacity-100"
                       onClick={() => deleteChecklistItem(item.id)}
                     >
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -910,7 +910,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
             {/* Seção de Anexos */}
             {showAttachments && (
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-wrap items-center justify-between mb-2 gap-3">
                   <h3 className="text-sm font-medium flex items-center gap-2">
                     <Paperclip className="h-4 w-4" />
                     Anexos
@@ -951,7 +951,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => handleDownloadAttachment(attachment)}
                           >
                             <Download className="h-3 w-3" />
@@ -960,7 +960,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                              className="h-10 md:h-6 w-10 md:w-6 opacity-0 group-hover:opacity-100"
                               onClick={() => handleDeleteAttachment(attachment)}
                             >
                               <Trash2 className="h-3 w-3 text-destructive" />
@@ -978,7 +978,7 @@ const TaskDetailModal = ({ task, currentUserId, onClose, onUpdate }: TaskDetailM
           {/* Right Panel - Comments & Activity */}
           <div className="w-full md:w-96 border-t md:border-t-0 md:border-l overflow-y-auto">
             <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
                 <h3 className="text-sm font-medium flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
                   Comentários e atividade

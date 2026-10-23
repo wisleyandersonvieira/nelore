@@ -526,7 +526,7 @@ const AnimaisReproducao = () => {
         </div>
 
         <div className="rounded-xl border border-border/70 bg-card shadow-sm">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">Código</TableHead>
@@ -562,7 +562,7 @@ const AnimaisReproducao = () => {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -659,7 +659,7 @@ const AnimaisReproducao = () => {
 
       {/* Step 2: Aspiration form (replica) */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Reprodução - Aspiração</DialogTitle>
             <DialogDescription>O registro será criado na Gestão de Aspiração e vinculado a esta reprodução.</DialogDescription>

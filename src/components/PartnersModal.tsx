@@ -284,7 +284,7 @@ export const PartnersModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Cadastro de Sócios</DialogTitle>
         </DialogHeader>
@@ -411,7 +411,7 @@ export const PartnersModal = ({
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
-                <Table>
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>

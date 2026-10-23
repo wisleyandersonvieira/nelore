@@ -490,7 +490,7 @@ const SalesModule = () => {
 
   if (permissionsLoading || loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card/80 px-5 py-3 text-sm text-muted-foreground shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           Carregando módulo de vendas...
@@ -676,7 +676,7 @@ const SalesModule = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-2xl border border-border/70">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
@@ -800,7 +800,7 @@ const SalesModule = () => {
       />
 
       <Dialog open={Boolean(selectedSale)} onOpenChange={(open) => !open && setSelectedSale(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           {selectedSale && (
             <>
               <DialogHeader>
@@ -910,7 +910,7 @@ const SalesModule = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-2xl border border-border/70">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Parcela</TableHead>

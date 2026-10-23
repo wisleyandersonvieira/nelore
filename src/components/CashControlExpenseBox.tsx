@@ -565,7 +565,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-lg flex items-center gap-2">
             {title}
             <span className="text-sm font-normal text-muted-foreground">
@@ -601,7 +601,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                     key={option.value}
                     variant={linkFilter === option.value ? "default" : "outline"}
                     size="sm"
-                    className="h-6 text-xs px-2"
+                    className="h-6 max-md:h-10 text-xs px-2"
                     onClick={() => setLinkFilter(option.value)}
                   >
                     {option.label}
@@ -618,7 +618,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-xs px-2"
+                className="h-6 max-md:h-10 text-xs px-2"
                 onClick={handleExportPDF}
                 title="Exportar PDF"
               >
@@ -628,7 +628,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
             </div>
           </div>
           <div className="border rounded">
-            <Table>
+            <Table className="table-sticky-first table-sticky-last">
               <TableHeader className="sticky top-0 bg-card z-10">
                 <TableRow className="h-8">
                   <TableHead 
@@ -702,7 +702,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6"
+                            className="h-10 md:h-6 w-10 md:w-6"
                             onClick={() => handleView(expense)}
                             title="Visualizar"
                           >
@@ -713,7 +713,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className={`h-6 w-6 ${isLinked ? "opacity-50" : ""}`}
+                                className={`h-10 md:h-6 w-10 md:w-6 ${isLinked ? "opacity-50" : ""}`}
                                 onClick={() => handleOpenForm(expense)}
                                 title={isLinked ? "Não pode editar (vinculado)" : "Editar"}
                                 disabled={isLinked}
@@ -723,7 +723,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className={`h-6 w-6 ${isLinked ? "text-green-600 opacity-50" : "text-blue-600"}`}
+                                className={`h-10 md:h-6 w-10 md:w-6 ${isLinked ? "text-green-600 opacity-50" : "text-blue-600"}`}
                                 onClick={() => handleOpenLinkModal(expense)}
                                 title={isLinked ? "Já vinculado" : "Vincular ao Contas a Pagar"}
                                 disabled={isLinked}
@@ -733,7 +733,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className={`h-6 w-6 ${isLinked ? "opacity-50" : expense.is_disabled ? "text-green-600" : "text-red-600"}`}
+                                className={`h-10 md:h-6 w-10 md:w-6 ${isLinked ? "opacity-50" : expense.is_disabled ? "text-green-600" : "text-red-600"}`}
                                 onClick={() => handleDisable(expense)}
                                 title={isLinked ? "Não pode inabilitar (vinculado)" : expense.is_disabled ? "Habilitar" : "Inabilitar"}
                                 disabled={isLinked}
@@ -882,7 +882,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-10 md:h-6 w-10 md:w-6"
                           onClick={() => openAttachment(att.path)}
                         >
                           <Eye className="h-3 w-3" />
@@ -890,7 +890,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-red-600"
+                          className="h-10 md:h-6 w-10 md:w-6 text-red-600"
                           onClick={() => toggleAttachmentStatus(att.path)}
                         >
                           <Ban className="h-3 w-3" />
@@ -914,7 +914,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-10 md:h-6 w-10 md:w-6"
                         onClick={() => removeNewAttachment(index)}
                       >
                         <X className="h-3 w-3" />
@@ -1012,7 +1012,7 @@ export const CashControlExpenseBox = ({ storeId, expenseType, title, referenceMo
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-10 md:h-6 w-10 md:w-6"
                           onClick={() => openAttachment(att.path)}
                         >
                           <Eye className="h-3 w-3" />

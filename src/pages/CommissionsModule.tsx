@@ -404,7 +404,7 @@ const CommissionsModule = () => {
 
   if (permissionsLoading || loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex min-h-[40dvh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -435,7 +435,7 @@ const CommissionsModule = () => {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative min-w-[280px]">
+            <div className="relative w-full sm:w-auto sm:min-w-[280px]">
               <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={searchTerm}
@@ -480,7 +480,7 @@ const CommissionsModule = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-2xl border border-border/70">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

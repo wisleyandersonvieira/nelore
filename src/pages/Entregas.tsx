@@ -521,7 +521,7 @@ const Entregas = () => {
 
         {/* Table */}
         <div className="rounded-xl border border-border/70 bg-card shadow-sm">
-          <Table>
+          <Table className="table-sticky-first table-sticky-last">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[70px]">Código</TableHead>
@@ -567,7 +567,7 @@ const Entregas = () => {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setViewRecord(r)}>
@@ -648,7 +648,7 @@ const Entregas = () => {
           </DialogHeader>
           {clientesRecord && (
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cliente</TableHead>
@@ -802,9 +802,9 @@ const Entregas = () => {
                     <span className="truncate">{a.file_name}</span>
                     <div className="flex shrink-0 items-center gap-1">
                       <a href={a.file_url} target="_blank" rel="noreferrer">
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8"><Download className="h-4 w-4" /></Button>
                       </a>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteAnexo(a)}>
+                      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 text-destructive" onClick={() => handleDeleteAnexo(a)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

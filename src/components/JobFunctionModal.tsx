@@ -244,7 +244,7 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <UserCog className="w-6 h-6" />
@@ -253,7 +253,7 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-3">
             <h3 className="text-lg font-semibold">Funções Cadastradas</h3>
             {canEdit && (
               <Button 
@@ -343,7 +343,7 @@ const JobFunctionModal = ({ isOpen, onClose }: JobFunctionModalProps) => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
               <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

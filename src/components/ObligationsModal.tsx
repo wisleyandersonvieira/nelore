@@ -305,7 +305,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
             Cadastro de Obrigações
@@ -322,7 +322,7 @@ const ObligationsModal = ({ isOpen, onClose }: ObligationsModalProps) => {
                 </Button>
               </div>
 
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>

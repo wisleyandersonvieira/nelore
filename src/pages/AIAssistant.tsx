@@ -224,7 +224,7 @@ const AIAssistant = () => {
 
   if (permissionLoading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
+      <div className="flex h-[60dvh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -232,7 +232,7 @@ const AIAssistant = () => {
 
   if (!canAccess) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+      <div className="flex h-[60dvh] flex-col items-center justify-center gap-4">
         <AlertCircle className="h-16 w-16 text-destructive" />
         <h2 className="text-2xl font-semibold">Acesso Restrito</h2>
         <p className="max-w-md text-center text-muted-foreground">
@@ -246,7 +246,7 @@ const AIAssistant = () => {
   return (
       <div className="flex h-[calc(100vh-120px)] flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
               <Sparkles className="h-6 w-6 text-primary" />

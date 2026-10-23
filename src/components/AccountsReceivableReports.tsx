@@ -273,7 +273,7 @@ const AccountsReceivableReports = () => {
   };
 
   const renderTable = (data: ReceivableAccount[], showPaymentDate: boolean = false) => (
-    <Table>
+    <Table className="table-sticky-first">
       <TableHeader>
         <TableRow>
           <TableHead>Descrição</TableHead>
@@ -440,12 +440,12 @@ const AccountsReceivableReports = () => {
         <TabsContent value="pending" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <CardTitle>Contas a Receber</CardTitle>
                   <CardDescription>Contas ainda não recebidas</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -482,12 +482,12 @@ const AccountsReceivableReports = () => {
         <TabsContent value="paid" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <CardTitle>Contas Recebidas</CardTitle>
                   <CardDescription>Contas já recebidas</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"

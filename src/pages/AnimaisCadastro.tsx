@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils";
 import { getRecipientCategoryIds, isRecipientCategoryId } from "@/lib/animalCategoryRules";
 import { fetchAspirationRateioSummary } from "@/lib/aspirationRateio";
 import ReproducoesVinculadas from "@/components/ReproducoesVinculadas";
+import MobileReportCard from "@/components/MobileReportCard";
 import FinanceiroReproducao from "@/components/FinanceiroReproducao";
 
 interface Animal {
@@ -1804,9 +1805,82 @@ const AnimaisCadastro = () => {
             return <p className="text-center text-muted-foreground">Nenhum animal encontrado com os filtros selecionados.</p>;
           }
 
+          const renderAnimalPhoto = (animal: (typeof filteredAnimals)[number]) =>
+            animal.cover_photo ? (
+              <img
+                src={animal.cover_photo}
+                alt={animal.name}
+                className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm"
+              />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
+                <Image className="h-4 w-4 text-muted-foreground" />
+              </div>
+            );
+
+          const renderAnimalStatusBadge = (animal: (typeof filteredAnimals)[number]) => {
+            const isSold = soldAnimalIds.has(animal.id);
+            if (isSold) {
+              return (
+                <Badge className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50">
+                  Vendido
+                </Badge>
+              );
+            }
+            return (
+              <Badge className={cn(
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+                animal.is_active 
+                  ? "border-green-200 bg-green-50 text-green-700" 
+                  : "border-red-200 bg-red-50 text-red-700"
+              )}>
+                {animal.is_active ? "Ativo" : "Inativo"}
+              </Badge>
+            );
+          };
+
+          const renderAnimalActions = (animal: (typeof filteredAnimals)[number]) => (
+            <div className="flex items-center justify-end gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                onClick={() => handleOpenModal("view", animal)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleOpenModal("edit", animal)}>
+                    <Pencil className="h-4 w-4 mr-2" />Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openDeleteDialog(animal)}>
+                    <Trash2 className="h-4 w-4 mr-2" />Excluir
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
+                    <DollarSign className="h-4 w-4 mr-2" />Venda
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOpenDeathModal(animal)}>
+                    <Skull className="h-4 w-4 mr-2" />Informar Morte
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+
           return (
-          <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-            <Table className="min-w-[860px]">
+          <>
+          <div className="hidden md:block overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+            <Table className="min-w-[860px] table-sticky-first table-sticky-last">
               <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                 <TableRow>
                   <TableHead className="h-11 w-20 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
@@ -1830,17 +1904,7 @@ const AnimaisCadastro = () => {
                   >
                     <TableCell className="px-4 py-3 text-sm font-semibold text-foreground">{animal.code}</TableCell>
                     <TableCell className="px-4 py-3">
-                      {animal.cover_photo ? (
-                        <img
-                          src={animal.cover_photo}
-                          alt={animal.name}
-                          className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm"
-                        />
-                      ) : (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
-                          <Image className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
+                      {renderAnimalPhoto(animal)}
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       <div className="min-w-[180px]">
@@ -1858,76 +1922,43 @@ const AnimaisCadastro = () => {
                       {breeds.find((b) => b.id === animal.breed_id)?.name || "-"}
                     </TableCell>
                     <TableCell className="px-4 py-3">
-                      {(() => {
-                        const isSold = soldAnimalIds.has(animal.id);
-                        if (isSold) {
-                          return (
-                            <Badge className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50">
-                              Vendido
-                            </Badge>
-                          );
-                        }
-                        return (
-                          <Badge className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
-                            animal.is_active 
-                              ? "border-green-200 bg-green-50 text-green-700" 
-                              : "border-red-200 bg-red-50 text-red-700"
-                          )}>
-                            {animal.is_active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        );
-                      })()}
+                      {renderAnimalStatusBadge(animal)}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                          onClick={() => handleOpenModal("view", animal)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenModal("edit", animal)}>
-                              <Pencil className="h-4 w-4 mr-2" />Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openDeleteDialog(animal)}>
-                              <Trash2 className="h-4 w-4 mr-2" />Excluir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenSaleModal(animal)}>
-                              <DollarSign className="h-4 w-4 mr-2" />Venda
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenDeathModal(animal)}>
-                              <Skull className="h-4 w-4 mr-2" />Informar Morte
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                      {renderAnimalActions(animal)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          <div className="md:hidden space-y-3">
+            {filteredAnimals.map((animal) => (
+              <div key={animal.id} className={cn(!animal.is_active && "opacity-70")}>
+                <MobileReportCard
+                  title={animal.name}
+                  subtitle={animal.registration || undefined}
+                  badge={renderAnimalStatusBadge(animal)}
+                  titleAside={renderAnimalPhoto(animal)}
+                  summaryFields={[
+                    { label: "Código", value: animal.code },
+                    { label: "Fazenda", value: getFarmName(animal.farm_id, animal.farm_type) },
+                    { label: "Sexo", value: animal.sex === "macho" ? "Macho" : "Fêmea" },
+                    { label: "Raça", value: breeds.find((b) => b.id === animal.breed_id)?.name || "-" },
+                  ]}
+                  actions={renderAnimalActions(animal)}
+                />
+              </div>
+            ))}
+          </div>
+          </>
           );
         })()}
       </main>
 
       {/* Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "create"
@@ -1948,7 +1979,7 @@ const AnimaisCadastro = () => {
               fetchAnimalSales(selectedAnimal.id);
             }
           }} className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="flex w-full lg:grid lg:grid-cols-8">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
               <TabsTrigger value="reproducao" disabled={modalMode === "create"}>Dados Reprodução</TabsTrigger>
@@ -1961,7 +1992,7 @@ const AnimaisCadastro = () => {
 
             {/* Tab: Dados Cadastrais */}
             <TabsContent value="dados" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Código</Label>
                   <Input value={formData.code} disabled />
@@ -1977,7 +2008,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Registro</Label>
                   <Input
@@ -1999,7 +2030,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Lote</Label>
                   <Select
@@ -2037,7 +2068,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Status *</Label>
                   <Select
@@ -2094,7 +2125,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data Entrada na Fazenda"
                   value={formData.farm_entry_date}
@@ -2109,7 +2140,7 @@ const AnimaisCadastro = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data Primeira Pesagem"
                   value={formData.first_weighing_date}
@@ -2128,7 +2159,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Raça</Label>
                   <Select
@@ -2169,7 +2200,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Leilão</Label>
                   <div className="flex gap-1">
@@ -2214,7 +2245,7 @@ const AnimaisCadastro = () => {
               </div>
 
               {/* Receptora field */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Receptora</Label>
                   <div className="flex gap-2">
@@ -2256,7 +2287,7 @@ const AnimaisCadastro = () => {
               {/* Pais */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2">Pais</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome do Reprodutor (Pai)</Label>
                     <Select
@@ -2302,7 +2333,7 @@ const AnimaisCadastro = () => {
               {(formData.sire_id || formData.dam_id) && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg border-b pb-2">Avós (somente exibição)</h3>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Avós Paternos */}
                     {formData.sire_id && (() => {
                       const selectedSire = sires.find(s => s.id === formData.sire_id);
@@ -2381,7 +2412,7 @@ const AnimaisCadastro = () => {
                       <Button
                         variant="destructive"
                         size="icon"
-                        className="absolute -top-2 -right-2 h-6 w-6"
+                        className="absolute -top-2 -right-2 h-10 md:h-6 w-10 md:w-6"
                         onClick={() => setPhotoToDelete({ url: formData.cover_photo, isCover: true })}
                       >
                         <X className="h-4 w-4" />
@@ -2465,7 +2496,7 @@ const AnimaisCadastro = () => {
 
             {/* Tab: Dados Reprodução */}
             <TabsContent value="reproducao" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data da Aspiração"
                   value={reproData.aspiration_date}
@@ -2479,7 +2510,7 @@ const AnimaisCadastro = () => {
                   disabled={isReadOnly}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Veterinário</Label>
                   <Select
@@ -2519,7 +2550,7 @@ const AnimaisCadastro = () => {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data do Ultrassom"
                   value={reproData.ultrasound_date}
@@ -2627,7 +2658,7 @@ const AnimaisCadastro = () => {
                       <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
                     ) : (
                       <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
                               <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
@@ -2702,7 +2733,7 @@ const AnimaisCadastro = () => {
 
                     <div className="border rounded-lg p-4 bg-muted/30">
                       {financialViewMode === "pagos" ? (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
                             <p className="text-lg font-semibold text-destructive">
@@ -2723,7 +2754,7 @@ const AnimaisCadastro = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Receitas</p>
                             <p className="text-lg font-semibold text-primary">
@@ -2782,7 +2813,7 @@ const AnimaisCadastro = () => {
                   <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Data da Venda</TableHead>
@@ -2831,7 +2862,7 @@ const AnimaisCadastro = () => {
                   ) : (
                     <>
                       <div className="border rounded-lg overflow-hidden">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Data</TableHead>
@@ -2871,11 +2902,11 @@ const AnimaisCadastro = () => {
           </Tabs>
 
           {!isReadOnly && (
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={handleCloseModal}>
+            <div className="flex flex-col-reverse gap-2 mt-4 sm:flex-row sm:justify-end max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-4 max-sm:-mb-4 max-sm:border-t max-sm:bg-background/95 max-sm:px-4 max-sm:py-3">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={handleCloseModal}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave}>
+              <Button className="w-full sm:w-auto" onClick={handleSave}>
                 {modalMode === "create" ? "Cadastrar" : "Salvar"}
               </Button>
             </div>
@@ -2971,7 +3002,7 @@ const AnimaisCadastro = () => {
             </div>
 
             <div className="border rounded-lg max-h-[300px] overflow-y-auto">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

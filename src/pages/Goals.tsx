@@ -345,7 +345,7 @@ const Goals = () => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
+                <div className="min-w-0 basis-full flex-1 sm:basis-auto sm:min-w-[200px]">
                   <Label>Loja</Label>
                   <Select value={selectedStore} onValueChange={setSelectedStore}>
                     <SelectTrigger>
@@ -360,7 +360,7 @@ const Goals = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-[150px]">
+                <div className="min-w-0 flex-1 sm:flex-none sm:w-[150px]">
                   <Label>Ano</Label>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger>
@@ -387,12 +387,12 @@ const Goals = () => {
           {showResults && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle className="text-lg">
                     Metas - {getStoreName(selectedStore)} - {selectedYear}
                   </CardTitle>
                   {goals.length > 0 && canEdit && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={handleEdit}>
                         <Pencil className="h-4 w-4 mr-2" />
                         Editar
@@ -447,7 +447,7 @@ const Goals = () => {
 
       {/* Register/Edit Modal */}
       <Dialog open={isRegisterModalOpen} onOpenChange={setIsRegisterModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEditMode

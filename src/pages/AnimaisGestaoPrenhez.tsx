@@ -42,6 +42,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ArrowLeft, Plus, Eye, Pencil, Trash2, CalendarIcon, CheckCircle, Search, Filter, FileSpreadsheet, FileText, ChevronLeft, ChevronRight, DollarSign, Download, MoreHorizontal, ChevronsUpDown, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import MobileReportCard from "@/components/MobileReportCard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1638,6 +1639,62 @@ const AnimaisGestaoPrenhez = () => {
     setRecipientCategoryFilter("");
   };
 
+  const renderStatusBadge = (record: PregnancyRecord) => (
+    <Badge
+      className={cn(
+        "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+        record.status === "in_progress"
+          ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+          : record.status === "finalized_stillborn"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : record.status === "sold"
+          ? "border-blue-200 bg-blue-50 text-blue-700"
+          : "border-green-200 bg-green-50 text-green-700"
+      )}
+    >
+      {getStatusLabel(record.status)}
+    </Badge>
+  );
+
+  const renderRecordActions = (record: PregnancyRecord) => (
+    <>
+      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)}>
+        <Eye className="h-4 w-4" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {record.status === "in_progress" && (
+            <>
+              <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
+                <Pencil className="h-4 w-4 mr-2" />Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
+                <Trash2 className="h-4 w-4 mr-2" />Excluir
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
+                <DollarSign className="h-4 w-4 mr-2" />Venda
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
+                <CheckCircle className="h-4 w-4 mr-2" />Finalizar
+              </DropdownMenuItem>
+            </>
+          )}
+          {["sold", "finalized", "natimorto"].includes(record.status) && (
+            <DropdownMenuItem onClick={() => handleToggleFinancialReleased(record)}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              {record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/80 backdrop-blur">
@@ -1831,8 +1888,8 @@ const AnimaisGestaoPrenhez = () => {
           <div className="text-center py-8">Carregando...</div>
         ) : (
           <>
-            <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-              <Table>
+            <div className="hidden md:block overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                   <TableRow>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
@@ -1868,57 +1925,11 @@ const AnimaisGestaoPrenhez = () => {
                             : "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3">
-                          <Badge
-                            className={cn(
-                              "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
-                              record.status === "in_progress"
-                                ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-                                : record.status === "finalized_stillborn"
-                                ? "border-red-200 bg-red-50 text-red-700"
-                                : record.status === "sold"
-                                ? "border-blue-200 bg-blue-50 text-blue-700"
-                                : "border-green-200 bg-green-50 text-green-700"
-                            )}
-                          >
-                            {getStatusLabel(record.status)}
-                          </Badge>
+                          {renderStatusBadge(record)}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {record.status === "in_progress" && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleOpenModal("edit", record)}>
-                                      <Pencil className="h-4 w-4 mr-2" />Editar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }}>
-                                      <Trash2 className="h-4 w-4 mr-2" />Excluir
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenSaleModal(record)}>
-                                      <DollarSign className="h-4 w-4 mr-2" />Venda
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenFinalizeDialog(record)} className="text-green-600">
-                                      <CheckCircle className="h-4 w-4 mr-2" />Finalizar
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {["sold", "finalized", "natimorto"].includes(record.status) && (
-                                  <DropdownMenuItem onClick={() => handleToggleFinancialReleased(record)}>
-                                    <DollarSign className="h-4 w-4 mr-2" />
-                                    {record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {renderRecordActions(record)}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1926,6 +1937,38 @@ const AnimaisGestaoPrenhez = () => {
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {paginatedRecords.length === 0 ? (
+                <div className="rounded-xl border border-border/70 bg-card py-8 text-center text-muted-foreground shadow-sm">
+                  Nenhum registro encontrado.
+                </div>
+              ) : (
+                paginatedRecords.map((record) => (
+                  <MobileReportCard
+                    key={record.id}
+                    title={record.name}
+                    subtitle={record.code}
+                    badge={renderStatusBadge(record)}
+                    summaryFields={[
+                      { label: "Receptora", value: getRecipientName(record.recipient_id) },
+                      {
+                        label: "Mês Prev. Nascimento",
+                        value: record.expected_birth_month
+                          ? format(new Date(record.expected_birth_month), "MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                      { label: "Fazenda", value: getFarmName(record.farm_id, record.farm_type) },
+                    ]}
+                    detailFields={[
+                      { label: "Sexo", value: getSexLabel(record.sex) },
+                      { label: "Raça", value: getBreedName(record.breed_id) },
+                    ]}
+                    actions={renderRecordActions(record)}
+                  />
+                ))
+              )}
             </div>
 
             {totalPages > 1 && (
@@ -1949,7 +1992,7 @@ const AnimaisGestaoPrenhez = () => {
 
       {/* Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "view"
@@ -1973,7 +2016,7 @@ const AnimaisGestaoPrenhez = () => {
               fetchPregnancySales(selectedRecord.id);
             }
           }}>
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="flex w-full lg:grid lg:grid-cols-6">
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
               <TabsTrigger value="reproducao">Dados Reprodução</TabsTrigger>
               <TabsTrigger value="genealogia">Genealogia</TabsTrigger>
@@ -2466,7 +2509,7 @@ const AnimaisGestaoPrenhez = () => {
                       <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
                     ) : (
                       <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
                               <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
@@ -2539,7 +2582,7 @@ const AnimaisGestaoPrenhez = () => {
 
                     <div className="border rounded-lg p-4 bg-muted/30">
                       {financialViewMode === "pagos" ? (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
                             <p className="text-lg font-semibold text-destructive">
@@ -2560,7 +2603,7 @@ const AnimaisGestaoPrenhez = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Receitas</p>
                             <p className="text-lg font-semibold text-primary">
@@ -2610,7 +2653,7 @@ const AnimaisGestaoPrenhez = () => {
                   <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Data da Venda</TableHead>
@@ -2658,7 +2701,7 @@ const AnimaisGestaoPrenhez = () => {
                   ) : (
                     <>
                       <div className="border rounded-lg overflow-hidden">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Data</TableHead>
@@ -2749,7 +2792,7 @@ const AnimaisGestaoPrenhez = () => {
             </div>
 
             <div className="border rounded-lg max-h-[300px] overflow-y-auto">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>

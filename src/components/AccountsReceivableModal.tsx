@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import MobileReportCard from "@/components/MobileReportCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Edit, RefreshCw, Upload, X, FileText, FileDown, DollarSign, Eye, Paperclip, Loader2, Search, ChevronsUpDown, Check, CalendarClock, PauseCircle, PlayCircle, MoreHorizontal } from "lucide-react";
@@ -2561,7 +2562,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
+      <DialogContent className="max-w-7xl max-h-[90dvh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Contas a Receber</DialogTitle>
         </DialogHeader>
@@ -2743,8 +2744,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="hidden md:block overflow-x-auto">
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Documento</TableHead>
@@ -2849,6 +2850,102 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+
+                <div className="md:hidden space-y-3">
+                  {accountsReceivable.map((account) => (
+                    <MobileReportCard
+                      key={account.id}
+                      title={
+                        account.document_type && account.document_number 
+                          ? `${account.document_type} ${account.document_number}` 
+                          : account.description
+                      }
+                      badge={
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          account.status === "paid" 
+                            ? "bg-green-100 text-green-800" 
+                            : account.status === "partial"
+                            ? "bg-blue-100 text-blue-800"
+                            : account.status === "pagamento_suspenso"
+                            ? "bg-orange-100 text-orange-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {account.status === "paid" ? "Recebido" : account.status === "partial" ? "Parcial" : account.status === "pagamento_suspenso" ? "Suspenso" : "Pendente"}
+                        </span>
+                      }
+                      summaryFields={[
+                        { label: "Credor", value: (account as { suppliers?: { name?: string | null } | null }).suppliers?.name || "N/A" },
+                        { label: "Vencimento", value: new Date(account.due_date + 'T00:00:00').toLocaleDateString("pt-BR") },
+                        { label: "Valor", value: `R$ ${account.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, valueClassName: "font-semibold" },
+                      ]}
+                      detailFields={[
+                        {
+                          label: "Data Recebimento",
+                          value: account.last_payment_date 
+                            ? new Date(account.last_payment_date + 'T00:00:00').toLocaleDateString("pt-BR")
+                            : "-",
+                        },
+                      ]}
+                      actions={
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewAccount(account)}
+                            className="h-10 w-10 p-0"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canEdit && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline" disabled={loading} title="Mais ações" className="h-10 w-10 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                                  <Edit className="h-4 w-4 mr-2" />Editar
+                                </DropdownMenuItem>
+                                {(account.status === 'pending' || account.status === 'partial') && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => openPaymentModal(account)} className="text-green-600">
+                                      <DollarSign className="h-4 w-4 mr-2" />Receber conta
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setReparcAccount(account)}>
+                                      <CalendarClock className="h-4 w-4 mr-2" />Reparcelamento
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setSuspMode("suspend"); setSuspAccount(account); }} className="text-orange-600">
+                                      <PauseCircle className="h-4 w-4 mr-2" />Suspender recebimento
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {account.status === 'pagamento_suspenso' && (
+                                  <DropdownMenuItem onClick={() => { setSuspMode("reactivate"); setSuspAccount(account); }} className="text-green-600">
+                                    <PlayCircle className="h-4 w-4 mr-2" />Reativar recebimento
+                                  </DropdownMenuItem>
+                                )}
+                                {(account.status === 'paid' || account.status === 'partial') && (
+                                  <DropdownMenuItem onClick={() => handleReversePayment(account)}>
+                                    <RefreshCw className="h-4 w-4 mr-2" />Estornar recebimento
+                                  </DropdownMenuItem>
+                                )}
+                                {account.status === 'pending' && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleDeleteAccount(account.id, account.status, account.data_competencia)} className="text-red-600">
+                                      <Trash2 className="h-4 w-4 mr-2" />Excluir conta
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </>
+                      }
+                    />
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -2999,7 +3096,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           <Label>Novos Anexos</Label>
                           {attachments.map((file, index) => (
                             <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-                              <span className="text-sm truncate">{file.name}</span>
+                              <span className="min-w-0 text-sm truncate">{file.name}</span>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -3018,7 +3115,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                           <Label>Anexos Salvos</Label>
                           {existingAttachments.map((file, index) => (
                             <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-                              <span className="text-sm truncate">{file.name}</span>
+                              <span className="min-w-0 text-sm truncate">{file.name}</span>
                               <div className="flex gap-2">
                                 <Button
                                   size="sm"
@@ -3393,7 +3490,8 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                         </div>
                       ) : (
                         <>
-                          <Table>
+                          <div className="hidden md:block">
+                          <Table className="table-sticky-first table-sticky-last">
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Produto</TableHead>
@@ -3441,6 +3539,48 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                               ))}
                             </TableBody>
                           </Table>
+                          </div>
+
+                          <div className="md:hidden space-y-3">
+                            {items.map((item, index) => (
+                              <MobileReportCard
+                                key={index}
+                                title={item.product_name}
+                                summaryFields={[
+                                  { label: "Quantidade", value: item.quantity },
+                                  { label: "Valor Unit.", value: item.unit_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+                                  { label: "Total", value: item.total_price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), valueClassName: "font-semibold" },
+                                ]}
+                                detailFields={[
+                                  { label: "Fazenda", value: item.store_name },
+                                  {
+                                    label: "Alocação",
+                                    value: item.allocation_type ? (
+                                      <span className="text-xs font-medium">
+                                        {getAllocationLabel(item.allocation_type)}
+                                      </span>
+                                    ) : "-",
+                                  },
+                                  {
+                                    label: "Referência",
+                                    value: item.allocation_name ? (
+                                      <span className="text-xs">{item.allocation_name}</span>
+                                    ) : "-",
+                                  },
+                                ]}
+                                actions={!isViewOnly && !isAttachmentOnlyEdit ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeItem(index)}
+                                    className="h-10 w-10 p-0"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : undefined}
+                              />
+                            ))}
+                          </div>
 
                           <div className="mt-4 p-4 bg-muted rounded-lg">
                             <div className="flex justify-between items-center">
@@ -3458,9 +3598,9 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
               </Tabs>
 
               {/* Botões de Ação */}
-              <div className="flex justify-end gap-2 pt-4 border-t">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:pb-0 sm:pt-4">
                 {isViewOnly ? (
-                  <Button variant="outline" onClick={() => {
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setIsViewOnly(false);
                     setViewOnlyAccount(null);
                     setActiveTab("view");
@@ -3469,7 +3609,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                   </Button>
                 ) : isEditing ? (
                   <>
-                    <Button variant="outline" onClick={() => {
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                       setIsEditing(false);
                       setEditingAccount(null);
                       setIsAttachmentOnlyEdit(false);
@@ -3479,36 +3619,36 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                     </Button>
                     
                     {!isAttachmentOnlyEdit && (
-                      <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                      <Button className="w-full sm:w-auto" variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
                         Parcelas {installments.length > 0 && `(${installments.length})`}
                       </Button>
                     )}
                     
-                    <Button onClick={handleSave} disabled={loading || items.length === 0}>
+                    <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading || items.length === 0}>
                       {loading ? "Salvando..." : isAttachmentOnlyEdit ? "Salvar Anexos" : "Salvar"}
                     </Button>
                   </>
                 ) : !noteRecorded ? (
                   <>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
                       Cancelar
                     </Button>
                     
-                    <Button onClick={handleRecordNote} disabled={loading || items.length === 0}>
+                    <Button className="w-full sm:w-auto" onClick={handleRecordNote} disabled={loading || items.length === 0}>
                       {loading ? "Gravando..." : "Gravar Nota"}
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => onOpenChange(false)}>
                       Cancelar
                     </Button>
                     
-                    <Button variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={openInstallmentsModal} disabled={items.length === 0}>
                       Parcelas {installments.length > 0 && `(${installments.length})`}
                     </Button>
                     
-                    <Button onClick={handleSave} disabled={loading || items.length === 0}>
+                    <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading || items.length === 0}>
                       {loading ? "Salvando..." : "Salvar"}
                     </Button>
                   </>
@@ -3521,7 +3661,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
         {/* Modal de Parcelas */}
         <Dialog open={showInstallmentsModal} onOpenChange={setShowInstallmentsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Configurar Parcelas</DialogTitle>
             </DialogHeader>
@@ -3593,12 +3733,12 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </div>
               )}
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowInstallmentsModal(false)}>
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowInstallmentsModal(false)}>
                   Cancelar
                 </Button>
                 {installments.length > 0 && (
-                  <Button onClick={confirmInstallments}>
+                  <Button className="w-full sm:w-auto" onClick={confirmInstallments}>
                     Confirmar Parcelas
                   </Button>
                 )}
@@ -3610,7 +3750,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
         {/* Payment Modal */}
         {showPaymentModal && paymentAccount && (
           <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Receber Conta</DialogTitle>
               </DialogHeader>
@@ -3803,7 +3943,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                             variant="ghost"
                             size="sm"
                             onClick={() => removePaymentAttachment(index)}
-                            className="h-8 w-8 p-0"
+                            className="h-10 md:h-8 w-10 md:w-8 p-0"
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -3814,14 +3954,14 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => {
+                <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={() => {
                     setShowPaymentModal(false);
                     setPaymentAttachments([]);
                   }}>
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button className="w-full sm:w-auto" 
                     onClick={handlePayment} 
                     disabled={loading || uploadingPaymentAttachment || (allInstallments.length > 0 && !selectedInstallmentId)}
                   >
@@ -3841,7 +3981,7 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
 
       {/* Modal de Estorno */}
       <Dialog open={showReverseModal} onOpenChange={setShowReverseModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Estornar Recebimento</DialogTitle>
           </DialogHeader>
@@ -3925,11 +4065,11 @@ export function AccountsReceivableModal({ open, onOpenChange }: AccountsReceivab
                 </p>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowReverseModal(false)}>
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t bg-background/95 py-3 sm:static sm:z-auto sm:flex-row sm:justify-end sm:bg-transparent sm:border-t-0 sm:py-0">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowReverseModal(false)}>
                   Cancelar
                 </Button>
-                <Button 
+                <Button className="w-full sm:w-auto" 
                   onClick={() => performReversePayment(reverseAccount.id)} 
                   disabled={loading || (reverseInstallments.length > 0 && selectedReverseInstallments.length === 0)}
                   variant="destructive"

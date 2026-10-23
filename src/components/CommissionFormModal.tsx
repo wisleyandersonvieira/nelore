@@ -1081,7 +1081,7 @@ export function CommissionFormModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <WalletCards className="h-5 w-5 text-indigo-600" />
@@ -1369,7 +1369,7 @@ export function CommissionFormModal({
                 )}
 
                 <div className="overflow-x-auto rounded-2xl border border-border/70">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[54px]">Incluir</TableHead>

@@ -511,7 +511,7 @@ const Stores = () => {
                 </div>
 
                 <div className="rounded-md border">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>

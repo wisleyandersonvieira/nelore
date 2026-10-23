@@ -262,21 +262,21 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
         onMobileOpenChange={setMobileSidebarOpen}
       />
 
-      <div className={cn("min-w-0", !isMobile && "pl-16")}>
+      <div className="min-w-0 overflow-x-clip md:pl-16">
         <header
           className={cn(
             "sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl",
             isMobile ? "h-14" : "h-16",
           )}
         >
-          <div className={cn("flex h-full items-center justify-between gap-3", isMobile ? "px-4" : "px-6")}>
+          <div className={cn("flex h-full min-w-0 items-center justify-between gap-3", isMobile ? "px-4" : "px-6")}>
             <div className="flex min-w-0 items-center gap-3">
               {isMobile && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0 rounded-full border border-border/70 bg-card/80 shadow-sm hover:bg-accent/80"
+                  className="h-10 w-10 shrink-0 rounded-full border border-border/70 bg-card/80 shadow-sm hover:bg-accent/80"
                   onClick={() => setMobileSidebarOpen(true)}
                 >
                   <Menu className="h-4 w-4 text-foreground" />
@@ -312,7 +312,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
                     size={isMobile ? "icon" : "sm"}
                     className={cn(
                       "relative rounded-full border border-border/70 bg-card/80 shadow-sm hover:bg-accent/80",
-                      isMobile ? "h-9 w-9 px-0" : "px-3",
+                      isMobile ? "h-10 w-10 px-0" : "px-3",
                     )}
                   >
                     <Bell className={`h-5 w-5 ${resolvedPendingTasks.length > 0 ? 'text-[hsl(18,72%,52%)]' : 'text-muted-foreground'}`} />
@@ -348,7 +348,7 @@ const DashboardLayout = ({ children, user, pendingTasks }: DashboardLayoutProps)
                 size={isMobile ? "icon" : "sm"}
                 className={cn(
                   "rounded-full border border-border/70 bg-card/80 text-muted-foreground shadow-sm hover:border-border hover:bg-accent/80 hover:text-foreground",
-                  isMobile ? "h-9 w-9" : "",
+                  isMobile ? "h-10 w-10" : "",
                 )}
               >
                 <LogOut className="h-4 w-4" />

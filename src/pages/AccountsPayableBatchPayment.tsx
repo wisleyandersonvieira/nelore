@@ -908,7 +908,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("documentNumber")}
                             >
                               Documento
@@ -920,7 +920,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("supplierName")}
                             >
                               Fornecedor
@@ -932,7 +932,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("dueDate")}
                             >
                               Vencimento
@@ -944,7 +944,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="ml-auto h-8 px-3"
+                              className="ml-auto h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("amount")}
                             >
                               Valor
@@ -956,7 +956,7 @@ const AccountsPayableBatchPayment = () => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="-ml-3 h-8 px-3"
+                              className="-ml-3 h-8 max-md:h-10 px-3"
                               onClick={() => handleSort("allocation")}
                             >
                               Vínculo
@@ -1038,7 +1038,7 @@ const AccountsPayableBatchPayment = () => {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto rounded-md border">
-                  <Table>
+                  <Table className="table-sticky-first table-sticky-last">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Lote</TableHead>
@@ -1233,7 +1233,7 @@ const AccountsPayableBatchPayment = () => {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto rounded-md border">
-            <Table>
+            <Table className="table-sticky-first">
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
                   <TableHead>Documento</TableHead>

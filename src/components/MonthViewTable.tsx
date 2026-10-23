@@ -228,7 +228,7 @@ export const MonthViewTable = ({ storeId, year, month }: MonthViewTableProps) =>
   }
 
   return (
-    <div className="h-full max-h-[70vh] overflow-hidden border rounded-lg">
+    <div className="h-full max-h-[70dvh] overflow-hidden border rounded-lg">
       <div className="h-full overflow-auto">
         <table className="w-full">
           <thead className="sticky top-0 z-10">

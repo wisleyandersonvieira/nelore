@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import MobileReportCard from "@/components/MobileReportCard";
 import {
   Dialog,
   DialogContent,
@@ -760,6 +761,29 @@ const Receptoras = () => {
     [financialItems],
   );
 
+  const renderRecordActions = (record: ReceptoraRecord) => (
+    <div className="flex justify-end gap-1.5">
+      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "view"); }}>
+        <Eye className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "edit"); }}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
+        onClick={(e) => {
+          e.stopPropagation();
+          setRecordToDelete(record);
+          setDeleteDialogOpen(true);
+        }}
+      >
+        <Trash2 className="h-4 w-4 text-red-600" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/80 backdrop-blur">
@@ -808,8 +832,9 @@ const Receptoras = () => {
             ) : filteredRecords.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">Nenhuma receptora encontrada</p>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
-                <Table>
+              <>
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-border/70 bg-card">
+                <Table className="table-sticky-first table-sticky-last">
                   <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                     <TableRow>
                       <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto</TableHead>
@@ -857,39 +882,68 @@ const Receptoras = () => {
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm text-muted-foreground">{record.category_id ? categoryNameById.get(record.category_id) || "-" : "-"}</TableCell>
                         <TableCell className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "view"); }}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEditModal(record, "edit"); }}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRecordToDelete(record);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
+                          {renderRecordActions(record)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+
+              <div className="md:hidden space-y-3">
+                {filteredRecords.map((record) => (
+                  <div
+                    key={record.id}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("button")) return;
+                      openEditModal(record, "view");
+                    }}
+                  >
+                    <MobileReportCard
+                      title={record.name}
+                      subtitle={record.code}
+                      badge={
+                        <Badge className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent", record.is_active ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700")}>
+                          {record.is_active ? "Ativo" : "Inativo"}
+                        </Badge>
+                      }
+                      titleAside={
+                        record.cover_photo ? (
+                          <img src={record.cover_photo} alt={record.name} loading="lazy" className="h-11 w-11 rounded-lg border border-border/60 object-cover shadow-sm" />
+                        ) : (
+                          <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/35">
+                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )
+                      }
+                      summaryFields={[
+                        { label: "Brinco", value: record.ear_tag || "-" },
+                        { label: "Fazenda", value: record.farm_id ? farmNameById.get(record.farm_id) || "-" : "-" },
+                        { label: "Lote", value: record.batch_id ? batchNameById.get(record.batch_id) || "-" : "-" },
+                      ]}
+                      detailFields={[
+                        {
+                          label: "Entrada",
+                          value: record.farm_entry_date
+                            ? new Date(`${record.farm_entry_date}T12:00:00`).toLocaleDateString("pt-BR")
+                            : "-",
+                        },
+                        { label: "Categoria", value: record.category_id ? categoryNameById.get(record.category_id) || "-" : "-" },
+                      ]}
+                      actions={renderRecordActions(record)}
+                    />
+                  </div>
+                ))}
+              </div>
+              </>
             )}
           </CardContent>
         </Card>
       </main>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-hidden p-0">
+        <DialogContent className="max-w-5xl max-h-[90dvh] overflow-hidden p-0 sm:p-0">
           <div className="p-5 border-b bg-slate-50/70">
             <DialogHeader>
               <DialogTitle>
@@ -908,7 +962,7 @@ const Receptoras = () => {
               </div>
             ) : (
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="flex w-full sm:grid sm:grid-cols-3">
                   <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
                   <TabsTrigger value="obs">Observações e Fotos</TabsTrigger>
                   <TabsTrigger value="financeiro" disabled={!selectedRecord}>Financeiro</TabsTrigger>
@@ -1059,7 +1113,7 @@ const Receptoras = () => {
                           type="button"
                           variant="destructive"
                           size="icon"
-                          className="absolute top-1 right-1 h-7 w-7"
+                          className="absolute top-1 right-1 h-10 md:h-7 w-10 md:w-7"
                           onClick={() => setFormData((prev) => ({ ...prev, cover_photo: "" }))}
                         >
                           <X className="h-4 w-4" />
@@ -1092,7 +1146,7 @@ const Receptoras = () => {
                             type="button"
                             variant="destructive"
                             size="icon"
-                            className="absolute top-1 right-1 h-7 w-7"
+                            className="absolute top-1 right-1 h-10 md:h-7 w-10 md:w-7"
                             onClick={() => setFormData((prev) => ({ ...prev, photos: prev.photos.filter((p) => p !== photo) }))}
                           >
                             <X className="h-4 w-4" />
@@ -1140,7 +1194,7 @@ const Receptoras = () => {
                       <p className="text-center py-6 text-slate-500">Nenhum lançamento financeiro vinculado</p>
                     ) : (
                       <div className="rounded-lg border overflow-hidden bg-white">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Tipo</TableHead>
@@ -1191,7 +1245,7 @@ const Receptoras = () => {
       </Dialog>
 
       <Dialog open={groupModalOpen} onOpenChange={setGroupModalOpen}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cadastro em Grupo de Receptoras</DialogTitle>
             <DialogDescription>

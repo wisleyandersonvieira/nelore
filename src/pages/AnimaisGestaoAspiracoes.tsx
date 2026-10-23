@@ -40,6 +40,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import MobileReportCard from "@/components/MobileReportCard";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getRecipientCategoryIds } from "@/lib/animalCategoryRules";
 import jsPDF from "jspdf";
@@ -2460,6 +2461,71 @@ const AnimaisGestaoAspiracoes = () => {
     toast({ title: "Excel gerado com sucesso!" });
   };
 
+  const renderStatusBadge = (record: AspirationRecord) => (
+    <Badge className={cn(
+      "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
+      record.status === "pending"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : record.status === "in_progress"
+        ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+        : record.status === "finalized"
+        ? "border-green-200 bg-green-50 text-green-700"
+        : "border-sky-200 bg-sky-50 text-sky-700"
+    )}>
+      {getStatusLabel(record.status)}
+    </Badge>
+  );
+
+  const renderRecordActions = (record: AspirationRecord) => (
+    <>
+      <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
+        <Eye className="h-4 w-4" />
+      </Button>
+      {record.status === "pending" && (
+        <>
+          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+            <CheckCircle className="h-4 w-4" />
+          </Button>
+        </>
+      )}
+      {record.is_batch_purchase && record.status === "in_progress" && (
+        <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+      {!record.is_batch_purchase && record.status === "in_progress" && (
+        <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+      {record.status !== "sold" && (
+        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
+          <DollarSign className="h-4 w-4" />
+        </Button>
+      )}
+      {record.status === "finalized" && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => handleToggleFinancialReleased(record)}
+          title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
+          className={cn(
+            "h-10 md:h-8 w-10 md:w-8 rounded-lg hover:bg-muted/60",
+            record.financial_released ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/80 backdrop-blur">
@@ -2492,7 +2558,7 @@ const AnimaisGestaoAspiracoes = () => {
               {showFilters ? "Ocultar Filtros" : "Exibir Filtros"}
             </Button>
             {hasFiltered && filteredRecords.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={handleExportExcel} className="h-9 gap-2 rounded-lg border-border/70 bg-background/90 px-3">
                   <FileSpreadsheet className="h-4 w-4" />
                   Excel
@@ -2619,8 +2685,8 @@ const AnimaisGestaoAspiracoes = () => {
           <div className="text-center py-8">Carregando...</div>
         ) : (
           <>
-            <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
-              <Table>
+            <div className="hidden md:block overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader className="bg-muted/35 [&_tr]:border-border/70">
                    <TableRow>
                     <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Código</TableHead>
@@ -2668,66 +2734,11 @@ const AnimaisGestaoAspiracoes = () => {
                           {record.embryo_count ?? "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3">
-                          <Badge className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold hover:bg-transparent",
-                            record.status === "pending"
-                              ? "border-blue-200 bg-blue-50 text-blue-700"
-                              : record.status === "in_progress"
-                              ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-                              : record.status === "finalized"
-                              ? "border-green-200 bg-green-50 text-green-700"
-                              : "border-sky-200 bg-sky-50 text-sky-700"
-                          )}>
-                            {getStatusLabel(record.status)}
-                          </Badge>
+                          {renderStatusBadge(record)}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("view", record)} title="Visualizar">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {record.status === "pending" && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenModal("edit", record)} title="Editar">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => { setRecordToDelete(record); setDeleteDialogOpen(true); }} title="Excluir">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleFinalizeClick(record)} title="Iniciar Aspiração" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            {record.is_batch_purchase && record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Consumir nova unidade do lote" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {!record.is_batch_purchase && record.status === "in_progress" && (
-                              <Button variant="ghost" size="icon" onClick={() => void handleFinalizeClick(record)} title="Finalizar" className="h-8 w-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700">
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {record.status !== "sold" && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground" onClick={() => handleOpenSaleModal(record)} title="Venda">
-                                <DollarSign className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {record.status === "finalized" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleFinancialReleased(record)}
-                                title={record.financial_released ? "Desabilitar Liberado Financeiro" : "Liberado Financeiro"}
-                                className={cn(
-                                  "h-8 w-8 rounded-lg hover:bg-muted/60",
-                                  record.financial_released ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground",
-                                )}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
+                            {renderRecordActions(record)}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -2737,9 +2748,52 @@ const AnimaisGestaoAspiracoes = () => {
               </Table>
             </div>
 
+            <div className="md:hidden space-y-3">
+              {paginatedRecords.length === 0 ? (
+                <div className="rounded-xl border border-border/70 bg-card py-8 text-center text-muted-foreground shadow-sm">
+                  Nenhum registro encontrado.
+                </div>
+              ) : (
+                paginatedRecords.map((record) => (
+                  <MobileReportCard
+                    key={record.id}
+                    title={record.name}
+                    subtitle={record.code}
+                    badge={renderStatusBadge(record)}
+                    summaryFields={[
+                      {
+                        label: "Data Aspiração",
+                        value: record.aspiration_date
+                          ? format(new Date(record.aspiration_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                      { label: "Qtd. Embriões", value: record.embryo_count ?? "-" },
+                      { label: "Fazenda", value: getFarmName(record.farm_id, record.farm_type) },
+                    ]}
+                    detailFields={[
+                      { label: "Raça", value: getBreedName(record.breed_id) },
+                      {
+                        label: "Mês Prev. Aspiração",
+                        value: record.expected_aspiration_month
+                          ? format(new Date(record.expected_aspiration_month + "T12:00:00"), "MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                      {
+                        label: "Data Transferência",
+                        value: record.transfer_date
+                          ? format(new Date(record.transfer_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })
+                          : "-",
+                      },
+                    ]}
+                    actions={renderRecordActions(record)}
+                  />
+                ))
+              )}
+            </div>
+
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 md:flex-nowrap md:gap-0 rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
                 <p className="text-sm text-muted-foreground">
                   Exibindo {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredRecords.length)} de {filteredRecords.length} registros
                 </p>
@@ -2787,7 +2841,7 @@ const AnimaisGestaoAspiracoes = () => {
 
       {/* Create/Edit/View Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "view" ? "Visualizar Registro" : modalMode === "edit" ? "Editar Registro" : "Novo Registro de Aspiração"}
@@ -2797,14 +2851,14 @@ const AnimaisGestaoAspiracoes = () => {
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "proprietarios" && selectedRecord) { fetchClients().then(() => fetchAspirationSales(selectedRecord.id)); } if (v === "leilao" && selectedRecord) { fetchAspirationSales(selectedRecord.id); } }}>
             <TabsList
               className={cn(
-                "grid w-full",
+                "flex w-full lg:grid",
                 formData.is_batch_purchase
                   ? modalMode === "view" && selectedRecord?.status === "finalized"
-                    ? "grid-cols-7"
-                    : "grid-cols-6"
+                    ? "lg:grid-cols-7"
+                    : "lg:grid-cols-6"
                   : modalMode === "view" && selectedRecord?.status === "finalized"
-                  ? "grid-cols-6"
-                  : "grid-cols-5",
+                  ? "lg:grid-cols-6"
+                  : "lg:grid-cols-5",
               )}
             >
               <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
@@ -3068,7 +3122,7 @@ const AnimaisGestaoAspiracoes = () => {
                   <div className="space-y-3">
                     <h3 className="font-semibold text-lg border-b pb-2">Embriões</h3>
                     <div className="border rounded-lg overflow-hidden">
-                      <Table>
+                      <Table className="table-sticky-first">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-12">#</TableHead>
@@ -3151,7 +3205,7 @@ const AnimaisGestaoAspiracoes = () => {
                       <p className="text-center text-muted-foreground py-2 text-sm">Nenhum registro.</p>
                     ) : (
                       <div className="border rounded-lg overflow-hidden max-h-[280px] overflow-y-auto">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow className="h-8">
                               <TableHead className="py-1 text-xs w-[8%]">Número</TableHead>
@@ -3216,7 +3270,7 @@ const AnimaisGestaoAspiracoes = () => {
 
                      <div className="border rounded-lg p-4 bg-muted/30">
                       {financialViewMode === "pagos" ? (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Despesas Pagas</p>
                             <p className="text-lg font-semibold text-destructive">
@@ -3237,7 +3291,7 @@ const AnimaisGestaoAspiracoes = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Total Receitas</p>
                             <p className="text-lg font-semibold text-primary">
@@ -3317,7 +3371,7 @@ const AnimaisGestaoAspiracoes = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto rounded-xl border">
-                      <Table>
+                      <Table className="table-sticky-first table-sticky-last">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Data Aspiração</TableHead>
@@ -3408,7 +3462,7 @@ const AnimaisGestaoAspiracoes = () => {
                   <p className="text-center text-muted-foreground py-4">Nenhuma venda registrada.</p>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
-                    <Table>
+                    <Table className="table-sticky-first">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Data da Venda</TableHead>
@@ -3455,7 +3509,7 @@ const AnimaisGestaoAspiracoes = () => {
                   ) : (
                     <>
                       <div className="border rounded-lg overflow-hidden">
-                        <Table>
+                        <Table className="table-sticky-first">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Data</TableHead>
@@ -3495,9 +3549,9 @@ const AnimaisGestaoAspiracoes = () => {
           </Tabs>
 
           {modalMode !== "view" && (
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+            <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-col-reverse gap-2 border-t bg-background/95 px-4 py-3 sm:static sm:z-auto sm:mx-0 sm:flex-row sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
+              <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
             </div>
           )}
         </DialogContent>
@@ -3563,7 +3617,7 @@ const AnimaisGestaoAspiracoes = () => {
           }
         }}
       >
-        <DialogContent className={cn(firstFinalizeRecord?.is_batch_purchase ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-md")}>
+        <DialogContent className={cn(firstFinalizeRecord?.is_batch_purchase ? "max-w-4xl max-h-[90dvh] overflow-y-auto" : "max-w-md")}>
           <DialogHeader>
             <DialogTitle>
               {firstFinalizeRecord?.is_batch_purchase
@@ -3714,7 +3768,7 @@ const AnimaisGestaoAspiracoes = () => {
                 </div>
 
               <div className="border rounded-lg overflow-hidden">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
@@ -3890,7 +3944,7 @@ const AnimaisGestaoAspiracoes = () => {
           }
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Finalizar Aspiração</DialogTitle>
           </DialogHeader>
@@ -3979,7 +4033,7 @@ const AnimaisGestaoAspiracoes = () => {
 
             {embryoCount > 0 && (
               <div className="border rounded-lg overflow-hidden">
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
@@ -4127,7 +4181,7 @@ const AnimaisGestaoAspiracoes = () => {
                   {recipientSearchTerm.length < 2 ? "Digite ao menos 2 caracteres..." : "Nenhum animal encontrado."}
                 </div>
               ) : (
-                <Table>
+                <Table className="table-sticky-first">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>

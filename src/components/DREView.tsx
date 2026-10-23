@@ -2278,7 +2278,7 @@ export const DREView: React.FC<DREViewProps> = ({
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-sticky-first">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-64">Descrição</TableHead>

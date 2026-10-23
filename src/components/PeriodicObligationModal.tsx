@@ -269,7 +269,7 @@ const PeriodicObligationModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{obligationName}</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -361,7 +361,7 @@ const PeriodicObligationModal = ({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50px] text-center">Seq</TableHead>
@@ -449,7 +449,7 @@ const PeriodicObligationModal = ({
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleViewAttachment(entry.attachment_url!)}
-                                  className="text-primary h-7 w-7 flex-shrink-0"
+                                  className="text-primary h-10 md:h-7 w-10 md:w-7 flex-shrink-0"
                                   title="Ver anexo"
                                 >
                                   <Eye className="w-4 h-4" />
@@ -465,7 +465,7 @@ const PeriodicObligationModal = ({
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDelete(entry.id)}
-                            className="text-destructive hover:text-destructive h-7 w-7"
+                            className="text-destructive hover:text-destructive h-10 md:h-7 w-10 md:w-7"
                             title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />

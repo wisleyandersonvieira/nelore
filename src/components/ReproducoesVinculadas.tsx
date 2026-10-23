@@ -130,7 +130,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="aspiracao" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex w-full md:grid md:grid-cols-4">
             <TabsTrigger value="aspiracao">Aspiração ({counts.asp})</TabsTrigger>
             <TabsTrigger value="pos">Pós-transferência ({counts.pos})</TabsTrigger>
             <TabsTrigger value="prenhez">Prenhez ({counts.pre})</TabsTrigger>
@@ -140,7 +140,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Aspiração */}
           <TabsContent value="aspiracao" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -172,7 +172,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
                       <TableCell><Badge variant="outline">{a.status}</Badge></TableCell>
                       <TableCell>{formatDateBR(a.created_at)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/animais/aspiracoes")}>
+                        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => navigate("/animais/aspiracoes")}>
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -186,7 +186,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Pós-transferência de embrião */}
           <TabsContent value="pos" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -212,7 +212,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
                       <TableCell><Badge variant="outline">{p.status}</Badge></TableCell>
                       <TableCell>{formatDateBR(p.created_at)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/animais/transferencia-embriao")}>
+                        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => navigate("/animais/transferencia-embriao")}>
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -226,7 +226,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Prenhez */}
           <TabsContent value="prenhez" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -254,7 +254,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
                       <TableCell><Badge variant="outline">{p.status}</Badge></TableCell>
                       <TableCell>{formatDateBR(p.created_at)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/animais/prenhez")}>
+                        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => navigate("/animais/prenhez")}>
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -268,7 +268,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
           {/* Aba Animal */}
           <TabsContent value="animal" className="mt-4">
             <div className="rounded-lg border">
-              <Table>
+              <Table className="table-sticky-first table-sticky-last">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
@@ -296,7 +296,7 @@ const ReproducoesVinculadas = ({ animalId }: Props) => {
                       <TableCell>{categoryName(a.category_id)}</TableCell>
                       <TableCell><Badge variant="outline">{a.is_active ? "Ativo" : "Inativo"}</Badge></TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/animais/cadastro")}>
+                        <Button variant="ghost" size="icon" className="h-10 md:h-8 w-10 md:w-8" onClick={() => navigate("/animais/cadastro")}>
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </TableCell>

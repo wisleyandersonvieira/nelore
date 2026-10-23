@@ -112,7 +112,7 @@ export function ProductSearchModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[80dvh]">
         <DialogHeader>
           <DialogTitle>Pesquisar Produto</DialogTitle>
         </DialogHeader>
