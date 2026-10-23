@@ -962,7 +962,7 @@ const Receptoras = () => {
               </div>
             ) : (
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="flex w-full sm:grid sm:grid-cols-3">
                   <TabsTrigger value="dados">Dados Cadastrais</TabsTrigger>
                   <TabsTrigger value="obs">Observações e Fotos</TabsTrigger>
                   <TabsTrigger value="financeiro" disabled={!selectedRecord}>Financeiro</TabsTrigger>
