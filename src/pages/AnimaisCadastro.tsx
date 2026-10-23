@@ -1992,7 +1992,7 @@ const AnimaisCadastro = () => {
 
             {/* Tab: Dados Cadastrais */}
             <TabsContent value="dados" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Código</Label>
                   <Input value={formData.code} disabled />
@@ -2008,7 +2008,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Registro</Label>
                   <Input
@@ -2030,7 +2030,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Lote</Label>
                   <Select
@@ -2068,7 +2068,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Status *</Label>
                   <Select
@@ -2125,7 +2125,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data Entrada na Fazenda"
                   value={formData.farm_entry_date}
@@ -2140,7 +2140,7 @@ const AnimaisCadastro = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data Primeira Pesagem"
                   value={formData.first_weighing_date}
@@ -2159,7 +2159,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Raça</Label>
                   <Select
@@ -2200,7 +2200,7 @@ const AnimaisCadastro = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Leilão</Label>
                   <div className="flex gap-1">
@@ -2245,7 +2245,7 @@ const AnimaisCadastro = () => {
               </div>
 
               {/* Receptora field */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Receptora</Label>
                   <div className="flex gap-2">
@@ -2287,7 +2287,7 @@ const AnimaisCadastro = () => {
               {/* Pais */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2">Pais</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome do Reprodutor (Pai)</Label>
                     <Select
@@ -2333,7 +2333,7 @@ const AnimaisCadastro = () => {
               {(formData.sire_id || formData.dam_id) && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg border-b pb-2">Avós (somente exibição)</h3>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Avós Paternos */}
                     {formData.sire_id && (() => {
                       const selectedSire = sires.find(s => s.id === formData.sire_id);
@@ -2496,7 +2496,7 @@ const AnimaisCadastro = () => {
 
             {/* Tab: Dados Reprodução */}
             <TabsContent value="reproducao" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data da Aspiração"
                   value={reproData.aspiration_date}
@@ -2510,7 +2510,7 @@ const AnimaisCadastro = () => {
                   disabled={isReadOnly}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Veterinário</Label>
                   <Select
@@ -2550,7 +2550,7 @@ const AnimaisCadastro = () => {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DatePickerField
                   label="Data do Ultrassom"
                   value={reproData.ultrasound_date}
@@ -2902,11 +2902,11 @@ const AnimaisCadastro = () => {
           </Tabs>
 
           {!isReadOnly && (
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={handleCloseModal}>
+            <div className="flex flex-col-reverse gap-2 mt-4 sm:flex-row sm:justify-end max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-4 max-sm:-mb-4 max-sm:border-t max-sm:bg-background/95 max-sm:px-4 max-sm:py-3">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={handleCloseModal}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave}>
+              <Button className="w-full sm:w-auto" onClick={handleSave}>
                 {modalMode === "create" ? "Cadastrar" : "Salvar"}
               </Button>
             </div>
